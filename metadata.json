@@ -1,0 +1,6 @@
+{
+  "name": "Blih CORE",
+  "description": "Enterprise Resource Planning (ERP) platform for HR, finance, attendance, onboarding, and recruitment recruitment pipeline analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
