@@ -11,7 +11,8 @@ export type MainModule =
   | 'performance'
   | 'talent'
   | 'exit'
-  | 'finance';
+  | 'finance'
+  | 'businesses';
 
 export type RecruitmentTab =
   | 'overview'

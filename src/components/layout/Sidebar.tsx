@@ -15,7 +15,8 @@ import {
   LogOut,
   CircleDollarSign,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Building2
 } from 'lucide-react';
 import { MainModule, RecruitmentTab } from '../../types';
 
@@ -84,6 +85,13 @@ export default function Sidebar({
     { id: 'talent', label: 'Career Management', icon: GraduationCap, badge: 0 },
     { id: 'exit', label: 'Exit & Off boarding', icon: LogOut, badge: 0 },
     { id: 'finance', label: 'Workforce Finance', icon: CircleDollarSign, badge: 0 },
+    ...(user?.role === 'Super Admin' ? [{ id: 'businesses', label: 'Businesses', icon: Building2, badge: 0 }] : []),
+  ] as any[];
+
+  const businessesTabs = [
+    { id: 'overview', label: 'Overview', badge: 0 },
+    { id: 'integrations', label: 'Integrations', badge: 0 },
+    { id: 'security', label: 'Security & SSO', badge: 0 },
   ] as const;
 
   const performanceTabs = [
@@ -161,8 +169,8 @@ export default function Sidebar({
 
   const handleModuleClick = (moduleId: MainModule) => {
     setCurrentModule(moduleId);
-    // Auto-enable detailed dual sidebar when clicking 'recruitment', 'onboarding', 'profiles', 'attendance', 'talent', 'exit' or 'finance' or 'performance'
-    if (moduleId === 'recruitment' || moduleId === 'onboarding' || moduleId === 'profiles' || moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' || moduleId === 'finance' || moduleId === 'performance') {
+    // Auto-enable detailed dual sidebar when clicking 'recruitment', 'onboarding', 'profiles', 'attendance', 'talent', 'exit' or 'finance' or 'performance' or 'businesses'
+    if (moduleId === 'recruitment' || moduleId === 'onboarding' || moduleId === 'profiles' || moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' || moduleId === 'finance' || moduleId === 'performance' || moduleId === 'businesses') {
       setIsDetailedView(true);
     } else {
       setIsDetailedView(false);
@@ -224,7 +232,7 @@ export default function Sidebar({
             onClick={() => setIsDetailedView(false)}
             className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm font-semibold border border-white/20 transition-all cursor-pointer"
           >
-            AY
+            {user ? getInitials(user.name) : 'AY'}
           </button>
         </div>
 
@@ -409,6 +417,22 @@ export default function Sidebar({
                           {tab.badge}
                         </span>
                       )}
+                    </button>
+                  );
+                })
+              ) : currentModule === 'businesses' ? (
+                businessesTabs.map((tab) => {
+                  return (
+                    <button
+                      key={tab.id}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
+                        tab.id === 'overview'
+                          ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-[#1a56db] pl-2.5'
+                          : 'text-slate-400 cursor-not-allowed'
+                      }`}
+                      title={tab.id !== 'overview' ? 'Available under premium multi-tenant enterprise module' : ''}
+                    >
+                      <span>{tab.label}</span>
                     </button>
                   );
                 })

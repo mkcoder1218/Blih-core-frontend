@@ -23,6 +23,7 @@ import ExitOffboardingView from './components/offboarding/ExitOffboardingView';
 import WorkforceFinanceView from './components/finance/WorkforceFinanceView';
 import OnboardingView from './components/onboarding/OnboardingView';
 import PerformanceView from './components/performance/PerformanceView';
+import BusinessesView from './components/businesses/BusinessesView';
 import AuthPage from './components/auth/AuthPage';
 import { mockJobRequests, activeReadyToPostJob } from './mockData';
 import { MainModule, RecruitmentTab, JobRequest } from './types';
@@ -288,7 +289,7 @@ export default function App() {
                 <RootDashboard
                   onNavigateToModule={(mod) => {
                     setCurrentModule(mod);
-                    if (mod === 'recruitment' || mod === 'onboarding' || mod === 'profiles' || mod === 'attendance' || mod === 'talent' || mod === 'exit' || mod === 'finance' || mod === 'performance') {
+                    if (mod === 'recruitment' || mod === 'onboarding' || mod === 'profiles' || mod === 'attendance' || mod === 'talent' || mod === 'exit' || mod === 'finance' || mod === 'performance' || mod === 'businesses') {
                       setIsDetailedView(true);
                       if (mod === 'recruitment') setCurrentRecruitmentTab('overview');
                       if (mod === 'onboarding') setCurrentOnboardingTab('overview');
@@ -419,6 +420,12 @@ export default function App() {
                 <PerformanceView
                   currentTab={currentPerformanceTab}
                   onDraftAiSuggestion={(ctx) => handleTriggerAiGenerate(ctx, 'performance')}
+                  showAlert={showAlert}
+                />
+              ) : currentModule === 'businesses' ? (
+                /* 4f. Businesses Multi-tenant Management directory */
+                <BusinessesView
+                  onDraftAiSuggestion={(ctx) => handleTriggerAiGenerate(ctx, 'businesses')}
                   showAlert={showAlert}
                 />
               ) : (

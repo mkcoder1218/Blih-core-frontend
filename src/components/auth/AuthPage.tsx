@@ -22,6 +22,12 @@ interface AuthPageProps {
 
 const DEMO_ACCOUNTS = [
   {
+    name: 'Super Administrator',
+    email: 'admin@blihmarketing.com',
+    role: 'Super Admin',
+    initials: 'SA'
+  },
+  {
     name: 'Aytenew Yihunie',
     email: 'aytenew@blihmarketing.com',
     role: 'HR Manager',
@@ -95,10 +101,11 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
         // Friendly ERP fallback allowing custom accounts
         const formattedName = email.split('@')[0];
         const capitalizedName = formattedName.charAt(0).toUpperCase() + formattedName.slice(1);
+        const isSuperAdminEmail = email.toLowerCase().includes('admin');
         onLoginSuccess({
           name: capitalizedName || 'Administrator',
           email: email,
-          role: 'HR Specialist'
+          role: isSuperAdminEmail ? 'Super Admin' : 'HR Specialist'
         });
       }
     }, 600);
