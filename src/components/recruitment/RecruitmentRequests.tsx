@@ -4,8 +4,8 @@
  */
 
 import { useState } from 'react';
-import { mockJobRequests } from '../mockData';
-import { JobRequest } from '../types';
+import { mockJobRequests } from '../../mockData';
+import { JobRequest } from '../../types';
 import {
   Clock,
   CheckCircle,

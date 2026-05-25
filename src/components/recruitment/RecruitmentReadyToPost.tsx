@@ -4,8 +4,8 @@
  */
 
 import { useState } from 'react';
-import { activeReadyToPostJob } from '../mockData';
-import { JobRequest } from '../types';
+import { activeReadyToPostJob } from '../../mockData';
+import { JobRequest } from '../../types';
 import { Sparkles, Calendar, User, Eye, Edit3, Send, AlertCircle, CheckCircle, FileText } from 'lucide-react';
 
 interface RecruitmentReadyToPostProps {

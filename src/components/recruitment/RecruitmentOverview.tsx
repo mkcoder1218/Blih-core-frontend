@@ -9,7 +9,7 @@ import {
   marketingManagerPostAnalytics,
   fullStackPostAnalytics,
   frequentlyPostedJobs
-} from '../mockData';
+} from '../../mockData';
 import { Sparkles, Calendar, TrendingUp, Users, ArrowUpRight } from 'lucide-react';
 
 interface RecruitmentOverviewProps {

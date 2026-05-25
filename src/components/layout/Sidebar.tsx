@@ -17,7 +17,7 @@ import {
   ChevronRight,
   Sparkles
 } from 'lucide-react';
-import { MainModule, RecruitmentTab } from '../types';
+import { MainModule, RecruitmentTab } from '../../types';
 
 interface SidebarProps {
   currentModule: MainModule;
@@ -40,6 +40,8 @@ interface SidebarProps {
   setCurrentPerformanceTab: (tab: 'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form') => void;
   isDetailedView: boolean;
   setIsDetailedView: (val: boolean) => void;
+  user?: { name: string; email: string; role: string } | null;
+  onLogout?: () => void;
 }
 
 export default function Sidebar({
@@ -63,7 +65,16 @@ export default function Sidebar({
   setCurrentPerformanceTab,
   isDetailedView,
   setIsDetailedView,
+  user,
+  onLogout,
 }: SidebarProps) {
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return parts[0] ? parts[0].slice(0, 2).toUpperCase() : 'CO';
+  };
   const mainModules = [
     { id: 'recruitment', label: 'Recruitment & Hiring', icon: UserPlus, badge: 4 },
     { id: 'onboarding', label: 'Onboarding & Probation', icon: UserCheck, badge: 3 },
@@ -416,14 +427,23 @@ export default function Sidebar({
           </div>
 
           {/* Bottom Employee signature block */}
-          <div className="border-t border-slate-100 pt-4 px-2 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-xs text-slate-800 font-semibold flex-shrink-0 border border-slate-200 shadow-xs">
-              AY
+          <div className="border-t border-slate-100 pt-4 px-2 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0 border border-blue-100 shadow-xs">
+                {user ? getInitials(user.name) : 'AY'}
+              </div>
+              <div className="overflow-hidden min-w-0">
+                <p className="text-xs font-semibold text-slate-950 truncate leading-none">{user ? user.name : 'Aytenew Y.'}</p>
+                <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">{user ? user.email : 'aytenew@blihmarketing.com'}</p>
+              </div>
             </div>
-            <div className="overflow-hidden min-w-0">
-              <p className="text-xs font-semibold text-slate-950 truncate leading-none">Aytenew Y.</p>
-              <p className="text-[10px] text-slate-400 truncate leading-tight mt-0.5">aytenew@blihmarketing.com</p>
-            </div>
+            <button
+              onClick={onLogout}
+              title="Log Out Central Workspace"
+              className="p-1 px-1.5 hover:bg-rose-50 rounded-lg text-slate-400 hover:text-rose-600 transition-colors cursor-pointer flex-shrink-0"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </div>
@@ -500,14 +520,23 @@ export default function Sidebar({
       </div>
 
       {/* Signature label on bottom */}
-      <div className="border-t border-white/10 pt-4 px-2 mt-auto flex items-center gap-3">
-        <div className="w-8 h-8 rounded-full bg-white text-[#1a56db] flex items-center justify-center text-xs font-bold leading-none shadow-sm">
-          AY
+      <div className="border-t border-white/10 pt-4 px-2 mt-auto flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-full bg-white text-[#1a56db] flex items-center justify-center text-xs font-bold leading-none shadow-sm flex-shrink-0">
+            {user ? getInitials(user.name) : 'AY'}
+          </div>
+          <div className="overflow-hidden min-w-0">
+            <p className="text-xs font-bold text-white truncate leading-none">{user ? user.name : 'Aytenew Y.'}</p>
+            <p className="text-[10px] text-blue-100/70 truncate leading-tight mt-0.5">{user ? user.email : 'aytenew@blihmarketing.com'}</p>
+          </div>
         </div>
-        <div className="overflow-hidden min-w-0">
-          <p className="text-xs font-bold text-white truncate leading-none">Aytenew Y.</p>
-          <p className="text-[10px] text-blue-100/70 truncate leading-tight mt-0.5">aytenew@blihmarketing.com</p>
-        </div>
+        <button
+          onClick={onLogout}
+          title="Log Out Central Workspace"
+          className="p-1 px-1.5 hover:bg-white/10 rounded-lg text-blue-100 hover:text-rose-300 transition-colors cursor-pointer flex-shrink-0"
+        >
+          <LogOut className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );

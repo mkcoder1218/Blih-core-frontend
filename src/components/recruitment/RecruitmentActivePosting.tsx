@@ -45,7 +45,7 @@ import {
   Cell
 } from 'recharts';
 
-import { JobRequest } from '../types';
+import { JobRequest } from '../../types';
 
 // Let's create robust mock data for our active jobs
 interface ActiveJob extends JobRequest {

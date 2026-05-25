@@ -9,7 +9,7 @@ import {
   mockLeaveRequests,
   mockAttendanceRecords,
   mockPayrollDetails
-} from '../mockData';
+} from '../../mockData';
 import {
   Users,
   Search,

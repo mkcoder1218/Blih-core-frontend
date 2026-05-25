@@ -5,7 +5,7 @@
 
 import { useState } from 'react';
 import { Bell, Grid, Sparkles, Brain, X, Send, Loader2 } from 'lucide-react';
-import { MainModule, RecruitmentTab } from '../types';
+import { MainModule, RecruitmentTab } from '../../types';
 
 interface HeaderProps {
   currentModule: MainModule;
@@ -25,8 +25,8 @@ export default function Header({
   const getBreadcrumbTitle = () => {
     if (!isDetailedView) {
       return {
-        main: 'Blih CORE',
-        sub: 'HR Dashboard',
+        main: 'HR Dashboard',
+        sub: 'Overview',
       };
     }
 

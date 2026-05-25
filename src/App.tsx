@@ -4,31 +4,42 @@
  */
 
 import React, { useState } from 'react';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
-import RootDashboard from './components/RootDashboard';
-import RecruitmentOverview from './components/RecruitmentOverview';
-import RecruitmentRequests from './components/RecruitmentRequests';
-import RecruitmentReadyToPost from './components/RecruitmentReadyToPost';
-import RecruitmentClosedPosts from './components/RecruitmentClosedPosts';
-import RecruitmentApplicantForms from './components/RecruitmentApplicantForms';
-import RecruitmentOffers from './components/RecruitmentOffers';
-import RecruitmentActivePosting from './components/RecruitmentActivePosting';
-import RecruitmentOngoingRecruitment from './components/RecruitmentOngoingRecruitment';
-import OtherModulesView from './components/OtherModulesView';
-import PeopleProfilesView from './components/PeopleProfilesView';
-import AttendanceView from './components/AttendanceView';
-import CareerManagementView from './components/CareerManagementView';
-import ExitOffboardingView from './components/ExitOffboardingView';
-import WorkforceFinanceView from './components/WorkforceFinanceView';
-import OnboardingView from './components/OnboardingView';
-import PerformanceView from './components/PerformanceView';
+import Sidebar from './components/layout/Sidebar';
+import Header from './components/layout/Header';
+import RootDashboard from './components/dashboard/RootDashboard';
+import RecruitmentOverview from './components/recruitment/RecruitmentOverview';
+import RecruitmentRequests from './components/recruitment/RecruitmentRequests';
+import RecruitmentReadyToPost from './components/recruitment/RecruitmentReadyToPost';
+import RecruitmentClosedPosts from './components/recruitment/RecruitmentClosedPosts';
+import RecruitmentApplicantForms from './components/recruitment/RecruitmentApplicantForms';
+import RecruitmentOffers from './components/recruitment/RecruitmentOffers';
+import RecruitmentActivePosting from './components/recruitment/RecruitmentActivePosting';
+import RecruitmentOngoingRecruitment from './components/recruitment/RecruitmentOngoingRecruitment';
+import OtherModulesView from './components/dashboard/OtherModulesView';
+import PeopleProfilesView from './components/people/PeopleProfilesView';
+import AttendanceView from './components/attendance/AttendanceView';
+import CareerManagementView from './components/career/CareerManagementView';
+import ExitOffboardingView from './components/offboarding/ExitOffboardingView';
+import WorkforceFinanceView from './components/finance/WorkforceFinanceView';
+import OnboardingView from './components/onboarding/OnboardingView';
+import PerformanceView from './components/performance/PerformanceView';
+import AuthPage from './components/auth/AuthPage';
 import { mockJobRequests, activeReadyToPostJob } from './mockData';
 import { MainModule, RecruitmentTab, JobRequest } from './types';
 import { X, Sparkles, Send, Loader2, CheckCircle, AlertCircle, PlusCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
+  // User Authentication state
+  const [activeUser, setActiveUser] = useState<{ name: string; email: string; role: string } | null>(() => {
+    try {
+      const persisted = localStorage.getItem('blih_core_user');
+      return persisted ? JSON.parse(persisted) : null;
+    } catch {
+      return null;
+    }
+  });
+
   // Navigation states
   const [currentModule, setCurrentModule] = useState<MainModule>('recruitment');
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>('overview');
@@ -188,10 +199,26 @@ export default function App() {
     handleTriggerAiGenerate(promptText, contextType);
   };
 
+  if (!activeUser) {
+    return (
+      <AuthPage 
+        onLoginSuccess={(u) => {
+          setActiveUser(u);
+          localStorage.setItem('blih_core_user', JSON.stringify(u));
+        }}
+      />
+    );
+  }
+
   return (
     <div id="app-window" className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 overflow-hidden font-sans select-none antialiased">
       {/* Dynamic Sidebar Container */}
       <Sidebar
+        user={activeUser}
+        onLogout={() => {
+          setActiveUser(null);
+          localStorage.removeItem('blih_core_user');
+        }}
         currentModule={currentModule}
         setCurrentModule={setCurrentModule}
         currentRecruitmentTab={currentRecruitmentTab}

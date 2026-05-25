@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { mockRecentActivities, mockPendingActions } from '../mockData';
-import { MainModule } from '../types';
+import { mockRecentActivities, mockPendingActions } from '../../mockData';
+import { MainModule } from '../../types';
 import { ChevronRight, ArrowUpRight, ArrowDownRight, Activity, ClipboardList, Briefcase, FileCheck, CircleUser, Layers } from 'lucide-react';
 
 interface RootDashboardProps {

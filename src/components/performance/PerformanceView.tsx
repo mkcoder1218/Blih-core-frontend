@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import PerformanceOverview from './performance/PerformanceOverview';
-import PerformanceReviewTab from './performance/PerformanceReviewTab';
-import OkrsTab from './performance/OkrsTab';
-import KpisTab from './performance/KpisTab';
-import DisciplineTab from './performance/DisciplineTab';
-import EvaluationFormTab from './performance/EvaluationFormTab';
+import PerformanceOverview from './PerformanceOverview';
+import PerformanceReviewTab from './PerformanceReviewTab';
+import OkrsTab from './OkrsTab';
+import KpisTab from './KpisTab';
+import DisciplineTab from './DisciplineTab';
+import EvaluationFormTab from './EvaluationFormTab';
 
 interface PerformanceViewProps {
   currentTab: string;
