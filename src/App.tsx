@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import Sidebar from './components/layout/Sidebar';
 import Header from './components/layout/Header';
 import RootDashboard from './components/dashboard/RootDashboard';
@@ -24,25 +24,27 @@ import WorkforceFinanceView from './components/finance/WorkforceFinanceView';
 import OnboardingView from './components/onboarding/OnboardingView';
 import PerformanceView from './components/performance/PerformanceView';
 import BusinessesView from './components/businesses/BusinessesView';
-import AuthPage from './components/auth/AuthPage';
 import { mockJobRequests, activeReadyToPostJob } from './mockData';
 import { MainModule, RecruitmentTab, JobRequest } from './types';
+import type { BusinessesTab } from './types';
 import { X, Sparkles, Send, Loader2, CheckCircle, AlertCircle, PlusCircle, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { clearAuthTokens } from './api/storage';
+import { notifyAuthChanged } from './api/authState';
+import { setLegacyUser, useLegacyUser } from './api/legacyUserStore';
 
 export default function App() {
-  // User Authentication state
-  const [activeUser, setActiveUser] = useState<{ name: string; email: string; role: string } | null>(() => {
-    try {
-      const persisted = localStorage.getItem('blih_core_user');
-      return persisted ? JSON.parse(persisted) : null;
-    } catch {
-      return null;
-    }
-  });
+  const activeUser = useLegacyUser();
 
   // Navigation states
-  const [currentModule, setCurrentModule] = useState<MainModule>('recruitment');
+  const [currentModule, setCurrentModule] = useState<MainModule>(() => {
+    try {
+      const persisted = localStorage.getItem('blih_core_user');
+      const u = persisted ? JSON.parse(persisted) : null;
+      if (u?.role === 'Super Admin') return 'businesses';
+    } catch {}
+    return 'recruitment';
+  });
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>('overview');
   const [currentProfilesTab, setCurrentProfilesTab] = useState<'overview' | 'create' | 'organogram' | 'directory' | 'events' | 'archive'>('overview');
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home'>('overview');
@@ -51,6 +53,7 @@ export default function App() {
   const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'salary' | 'payroll' | 'budget' | 'expense' | 'benefits'>('overview');
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<'overview' | 'contract' | 'progress' | 'probation' | 'checklists'>('overview');
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form'>('overview');
+  const [currentBusinessesTab, setCurrentBusinessesTab] = useState<BusinessesTab>('overview');
   const [isDetailedView, setIsDetailedView] = useState<boolean>(true); // Start in detailed Recruitment tab to match Image 1/3/4
 
   // Jobs dynamic collection state
@@ -200,16 +203,8 @@ export default function App() {
     handleTriggerAiGenerate(promptText, contextType);
   };
 
-  if (!activeUser) {
-    return (
-      <AuthPage 
-        onLoginSuccess={(u) => {
-          setActiveUser(u);
-          localStorage.setItem('blih_core_user', JSON.stringify(u));
-        }}
-      />
-    );
-  }
+  // RootApp handles login. If legacy user is missing briefly (me query still loading), render nothing.
+  if (!activeUser) return null;
 
   return (
     <div id="app-window" className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 overflow-hidden font-sans select-none antialiased">
@@ -217,8 +212,9 @@ export default function App() {
       <Sidebar
         user={activeUser}
         onLogout={() => {
-          setActiveUser(null);
-          localStorage.removeItem('blih_core_user');
+          setLegacyUser(null);
+          clearAuthTokens();
+          notifyAuthChanged();
         }}
         currentModule={currentModule}
         setCurrentModule={setCurrentModule}
@@ -238,6 +234,8 @@ export default function App() {
         setCurrentOnboardingTab={setCurrentOnboardingTab}
         currentPerformanceTab={currentPerformanceTab}
         setCurrentPerformanceTab={setCurrentPerformanceTab}
+        currentBusinessesTab={currentBusinessesTab}
+        setCurrentBusinessesTab={setCurrentBusinessesTab}
         isDetailedView={isDetailedView}
         setIsDetailedView={setIsDetailedView}
       />
@@ -427,6 +425,7 @@ export default function App() {
                 <BusinessesView
                   onDraftAiSuggestion={(ctx) => handleTriggerAiGenerate(ctx, 'businesses')}
                   showAlert={showAlert}
+                  currentTab={currentBusinessesTab}
                 />
               ) : (
                 /* 5. Auxiliary ERP Modules (Onboarding, Finance, etc.) */

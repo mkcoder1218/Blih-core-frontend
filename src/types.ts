@@ -24,6 +24,8 @@ export type RecruitmentTab =
   | 'closed_posts'
   | 'applicant_forms';
 
+export type BusinessesTab = 'overview' | 'plans' | 'sector_focus' | 'integrations' | 'security';
+
 export interface JobRequest {
   id: string;
   title: string;

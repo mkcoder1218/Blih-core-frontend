@@ -24,191 +24,201 @@ import {
   Check,
   Building
 } from 'lucide-react';
+import { useMe } from '../../hooks/useMe';
+import { useBusinesses } from '../../hooks/useBusinesses';
+import { useCreateBusiness } from '../../hooks/useCreateBusiness';
+import { useUpdateBusiness } from '../../hooks/useUpdateBusiness';
+import { useDeleteBusiness } from '../../hooks/useDeleteBusiness';
+import { useCreateBusinessAdmin } from '../../hooks/useCreateBusinessAdmin';
+import { usePlans } from '../../hooks/usePlans';
+import { useSectorFocuses } from '../../hooks/useSectorFocuses';
+import type { Business as ApiBusiness } from '../../api/types';
+import type { BusinessesTab } from '../../types';
+import PlansTab from './PlansTab';
+import SectorFocusTab from './SectorFocusTab';
 
-interface Business {
-  id: string;
-  name: string;
+type ViewBusiness = ApiBusiness & {
   legalName: string;
   sector: string;
-  email: string;
   domain: string;
   location: string;
-  tier: 'Enterprise' | 'Corporate' | 'Developer';
-  status: 'Active' | 'Suspended';
+  statusLabel: 'Active' | 'Suspended';
   established: string;
   employeeCount: number;
-}
+};
 
-const INITIAL_BUSINESSES: Business[] = [
-  {
-    id: 'biz-1',
-    name: 'Blih Marketing',
-    legalName: 'Blih Marketing Group Ltd',
-    sector: 'Marketing & PR',
-    email: 'ops@blihmarketing.com',
-    domain: 'blihmarketing.com',
-    location: 'New York, USA',
-    tier: 'Enterprise',
-    status: 'Active',
-    established: 'May 12, 2021',
-    employeeCount: 148
-  },
-  {
-    id: 'biz-2',
-    name: 'Aether Logistics',
-    legalName: 'Aether Shipping & Delivery Inc.',
-    sector: 'Supply Chain',
-    email: 'partner@aether-logistics.io',
-    domain: 'aether-logistics.io',
-    location: 'Rotterdam, NL',
-    tier: 'Corporate',
-    status: 'Active',
-    established: 'Jan 28, 2022',
-    employeeCount: 84
-  },
-  {
-    id: 'biz-3',
-    name: 'Zephyr FinTech',
-    legalName: 'Zephyr decentralized payments LLC',
-    sector: 'Banking & Financial',
-    email: 'admin@zephyrpay.com',
-    domain: 'zephyrpay.com',
-    location: 'London, UK',
-    tier: 'Enterprise',
-    status: 'Active',
-    established: 'Aug 04, 2023',
-    employeeCount: 320
-  },
-  {
-    id: 'biz-4',
-    name: 'Chrono Health',
-    legalName: 'Chronotech Healthcare Tech SA',
-    sector: 'Medical & Health',
-    email: 'contact@chronohealth.org',
-    domain: 'chronohealth.org',
-    location: 'Geneva, Switzerland',
-    tier: 'Developer',
-    status: 'Suspended',
-    established: 'Nov 19, 2024',
-    employeeCount: 12
-  }
-];
+function toViewBusiness(b: ApiBusiness): ViewBusiness {
+  const createdAt = (b as any).createdAt ? new Date((b as any).createdAt) : null;
+  const established = createdAt ? createdAt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' }) : '—';
+  return {
+    ...b,
+    legalName: b.name,
+    sector: '—',
+    domain: b.slug,
+    location: '—',
+    statusLabel: b.status === 'active' ? 'Active' : 'Suspended',
+    established,
+    employeeCount: 0,
+  };
+}
 
 interface BusinessesViewProps {
   onDraftAiSuggestion: (prompt: string) => void;
   showAlert: (msg: string, type?: 'success' | 'info' | 'error') => void;
+  currentTab: BusinessesTab;
 }
 
-export default function BusinessesView({ onDraftAiSuggestion, showAlert }: BusinessesViewProps) {
-  const [businesses, setBusinesses] = useState<Business[]>(() => {
-    try {
-      const saved = localStorage.getItem('blih_businesses');
-      return saved ? JSON.parse(saved) : INITIAL_BUSINESSES;
-    } catch {
-      return INITIAL_BUSINESSES;
-    }
-  });
+export default function BusinessesView({ onDraftAiSuggestion, showAlert, currentTab }: BusinessesViewProps) {
+  const me = useMe();
+  const isPlatformSuperAdmin = Boolean(me.data?.data?.user?.isPlatformSuperAdmin);
+  const businessesQuery = useBusinesses();
+  const createBiz = useCreateBusiness();
+  const updateBiz = useUpdateBusiness();
+  const deleteBiz = useDeleteBusiness();
+  const plansQuery = usePlans();
+  const sectorFocusesQuery = useSectorFocuses();
 
-  const saveToLocal = (updated: Business[]) => {
-    setBusinesses(updated);
-    localStorage.setItem('blih_businesses', JSON.stringify(updated));
-  };
+  const plans = plansQuery.data?.data?.plans || [];
+  const sectorFocuses = sectorFocusesQuery.data?.data?.sectorFocuses || [];
+  const sectorMap = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const sf of sectorFocuses) m.set(sf.id, sf.name);
+    return m;
+  }, [sectorFocuses]);
+
+  const businesses: ViewBusiness[] = (businessesQuery.data?.data?.businesses || [])
+    .map(toViewBusiness)
+    .map((b) => ({ ...b, sector: b.sectorFocusId ? (sectorMap.get(b.sectorFocusId) || 'â€”') : 'â€”' }));
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingBusiness, setEditingBusiness] = useState<Business | null>(null);
+  const [editingBusiness, setEditingBusiness] = useState<ViewBusiness | null>(null);
+
+  const [adminModalOpen, setAdminModalOpen] = useState(false);
+  const [adminBusiness, setAdminBusiness] = useState<ViewBusiness | null>(null);
+  const createAdmin = useCreateBusinessAdmin(adminBusiness?.id || 'missing');
 
   // Form states
   const [formName, setFormName] = useState('');
   const [formLegalName, setFormLegalName] = useState('');
-  const [formSector, setFormSector] = useState('Technology');
   const [formEmail, setFormEmail] = useState('');
   const [formDomain, setFormDomain] = useState('');
   const [formLocation, setFormLocation] = useState('');
-  const [formTier, setFormTier] = useState<'Enterprise' | 'Corporate' | 'Developer'>('Corporate');
   const [formStatus, setFormStatus] = useState<'Active' | 'Suspended'>('Active');
   const [formEmployeeCount, setFormEmployeeCount] = useState(1);
+  const [formPlanId, setFormPlanId] = useState('');
+  const [formSectorFocusId, setFormSectorFocusId] = useState('');
+
+  const [adminName, setAdminName] = useState('');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPhone, setAdminPhone] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
 
   const openCreateModal = () => {
+    if (!isPlatformSuperAdmin) return;
     setEditingBusiness(null);
     setFormName('');
     setFormLegalName('');
-    setFormSector('Technology');
     setFormEmail('');
     setFormDomain('');
     setFormLocation('');
-    setFormTier('Corporate');
     setFormStatus('Active');
     setFormEmployeeCount(10);
+    setFormPlanId('');
+    setFormSectorFocusId('');
     setIsModalOpen(true);
   };
 
-  const openEditModal = (biz: Business) => {
+  const openEditModal = (biz: ViewBusiness) => {
+    if (!isPlatformSuperAdmin) return;
     setEditingBusiness(biz);
     setFormName(biz.name);
     setFormLegalName(biz.legalName);
-    setFormSector(biz.sector);
-    setFormEmail(biz.email);
+    setFormEmail(biz.email || '');
     setFormDomain(biz.domain);
     setFormLocation(biz.location);
-    setFormTier(biz.tier);
-    setFormStatus(biz.status);
+    setFormStatus(biz.statusLabel);
     setFormEmployeeCount(biz.employeeCount);
+    setFormPlanId(biz.planId || '');
+    setFormSectorFocusId(biz.sectorFocusId || '');
     setIsModalOpen(true);
   };
 
-  const handleDelete = (id: string, name: string) => {
+  const openAdminModal = (biz: ViewBusiness) => {
+    if (!isPlatformSuperAdmin) return;
+    setAdminBusiness(biz);
+    setAdminName('');
+    setAdminEmail('');
+    setAdminPhone('');
+    setAdminPassword('');
+    setAdminModalOpen(true);
+  };
+
+  const handleDelete = async (id: string, name: string) => {
+    if (!isPlatformSuperAdmin) return;
     if (confirm(`Are you absolutely sure you want to delete and un-register business tenancy for "${name}"?\nThis is dangerous and terminates all current child active sessions.`)) {
-      const filtered = businesses.filter(b => b.id !== id);
-      saveToLocal(filtered);
-      showAlert(`Terminated business tenant: ${name}`, 'success');
+      try {
+        await deleteBiz.mutateAsync(id);
+        showAlert(`Terminated business tenant: ${name}`, 'success');
+      } catch (e: any) {
+        showAlert(e?.response?.data?.message || e?.message || 'Failed to delete business', 'error');
+      }
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const getMutationError = (err: any) => err?.response?.data?.message || err?.message || '';
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!formName || !formEmail || !formDomain) {
-      showAlert('Please enter all mandatory fields.', 'error');
+    if (!isPlatformSuperAdmin) return;
+    if (!formName || !formEmail || !formDomain || !formPlanId) {
+      showAlert('Please enter all mandatory fields (name, email, domain/slug, planId).', 'error');
       return;
     }
 
-    if (editingBusiness) {
-      // Update
-      const updated = businesses.map(b => b.id === editingBusiness.id ? {
-        ...b,
-        name: formName,
-        legalName: formLegalName || `${formName} Inc`,
-        sector: formSector,
-        email: formEmail,
-        domain: formDomain,
-        location: formLocation || 'Unknown Headquarter',
-        tier: formTier,
-        status: formStatus,
-        employeeCount: formEmployeeCount
-      } : b);
-      saveToLocal(updated);
-      showAlert(`Successfully configured "${formName}" parameters!`, 'success');
-    } else {
-      // Create
-      const newBiz: Business = {
-        id: `biz-${Date.now()}`,
-        name: formName,
-        legalName: formLegalName || `${formName} Corp.`,
-        sector: formSector,
-        email: formEmail,
-        domain: formDomain,
-        location: formLocation || 'Remote Global Operations',
-        tier: formTier,
-        status: formStatus,
-        established: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
-        employeeCount: formEmployeeCount || 1
-      };
-      saveToLocal([newBiz, ...businesses]);
-      showAlert(`Registered new system-wide business tenant: ${formName}!`, 'success');
+    try {
+      if (editingBusiness) {
+        await updateBiz.mutateAsync({
+          businessId: editingBusiness.id,
+          data: {
+            name: formName,
+            slug: formDomain,
+            email: formEmail,
+            phone: formLocation || editingBusiness.phone || null,
+            planId: formPlanId,
+            sectorFocusId: formSectorFocusId || null,
+            status: formStatus === 'Active' ? 'active' : 'inactive'
+          }
+        });
+        showAlert(`Successfully configured "${formName}" parameters!`, 'success');
+      } else {
+        await createBiz.mutateAsync({
+          name: formName,
+          slug: formDomain,
+          email: formEmail,
+          phone: formLocation || 'n/a',
+          planId: formPlanId,
+          sectorFocusId: formSectorFocusId || null
+        });
+        showAlert(`Registered new system-wide business tenant: ${formName}!`, 'success');
+      }
+      setIsModalOpen(false);
+    } catch (e: any) {
+      showAlert(e?.response?.data?.message || e?.message || 'Save failed', 'error');
     }
+  };
 
-    setIsModalOpen(false);
+  const handleCreateAdmin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isPlatformSuperAdmin || !adminBusiness) return;
+    try {
+      await createAdmin.mutateAsync({ fullName: adminName, email: adminEmail, phone: adminPhone || null, password: adminPassword });
+      showAlert(`Business Admin created for ${adminBusiness.name}`, 'success');
+      setAdminModalOpen(false);
+    } catch (e: any) {
+      showAlert(e?.response?.data?.message || e?.message || 'Failed to create admin', 'error');
+    }
   };
 
   const filteredBusinesses = businesses.filter(b => 
@@ -226,6 +236,9 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
     if (s.includes('logistics') || s.includes('ship')) return 'bg-amber-50 text-amber-600 border-amber-100';
     return 'bg-slate-100 text-slate-600 border-slate-200';
   };
+
+  if (currentTab === 'plans') return <PlansTab showAlert={showAlert} />;
+  if (currentTab === 'sector_focus') return <SectorFocusTab showAlert={showAlert} />;
 
   return (
     <div className="space-y-6">
@@ -257,7 +270,8 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
           
           <button 
             onClick={openCreateModal}
-            className="flex items-center gap-1.5 bg-[#1a56db] hover:bg-[#124bbf] font-bold text-white transition-all hover:shadow-md px-4 py-2 rounded-xl text-xs cursor-pointer select-none"
+            disabled={!isPlatformSuperAdmin}
+            className="flex items-center gap-1.5 bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white transition-all hover:shadow-md px-4 py-2 rounded-xl text-xs cursor-pointer select-none"
           >
             <Plus className="w-4 h-4" />
             <span>Register Business</span>
@@ -269,7 +283,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Registered Enterprises', val: businesses.length, desc: 'Across Blih Cluster', icon: Building2, color: 'text-blue-600' },
-          { label: 'Active Domains', val: businesses.filter(b => b.status === 'Active').length, desc: 'SSO routing enabled', icon: Globe, color: 'text-emerald-650' },
+          { label: 'Active Domains', val: businesses.filter(b => b.statusLabel === 'Active').length, desc: 'SSO routing enabled', icon: Globe, color: 'text-emerald-650' },
           { label: 'Combined Workforce', val: businesses.reduce((acc, current) => acc + current.employeeCount, 0).toLocaleString(), desc: 'Employees consolidated', icon: Users, color: 'text-violet-650' },
           { label: 'Active Licensing', val: 'A Grade Cluster', desc: 'Secure cloud instance', icon: Layers, color: 'text-amber-600' }
         ].map((kpi, idx) => (
@@ -308,7 +322,21 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
         </div>
 
         {/* List View Table */}
-        {filteredBusinesses.length === 0 ? (
+        {businessesQuery.isLoading ? (
+          <div className="py-20 text-center space-y-3">
+            <Building className="w-12 h-12 text-slate-300 mx-auto" />
+            <h4 className="text-sm font-semibold text-slate-700">Loading businesses</h4>
+            <p className="text-xs text-slate-400 max-w-xs mx-auto">Fetching the latest tenants list.</p>
+          </div>
+        ) : businessesQuery.isError ? (
+          <div className="py-20 text-center space-y-3">
+            <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto" />
+            <h4 className="text-sm font-semibold text-slate-700">Failed to load businesses</h4>
+            <p className="text-xs text-slate-400 max-w-md mx-auto">
+              {(businessesQuery.error as any)?.response?.data?.message || (businessesQuery.error as any)?.message || 'Request failed'}
+            </p>
+          </div>
+        ) : filteredBusinesses.length === 0 ? (
           <div className="py-20 text-center space-y-3">
             <Building className="w-12 h-12 text-slate-300 mx-auto" />
             <h4 className="text-sm font-semibold text-slate-700">No Enterprise tenants found</h4>
@@ -323,7 +351,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
                   <th className="py-3 px-4">Cluster Sector</th>
                   <th className="py-3 px-4">Infrastructure Domain</th>
                   <th className="py-3 px-4 text-center">Workforce Scale</th>
-                  <th className="py-3 px-4">License Plan</th>
+                  <th className="py-3 px-4">Plan</th>
                   <th className="py-3 px-4">Gateway Status</th>
                   <th className="py-3 px-6 text-right">Administrative Action</th>
                 </tr>
@@ -362,11 +390,8 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
 
                     <td className="py-4.5 px-4">
                       <div className="space-y-0.5">
-                        <span className={`font-bold block text-[11px] ${
-                          biz.tier === 'Enterprise' ? 'text-indigo-600' : 
-                          biz.tier === 'Corporate' ? 'text-amber-600' : 'text-slate-500'
-                        }`}>
-                          {biz.tier}
+                        <span className="font-bold block text-[11px] text-slate-800">
+                          {biz.planId ? (plans.find((p) => p.id === biz.planId)?.name || 'â€”') : 'â€”'}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium block">Since {biz.established}</span>
                       </div>
@@ -375,12 +400,12 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
                     <td className="py-4.5 px-4">
                       <div className="flex items-center gap-1.5">
                         <span className={`w-2 h-2 rounded-full ${
-                          biz.status === 'Active' ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'
+                          biz.statusLabel === 'Active' ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'
                         }`} />
                         <span className={`font-bold uppercase tracking-wider text-[10px] ${
-                          biz.status === 'Active' ? 'text-emerald-700' : 'text-red-650'
+                          biz.statusLabel === 'Active' ? 'text-emerald-700' : 'text-red-650'
                         }`}>
-                          {biz.status}
+                          {biz.statusLabel}
                         </span>
                       </div>
                     </td>
@@ -388,16 +413,26 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
                     <td className="py-4.5 px-6 text-right">
                       <div className="flex items-center gap-1.5 justify-end">
                         <button
+                          onClick={() => openAdminModal(biz)}
+                          disabled={!isPlatformSuperAdmin}
+                          title="Create Business Admin"
+                          className="p-1 px-2.5 hover:bg-blue-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-blue-700 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Users className="w-3.5 h-3.5" />
+                        </button>
+                        <button
                           onClick={() => openEditModal(biz)}
                           title="Modify Configurations"
-                          className="p-1 px-2.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg transition-colors cursor-pointer"
+                          disabled={!isPlatformSuperAdmin}
+                          className="p-1 px-2.5 hover:bg-slate-100 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-slate-800 rounded-lg transition-colors cursor-pointer"
                         >
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
                           onClick={() => handleDelete(biz.id, biz.name)}
                           title="Terminate Instance"
-                          className="p-1 px-2.5 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
+                          disabled={!isPlatformSuperAdmin}
+                          className="p-1 px-2.5 hover:bg-rose-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -498,19 +533,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sector Focus</label>
-                    <input
-                      type="text"
-                      required
-                      value={formSector}
-                      onChange={(e) => setFormSector(e.target.value)}
-                      placeholder="e.g. Aerospace, HR, Biotech"
-                      className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 placeholder-slate-400 transition-all"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Headquarters / Location</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Headquarters / Location (optional)</label>
                     <input
                       type="text"
                       value={formLocation}
@@ -521,20 +544,41 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
                   </div>
                 </div>
 
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Licence Tier</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Plan</label>
                     <select
-                      value={formTier}
-                      onChange={(e) => setFormTier(e.target.value as any)}
+                      required
+                      value={formPlanId}
+                      onChange={(e) => setFormPlanId(e.target.value)}
                       className="w-full bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200/80 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] font-semibold text-xs text-slate-700 cursor-pointer"
                     >
-                      <option value="Enterprise">Enterprise Elite</option>
-                      <option value="Corporate">Corporate Pro</option>
-                      <option value="Developer">Developer Sandbox</option>
+                      <option value="">Select plan...</option>
+                      {plans.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.key})
+                        </option>
+                      ))}
                     </select>
                   </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sector Focus (optional)</label>
+                    <select
+                      value={formSectorFocusId}
+                      onChange={(e) => setFormSectorFocusId(e.target.value)}
+                      className="w-full bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200/80 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] font-semibold text-xs text-slate-700 cursor-pointer"
+                    >
+                      <option value="">None</option>
+                      {sectorFocuses.map((sf) => (
+                        <option key={sf.id} value={sf.id}>
+                          {sf.name} ({sf.key})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
 
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Routing Status</label>
                     <select
@@ -577,6 +621,94 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert }: Busin
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* --- BUSINESS ADMIN USER MODAL --- */}
+      <AnimatePresence>
+        {adminModalOpen && adminBusiness && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs animate-fade-in">
+            <div className="absolute inset-0" onClick={() => setAdminModalOpen(false)} />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 z-15 space-y-4"
+            >
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <div>
+                  <h4 className="text-[13px] font-bold text-slate-900">Create Business Admin</h4>
+                  <div className="text-[10.5px] text-slate-500 font-medium mt-0.5">{adminBusiness.name} ({adminBusiness.slug})</div>
+                </div>
+                <button onClick={() => setAdminModalOpen(false)} className="text-slate-400 hover:text-slate-800 cursor-pointer">
+                  <ChevronRight className="w-4 h-4 rotate-90" />
+                </button>
+              </div>
+
+              {!isPlatformSuperAdmin ? (
+                <div className="text-xs text-slate-600">Not authorized.</div>
+              ) : (
+                <form onSubmit={handleCreateAdmin} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Full Name</label>
+                      <input
+                        value={adminName}
+                        onChange={(e) => setAdminName(e.target.value)}
+                        className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email</label>
+                      <input
+                        type="email"
+                        value={adminEmail}
+                        onChange={(e) => setAdminEmail(e.target.value)}
+                        className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Phone (optional)</label>
+                      <input
+                        value={adminPhone}
+                        onChange={(e) => setAdminPhone(e.target.value)}
+                        className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
+                      <input
+                        type="password"
+                        value={adminPassword}
+                        onChange={(e) => setAdminPassword(e.target.value)}
+                        className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+                    <button
+                      type="button"
+                      onClick={() => setAdminModalOpen(false)}
+                      className="px-4 text-slate-500 font-bold hover:bg-slate-50 leading-none py-2.5 rounded-xl text-xs cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={createAdmin.isPending}
+                      className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs cursor-pointer select-none"
+                    >
+                      {createAdmin.isPending ? 'Creating...' : 'Create Admin'}
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </div>
         )}

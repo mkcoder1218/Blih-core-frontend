@@ -18,7 +18,8 @@ import {
   Sparkles,
   Building2
 } from 'lucide-react';
-import { MainModule, RecruitmentTab } from '../../types';
+import { useNavigate } from 'react-router-dom';
+import { BusinessesTab, MainModule, RecruitmentTab } from '../../types';
 
 interface SidebarProps {
   currentModule: MainModule;
@@ -39,6 +40,8 @@ interface SidebarProps {
   setCurrentOnboardingTab: (tab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists') => void;
   currentPerformanceTab: 'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form';
   setCurrentPerformanceTab: (tab: 'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form') => void;
+  currentBusinessesTab: BusinessesTab;
+  setCurrentBusinessesTab: (tab: BusinessesTab) => void;
   isDetailedView: boolean;
   setIsDetailedView: (val: boolean) => void;
   user?: { name: string; email: string; role: string } | null;
@@ -64,11 +67,15 @@ export default function Sidebar({
   setCurrentOnboardingTab,
   currentPerformanceTab,
   setCurrentPerformanceTab,
+  currentBusinessesTab,
+  setCurrentBusinessesTab,
   isDetailedView,
   setIsDetailedView,
   user,
   onLogout,
 }: SidebarProps) {
+  const navigate = useNavigate();
+  const roleSegment = user?.role === 'Super Admin' ? 'super-admin' : user?.role === 'Business Admin' ? 'business-admin' : 'employee';
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
@@ -77,19 +84,24 @@ export default function Sidebar({
     return parts[0] ? parts[0].slice(0, 2).toUpperCase() : 'CO';
   };
   const mainModules = [
-    { id: 'recruitment', label: 'Recruitment & Hiring', icon: UserPlus, badge: 4 },
-    { id: 'onboarding', label: 'Onboarding & Probation', icon: UserCheck, badge: 3 },
-    { id: 'profiles', label: 'People Profiles', icon: Users, badge: 0 },
-    { id: 'attendance', label: 'Attendance & Leave', icon: Calendar, badge: 0 },
-    { id: 'performance', label: 'Performance', icon: TrendingUp, badge: 0 },
-    { id: 'talent', label: 'Career Management', icon: GraduationCap, badge: 0 },
-    { id: 'exit', label: 'Exit & Off boarding', icon: LogOut, badge: 0 },
-    { id: 'finance', label: 'Workforce Finance', icon: CircleDollarSign, badge: 0 },
-    ...(user?.role === 'Super Admin' ? [{ id: 'businesses', label: 'Businesses', icon: Building2, badge: 0 }] : []),
+    ...(user?.role === 'Super Admin'
+      ? [{ id: 'businesses', label: 'Businesses', icon: Building2, badge: 0 }]
+      : [
+          { id: 'recruitment', label: 'Recruitment & Hiring', icon: UserPlus, badge: 4 },
+          { id: 'onboarding', label: 'Onboarding & Probation', icon: UserCheck, badge: 3 },
+          { id: 'profiles', label: 'People Profiles', icon: Users, badge: 0 },
+          { id: 'attendance', label: 'Attendance & Leave', icon: Calendar, badge: 0 },
+          { id: 'performance', label: 'Performance', icon: TrendingUp, badge: 0 },
+          { id: 'talent', label: 'Career Management', icon: GraduationCap, badge: 0 },
+          { id: 'exit', label: 'Exit & Off boarding', icon: LogOut, badge: 0 },
+          { id: 'finance', label: 'Workforce Finance', icon: CircleDollarSign, badge: 0 },
+        ]),
   ] as any[];
 
   const businessesTabs = [
     { id: 'overview', label: 'Overview', badge: 0 },
+    { id: 'plans', label: 'Plans', badge: 0 },
+    { id: 'sector_focus', label: 'Sector Focus', badge: 0 },
     { id: 'integrations', label: 'Integrations', badge: 0 },
     { id: 'security', label: 'Security & SSO', badge: 0 },
   ] as const;
@@ -172,9 +184,11 @@ export default function Sidebar({
     // Auto-enable detailed dual sidebar when clicking 'recruitment', 'onboarding', 'profiles', 'attendance', 'talent', 'exit' or 'finance' or 'performance' or 'businesses'
     if (moduleId === 'recruitment' || moduleId === 'onboarding' || moduleId === 'profiles' || moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' || moduleId === 'finance' || moduleId === 'performance' || moduleId === 'businesses') {
       setIsDetailedView(true);
+      if (moduleId === 'businesses') setCurrentBusinessesTab('overview');
     } else {
       setIsDetailedView(false);
     }
+    navigate(`/${roleSegment}/${moduleId}`);
   };
 
   // State 1: Detailed view (Image 1, 3, 4) with 2 columns
@@ -189,6 +203,7 @@ export default function Sidebar({
               onClick={() => {
                 setIsDetailedView(false);
                 setCurrentModule('recruitment');
+                navigate(`/${roleSegment}/recruitment`);
               }}
               className="p-2.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
               title="Return to Home Dashboard"
@@ -265,7 +280,10 @@ export default function Sidebar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setCurrentRecruitmentTab(tab.id)}
+                      onClick={() => {
+                        setCurrentRecruitmentTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/recruitment` : `/${roleSegment}/recruitment/${tab.id}`);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-2.5'
@@ -287,7 +305,10 @@ export default function Sidebar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setCurrentProfilesTab(tab.id)}
+                      onClick={() => {
+                        setCurrentProfilesTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/profiles` : `/${roleSegment}/profiles/${tab.id}`);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-2.5'
@@ -304,7 +325,10 @@ export default function Sidebar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setCurrentAttendanceTab(tab.id)}
+                      onClick={() => {
+                        setCurrentAttendanceTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/attendance` : `/${roleSegment}/attendance/${tab.id}`);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-2.5'
@@ -321,7 +345,10 @@ export default function Sidebar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setCurrentTalentTab(tab.id)}
+                      onClick={() => {
+                        setCurrentTalentTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/talent` : `/${roleSegment}/talent/${tab.id}`);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-2.5'
@@ -343,7 +370,10 @@ export default function Sidebar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setCurrentExitTab(tab.id)}
+                      onClick={() => {
+                        setCurrentExitTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/exit` : `/${roleSegment}/exit/${tab.id}`);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-2.5'
@@ -365,7 +395,10 @@ export default function Sidebar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setCurrentOnboardingTab(tab.id)}
+                      onClick={() => {
+                        setCurrentOnboardingTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/onboarding` : `/${roleSegment}/onboarding/${tab.id}`);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-2.5'
@@ -382,7 +415,10 @@ export default function Sidebar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setCurrentFinanceTab(tab.id)}
+                      onClick={() => {
+                        setCurrentFinanceTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/finance` : `/${roleSegment}/finance/${tab.id}`);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-2.5'
@@ -404,7 +440,10 @@ export default function Sidebar({
                   return (
                     <button
                       key={tab.id}
-                      onClick={() => setCurrentPerformanceTab(tab.id)}
+                      onClick={() => {
+                        setCurrentPerformanceTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/performance` : `/${roleSegment}/performance/${tab.id}`);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                         isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-2.5'
@@ -422,15 +461,19 @@ export default function Sidebar({
                 })
               ) : currentModule === 'businesses' ? (
                 businessesTabs.map((tab) => {
+                  const isActive = currentBusinessesTab === tab.id;
                   return (
                     <button
                       key={tab.id}
-                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all ${
-                        tab.id === 'overview'
+                      onClick={() => {
+                        setCurrentBusinessesTab(tab.id);
+                        navigate(tab.id === 'overview' ? `/${roleSegment}/businesses` : `/${roleSegment}/businesses/${tab.id}`);
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
+                        isActive
                           ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-[#1a56db] pl-2.5'
-                          : 'text-slate-400 cursor-not-allowed'
+                          : 'text-slate-600 hover:bg-slate-50/50 hover:text-slate-900'
                       }`}
-                      title={tab.id !== 'overview' ? 'Available under premium multi-tenant enterprise module' : ''}
                     >
                       <span>{tab.label}</span>
                     </button>
