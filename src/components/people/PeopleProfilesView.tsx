@@ -355,14 +355,14 @@ export default function PeopleProfilesView({
               onClick={() => {
                 onDraftAiSuggestion('create a standard comprehensive employee profile for our organization.');
               }}
-              className="w-full border-2 border-dashed border-blue-400 hover:border-blue-600 rounded-3xl p-8 bg-blue-50/15 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group"
+              className="w-full border-2 border-dashed border-[#2563eb] hover:bg-slate-50/45 rounded-3xl p-10 bg-white flex flex-col items-center justify-center gap-3.5 transition-all cursor-pointer group shadow-xs"
             >
-              <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-50 group-hover:scale-105 transition-transform">
+              <div className="w-14 h-14 rounded-2xl bg-[#2563eb] text-white flex items-center justify-center shadow-lg shadow-blue-500/10 group-hover:scale-105 transition-all">
                 <Plus className="w-6 h-6 stroke-[3]" />
               </div>
               <div className="text-center">
-                <span className="text-sm font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">Create New Employee Profile</span>
-                <span className="text-[11px] text-slate-400 mt-1 block">Add a new employee profile to your organization.</span>
+                <span className="text-[15px] font-bold text-slate-900 block transition-colors">Create New Employee Profile</span>
+                <span className="text-xs text-slate-500 mt-1.5 block font-medium">Add a new employee profile to your organization.</span>
               </div>
             </button>
 
@@ -370,18 +370,18 @@ export default function PeopleProfilesView({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
               
               {/* Left Column: Draft Card */}
-              <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-                <h4 className="text-xs font-bold text-slate-900 tracking-tight uppercase">Draft Employee Profile 1</h4>
+              <div className="lg:col-span-5 bg-white rounded-3xl border border-slate-100 p-6 space-y-5 shadow-xs">
+                <h4 className="text-[15px] font-bold text-slate-800 tracking-tight">Draft Employee Profile 1</h4>
                 
                 {/* Micro Dates Grid */}
-                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-2.5 rounded-xl text-[10.5px]">
+                <div className="grid grid-cols-2 gap-4 bg-slate-50 px-4 py-3 rounded-xl border border-slate-100">
                   <div>
-                    <span className="text-slate-400 block font-medium">Created</span>
-                    <strong className="text-slate-700 block mt-0.5">Dec 15, 2024</strong>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Created</span>
+                    <strong className="text-xs font-extrabold text-[#111827] block mt-1">Dec 15, 2024</strong>
                   </div>
                   <div>
-                    <span className="text-slate-400 block font-medium">Last Updated</span>
-                    <strong className="text-slate-700 block mt-0.5">Dec 15, 2024</strong>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Last Updated</span>
+                    <strong className="text-xs font-extrabold text-[#111827] block mt-1">Dec 15, 2024</strong>
                   </div>
                 </div>
 
