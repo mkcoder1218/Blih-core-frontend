@@ -47,6 +47,7 @@ export default function AppShell() {
     if (p.includes("/talent")) return "talent";
     if (p.includes("/exit")) return "exit";
     if (p.includes("/finance")) return "finance";
+    if (p.includes("/permissions")) return "permissions";
     return userRole === "Super Admin" ? "businesses" : "recruitment";
   }, [location.pathname, userRole]);
 

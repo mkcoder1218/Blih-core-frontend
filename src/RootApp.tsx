@@ -11,79 +11,146 @@ import RoleGuard from "./components/RoleGuard";
 import RecruitmentPage from "./pages/RecruitmentPage";
 import BusinessesPage from "./pages/BusinessesPage";
 import ModulePage from "./pages/ModulePage";
+import PermissionManagement from "./pages/PermissionManagement";
+import PublicCareersPage from "./pages/careers/PublicCareersPage";
+import PublicJobApplicationPage from "./pages/careers/PublicJobApplicationPage";
 
 export default function RootApp() {
   const token = useAccessToken();
-  if (!token) return <LoginPage />;
 
   return (
-    <AuthGuard>
-      <SyncLegacyUser />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/unauthorized" element={<UnauthorizedPage />} />
-          <Route path="/" element={<AppShell />}>
-            <Route index element={<HomeRedirect />} />
-            <Route path="employee/recruitment" element={<RecruitmentPage />} />
-            <Route path="employee/recruitment/:tab" element={<RecruitmentPage />} />
-            <Route path="employee/:module" element={<ModulePage />} />
-            <Route path="employee/:module/:tab" element={<ModulePage />} />
-            <Route
-              path="business-admin/recruitment"
-              element={
-                <RoleGuard allow="business_admin">
-                  <RecruitmentPage />
-                </RoleGuard>
-              }
-            />
-            <Route
-              path="business-admin/recruitment/:tab"
-              element={
-                <RoleGuard allow="business_admin">
-                  <RecruitmentPage />
-                </RoleGuard>
-              }
-            />
-            <Route
-              path="business-admin/:module"
-              element={
-                <RoleGuard allow="business_admin">
-                  <ModulePage />
-                </RoleGuard>
-              }
-            />
-            <Route
-              path="business-admin/:module/:tab"
-              element={
-                <RoleGuard allow="business_admin">
-                  <ModulePage />
-                </RoleGuard>
-              }
-            />
-            <Route
-              path="super-admin/businesses"
-              element={
-                <RoleGuard allow="platform_super_admin">
-                  <BusinessesPage />
-                </RoleGuard>
-              }
-            />
-            <Route
-              path="super-admin/businesses/:tab"
-              element={
-                <RoleGuard allow="platform_super_admin">
-                  <BusinessesPage />
-                </RoleGuard>
-              }
-            />
-            <Route path="employee" element={<Navigate to="/employee/recruitment" replace />} />
-            <Route path="business-admin" element={<Navigate to="/business-admin/recruitment" replace />} />
-            <Route path="super-admin" element={<Navigate to="/super-admin/businesses" replace />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </BrowserRouter>
-    </AuthGuard>
+    <BrowserRouter>
+      <Routes>
+        {/* Public Routes - No Auth Required */}
+        <Route path="/careers" element={<PublicCareersPage />} />
+        <Route path="/careers/:jobId" element={<PublicJobApplicationPage />} />
+        
+        {/* Auth Required Routes */}
+        <Route
+          path="/*"
+          element={
+            !token ? (
+              <LoginPage />
+            ) : (
+              <AuthGuard>
+                <SyncLegacyUser />
+                <Routes>
+                  <Route path="/unauthorized" element={<UnauthorizedPage />} />
+                  <Route path="/" element={<AppShell />}>
+                    <Route index element={<HomeRedirect />} />
+                    <Route path="employee/recruitment" element={<RecruitmentPage />} />
+                    <Route path="employee/recruitment/:tab" element={<RecruitmentPage />} />
+                    <Route path="employee/:module" element={<ModulePage />} />
+                    <Route path="employee/:module/:tab" element={<ModulePage />} />
+                    <Route
+                      path="hr-manager/recruitment"
+                      element={
+                        <RoleGuard allow="hr_manager">
+                          <RecruitmentPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="hr-manager/recruitment/:tab"
+                      element={
+                        <RoleGuard allow="hr_manager">
+                          <RecruitmentPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="hr-manager/:module"
+                      element={
+                        <RoleGuard allow="hr_manager">
+                          <ModulePage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="hr-manager/:module/:tab"
+                      element={
+                        <RoleGuard allow="hr_manager">
+                          <ModulePage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="business-admin/recruitment"
+                      element={
+                        <RoleGuard allow="business_admin">
+                          <RecruitmentPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="business-admin/recruitment/:tab"
+                      element={
+                        <RoleGuard allow="business_admin">
+                          <RecruitmentPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="business-admin/:module"
+                      element={
+                        <RoleGuard allow="business_admin">
+                          <ModulePage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="business-admin/:module/:tab"
+                      element={
+                        <RoleGuard allow="business_admin">
+                          <ModulePage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="business-admin/permissions"
+                      element={
+                        <RoleGuard allow="business_admin">
+                          <PermissionManagement />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="super-admin/businesses"
+                      element={
+                        <RoleGuard allow="platform_super_admin">
+                          <BusinessesPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="super-admin/businesses/:tab"
+                      element={
+                        <RoleGuard allow="platform_super_admin">
+                          <BusinessesPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="super-admin/permissions"
+                      element={
+                        <RoleGuard allow="platform_super_admin">
+                          <PermissionManagement />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route path="employee" element={<Navigate to="/employee/recruitment" replace />} />
+                    <Route path="hr-manager" element={<Navigate to="/hr-manager/recruitment" replace />} />
+                    <Route path="business-admin" element={<Navigate to="/business-admin/recruitment" replace />} />
+                    <Route path="super-admin" element={<Navigate to="/super-admin/businesses" replace />} />
+                    <Route path="*" element={<HomeRedirect />} />
+                  </Route>
+                </Routes>
+              </AuthGuard>
+            )
+          }
+        />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
@@ -94,11 +161,12 @@ function SyncLegacyUser() {
 
   React.useEffect(() => {
     if (!u) return;
+    const isHrManager = roles.includes("HR_MANAGER");
     const isBusinessAdmin = roles.includes("BUSINESS_ADMIN");
     const legacy = {
       name: u.fullName,
       email: u.email,
-      role: u.isPlatformSuperAdmin ? "Super Admin" : isBusinessAdmin ? "Business Admin" : "Employee",
+      role: u.isPlatformSuperAdmin ? "Super Admin" : isHrManager ? "HR Manager" : isBusinessAdmin ? "Business Admin" : "Employee",
     };
     setLegacyUser(legacy);
   }, [u?.id, roles.join(",")]);
@@ -111,5 +179,6 @@ function HomeRedirect() {
   const isSuper = Boolean(me.data?.data?.user?.isPlatformSuperAdmin);
   const roles: string[] = (me.data as any)?.data?.roles || [];
   const isBusinessAdmin = roles.includes("BUSINESS_ADMIN");
-  return <Navigate to={isSuper ? "/super-admin/businesses" : isBusinessAdmin ? "/business-admin/recruitment" : "/employee/recruitment"} replace />;
+  const isHrManager = roles.includes("HR_MANAGER");
+  return <Navigate to={isSuper ? "/super-admin/businesses" : isBusinessAdmin ? "/business-admin/recruitment" : isHrManager ? "/hr-manager/recruitment" : "/employee/recruitment"} replace />;
 }

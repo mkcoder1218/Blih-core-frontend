@@ -16,7 +16,8 @@ import {
   CircleDollarSign,
   ChevronRight,
   Sparkles,
-  Building2
+  Building2,
+  Shield
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BusinessesTab, MainModule, RecruitmentTab } from '../../types';
@@ -75,7 +76,14 @@ export default function Sidebar({
   onLogout,
 }: SidebarProps) {
   const navigate = useNavigate();
-  const roleSegment = user?.role === 'Super Admin' ? 'super-admin' : user?.role === 'Business Admin' ? 'business-admin' : 'employee';
+  const roleSegment =
+    user?.role === 'Super Admin'
+      ? 'super-admin'
+      : user?.role === 'Business Admin'
+        ? 'business-admin'
+        : user?.role === 'HR Manager'
+          ? 'hr-manager'
+          : 'employee';
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
     if (parts.length >= 2) {
@@ -85,7 +93,10 @@ export default function Sidebar({
   };
   const mainModules = [
     ...(user?.role === 'Super Admin'
-      ? [{ id: 'businesses', label: 'Businesses', icon: Building2, badge: 0 }]
+      ? [
+          { id: 'businesses', label: 'Businesses', icon: Building2, badge: 0 },
+          { id: 'permissions', label: 'Roles & Permissions', icon: Shield, badge: 0 }
+        ]
       : [
           { id: 'recruitment', label: 'Recruitment & Hiring', icon: UserPlus, badge: 4 },
           { id: 'onboarding', label: 'Onboarding & Probation', icon: UserCheck, badge: 3 },
@@ -182,7 +193,7 @@ export default function Sidebar({
   const handleModuleClick = (moduleId: MainModule) => {
     setCurrentModule(moduleId);
     // Auto-enable detailed dual sidebar when clicking 'recruitment', 'onboarding', 'profiles', 'attendance', 'talent', 'exit' or 'finance' or 'performance' or 'businesses'
-    if (moduleId === 'recruitment' || moduleId === 'onboarding' || moduleId === 'profiles' || moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' || moduleId === 'finance' || moduleId === 'performance' || moduleId === 'businesses') {
+    if (moduleId === 'recruitment' || moduleId === 'onboarding' || moduleId === 'profiles' || moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' || moduleId === 'finance' || moduleId === 'performance' || moduleId === 'businesses' || moduleId === 'permissions') {
       setIsDetailedView(true);
       if (moduleId === 'businesses') setCurrentBusinessesTab('overview');
     } else {
@@ -459,6 +470,13 @@ export default function Sidebar({
                     </button>
                   );
                 })
+              ) : currentModule === 'permissions' ? (
+                <button
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold bg-slate-50 text-slate-900 border-l-2 border-blue-600 pl-2.5 cursor-pointer"
+                >
+                  <span>Manage Permissions</span>
+                  <Shield className="w-3.5 h-3.5 text-blue-600" />
+                </button>
               ) : currentModule === 'businesses' ? (
                 businessesTabs.map((tab) => {
                   const isActive = currentBusinessesTab === tab.id;

@@ -12,7 +12,8 @@ export type MainModule =
   | 'talent'
   | 'exit'
   | 'finance'
-  | 'businesses';
+  | 'businesses'
+  | 'permissions';
 
 export type RecruitmentTab =
   | 'overview'
@@ -47,6 +48,13 @@ export interface JobRequest {
   requirements?: string[];
   qualifications?: string[];
   importance?: string;
+  isPosted?: boolean;
+  applicationFields?: any;
+  approvals?: {
+    role: string;
+    userId: string;
+    approvedAt: string;
+  }[];
 }
 
 export interface RecentActivity {

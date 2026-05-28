@@ -3,7 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { api } from '../../api/client';
 import {
   Users,
   CheckSquare,
@@ -25,9 +26,83 @@ import {
   Check,
   Eye,
   Briefcase,
-  ExternalLink
+  ExternalLink,
+  MoreVertical,
+  Pencil,
+  Trash
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
+import CreateEmployeeModal from './CreateEmployeeModal';
+
+interface OrgNode {
+  id: string;
+  name: string;
+  title: string;
+  department: string;
+  avatar?: string;
+  children: OrgNode[];
+}
+
+interface OrganogramNodeProps {
+  node: OrgNode;
+  onSelect: (node: OrgNode) => void;
+  zoom: number;
+  key?: React.Key;
+}
+
+function OrganogramNode({ node, onSelect, zoom }: OrganogramNodeProps) {
+  const initials = node.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+
+  return (
+    <div className="flex flex-col items-center">
+      <div
+        onClick={() => onSelect(node)}
+        className={`relative flex flex-col items-center group cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95`}
+      >
+        <div className={`bg-white border-2 ${node.children.length > 0 ? 'border-blue-600' : 'border-slate-200'} rounded-2xl p-4 shadow-sm min-w-[180px] text-center relative z-10 hover:shadow-md`}>
+          {node.department && (
+            <span className="text-[8px] bg-blue-50 text-blue-600 font-black px-2 py-0.5 rounded-full absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap border border-blue-100 uppercase tracking-widest">{node.department}</span>
+          )}
+          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black mx-auto mb-2 text-xs shadow-sm border-2 border-white">
+            {node.avatar ? <img src={node.avatar} className="w-full h-full rounded-full object-cover" /> : initials}
+          </div>
+          <h5 className="text-[11px] font-black text-slate-900 tracking-tight truncate w-full px-2">{node.name}</h5>
+          <p className="text-[9px] text-slate-500 font-bold mt-0.5 truncate w-full px-2">{node.title}</p>
+        </div>
+
+        {node.children.length > 0 && (
+          <div className="w-0.5 h-10 bg-blue-200" />
+        )}
+      </div>
+
+      {node.children.length > 0 && (
+        <div className="relative flex flex-col items-center w-full">
+          {/* Horizontal crossbar */}
+          <div className="absolute top-0 left-0 right-0 flex justify-center">
+            <div
+              className="h-0.5 bg-blue-200"
+              style={{
+                width: `calc(100% - ${100 / node.children.length}%)`,
+                visibility: node.children.length > 1 ? 'visible' : 'hidden'
+              }}
+            />
+          </div>
+
+          <div className="flex justify-center gap-8 pt-0">
+            {node.children.map((child, idx) => (
+              <div key={child.id} className="relative flex flex-col items-center">
+                {/* Vertical line from crossbar to child */}
+                <div className="w-0.5 h-4 bg-blue-200" />
+                <OrganogramNode node={child} onSelect={onSelect} zoom={zoom} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface PeopleProfilesViewProps {
   currentProfilesTab: 'overview' | 'create' | 'organogram' | 'directory' | 'events' | 'archive';
@@ -51,72 +126,76 @@ export default function PeopleProfilesView({
   const [archiveDeptFilter, setArchiveDeptFilter] = useState<string>('Marketing');
 
   // Interactive Form Creation States (Create Tab)
-  const [empDraft, setEmpDraft] = useState({
-    firstName: 'Jessica',
-    lastName: 'Parker',
-    dob: '1995-12-15',
-    email: 'alexg@gmail.com',
-    phone: '+251 922 76 6767',
-    city: 'Addis Ababa',
-    additionalPhone: '+251 911 32 4344',
-    country: 'Ethiopia',
-  });
+  // Draft creation UI is handled in PeopleProfileDraftsPanel
 
   const [activeEventCategory, setActiveEventCategory] = useState<'birthdays' | 'anniversaries' | 'promotions' | 'holidays'>('birthdays');
 
   // Zoom control state (Organogram Tab)
-  const [organogramZoom, setOrganogramZoom] = useState<number>(41);
+  const [organogramZoom, setOrganogramZoom] = useState<number>(100);
   const [isOrganogramFullScreen, setIsOrganogramFullScreen] = useState<boolean>(false);
+  const [orgData, setOrgData] = useState<OrgNode[]>([]);
+  const [loadingOrg, setLoadingOrg] = useState(false);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [loadingEmployees, setLoadingEmployees] = useState(false);
+  const [totalEmployees, setTotalEmployees] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [employeesPerPage] = useState(10);
+  const [activeActionsMenu, setActiveActionsMenu] = useState<string | null>(null);
+  const [updateEmployeeModalOpen, setUpdateEmployeeModalOpen] = useState(false);
+  const [updateEmployeeUserId, setUpdateEmployeeUserId] = useState<string | null>(null);
 
-  // Dummy directory rows (Image 4 & 6)
-  const directoryEmployees = [
-    { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767', rank: '90%' },
-    { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767', rank: '90%' },
-    { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767', rank: '90%' },
-    { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767', rank: '90%' },
-    { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767', rank: '90%' },
-    { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767', rank: '90%' },
-    { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767', rank: '90%' },
-    { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767', rank: '90%' },
-  ];
+  useEffect(() => {
+    if (currentProfilesTab === 'organogram') {
+      fetchOrganogram();
+    }
+  }, [currentProfilesTab]);
 
-  // Organogram Structure Data (Image 3)
-  const orgTree = {
-    ceo: { name: 'Robert Chen', role: 'Chief Executive Officer', dept: 'Executive' },
-    cto: { name: 'Sarah Johnson', role: 'Chief Technology Officer', dept: 'Engineering' },
-    cmo: { name: 'Michael Rodriguez', role: 'Chief Marketing Officer', dept: 'Marketing' },
-    cfo: { name: 'Emily Martinez', role: 'Chief Financial Officer', dept: 'Business' },
-    hrd: { name: 'Patricia Williams', role: 'HR Director', dept: 'Human Resources' },
-    subEngineering: [
-      { name: 'John Smith', role: 'Engineering Manager', dept: 'Engineering' },
-      { name: 'Dr. Samantha Lee', role: 'Data Science Lead', dept: 'Analytics' }
-    ],
-    subMarketing: [
-      { name: 'Mark Thompson', role: 'Marketing Manager', dept: 'Marketing' },
-      { name: 'Alex Turner', role: 'Design Lead', dept: 'Design' }
-    ],
-    subHr: [
-      { name: 'Karen Jones', role: 'HR Associate', dept: 'Human Resources' },
-      { name: 'Devon Taylor', role: 'HR Associate', dept: 'Human Resources' }
-    ],
-    engineers: [
-      { name: 'Jessica Parker', role: 'Senior Engineer', dept: 'Engineering' },
-      { name: 'Mike Chan', role: 'Software Engineer', dept: 'Engineering' },
-      { name: 'Emma Davis', role: 'Software Engineer', dept: 'Engineering' }
-    ],
-    analysts: [
-      { name: 'Tom Wilkes', role: 'Data Analyst', dept: 'Analytics' },
-      { name: 'Lisa Brown', role: 'ML Engineer', dept: 'Analytics' }
-    ],
-    marketers: [
-      { name: 'Rachel Green', role: 'Content Strategist', dept: 'Marketing' },
-      { name: 'David Kim', role: 'Social Media Manager', dept: 'Marketing' }
-    ],
-    designers: [
-      { name: 'Sophia Anderson', role: 'UI UX Designer', dept: 'Design' },
-      { name: 'James White', role: 'Graphic Designer', dept: 'Design' }
-    ]
+  const fetchOrganogram = async () => {
+    try {
+      setLoadingOrg(true);
+      const res = await api.get('/api/v1/hr/organogram');
+      setOrgData(res.data?.data?.tree || res.data?.tree || []);
+    } catch (e: any) {
+      showAlert(e.message || "Failed to load organogram", "error");
+    } finally {
+      setLoadingOrg(false);
+    }
   };
+
+  const fetchEmployees = async (page: number = 1) => {
+    try {
+      setLoadingEmployees(true);
+      const offset = (page - 1) * employeesPerPage;
+      const res = await api.get(`/api/v1/hr/records?limit=${employeesPerPage}&offset=${offset}`);
+      setEmployees(res.data?.data || []);
+      setTotalEmployees(res.data?.meta?.total || 0);
+      setCurrentPage(page);
+    } catch (e: any) {
+      showAlert(e.message || "Failed to load employees", "error");
+    } finally {
+      setLoadingEmployees(false);
+    }
+  };
+
+  useEffect(() => {
+    if (currentProfilesTab === 'directory') {
+       fetchEmployees(1);
+    }
+  }, [currentProfilesTab]);
+
+  const handleDeleteEmployee = async (userId: string) => {
+    if (!window.confirm("Are you sure you want to delete this employee record?")) return;
+    try {
+       await api.delete(`/api/v1/hr/records/${userId}`);
+       showAlert("Employee record deleted successfully", "success");
+       fetchEmployees();
+    } catch (e: any) {
+       showAlert(e.message || "Failed to delete record", "error");
+    }
+  };
+
+
+
 
   // Job Application Frequency Data points for matching graph curves
   const monthlyChartData = [
@@ -137,7 +216,7 @@ export default function PeopleProfilesView({
   return (
     <div className="h-full flex flex-col space-y-6">
       <AnimatePresence mode="wait">
-        
+
         {/* --- 1. OVERVIEW SCREEN (IMAGE 1) --- */}
         {currentProfilesTab === 'overview' && (
           <motion.div
@@ -184,7 +263,7 @@ export default function PeopleProfilesView({
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Work Hours Performance</h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                
+
                 {/* 1. Daily Card */}
                 <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between h-[150px]">
                   <div className="flex justify-between items-center">
@@ -254,7 +333,7 @@ export default function PeopleProfilesView({
             {/* Job Application Frequency Graph Block */}
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
               <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Job Application Frequency</h3>
-              
+
               <div className="relative pt-2 h-[260px] w-full">
                 {/* Visual SVG Line Graph mimicking perfect bezier dots connectors */}
                 <svg className="w-full h-full" viewBox="0 0 1000 240" preserveAspectRatio="none">
@@ -350,153 +429,7 @@ export default function PeopleProfilesView({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            {/* Top Large Blue Dashed Box Trigger */}
-            <button
-              onClick={() => {
-                onDraftAiSuggestion('create a standard comprehensive employee profile for our organization.');
-              }}
-              className="w-full border-2 border-dashed border-blue-400 hover:border-blue-600 rounded-3xl p-8 bg-blue-50/15 flex flex-col items-center justify-center gap-3 transition-all cursor-pointer group"
-            >
-              <div className="w-12 h-12 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md shadow-blue-50 group-hover:scale-105 transition-transform">
-                <Plus className="w-6 h-6 stroke-[3]" />
-              </div>
-              <div className="text-center">
-                <span className="text-sm font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">Create New Employee Profile</span>
-                <span className="text-[11px] text-slate-400 mt-1 block">Add a new employee profile to your organization.</span>
-              </div>
-            </button>
-
-            {/* Split Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
-              {/* Left Column: Draft Card */}
-              <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-                <h4 className="text-xs font-bold text-slate-900 tracking-tight uppercase">Draft Employee Profile 1</h4>
-                
-                {/* Micro Dates Grid */}
-                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-2.5 rounded-xl text-[10.5px]">
-                  <div>
-                    <span className="text-slate-400 block font-medium">Created</span>
-                    <strong className="text-slate-700 block mt-0.5">Dec 15, 2024</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-400 block font-medium">Last Updated</span>
-                    <strong className="text-slate-700 block mt-0.5">Dec 15, 2024</strong>
-                  </div>
-                </div>
-
-                {/* Simulated Form Details */}
-                <div className="border border-slate-100 rounded-xl p-4 bg-white space-y-3">
-                  <span className="text-[10px] font-black tracking-wider text-slate-400 uppercase block">Basic Information</span>
-                  
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-slate-400 font-bold block">First Name *</span>
-                      <input
-                        type="text"
-                        value={empDraft.firstName}
-                        onChange={(e) => setEmpDraft({ ...empDraft, firstName: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-700 focus:outline-none focus:bg-white"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-slate-400 font-bold block">Date of Birth *</span>
-                      <input
-                        type="text"
-                        value={empDraft.dob}
-                        onChange={(e) => setEmpDraft({ ...empDraft, dob: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-700 focus:outline-none focus:bg-white"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-slate-400 font-bold block">Last Name *</span>
-                      <input
-                        type="text"
-                        value={empDraft.lastName}
-                        onChange={(e) => setEmpDraft({ ...empDraft, lastName: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-700 focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-slate-400 font-bold block">Email Address *</span>
-                      <input
-                        type="text"
-                        value={empDraft.email}
-                        onChange={(e) => setEmpDraft({ ...empDraft, email: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-700 focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-slate-400 font-bold block">Phone Number *</span>
-                      <input
-                        type="text"
-                        value={empDraft.phone}
-                        onChange={(e) => setEmpDraft({ ...empDraft, phone: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-700 focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-slate-400 font-bold block">City</span>
-                      <input
-                        type="text"
-                        value={empDraft.city}
-                        onChange={(e) => setEmpDraft({ ...empDraft, city: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-700/80 focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-slate-400 font-bold block">Additional Phone number</span>
-                      <input
-                        type="text"
-                        value={empDraft.additionalPhone}
-                        onChange={(e) => setEmpDraft({ ...empDraft, additionalPhone: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-slate-500/85 focus:outline-none"
-                      />
-                    </div>
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] text-slate-400 font-bold block">Country of Birth</span>
-                      <input
-                        type="text"
-                        value={empDraft.country}
-                        onChange={(e) => setEmpDraft({ ...empDraft, country: e.target.value })}
-                        className="w-full bg-slate-50 border border-slate-150 rounded-lg px-2.5 py-1 text-[11px] font-semibold text-[#64748b] focus:outline-none"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Operational Buttons */}
-                  <div className="flex gap-2 pt-3 border-t border-slate-100">
-                    <button
-                      onClick={() => showAlert(`Employee Profile created successfully for ${empDraft.firstName}!`, 'success')}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all select-none flex-1 text-center cursor-pointer"
-                    >
-                      Complete
-                    </button>
-                    <button
-                      onClick={() => showAlert('Copied profile data draft details!', 'success')}
-                      className="p-2 border border-slate-200 hover:bg-slate-50 text-slate-500 hover:text-slate-800 rounded-xl cursor-pointer"
-                      title="Copy Draft Specifications"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </button>
-                    <button
-                      onClick={() => showAlert('Cleared document draft!', 'success')}
-                      className="p-2 border border-slate-200 hover:bg-rose-50 text-slate-400 hover:text-rose-600 rounded-xl cursor-pointer"
-                      title="Delete Draft"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column: Placeholders list */}
-              <div className="lg:col-span-7 flex flex-col justify-center items-center border border-dashed border-slate-200 rounded-2xl bg-slate-50/25 p-12 min-h-[300px]">
-                <FileText className="w-10 h-10 text-slate-300 mb-2.5" />
-                <span className="text-slate-400 text-xs font-semibold">No employee profile drafts.</span>
-              </div>
-
-            </div>
+            <PeopleProfileDraftsPanel showAlert={showAlert} />
           </motion.div>
         )}
 
@@ -515,9 +448,8 @@ export default function PeopleProfilesView({
             </div>
 
             {/* Main Interactive organogram tree card */}
-            <div className={`bg-white rounded-3xl border border-slate-100 p-6 flex flex-col justify-between relative shadow-xs overflow-hidden ${
-              isOrganogramFullScreen ? 'fixed inset-6 z-50 bg-white/95 backdrop-blur-md' : 'h-[620px]'
-            }`}>
+            <div className={`bg-white rounded-3xl border border-slate-100 p-6 flex flex-col justify-between relative shadow-xs overflow-hidden ${isOrganogramFullScreen ? 'fixed inset-6 z-50 bg-white/95 backdrop-blur-md' : 'h-[620px]'
+              }`}>
               {/* Zoom and fullscreen floating controls (Top Left of Card) */}
               <div className="absolute top-6 left-6 flex items-center gap-1.5 bg-slate-50 border border-slate-150 p-1.5 rounded-xl z-20 shadow-xs">
                 <button
@@ -546,264 +478,33 @@ export default function PeopleProfilesView({
               </div>
 
               {/* Connected Grid Canvas with full hierarchy */}
-              <div className="flex-1 overflow-auto flex items-center justify-center p-4 relative bg-slate-50/10 min-h-[500px]">
-                <div
-                  className="transition-transform duration-200 origin-center flex flex-col items-center gap-12 w-full py-8 text-center select-none"
-                  style={{ transform: `scale(${organogramZoom / 100})` }}
-                >
-                  
-                  {/* --- LEVEL 1: Robert Chen (CEO) --- */}
-                  <div className="relative flex flex-col items-center">
-                    <div
-                      onClick={() => showAlert('Selected Robert Chen - Chief Executive Officer profile', 'info')}
-                      className="bg-blue-600 text-white border-2 border-blue-700/50 rounded-xl p-3 shadow-md w-52 flex flex-col items-center gap-1 cursor-pointer hover:scale-103 transition-transform relative z-10"
-                    >
-                      <h5 className="text-[12px] font-black tracking-tight leading-none">{orgTree.ceo.name}</h5>
-                      <span className="text-[10px] text-blue-100 font-semibold">{orgTree.ceo.role}</span>
-                      <span className="text-[9px] bg-white/20 text-white font-bold py-0.5 px-2 rounded-md mt-0.5 uppercase tracking-wider">{orgTree.ceo.dept}</span>
-                    </div>
-
-                    {/* Vertical connecting line below CEO */}
-                    <div className="w-0.5 h-12 bg-blue-300 absolute top-full left-1/2 -translate-x-1/2" />
+              <div className="flex-1 overflow-auto flex items-center justify-center p-12 relative bg-slate-50/10 min-h-[500px]">
+                {loadingOrg ? (
+                   <div className="flex flex-col items-center gap-4">
+                      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Loading Organization Chart...</span>
+                   </div>
+                ) : orgData.length === 0 ? (
+                   <div className="text-center space-y-3">
+                      <Users className="w-12 h-12 text-slate-200 mx-auto" />
+                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No active employee hierarchy found.</p>
+                      <button onClick={fetchOrganogram} className="text-[10px] font-black text-blue-600 hover:underline">Retry Fetch</button>
+                   </div>
+                ) : (
+                  <div
+                    className="transition-transform duration-300 origin-center flex flex-col items-center gap-0 w-full py-20 text-center select-none"
+                    style={{ transform: `scale(${organogramZoom / 100})` }}
+                  >
+                    {orgData.map((rootNode) => (
+                      <OrganogramNode 
+                        key={rootNode.id} 
+                        node={rootNode} 
+                        zoom={organogramZoom}
+                        onSelect={(n) => showAlert(`Viewing ${n.name}'s profile and team.`, 'info')} 
+                      />
+                    ))}
                   </div>
-
-                  {/* Horizontal Bar for level 2 */}
-                  <div className="relative w-[840px] flex justify-between h-0">
-                    <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-300 pointer-events-none" />
-                  </div>
-
-                  {/* --- LEVEL 2: Sarah, Michael, Emily, Patricia --- */}
-                  <div className="flex justify-between w-[920px] relative">
-                    
-                    {/* Level 2 Branch 1: Sarah Johnson (CTO) */}
-                    <div className="flex flex-col items-center gap-12 relative flex-1">
-                      <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                      
-                      <div
-                        onClick={() => showAlert('Selected Sarah Johnson - CTO profile', 'info')}
-                        className="bg-white border-2 border-blue-600 rounded-xl p-3 shadow-sm w-[170px] flex flex-col items-center gap-1 cursor-pointer hover:border-blue-700 hover:scale-102 transition-transform"
-                      >
-                        <span className="text-[9px] bg-sky-100 text-sky-700 font-black px-1.5 py-0.5 rounded uppercase font-mono tracking-wider absolute -top-2.5 left-4">Engineering</span>
-                        <h5 className="text-[11.5px] font-extrabold text-slate-900 leading-none">{orgTree.cto.name}</h5>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{orgTree.cto.role}</p>
-                      </div>
-
-                      {/* Line below CTO */}
-                      <div className="w-0.5 h-12 bg-blue-300 absolute top-[44px] left-1/2 -translate-x-1/2" />
-                      
-                      {/* Horizontal Connect Line for CTO Subs */}
-                      <div className="absolute top-[92px] left-[65px] right-[65px] h-0.5 bg-blue-300" />
-
-                      {/* --- LEVEL 3: John Smith & Samantha Lee --- */}
-                      <div className="flex justify-between w-[370px] mt-6 gap-4">
-                        
-                        {/* Manager 1 */}
-                        <div className="flex flex-col items-center gap-10 relative flex-1">
-                          <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                          <div
-                            onClick={() => showAlert('Selected John Smith - Engineering Manager profile', 'info')}
-                            className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs w-[150px] flex flex-col items-center gap-0.5 cursor-pointer hover:scale-102 transition-all"
-                          >
-                            <span className="text-[10px] text-blue-100 bg-[#2563eb] rounded-full w-4.5 h-4.5 flex items-center justify-center font-bold font-sans">JS</span>
-                            <h5 className="text-[10.5px] font-bold text-slate-800 leading-none mt-1">{orgTree.subEngineering[0].name}</h5>
-                            <p className="text-[9px] text-slate-400 mt-0.5">{orgTree.subEngineering[0].role}</p>
-                          </div>
-                          
-                          <div className="w-0.5 h-10 bg-blue-300 absolute top-[52px] left-1/2 -translate-x-1/2" />
-                          <div className="absolute top-[92px] left-[35px] right-[35px] h-0.5 bg-blue-300" />
-
-                          {/* Level 4: Jessica Parker, Mike Chan, Emma Davis */}
-                          <div className="flex gap-2 w-[220px] mt-6">
-                            {orgTree.engineers.map((eng, idx) => (
-                              <div key={idx} className="flex flex-col items-center relative flex-1">
-                                <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                                <div
-                                  onClick={() => showAlert(`Selected ${eng.name} (${eng.role})`, 'info')}
-                                  className="bg-white border border-[#2563eb]/20 hover:border-blue-600 rounded-lg p-1.5 w-[65px] text-center cursor-pointer shadow-2xs hover:scale-102 transition-all"
-                                >
-                                  <span className="text-[8px] text-[#3b82f6] bg-blue-50 w-3 h-3 rounded-full flex items-center justify-center mx-auto text-center font-bold">JP</span>
-                                  <h6 className="text-[8.5px] font-extrabold text-slate-800 tracking-tight leading-none mt-1 truncate">{eng.name.split(' ')[0]}</h6>
-                                  <span className="text-[7.5px] text-slate-400 mt-0.5 block truncate">{eng.role}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Manager 2 */}
-                        <div className="flex flex-col items-center gap-10 relative flex-1">
-                          <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                          <div
-                            onClick={() => showAlert('Selected Dr. Samantha Lee - Data Science Lead profile', 'info')}
-                            className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs w-[150px] flex flex-col items-center gap-1 cursor-pointer hover:scale-102 transition-all"
-                          >
-                            <span className="text-[10px] text-blue-100 bg-[#2563eb] rounded-full w-4.5 h-4.5 flex items-center justify-center font-bold font-sans">SL</span>
-                            <h5 className="text-[10.5px] font-bold text-slate-800 leading-none mt-1">{orgTree.subEngineering[1].name}</h5>
-                            <p className="text-[9px] text-slate-400 mt-0.5">{orgTree.subEngineering[1].role}</p>
-                          </div>
-                          
-                          <div className="w-0.5 h-10 bg-blue-300 absolute top-[52px] left-1/2 -translate-x-1/2" />
-                          <div className="absolute top-[92px] left-[35px] right-[35px] h-0.5 bg-blue-300" />
-
-                          {/* Level 4: Analysts */}
-                          <div className="flex gap-2 w-[160px] mt-6">
-                            {orgTree.analysts.map((any, idx) => (
-                              <div key={idx} className="flex flex-col items-center relative flex-1">
-                                <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                                <div
-                                  onClick={() => showAlert(`Selected ${any.name}`, 'info')}
-                                  className="bg-white border border-[#2563eb]/20 rounded-lg p-1.5 w-[65px] text-center cursor-pointer shadow-2xs hover:scale-102"
-                                >
-                                  <span className="text-[8px] text-[#3b82f6] bg-blue-50 w-3 h-3 rounded-full flex items-center justify-center mx-auto text-center font-bold">DA</span>
-                                  <h6 className="text-[8.5px] font-extrabold text-slate-800 tracking-tight leading-none mt-1 truncate">{any.name.split(' ')[0]}</h6>
-                                  <span className="text-[7.5px] text-slate-400 mt-0.5 block truncate">{any.role}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
-
-                    {/* Level 2 Branch 2: Michael Rodriguez (CMO) */}
-                    <div className="flex flex-col items-center gap-12 relative flex-1">
-                      <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                      
-                      <div
-                        onClick={() => showAlert('Selected Michael Rodriguez - CMO profile', 'info')}
-                        className="bg-white border-2 border-blue-600 rounded-xl p-3 shadow-sm w-[170px] flex flex-col items-center gap-1 cursor-pointer hover:border-blue-700 hover:scale-102 transition-transform"
-                      >
-                        <span className="text-[9px] bg-indigo-100 text-indigo-700 font-black px-1.5 py-0.5 rounded uppercase font-mono tracking-wider absolute -top-2.5 left-4">Marketing</span>
-                        <h5 className="text-[11.5px] font-extrabold text-slate-900 leading-none">{orgTree.cmo.name}</h5>
-                        <p className="text-[10px] text-slate-500 mt-0.5">{orgTree.cmo.role}</p>
-                      </div>
-
-                      {/* Connection below CMO */}
-                      <div className="w-0.5 h-12 bg-blue-300 absolute top-[44px] left-1/2 -translate-x-1/2" />
-                      <div className="absolute top-[92px] left-[65px] right-[65px] h-0.5 bg-blue-300" />
-
-                      {/* --- LEVEL 3: Mark Thompson & Alex Turner --- */}
-                      <div className="flex justify-between w-[370px] mt-6 gap-4">
-                        
-                        {/* Marketing Sub-M1 */}
-                        <div className="flex flex-col items-center gap-10 relative flex-1">
-                          <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                          <div
-                            onClick={() => showAlert('Selected Mark Thompson - Marketing Manager profile', 'info')}
-                            className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs w-[150px] flex flex-col items-center gap-1 cursor-pointer hover:scale-102 transition-all"
-                          >
-                            <span className="text-[10px] text-blue-100 bg-[#2563eb] rounded-full w-4.5 h-4.5 flex items-center justify-center font-bold">MT</span>
-                            <h5 className="text-[10.5px] font-bold text-slate-800 leading-none mt-1">{orgTree.subMarketing[0].name}</h5>
-                            <p className="text-[9px] text-slate-400 mt-0.5">{orgTree.subMarketing[0].role}</p>
-                          </div>
-
-                          <div className="w-0.5 h-10 bg-blue-300 absolute top-[52px] left-1/2 -translate-x-1/2" />
-                          <div className="absolute top-[92px] left-[35px] right-[35px] h-0.5 bg-blue-300" />
-
-                          {/* Level 4: content, social */}
-                          <div className="flex gap-2 w-[160px] mt-6">
-                            {orgTree.marketers.map((mkt, idx) => (
-                              <div key={idx} className="flex flex-col items-center relative flex-1">
-                                <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                                <div
-                                  onClick={() => showAlert(`Selected ${mkt.name}`, 'info')}
-                                  className="bg-white border border-[#2563eb]/20 rounded-lg p-1.5 w-[65px] text-center cursor-pointer shadow-2xs hover:scale-102"
-                                >
-                                  <span className="text-[8px] text-[#3b82f6] bg-blue-50 w-3 h-3 rounded-full flex items-center justify-center mx-auto text-center font-bold">MM</span>
-                                  <h6 className="text-[8.5px] font-extrabold text-slate-800 tracking-tight leading-none mt-1 truncate">{mkt.name.split(' ')[0]}</h6>
-                                  <span className="text-[7.5px] text-slate-400 mt-0.5 block truncate">{mkt.role}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        {/* Design Sub-M2 */}
-                        <div className="flex flex-col items-center gap-10 relative flex-1">
-                          <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                          <div
-                            onClick={() => showAlert('Selected Alex Turner - Design Lead profile', 'info')}
-                            className="bg-white border border-slate-200 rounded-xl p-2.5 shadow-xs w-[150px] flex flex-col items-center gap-1 cursor-pointer hover:scale-102 transition-all"
-                          >
-                            <span className="text-[10px] text-blue-100 bg-[#2563eb] rounded-full w-4.5 h-4.5 flex items-center justify-center font-bold">AT</span>
-                            <h5 className="text-[10.5px] font-bold text-slate-800 leading-none mt-1">{orgTree.subMarketing[1].name}</h5>
-                            <p className="text-[9px] text-slate-400 mt-0.5">{orgTree.subMarketing[1].role}</p>
-                          </div>
-
-                          <div className="w-0.5 h-10 bg-blue-300 absolute top-[52px] left-1/2 -translate-x-1/2" />
-                          <div className="absolute top-[92px] left-[35px] right-[35px] h-0.5 bg-blue-300" />
-
-                          {/* Level 4: designers */}
-                          <div className="flex gap-2 w-[160px] mt-6">
-                            {orgTree.designers.map((ds, idx) => (
-                              <div key={idx} className="flex flex-col items-center relative flex-1">
-                                <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                                <div
-                                  onClick={() => showAlert(`Selected ${ds.name}`, 'info')}
-                                  className="bg-white border border-[#2563eb]/20 rounded-lg p-1.5 w-[65px] text-center cursor-pointer shadow-2xs hover:scale-102"
-                                >
-                                  <span className="text-[8px] text-[#3b82f6] bg-blue-50 w-3 h-3 rounded-full flex items-center justify-center mx-auto text-center font-bold">DS</span>
-                                  <h6 className="text-[8.5px] font-extrabold text-slate-800 tracking-tight leading-none mt-1 truncate">{ds.name.split(' ')[0]}</h6>
-                                  <span className="text-[7.5px] text-slate-400 mt-0.5 block truncate">{ds.role}</span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                      </div>
-                    </div>
-
-                    {/* Level 2 Branch 3: Emily Martinez (CFO) */}
-                    <div className="flex flex-col items-center gap-12 relative flex-0.5">
-                      <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                      <div
-                        onClick={() => showAlert('Selected Emily Martinez - CFO profile', 'info')}
-                        className="bg-white border-2 border-blue-600 rounded-xl p-3 shadow-sm w-[130px] flex flex-col items-center gap-1 cursor-pointer hover:scale-102 transition-transform"
-                      >
-                        <span className="text-[8px] bg-emerald-100 text-emerald-700 font-extrabold px-1.2 py-0.5 rounded uppercase font-mono tracking-wider absolute -top-2.5">Finance</span>
-                        <h5 className="text-[10.5px] font-extrabold text-slate-900 leading-none">{orgTree.cfo.name}</h5>
-                        <p className="text-[8.5px] text-slate-400 mt-0.5">{orgTree.cfo.role}</p>
-                      </div>
-                    </div>
-
-                    {/* Level 2 Branch 4: Patricia Williams (HRD) */}
-                    <div className="flex flex-col items-center gap-12 relative flex-1">
-                      <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                      <div
-                        onClick={() => showAlert('Selected Patricia Williams - HR Director profile', 'info')}
-                        className="bg-white border-2 border-blue-600 rounded-xl p-3 shadow-sm w-[150px] flex flex-col items-center gap-1 cursor-pointer hover:scale-102 transition-transform"
-                      >
-                        <span className="text-[8px] bg-emerald-100 text-emerald-700 font-black px-1.5 py-0.5 rounded uppercase font-mono tracking-wider absolute -top-2.5">HR</span>
-                        <h5 className="text-[10.5px] font-extrabold text-slate-900 leading-none">{orgTree.hrd.name}</h5>
-                        <p className="text-[8.5px] text-slate-400 mt-0.5">{orgTree.hrd.role}</p>
-                      </div>
-
-                      <div className="w-0.5 h-12 bg-blue-300 absolute top-[44px] left-1/2 -translate-x-1/2" />
-                      <div className="absolute top-[92px] left-[52px] right-[52px] h-0.5 bg-blue-300" />
-
-                      {/* --- LEVEL 3: HR Associates (Karen Jones, Devon Taylor) --- */}
-                      <div className="flex justify-between w-[220px] mt-6 gap-2">
-                        {orgTree.subHr.map((as, idx) => (
-                          <div key={idx} className="flex flex-col items-center relative flex-1">
-                            <div className="w-0.5 h-6 bg-blue-300 absolute bottom-full left-1/2 -translate-x-1/2" />
-                            <div
-                              onClick={() => showAlert(`Selected ${as.name} (${as.role})`, 'info')}
-                              className="bg-white border border-slate-200 rounded-lg p-2 shadow-xs w-[100px] text-center cursor-pointer hover:scale-102 transition-all"
-                            >
-                              <span className="text-[8px] text-[#2563eb] bg-blue-50 w-3.5 h-3.5 rounded-full flex items-center justify-center mx-auto font-bold">HR</span>
-                              <h6 className="text-[9.5px] font-bold text-slate-700 leading-tight mt-1 truncate">{as.name}</h6>
-                              <span className="text-[8px] text-slate-400 truncate mt-0.5 block">{as.role}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                  </div>
-
-                </div>
+                )}
               </div>
 
               {/* Bottom Instructions Info Pill banner */}
@@ -829,13 +530,22 @@ export default function PeopleProfilesView({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            <div>
-              <h4 className="text-sm font-bold text-slate-950 tracking-tight">All Employees & Profiles</h4>
-              <p className="text-[11px] text-slate-500 font-medium">Directory of employees and profiles</p>
+            <div className="flex justify-between items-end">
+              <div>
+                <h4 className="text-sm font-bold text-slate-950 tracking-tight">All Employees & Profiles</h4>
+                <p className="text-[11px] text-slate-500 font-medium">Directory of employees and profiles</p>
+              </div>
+              <button 
+                onClick={() => fetchEmployees(currentPage)}
+                disabled={loadingEmployees}
+                className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:underline disabled:opacity-50"
+              >
+                {loadingEmployees ? 'Reloading...' : 'Reload Roster'}
+              </button>
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
-              
+
               {/* Dynamic Search / Custom Filters Row */}
               <div className="flex flex-wrap items-center gap-3">
                 <div className="relative flex-1 min-w-[200px]">
@@ -899,11 +609,11 @@ export default function PeopleProfilesView({
 
               {/* Roster Size text header indicator */}
               <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pt-1">
-                8 employees found
+                {totalEmployees} employees found
               </div>
 
               {/* Table rendering panel */}
-              <div className="overflow-x-auto">
+              <div className="overflow-visible">
                 <table className="w-full text-left font-sans text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 tracking-wider uppercase">
@@ -911,55 +621,144 @@ export default function PeopleProfilesView({
                       <th className="py-3 px-4">Department</th>
                       <th className="py-3 px-4">Job Type</th>
                       <th className="py-3 px-4">Address</th>
-                      <th className="py-3 px-4 text-right">Rank</th>
+                      <th className="py-3 px-4 text-center">Rank</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
-                    {directoryEmployees.map((emp, idx) => {
-                      const isActive = selectedDirectoryRow === idx;
-                      return (
-                        <tr
-                          key={idx}
-                          onClick={() => setSelectedDirectoryRow(idx)}
-                          className={`cursor-pointer group transition-all ${
-                            isActive
-                              ? 'bg-slate-50/70 border-2 border-blue-600/30'
-                              : 'hover:bg-slate-50/30'
-                          }`}
-                        >
-                          {/* Name & Position Column */}
-                          <td className="py-3.5 px-4 flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-[#1e64f2] text-white flex items-center justify-center font-extrabold text-xs">
-                              JP
-                            </div>
-                            <div>
-                              <span className="font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">{emp.name}</span>
-                              <span className="text-[10.5px] text-slate-400 block mt-0.5">{emp.role}</span>
-                            </div>
-                          </td>
-
-                          {/* Department Column */}
-                          <td className="py-3 px-4 font-semibold text-slate-700">{emp.dept}</td>
-
-                          {/* Job Type Column */}
-                          <td className="py-3 px-4 font-semibold text-slate-700">{emp.type}</td>
-
-                          {/* Address / Contact Info Column */}
-                          <td className="py-3 px-4 text-[10.5px] leading-relaxed">
-                            <span className="font-semibold text-slate-700 block">{emp.email}</span>
-                            <span className="text-slate-400 block font-medium mt-0.5">{emp.phone}</span>
-                          </td>
-
-                          {/* Performance Rank Star rating Column */}
-                          <td className="py-3 px-4 text-right">
-                            <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-blue-600 bg-blue-50/70 py-1 px-2.5 rounded-full border border-blue-100">
-                              <span>✨</span>
-                              <span>{emp.rank}</span>
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
+                    {loadingEmployees ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                             <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fetching Roster...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : employees.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          No employees found.
+                        </td>
+                      </tr>
+                    ) : (
+                      employees.map((emp, idx) => {
+                        const isActive = selectedDirectoryRow === idx;
+                        const initials = emp.user?.fullName?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??';
+                        return (
+                          <tr
+                            key={emp.id}
+                            className={`group transition-all relative ${isActive
+                                ? 'bg-slate-50/70 z-10'
+                                : 'hover:bg-slate-50/30'
+                              } ${activeActionsMenu === emp.id ? 'z-50' : 'z-0'}`}
+                          >
+                            {/* Name & Position Column */}
+                            <td className="py-3.5 px-4 flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-white/20">
+                                {initials}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">{emp.user?.fullName}</span>
+                                <span className="text-[10.5px] text-slate-400 block mt-0.5">{emp.position?.title || 'Staff'}</span>
+                              </div>
+                            </td>
+  
+                            {/* Department Column */}
+                            <td className="py-3 px-4">
+                               <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200">
+                                 {emp.department?.name || 'General'}
+                               </span>
+                            </td>
+  
+                            {/* Job Type Column */}
+                            <td className="py-3 px-4 font-semibold text-slate-700 capitalize">
+                               {emp.employmentType?.replace('_', ' ') || 'full_time'}
+                            </td>
+  
+                            {/* Address / Contact Info Column */}
+                            <td className="py-3 px-4 text-[10.5px] leading-relaxed">
+                              <span className="font-semibold text-slate-700 block">{emp.user?.email}</span>
+                              <span className="text-slate-400 block font-medium mt-0.5">{emp.user?.phone || 'No Phone'}</span>
+                            </td>
+  
+                            {/* Performance Rank Column */}
+                            <td className="py-3 px-4 text-center">
+                              <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-blue-600 bg-blue-50/70 py-1 px-2.5 rounded-full border border-blue-100">
+                                <span>✨</span>
+                                <span>90%</span>
+                              </span>
+                            </td>
+  
+                            {/* Actions Column */}
+                            <td className={`py-3 px-4 text-right relative ${activeActionsMenu === emp.id ? 'z-50' : ''}`}>
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveActionsMenu(activeActionsMenu === emp.id ? null : emp.id);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition-all text-slate-400 hover:text-slate-600 cursor-pointer"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+  
+                              <AnimatePresence>
+                                {activeActionsMenu === emp.id && (
+                                  <>
+                                    <div 
+                                      className="fixed inset-0 z-10" 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setActiveActionsMenu(null);
+                                      }} 
+                                    />
+                                    <motion.div
+                                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                      className="absolute right-0 top-8 w-44 bg-white border border-slate-100 rounded-2xl shadow-2xl z-[100] overflow-hidden py-1.5"
+                                    >
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          showAlert(`Viewing ${emp.user?.fullName}'s profile`, 'info');
+                                          setActiveActionsMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" /> View Profile
+                                      </button>
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setUpdateEmployeeUserId(emp.userId);
+                                          setUpdateEmployeeModalOpen(true);
+                                          setActiveActionsMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" /> Update Record
+                                      </button>
+                                      <div className="h-[1px] bg-slate-50 my-1" />
+                                      <button 
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleDeleteEmployee(emp.userId);
+                                          setActiveActionsMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-rose-500 hover:bg-rose-50 transition-colors"
+                                      >
+                                        <Trash className="w-3.5 h-3.5" /> Delete Record
+                                      </button>
+                                    </motion.div>
+                                  </>
+                                )}
+                              </AnimatePresence>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -967,35 +766,37 @@ export default function PeopleProfilesView({
               {/* Navigation Pagination controls footer block */}
               <div className="flex justify-center items-center gap-1.5 pt-4 border-t border-slate-50">
                 <button
-                  onClick={() => showAlert('Previous Directory Page', 'info')}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  disabled={currentPage === 1}
+                  onClick={() => fetchEmployees(currentPage - 1)}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <button className="w-7 h-7 bg-blue-600 text-white font-black text-xs rounded-full flex items-center justify-center cursor-pointer">
-                  1
-                </button>
+                
+                {Array.from({ length: Math.ceil(totalEmployees / employeesPerPage) }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => fetchEmployees(i + 1)}
+                    className={`w-7 h-7 font-black text-xs rounded-full flex items-center justify-center cursor-pointer transition-all ${
+                      currentPage === i + 1 
+                        ? 'bg-blue-600 text-white shadow-md scale-110' 
+                        : 'text-slate-500 hover:bg-slate-50 font-bold'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+
+                {totalEmployees === 0 && (
+                  <button className="w-7 h-7 bg-blue-600 text-white font-black text-xs rounded-full flex items-center justify-center cursor-pointer">
+                    1
+                  </button>
+                )}
+
                 <button
-                  onClick={() => showAlert('Page 2 selected', 'info')}
-                  className="w-7 h-7 text-slate-500 hover:bg-slate-50 font-bold text-xs rounded-full flex items-center justify-center cursor-pointer"
-                >
-                  2
-                </button>
-                <button
-                  onClick={() => showAlert('Page 3 selected', 'info')}
-                  className="w-7 h-7 text-slate-500 hover:bg-slate-50 font-bold text-xs rounded-full flex items-center justify-center cursor-pointer"
-                >
-                  3
-                </button>
-                <button
-                  onClick={() => showAlert('Page 4 selected', 'info')}
-                  className="w-7 h-7 text-slate-500 hover:bg-slate-50 font-bold text-xs rounded-full flex items-center justify-center cursor-pointer"
-                >
-                  4
-                </button>
-                <button
-                  onClick={() => showAlert('Next Directory Page', 'info')}
-                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer"
+                  disabled={currentPage >= Math.ceil(totalEmployees / employeesPerPage)}
+                  onClick={() => fetchEmployees(currentPage + 1)}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -1024,11 +825,10 @@ export default function PeopleProfilesView({
               <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl shadow-inner text-xs font-bold">
                 <button
                   onClick={() => setActiveEventCategory('birthdays')}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${
-                    activeEventCategory === 'birthdays'
+                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${activeEventCategory === 'birthdays'
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
-                  }`}
+                    }`}
                 >
                   Birthdays
                 </button>
@@ -1037,11 +837,10 @@ export default function PeopleProfilesView({
                     setActiveEventCategory('anniversaries');
                     showAlert('Showing employee Work Anniversaries timeline', 'info');
                   }}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${
-                    activeEventCategory === 'anniversaries'
+                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${activeEventCategory === 'anniversaries'
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   Work Anniversaries
                 </button>
@@ -1050,11 +849,10 @@ export default function PeopleProfilesView({
                     setActiveEventCategory('promotions');
                     showAlert('Showing upcoming employee promotions info', 'info');
                   }}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${
-                    activeEventCategory === 'promotions'
+                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${activeEventCategory === 'promotions'
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   Promoted
                 </button>
@@ -1063,11 +861,10 @@ export default function PeopleProfilesView({
                     setActiveEventCategory('holidays');
                     showAlert('Showing registered national company holidays', 'info');
                   }}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${
-                    activeEventCategory === 'holidays'
+                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${activeEventCategory === 'holidays'
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   Holidays
                 </button>
@@ -1076,7 +873,7 @@ export default function PeopleProfilesView({
 
             {/* Side-by-Side Horizontal Cards Grid matching Image 5 */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              
+
               {/* Card 1: Birthdays (Active Category Default) */}
               <div
                 onClick={() => showAlert('Celebrate Jessica Parker Birth Year Milestone', 'info')}
@@ -1089,7 +886,7 @@ export default function PeopleProfilesView({
                   <div className="absolute inset-0 bg-radial-gradient from-transparent to-black/10 mix-blend-overlay opacity-50" />
                   <div className="absolute bottom-2 left-0 right-0 bg-black/20 backdrop-blur-xs py-1 text-[10px] uppercase tracking-wider font-extrabold text-blue-100">Jessica Parker</div>
                 </div>
-                
+
                 <div className="pt-2 space-y-1">
                   <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-widest">Happy Birthday Wish</span>
                   <span className="text-sm font-black text-slate-800 block">Jan 22nd</span>
@@ -1167,10 +964,10 @@ export default function PeopleProfilesView({
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-              
+
               {/* Left Column (Lists & searching parameters) */}
               <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-100 p-5 space-y-4 shadow-xs">
-                
+
                 {/* Search box inside container */}
                 <div className="relative">
                   <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -1213,11 +1010,10 @@ export default function PeopleProfilesView({
                       <div
                         key={val}
                         onClick={() => setSelectedArchiveRow(val)}
-                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                          isActive
+                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${isActive
                             ? 'bg-slate-50/70 border-2 border-blue-600/30'
                             : 'bg-white border-slate-50 hover:bg-slate-50/50'
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-9 h-9 rounded-full bg-[#1e64f2] text-white flex items-center justify-center font-bold">
@@ -1255,7 +1051,7 @@ export default function PeopleProfilesView({
 
               {/* Right Column (Detailed Archived Employee specifications sheet) */}
               <div className="lg:col-span-6 bg-white rounded-3xl border border-slate-100 p-6 space-y-6 shadow-xs">
-                
+
                 {/* Header Profile Info block */}
                 <div className="flex justify-between items-start flex-wrap gap-3 pb-4 border-b border-slate-100">
                   <div className="flex items-center gap-4">
@@ -1335,7 +1131,7 @@ export default function PeopleProfilesView({
                       <span className="text-[10px] font-black tracking-widest text-[#1e64f2] uppercase block">AI Score</span>
                       <p className="text-[10px] font-bold text-slate-400 mt-1">Overall Performance</p>
                     </div>
-                    
+
                     <div className="flex items-center gap-1 text-2xl font-black text-blue-600">
                       <span>✨</span>
                       <span>87%</span>
@@ -1352,7 +1148,7 @@ export default function PeopleProfilesView({
 
                   {/* Grid of four interactive file tags */}
                   <div className="grid grid-cols-2 gap-3 text-xs font-semibold text-slate-700">
-                    
+
                     <button
                       onClick={() => showAlert('Opening archived Contract file', 'success')}
                       className="bg-white hover:bg-slate-50 border border-slate-150 rounded-xl p-3 flex items-center justify-between select-none cursor-pointer text-left"
@@ -1423,6 +1219,18 @@ export default function PeopleProfilesView({
         )}
 
       </AnimatePresence>
+
+      <CreateEmployeeModal
+        isOpen={updateEmployeeModalOpen}
+        onClose={() => {
+          setUpdateEmployeeModalOpen(false);
+          setUpdateEmployeeUserId(null);
+        }}
+        showAlert={showAlert}
+        mode="update"
+        targetUserId={updateEmployeeUserId || undefined}
+        onSuccess={() => fetchEmployees(currentPage)}
+      />
     </div>
   );
 }

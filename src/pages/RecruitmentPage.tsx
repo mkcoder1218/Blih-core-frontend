@@ -1,5 +1,6 @@
-import React from "react";
-import { useParams } from "react-router-dom";
+import React, { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import RecruitmentOverview from "../components/recruitment/RecruitmentOverview";
 import RecruitmentRequests from "../components/recruitment/RecruitmentRequests";
 import RecruitmentReadyToPost from "../components/recruitment/RecruitmentReadyToPost";
@@ -8,20 +9,259 @@ import RecruitmentApplicantForms from "../components/recruitment/RecruitmentAppl
 import RecruitmentOffers from "../components/recruitment/RecruitmentOffers";
 import RecruitmentActivePosting from "../components/recruitment/RecruitmentActivePosting";
 import RecruitmentOngoingRecruitment from "../components/recruitment/RecruitmentOngoingRecruitment";
-import { mockJobRequests, activeReadyToPostJob } from "../mockData";
+import CreateJobModal from "../components/recruitment/create-job/CreateJobModal";
+import TemplateSelectionModal from "../components/recruitment/create-job/TemplateSelectionModal";
+import { api } from "../api/client";
+import { useJobRequests, useApproveJobRequest, usePublishJobRequest } from "../hooks/useJobRequests";
+import { useMe } from "../hooks/useMe";
+import { useQueryClient } from "@tanstack/react-query";
 
 export default function RecruitmentPage() {
   const params = useParams();
+  const navigate = useNavigate();
   const tab = (params.tab as any) || "overview";
+  const queryClient = useQueryClient();
 
-  if (tab === "overview") return <RecruitmentOverview onNavigateToTab={() => {}} />;
-  if (tab === "requests") return <RecruitmentRequests jobs={mockJobRequests} onApproveJob={() => {}} onJustifyJob={() => {}} onOpenNewJobModal={() => {}} onSuggestJustification={() => {}} />;
-  if (tab === "ready_to_post") return <RecruitmentReadyToPost onPostSuccess={() => {}} onEditClick={() => {}} />;
-  if (tab === "closed_posts") return <RecruitmentClosedPosts onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
-  if (tab === "applicant_forms") return <RecruitmentApplicantForms onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
-  if (tab === "offers") return <RecruitmentOffers onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
-  if (tab === "active_posting") return <RecruitmentActivePosting onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
-  if (tab === "ongoing_recruitment") return <RecruitmentOngoingRecruitment onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+  const pendingJobRequests = useJobRequests({ status: "pending" });
+  const declinedJobRequests = useJobRequests({ status: "declined" });
+  const approvedByMeJobRequests = useJobRequests({ approvedByMe: true }); // Fetch both pending and approved signed by me
+  const approvedByOthersJobRequests = useJobRequests({ status: "pending", approvedByOthers: true });
+  const approvedJobRequests = useJobRequests({ status: "approved" }); // Fully approved, ready to post
+  
+  const approveJob = useApproveJobRequest();
+  const publishJob = usePublishJobRequest();
+  
+  const { data: meRes } = useMe();
+  const me = meRes?.data;
+  
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isTemplateSelectionOpen, setIsTemplateSelectionOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<"job" | "template">("job");
+  const [initialFormData, setInitialFormData] = useState<any>(null);
 
-  return <RecruitmentOverview onNavigateToTab={() => {}} />;
+  const openCreateModal = async (mode: "job" | "template") => {
+    if (mode === "job") {
+      try {
+        // Quick check for templates
+        const res = await api.get("/api/v1/hr/recruitment/templates", { params: { limit: 1 } });
+        const payload: any = res.data;
+        const rows = payload?.data?.data ?? payload?.data ?? [];
+        
+        if (Array.isArray(rows) && rows.length > 0) {
+          setIsTemplateSelectionOpen(true);
+        } else {
+          // No templates found, open blank form directly
+          setModalMode("job");
+          setInitialFormData(null);
+          setIsCreateModalOpen(true);
+        }
+      } catch (err) {
+        console.error('Failed to check templates:', err);
+        // Fallback to blank form on error
+        setModalMode("job");
+        setInitialFormData(null);
+        setIsCreateModalOpen(true);
+      }
+    } else {
+      setModalMode("template");
+      setInitialFormData(null);
+      setIsCreateModalOpen(true);
+    }
+  };
+
+  const handleTemplateSelect = (template: any) => {
+    setModalMode("job");
+    setInitialFormData({
+      ...template.requestConfig,
+      ...template.jobDetailsConfig,
+      ...template.applicationFormConfig
+    });
+    setIsTemplateSelectionOpen(false);
+    setIsCreateModalOpen(true);
+  };
+
+  const handleSkipTemplate = () => {
+    setModalMode("job");
+    setInitialFormData(null);
+    setIsTemplateSelectionOpen(false);
+    setIsCreateModalOpen(true);
+  };
+
+  const renderTabContent = () => {
+    switch (tab) {
+      case "overview":
+        return <RecruitmentOverview onNavigateToTab={(newTab) => navigate(`/recruitment/${newTab}`)} />;
+      case "requests":
+        return (
+          <RecruitmentRequests 
+            jobs={[
+              ...(pendingJobRequests.data?.rows || []),
+              ...(approvedByMeJobRequests.data?.rows || []),
+              ...(approvedByOthersJobRequests.data?.rows || []),
+              ...(declinedJobRequests.data?.rows || []),
+            ]} 
+            onApproveJob={(id) => approveJob.mutate(id)} 
+            onJustifyJob={() => {}} 
+            onOpenNewJobModal={() => openCreateModal("job")} 
+            onSuggestJustification={() => {}} 
+            currentUser={me ? { id: me.user.id, role: (me.roles?.[0] || 'GUEST'), name: me.user.fullName } : undefined}
+          />
+        );
+      case "ready_to_post":
+        return (
+          <RecruitmentReadyToPost 
+            jobs={approvedJobRequests.data?.rows || []}
+            onPostSuccess={(jobTitle, id) => {
+                if (id) {
+                    publishJob.mutate(id, {
+                        onSuccess: () => {
+                            console.log(`Job published: ${jobTitle}`);
+                            navigate('/recruitment/active_posting');
+                        }
+                    });
+                }
+            }} 
+            onEditClick={() => {}} 
+          />
+        );
+      case "closed_posts":
+        return <RecruitmentClosedPosts onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+      case "applicant_forms":
+        return (
+          <RecruitmentApplicantForms 
+            onDraftAiSuggestion={() => {}} 
+            showAlert={() => {}} 
+            onOpenCreateTemplateModal={() => openCreateModal("template")} 
+          />
+        );
+      case "offers":
+        return <RecruitmentOffers onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+      case "active_posting":
+        return <RecruitmentActivePosting onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+      case "ongoing_recruitment":
+        return <RecruitmentOngoingRecruitment onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+      default:
+        return <RecruitmentOverview onNavigateToTab={(newTab) => navigate(`/recruitment/${newTab}`)} />;
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Top Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight capitalize">
+            {tab.replace(/_/g, ' ')}
+          </h1>
+          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
+            Recruitment & Talent Acquisition
+          </p>
+        </div>
+
+        {tab === "requests" && (
+          <button
+            onClick={() => openCreateModal("job")}
+            className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-2xl text-xs px-6 py-3.5 flex items-center gap-2 shadow-lg shadow-blue-200 transition-all cursor-pointer select-none"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>Request a Job</span>
+          </button>
+        )}
+      </div>
+
+      {/* Tab Content */}
+      <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+        {renderTabContent()}
+      </div>
+
+      {/* Create Job Modal */}
+      <CreateJobModal 
+        isOpen={isCreateModalOpen} 
+        onClose={() => setIsCreateModalOpen(false)} 
+        isTemplateMode={modalMode === "template"}
+        initialData={initialFormData}
+        onCreate={async (data) => {
+          try {
+            const endpoint = modalMode === "template" 
+              ? "/api/v1/hr/recruitment/templates" 
+              : "/api/v1/hr/recruitment/job-openings";
+            
+            // Map frontend data to backend structure
+            const payload = modalMode === "template" ? {
+              name: data.jobTitle || "Untitled Template",
+              description: data.businessJustification,
+              requestConfig: {
+                jobTitle: data.jobTitle,
+                department: data.department,
+                position: data.position,
+                type: data.type,
+                replaceFor: data.replaceFor,
+                employmentType: data.employmentType,
+                workMode: data.workMode,
+                urgency: data.urgency,
+                priority: data.priority,
+                neededByDate: data.neededByDate
+              },
+              jobDetailsConfig: {
+                openings: data.openings,
+                city: data.city,
+                country: data.country,
+                locationType: data.locationType,
+                contractType: data.contractType,
+                experienceLevel: data.experienceLevel,
+                hiringManager: data.hiringManager,
+                deadline: data.deadline,
+                description: data.description,
+                summary: data.summary,
+                responsibilities: data.responsibilities,
+                requiredSkills: data.requiredSkills,
+                preferredSkills: data.preferredSkills,
+                tools: data.tools,
+                benefits: data.benefits,
+                salaryType: data.salaryType
+              },
+              applicationFormConfig: {
+                applicantFields: data.applicantFields,
+                customFields: data.customFields
+              }
+            } : {
+                title: data.jobTitle,
+                employmentType: data.employmentType,
+                headcount: data.openings,
+                description: data.description,
+                priority: (data.priority || "Medium").toString().toLowerCase(),
+                metadata: {
+                    department: data.department,
+                    position: data.position,
+                    priority: data.priority,
+                    neededByDate: data.neededByDate,
+                    urgency: data.urgency,
+                    hiringManager: data.hiringManager,
+                    applicationFields: data.applicantFields,
+                    customFields: data.customFields,
+                    // Fix: Add missing fields for public page display
+                    requirements: data.requiredSkills || [],
+                    qualifications: data.preferredSkills || [],
+                    importance: data.businessJustification || "Standard business requirement."
+                }
+            };
+
+            await api.post(endpoint, payload);
+            console.log(`${modalMode} created successfully`);
+            await queryClient.invalidateQueries({ queryKey: ["job-requests"] });
+          } catch (err) {
+            console.error("Failed to save:", err);
+          }
+          setIsCreateModalOpen(false);
+        }} 
+      />
+
+      <TemplateSelectionModal 
+        isOpen={isTemplateSelectionOpen}
+        onClose={() => setIsTemplateSelectionOpen(false)}
+        onSelect={handleTemplateSelect}
+        onSkip={handleSkipTemplate}
+      />
+    </div>
+  );
 }

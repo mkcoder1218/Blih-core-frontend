@@ -2,7 +2,7 @@ import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useMe } from "../hooks/useMe";
 
-export type AllowedRole = "platform_super_admin" | "business_admin" | "any";
+export type AllowedRole = "platform_super_admin" | "business_admin" | "hr_manager" | "any";
 
 export default function RoleGuard(props: { allow: AllowedRole; children: React.ReactNode }) {
   const me = useMe();
@@ -19,6 +19,8 @@ export default function RoleGuard(props: { allow: AllowedRole; children: React.R
         ? Boolean(user.isPlatformSuperAdmin)
         : props.allow === "business_admin"
           ? roles.includes("BUSINESS_ADMIN")
+          : props.allow === "hr_manager"
+            ? roles.includes("HR_MANAGER")
           : false;
 
   if (!ok) {

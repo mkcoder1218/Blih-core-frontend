@@ -17,51 +17,49 @@ import {
   Settings,
   HelpCircle
 } from 'lucide-react';
+import { api } from '../../api/client';
 
 interface ApplicantFormsProps {
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (message: string, type?: 'success' | 'info' | 'error') => void;
+  onOpenCreateTemplateModal: () => void;
 }
 
 export default function RecruitmentApplicantForms({
   onDraftAiSuggestion,
-  showAlert
+  showAlert,
+  onOpenCreateTemplateModal
 }: ApplicantFormsProps) {
   // Forms state
-  const [forms, setForms] = useState([
-    {
-      id: 'form-1',
-      title: 'Graphic Designer Form',
-      department: 'Creative Department',
-      createdDate: 'Dec 15, 2024',
-      usedInJobs: 8,
-      fields: ['Full Name', 'Email Address', 'Portfolio URL', 'Personal Website', 'Current Role', 'Salary Expectation']
-    },
-    {
-      id: 'form-2',
-      title: 'Video Editor Form',
-      department: 'Creative Department',
-      createdDate: 'Dec 15, 2024',
-      usedInJobs: 8,
-      fields: ['Full Name', 'Email Address', 'Showreel Link', 'Software Proficiencies', 'Expected Starting Date']
-    },
-    {
-      id: 'form-3',
-      title: 'Full-Stack Developer Form',
-      department: 'Technology Department',
-      createdDate: 'Dec 15, 2024',
-      usedInJobs: 8,
-      fields: ['Full Name', 'Email Address', 'GitHub URL', 'Preferred Stack (FE/BE)', 'System Designs Projects']
-    },
-    {
-      id: 'form-4',
-      title: 'Sales Representative Form',
-      department: 'Business Development Department',
-      createdDate: 'Dec 15, 2024',
-      usedInJobs: 8,
-      fields: ['Full Name', 'Email Address', 'LinkedIn URL', 'Sales Quota Target History', 'CRM Proficiencies']
-    }
-  ]);
+  const [forms, setForms] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchForms = async () => {
+      try {
+        const res = await api.get('/api/v1/hr/recruitment/templates');
+        const payload: any = res.data;
+        const rows = payload?.data?.data ?? payload?.data ?? [];
+        if (Array.isArray(rows)) {
+          // Map backend template structure to the frontend form structure
+          const mapped = rows.map((t: any) => ({
+            id: t.id,
+            title: t.name,
+            department: t.requestConfig?.department || 'Unassigned',
+            createdDate: new Date(t.createdAt).toLocaleDateString(),
+            usedInJobs: 0, // This would be fetched from a separate 'usage' query in a real production env
+            fields: Object.keys(t.applicationFormConfig?.applicantFields || {})
+          }));
+          setForms(mapped);
+        }
+      } catch (err) {
+        console.error('Failed to fetch forms:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchForms();
+  }, []);
 
   // Modals state
   const [viewFormModal, setViewFormModal] = useState<typeof forms[0] | null>(null);
@@ -133,7 +131,7 @@ export default function RecruitmentApplicantForms({
         
         {/* Create New Form Blueprint */}
         <div 
-          onClick={() => setCreateNewModal(true)}
+          onClick={onOpenCreateTemplateModal}
           className="border-2 border-dashed border-blue-400 hover:border-blue-600 bg-blue-50/5 hover:bg-blue-50/25 p-7 rounded-3xl flex flex-col items-center justify-center text-center cursor-pointer transition-all space-y-4"
         >
           <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-md shadow-blue-200">
@@ -238,7 +236,7 @@ export default function RecruitmentApplicantForms({
       <div className="text-center pt-8 border-t border-slate-100/70 max-w-sm mx-auto space-y-3.5">
         <p className="text-xs text-slate-400 font-bold">No forms yet. Create or Generate using AI.</p>
         <button
-          onClick={() => setCreateNewModal(true)}
+          onClick={onOpenCreateTemplateModal}
           className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-5 py-2.5 rounded-xl cursor-pointer shadow-md shadow-blue-200 transition-colors inline-flex items-center gap-1.5"
         >
           <Plus className="w-4 h-4 stroke-[3]" />

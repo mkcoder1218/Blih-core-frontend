@@ -24,6 +24,7 @@ import WorkforceFinanceView from './components/finance/WorkforceFinanceView';
 import OnboardingView from './components/onboarding/OnboardingView';
 import PerformanceView from './components/performance/PerformanceView';
 import BusinessesView from './components/businesses/BusinessesView';
+import PermissionManagement from './pages/PermissionManagement';
 import { mockJobRequests, activeReadyToPostJob } from './mockData';
 import { MainModule, RecruitmentTab, JobRequest } from './types';
 import type { BusinessesTab } from './types';
@@ -287,7 +288,7 @@ export default function App() {
                 <RootDashboard
                   onNavigateToModule={(mod) => {
                     setCurrentModule(mod);
-                    if (mod === 'recruitment' || mod === 'onboarding' || mod === 'profiles' || mod === 'attendance' || mod === 'talent' || mod === 'exit' || mod === 'finance' || mod === 'performance' || mod === 'businesses') {
+                    if (mod === 'recruitment' || mod === 'onboarding' || mod === 'profiles' || mod === 'attendance' || mod === 'talent' || mod === 'exit' || mod === 'finance' || mod === 'performance' || mod === 'businesses' || mod === 'permissions') {
                       setIsDetailedView(true);
                       if (mod === 'recruitment') setCurrentRecruitmentTab('overview');
                       if (mod === 'onboarding') setCurrentOnboardingTab('overview');
@@ -297,6 +298,7 @@ export default function App() {
                       if (mod === 'exit') setCurrentExitTab('overview');
                       if (mod === 'finance') setCurrentFinanceTab('overview');
                       if (mod === 'performance') setCurrentPerformanceTab('overview');
+                      if (mod === 'businesses') setCurrentBusinessesTab('overview');
                     } else {
                       setIsDetailedView(false);
                     }
@@ -333,6 +335,7 @@ export default function App() {
                   <RecruitmentApplicantForms
                     onDraftAiSuggestion={(ctx) => handleTriggerAiGenerate(ctx, 'recruitment')}
                     showAlert={showAlert}
+                    onOpenCreateTemplateModal={() => {}}
                   />
                 ) : currentRecruitmentTab === 'offers' ? (
                   <RecruitmentOffers
@@ -427,6 +430,8 @@ export default function App() {
                   showAlert={showAlert}
                   currentTab={currentBusinessesTab}
                 />
+              ) : currentModule === 'permissions' ? (
+                <PermissionManagement />
               ) : (
                 /* 5. Auxiliary ERP Modules (Onboarding, Finance, etc.) */
                 <OtherModulesView
