@@ -26,47 +26,16 @@ interface CandidateDetailModalProps {
   onReject: () => void;
 }
 
-/** Fetch a file asset using native fetch (bypasses axios interceptors) with the stored Bearer token. */
-async function fetchFileBlob(fileId: string): Promise<{ url: string; filename: string }> {
-  const { getAccessToken } = await import("../../api/storage");
-  const token = getAccessToken();
+/** Get a short-lived signed download URL for a file asset.
+ *  Uses axios (authenticated) to get the token, then opens the URL directly
+ *  so the browser/IDM handles the actual download without fetch() interception. */
+async function getSignedDownloadUrl(fileId: string): Promise<string> {
+  const { api } = await import("../../api/client");
   const baseURL = (import.meta.env.VITE_API_BASE_URL as string) || "";
-  const url = `${baseURL}/api/v1/files/${fileId}/download`;
-
-  console.log(`[fetchFileBlob] fetching: ${url}`);
-
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "GET",
-      headers: {
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-  } catch (networkErr: any) {
-    console.error("[fetchFileBlob] network/CORS error:", networkErr);
-    throw new Error(`Network error (possible CORS): ${networkErr?.message ?? networkErr}`);
-  }
-
-  console.log(`[fetchFileBlob] response status: ${response.status}, headers:`, {
-    "access-control-allow-origin": response.headers.get("access-control-allow-origin"),
-    "content-disposition": response.headers.get("content-disposition"),
-    "content-type": response.headers.get("content-type"),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Download failed: ${response.status} ${response.statusText}`);
-  }
-
-  const contentDisposition = response.headers.get("content-disposition") ?? "";
-  let filename = "download";
-  const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
-  if (match?.[1]) filename = decodeURIComponent(match[1].replace(/['"]/g, ""));
-
-  const blob = await response.blob();
-  console.log(`[fetchFileBlob] blob size: ${blob.size}, type: ${blob.type}`);
-  if (blob.size === 0) throw new Error("Received empty file from server");
-  return { url: URL.createObjectURL(blob), filename };
+  const res = await api.get(`/api/v1/files/${fileId}/token`);
+  const token: string = res.data?.token;
+  if (!token) throw new Error("Failed to get download token");
+  return `${baseURL}/api/v1/files/${fileId}/download?token=${encodeURIComponent(token)}`;
 }
 
 export default function CandidateDetailModal({
@@ -165,9 +134,8 @@ export default function CandidateDetailModal({
     if (loadingAction === key) return;
     setLoadingAction(key);
     try {
-      const { url } = await fetchFileBlob(fileId);
+      const url = await getSignedDownloadUrl(fileId);
       window.open(url, "_blank");
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
     } catch (e: any) {
       console.error("[handleView] failed:", e);
       alert(`Could not load file: ${e?.message ?? "Unknown error"}`);
@@ -181,14 +149,15 @@ export default function CandidateDetailModal({
     if (loadingAction === key) return;
     setLoadingAction(key);
     try {
-      const { url, filename } = await fetchFileBlob(fileId);
+      const url = await getSignedDownloadUrl(fileId);
+      // Open directly — browser/IDM handles the download natively
       const a = document.createElement("a");
       a.href = url;
-      a.download = filename || fallbackName;
+      a.download = fallbackName;
+      a.target = "_blank";
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      setTimeout(() => URL.revokeObjectURL(url), 10_000);
     } catch (e: any) {
       console.error("[handleDownload] failed:", e);
       alert(`Could not download file: ${e?.message ?? "Unknown error"}`);
