@@ -1,483 +1,450 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import {
-  Sparkles,
-  PlusCircle,
-  Clock,
-  CheckCircle2,
-  XCircle,
-  Search,
-  UserPlus2,
-  FolderOpen,
-  Briefcase
-} from 'lucide-react';
+  Clock, CheckCircle2, Briefcase, Plus, Send, Eye,
+  Loader2, UserPlus, X, RefreshCw, Pencil,
+} from "lucide-react";
+import {
+  getOfferLetters,
+} from "../../api/offerLetters";
+import OfferLetterCreateModal from "../offer-letters/OfferLetterCreateModal";
+import OfferLetterPreviewModal from "../offer-letters/OfferLetterPreviewModal";
+import CreateEmployeeModal from "../people/CreateEmployeeModal";
+import OnboardingInitializerModal from "../onboarding/OnboardingInitializerModal";
 
-interface OffersProps {
-  onDraftAiSuggestion: (context: string) => void;
-  showAlert: (message: string, type?: 'success' | 'info' | 'error') => void;
+// ─── Types ────────────────────────────────────────────────────────────────────
+type OfferStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED";
+type TabKey = "Offers" | "Accepted" | "Rejected";
+
+interface OfferLetter {
+  id: string;
+  candidateName: string;
+  candidateEmail: string;
+  candidatePhone?: string;
+  salary: string;
+  startDate: string;
+  employmentType: string;
+  status: OfferStatus;
+  sentAt?: string;
+  acceptedAt?: string;
+  rejectedAt?: string;
+  renderedHtml?: string;
+  renderedSubject?: string;
+  Department?: { name: string };
+  Position?: { title: string };
+  Role?: { name: string };
+  OfferLetterTemplate?: { name: string };
+  departmentId: string;
+  positionId: string;
+  roleId: string;
+  templateId: string;
+  workLocation?: string;
+  reportingManager?: string;
 }
 
-export default function RecruitmentOffers({
-  onDraftAiSuggestion,
-  showAlert
-}: OffersProps) {
-  // Tabs for sub-state
-  const [activeSegment, setActiveSegment] = useState<'Offers' | 'Accepted' | 'Rejected'>('Offers');
-  
-  // Database of candidates
-  const [candidates, setCandidates] = useState([
-    {
-      id: 'cand-1',
-      name: 'Alex Johnson',
-      phone: '+251 967 97 3799',
-      role: 'Senior Backend Engineer',
-      dept: 'TECHNICAL DEPT.',
-      salary: '20,000',
-      status: 'pending',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-2',
-      name: 'Alex Johnson',
-      phone: '+251 967 97 3799',
-      role: 'Senior Backend Engineer',
-      dept: 'TECHNICAL DEPT.',
-      salary: '20,000',
-      status: 'pending',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-3',
-      name: 'Danel Tesema',
-      phone: '+251 967 97 3799',
-      role: 'Senior Graphics Designer',
-      dept: 'CREATIVE DEPT.',
-      salary: '18,000',
-      status: 'pending',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-4',
-      name: 'Danel Tesema',
-      phone: '+251 967 97 3799',
-      role: 'Senior Graphics Designer',
-      dept: 'CREATIVE DEPT.',
-      salary: '18,000',
-      status: 'pending',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-5',
-      name: 'Danel Tesema',
-      phone: '+251 967 97 3799',
-      role: 'Senior Graphics Designer',
-      dept: 'CREATIVE DEPT.',
-      salary: '18,000',
-      status: 'accepted',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-6',
-      name: 'Alex Johnson',
-      phone: '+251 967 97 3799',
-      role: 'Senior Backend Engineer',
-      dept: 'TECHNICAL DEPT.',
-      salary: '20,000',
-      status: 'accepted',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-7',
-      name: 'Alex Johnson',
-      phone: '+251 967 97 3799',
-      role: 'Senior Backend Engineer',
-      dept: 'TECHNICAL DEPT.',
-      salary: '20,000',
-      status: 'accepted',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-8',
-      name: 'Danel Tesema',
-      phone: '+251 967 97 3799',
-      role: 'Senior Graphics Designer',
-      dept: 'CREATIVE DEPT.',
-      salary: '18,000',
-      status: 'accepted',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-9',
-      name: 'Alex Johnson',
-      phone: '+251 967 97 3799',
-      role: 'Senior Backend Engineer',
-      dept: 'TECHNICAL DEPT.',
-      salary: '20,000',
-      status: 'rejected',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-10',
-      name: 'Danel Tesema',
-      phone: '+251 967 97 3799',
-      role: 'Senior Graphics Designer',
-      dept: 'TECHNICAL DEPT.',
-      salary: '20,000',
-      status: 'rejected',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-11',
-      name: 'Alex Johnson',
-      phone: '+251 967 97 3799',
-      role: 'Senior Backend Engineer',
-      dept: 'TECHNICAL DEPT.',
-      salary: '20,005',
-      status: 'rejected',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
-    },
-    {
-      id: 'cand-12',
-      name: 'Danel Tesema',
-      phone: '+251 967 97 3799',
-      role: 'Senior Graphics Designer',
-      dept: 'TECHNICAL DEPT.',
-      salary: '20,000',
-      status: 'rejected',
-      onboarding: '-',
-      startDate: 'Feb 24, 2025'
+// ─── Status badge ─────────────────────────────────────────────────────────────
+const STATUS_BADGE: Record<OfferStatus, string> = {
+  DRAFT:    "bg-amber-100 text-amber-700",
+  SENT:     "bg-blue-100 text-blue-700",
+  ACCEPTED: "bg-emerald-100 text-emerald-700",
+  REJECTED: "bg-rose-100 text-rose-700",
+};
+
+// ─── Toast ────────────────────────────────────────────────────────────────────
+function Toast({ msg, type, onDone }: { msg: string; type: "success" | "error" | "info"; onDone: () => void }) {
+  useEffect(() => {
+    const t = setTimeout(onDone, 3500);
+    return () => clearTimeout(t);
+  }, [onDone]);
+  const bg = type === "success" ? "bg-emerald-600" : type === "error" ? "bg-rose-600" : "bg-blue-600";
+  return (
+    <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+      className={`fixed top-5 right-5 z-[9999] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-xl text-white text-[13px] font-bold ${bg}`}>
+      {msg}
+      <button onClick={onDone} className="ml-1 opacity-70 hover:opacity-100"><X className="w-3.5 h-3.5" /></button>
+    </motion.div>
+  );
+}
+
+// ─── Props ────────────────────────────────────────────────────────────────────
+interface Props {
+  onDraftAiSuggestion?: (ctx: string) => void;
+  showAlert?: (msg: string, type?: "success" | "error" | "info") => void;
+}
+
+// ─── Main component ───────────────────────────────────────────────────────────
+export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
+  // ── Data ──
+  const [offers, setOffers]     = useState<OfferLetter[]>([]);
+  const [loading, setLoading]   = useState(true);
+
+  // ── UI state ──
+  const [activeTab, setActiveTab]           = useState<TabKey>("Offers");
+  const [toast, setToast]                   = useState<{ msg: string; type: "success" | "error" | "info" } | null>(null);
+
+  // ── Modals ──
+  const [addCandidateOpen, setAddCandidateOpen]   = useState(false);
+  const [createOfferOpen, setCreateOfferOpen]     = useState(false);
+  const [previewOpen, setPreviewOpen]             = useState(false);
+  const [selectedOffer, setSelectedOffer]         = useState<OfferLetter | null>(null);
+  const [onboardingOffer, setOnboardingOffer]     = useState<OfferLetter | null>(null);
+
+  // ── Alert helper ──
+  const showAlert = useCallback((msg: string, type: "success" | "error" | "info" = "success") => {
+    setToast({ msg, type });
+    externalAlert?.(msg, type);
+  }, [externalAlert]);
+
+  // ── Fetch ──
+  const fetchOffers = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await getOfferLetters({ limit: 100 });
+      // API returns paginated: { rows, count } or flat array
+      const raw = res.data?.data;
+      const rows: OfferLetter[] = Array.isArray(raw) ? raw : (raw?.rows ?? []);
+      setOffers(rows);
+    } catch {
+      showAlert("Failed to load offer letters", "error");
+    } finally {
+      setLoading(false);
     }
-  ]);
+  }, [showAlert]);
 
-  // Modal State
-  const [addModalOpen, setAddModalOpen] = useState(false);
-  const [newCandidate, setNewCandidate] = useState({
-    name: '',
-    role: 'Senior Fullstack Engineer',
-    dept: 'TECHNICAL DEPT.',
-    salary: '22,000',
-    status: 'pending'
-  });
+  useEffect(() => { fetchOffers(); }, [fetchOffers]);
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newCandidate.name) {
-      showAlert('Enter candidate name', 'error');
-      return;
-    }
-    const created = {
-      id: `cand-${Date.now()}`,
-      name: newCandidate.name,
-      phone: '+251 965 21 8295',
-      role: newCandidate.role,
-      dept: newCandidate.dept,
-      salary: newCandidate.salary,
-      status: newCandidate.status,
-      onboarding: '-',
-      startDate: 'Mar 15, 2025'
-    };
-    setCandidates(prev => [created, ...prev]);
-    setAddModalOpen(false);
-    setNewCandidate({ name: '', role: 'Senior Fullstack Engineer', dept: 'TECHNICAL DEPT.', salary: '22,000', status: 'pending' });
-    showAlert(`Offer registered successfully for ${created.name}`, 'success');
-  };
+  // ── Counts ──
+  const pendingCount  = offers.filter(o => o.status === "DRAFT" || o.status === "SENT").length;
+  const acceptedCount = offers.filter(o => o.status === "ACCEPTED").length;
+  const rejectedCount = offers.filter(o => o.status === "REJECTED").length;
 
-  const handleAcceptCandidate = (id: string, name: string) => {
-    setCandidates(prev =>
-      prev.map(c => (c.id === id ? { ...c, status: 'accepted' } : c))
-    );
-    showAlert(`Approved signature workflow for ${name}!`, 'success');
-  };
-
-  const handleStartOnboarding = (name: string) => {
-    showAlert(`Onboarding initialized for ${name}! Transferred to checklists.`, 'success');
-  };
-
-  // Filter candidates according to segmented tabs
-  const filteredCandidates = candidates.filter(cand => {
-    if (activeSegment === 'Offers') return cand.status === 'pending';
-    if (activeSegment === 'Accepted') return cand.status === 'accepted';
-    if (activeSegment === 'Rejected') return cand.status === 'rejected';
+  // ── Filtered rows ──
+  const filtered = offers.filter(o => {
+    if (activeTab === "Offers")   return o.status === "DRAFT" || o.status === "SENT";
+    if (activeTab === "Accepted") return o.status === "ACCEPTED";
+    if (activeTab === "Rejected") return o.status === "REJECTED";
     return true;
   });
 
-  const pendingCount = candidates.filter(c => c.status === 'pending').length;
-  const acceptedCount = candidates.filter(c => c.status === 'accepted').length;
-  const rejectedCount = candidates.filter(c => c.status === 'rejected').length;
+  // ── Open preview for an existing sent/accepted offer ──
+  const handleViewOffer = (offer: OfferLetter) => {
+    setSelectedOffer(offer);
+    setPreviewOpen(true);
+  };
+
+  // ── Open create modal pre-filled for a draft ──
+  const handleSignOffer = (offer: OfferLetter) => {
+    setSelectedOffer(offer);
+    setCreateOfferOpen(true);
+  };
+
+  // ── Open create modal pre-filled for editing any offer ──
+  const handleEditOffer = (offer: OfferLetter) => {
+    setSelectedOffer(offer);
+    setCreateOfferOpen(true);
+  };
 
   return (
-    <div id="offers-management-view" className="space-y-6 animate-fade-in font-sans pb-12">
-      
-      {/* Description and Title Header Container matching image layout */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-2xl border border-slate-100 shadow-xs gap-4">
+    <div className="space-y-5 font-sans pb-12">
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && <Toast msg={toast.msg} type={toast.type} onDone={() => setToast(null)} />}
+      </AnimatePresence>
+
+      {/* ── Stats row ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <StatCard label="Pending Offers"  count={pendingCount}  icon={<Clock className="w-5 h-5" />}        iconBg="bg-amber-50 border-amber-100 text-amber-500" />
+        <StatCard label="Accepted Offers" count={acceptedCount} icon={<CheckCircle2 className="w-5 h-5" />} iconBg="bg-blue-50 border-blue-100 text-blue-500" />
+        <StatCard label="Rejected Offers" count={rejectedCount} icon={<Briefcase className="w-5 h-5" />}    iconBg="bg-rose-50 border-rose-100 text-rose-500" />
+      </div>
+
+      {/* ── Header ── */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-2xl border border-slate-100 shadow-sm gap-4">
         <div>
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-wide">Offer Management</h3>
           <p className="text-xs text-slate-400 font-semibold mt-1">Manage candidate offers, salary approvals, contract status, and onboarding progress</p>
         </div>
-        <button
-          onClick={() => setAddModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-4.5 py-2.5 rounded-xl cursor-pointer shadow-md shadow-blue-100 transition-all flex items-center gap-1.5"
-        >
-          <PlusCircle className="w-4 h-4 stroke-[2.5]" />
-          <span>Add Candidate</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button onClick={fetchOffers} disabled={loading}
+            className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-40">
+            <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+          <button onClick={() => setAddCandidateOpen(true)}
+            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md shadow-blue-100 transition-all">
+            <Plus className="w-4 h-4 stroke-[2.5]" /> Add Candidate
+          </button>
+        </div>
       </div>
 
-      {/* Top Cards grid for Counters */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        
-        {/* Pending */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Pending Offers</span>
-            <h3 className="text-3xl font-black text-slate-900 tracking-tight">{pendingCount}</h3>
-          </div>
-          <div className="w-11 h-11 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center text-amber-500">
-            <Clock className="w-5.5 h-5.5" />
-          </div>
-        </div>
-
-        {/* Accepted */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Accepted Offers</span>
-            <h3 className="text-3xl font-black text-slate-900 tracking-tight">{acceptedCount}</h3>
-          </div>
-          <div className="w-11 h-11 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-650">
-            <CheckCircle2 className="w-5.5 h-5.5" />
-          </div>
-        </div>
-
-        {/* Rejected */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Rejected Offers</span>
-            <h3 className="text-3xl font-black text-slate-900 tracking-tight">{rejectedCount}</h3>
-          </div>
-          <div className="w-11 h-11 rounded-full bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-500">
-            <Briefcase className="w-5.5 h-5.5" />
-          </div>
-        </div>
-
+      {/* ── Tab bar ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 p-1 flex shadow-sm">
+        {([
+          { label: "Offers",   val: "Offers"   as TabKey, count: pendingCount  },
+          { label: "Accepted", val: "Accepted" as TabKey, count: acceptedCount },
+          { label: `Rejected${rejectedCount > 0 ? ` (${rejectedCount})` : ""}`, val: "Rejected" as TabKey, count: rejectedCount },
+        ] as { label: string; val: TabKey; count: number }[]).map(item => (
+          <button key={item.val} onClick={() => setActiveTab(item.val)}
+            className={`flex-1 py-3 text-xs font-black rounded-xl transition-all text-center ${
+              activeTab === item.val
+                ? "bg-slate-100/80 text-slate-950 shadow-sm"
+                : "text-slate-400 hover:text-slate-700"
+            }`}>
+            {item.label}
+          </button>
+        ))}
       </div>
 
-      {/* Tab bar navigation with custom styling */}
-      <div className="bg-white rounded-2xl border border-slate-105 p-1 flex shadow-2xs">
-        {[
-          { label: 'Offers', val: 'Offers' as const, count: pendingCount },
-          { label: 'Accepted', val: 'Accepted' as const, count: acceptedCount },
-          { label: 'Rejected(2)', val: 'Rejected' as const, count: rejectedCount }
-        ].map((item) => {
-          const isActive = activeSegment === item.val;
-          return (
-            <button
-              key={item.label}
-              onClick={() => setActiveSegment(item.val)}
-              className={`flex-1 py-3 text-xs font-black rounded-xl transition-all cursor-pointer text-center ${
-                isActive
-                  ? 'bg-slate-100/80 text-slate-950 font-black shadow-3xs'
-                  : 'text-slate-450 hover:text-slate-700'
-              }`}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Subtab Segment section description */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4 shadow-3xs">
-        <div className="flex items-center gap-2 border-b border-slate-50 pb-3">
+      {/* ── Table card ── */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
+        {/* Section header */}
+        <div className="flex items-center gap-2 px-5 py-4 border-b border-slate-50">
           <div className={`w-2.5 h-2.5 rounded-full ${
-            activeSegment === 'Offers' ? 'bg-amber-400' : activeSegment === 'Accepted' ? 'bg-emerald-500' : 'bg-rose-500'
+            activeTab === "Offers" ? "bg-amber-400" : activeTab === "Accepted" ? "bg-emerald-500" : "bg-rose-500"
           }`} />
           <h4 className="text-xs font-black text-slate-900 uppercase tracking-wider">
-            {activeSegment === 'Offers' ? 'Pending offers' : activeSegment === 'Accepted' ? 'Accepted offers' : 'Rejected Offers'}
+            {activeTab === "Offers" ? "Pending Offers" : activeTab === "Accepted" ? "Accepted Offers" : "Rejected Offers"}
           </h4>
         </div>
 
-        {/* Table structure matching Screenshot 8/9/10 */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse text-xs">
-            <thead>
-              <tr className="border-b border-slate-100 text-blue-600 font-extrabold uppercase tracking-wide text-[10px]">
-                <th className="py-3 px-4 font-black">Candidate Name</th>
-                <th className="py-3 px-4 font-black">Job Position</th>
-                <th className="py-3 px-4 font-black">Salary</th>
-                <th className="py-3 px-4 font-black">Offer Stats</th>
-                <th className="py-3 px-4 font-black">Onboarding</th>
-                <th className="py-3 px-4 font-black">Start Date</th>
-                <th className="py-3 px-4 text-right font-black">Action</th>
-              </tr>
-            </thead>
-            <tbody className="font-semibold text-slate-700 divide-y divide-slate-50">
-              {filteredCandidates.map((c) => (
-                <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
-                  <td className="py-3.5 px-4">
-                    <div className="font-bold text-slate-900 text-[12.5px]">{c.name}</div>
-                    <div className="text-[10px] text-slate-400 font-bold mt-0.5">{c.phone}</div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <div className="font-bold text-slate-850">{c.role}</div>
-                    <div className="text-[9.5px] text-blue-600 font-extrabold tracking-wide uppercase mt-0.5">{c.dept}</div>
-                  </td>
-                  <td className="py-3.5 px-4 font-bold text-slate-800">
-                    {c.salary}
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className={`inline-block text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-md ${
-                      c.status === 'pending'
-                        ? 'bg-amber-100 text-amber-700'
-                        : c.status === 'accepted'
-                        ? 'bg-emerald-100 text-emerald-700 font-black'
-                        : 'bg-rose-105 text-rose-700'
-                    }`}>
-                      {c.status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-400">
-                    {c.onboarding}
-                  </td>
-                  <td className="py-3.5 px-4 text-slate-500 font-medium">
-                    {c.startDate}
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    {c.status === 'pending' ? (
-                      <button
-                        onClick={() => handleAcceptCandidate(c.id, c.name)}
-                        className="bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-700 border border-slate-205 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
-                      >
-                        Sign Offer
-                      </button>
-                    ) : c.status === 'accepted' ? (
-                      <button
-                        onClick={() => handleStartOnboarding(c.name)}
-                        className="bg-emerald-50 hover:bg-emerald-100 text-[10px] font-black text-emerald-700 border border-emerald-105 px-2.5 py-1 rounded-lg cursor-pointer transition-colors"
-                      >
-                        + onboarding
-                      </button>
-                    ) : (
-                      <span className="text-slate-400">-</span>
-                    )}
-                  </td>
+        {loading ? (
+          <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
+            <Loader2 className="w-5 h-5 animate-spin" />
+            <span className="text-xs font-bold">Loading offers…</span>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="border-b border-slate-100 text-blue-600 font-extrabold uppercase tracking-wide text-[10px]">
+                  <th className="py-3 px-5 font-black">Candidate Name</th>
+                  <th className="py-3 px-5 font-black">Job Position</th>
+                  <th className="py-3 px-5 font-black">Salary</th>
+                  <th className="py-3 px-5 font-black">Offer Status</th>
+                  <th className="py-3 px-5 font-black">Onboarding</th>
+                  <th className="py-3 px-5 font-black">Start Date</th>
+                  <th className="py-3 px-5 text-right font-black">Action</th>
                 </tr>
-              ))}
-
-              {filteredCandidates.length === 0 && (
-                <tr>
-                  <td colSpan={7} className="text-center py-8 text-slate-400 font-bold">
-                    No records found in this category.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {filtered.map(offer => (
+                  <OfferRow
+                    key={offer.id}
+                    offer={offer}
+                    onSign={handleSignOffer}
+                    onView={handleViewOffer}
+                    onEdit={handleEditOffer}
+                    onOnboarding={() => setOnboardingOffer(offer)}
+                  />
+                ))}
+                {filtered.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="text-center py-14 text-slate-400 font-bold text-xs">
+                      No {activeTab.toLowerCase()} offers found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
-      {/* ADD CANDIDATE MODAL */}
-      {addModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4">
-          <form 
-            onSubmit={handleCreateSubmit}
-            className="bg-white rounded-3xl w-full max-w-md overflow-hidden border border-slate-105 shadow-2xl animate-scale-up"
-          >
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-              <h4 className="text-sm font-black text-slate-900 tracking-tight">Add Offer Candidate</h4>
-              <button 
-                type="button"
-                onClick={() => setAddModalOpen(false)}
-                className="w-7 h-7 rounded-lg bg-white border border-slate-150 flex items-center justify-center text-slate-450 hover:text-slate-800"
-              >
-                X
-              </button>
-            </div>
+      {/* ── Add Candidate modal (CreateEmployeeModal from /profiles/create) ── */}
+      <CreateEmployeeModal
+        isOpen={addCandidateOpen}
+        onClose={() => setAddCandidateOpen(false)}
+        showAlert={showAlert}
+        onSuccess={() => {
+          setAddCandidateOpen(false);
+          fetchOffers();
+          showAlert("Candidate profile created successfully", "success");
+        }}
+      />
 
-            <div className="p-6 space-y-4 text-xs font-semibold">
-              <div className="space-y-1.5">
-                <label className="text-slate-550 uppercase tracking-wider block font-bold">Candidate Name</label>
-                <input 
-                  type="text"
-                  required
-                  placeholder="e.g. Rachel Green"
-                  value={newCandidate.name}
-                  onChange={(e) => setNewCandidate(prev => ({ ...prev, name: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-205 focus:border-blue-600 focus:outline-none font-bold"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-slate-550 uppercase tracking-wider block font-bold">Role Title</label>
-                  <input 
-                    type="text"
-                    required
-                    value={newCandidate.role}
-                    onChange={(e) => setNewCandidate(prev => ({ ...prev, role: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-205 focus:border-blue-600 focus:outline-none font-bold"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-slate-550 uppercase tracking-wider block font-bold">Salary Offered</label>
-                  <input 
-                    type="text"
-                    required
-                    value={newCandidate.salary}
-                    onChange={(e) => setNewCandidate(prev => ({ ...prev, salary: e.target.value }))}
-                    className="w-full px-4 py-2.5 rounded-xl border border-slate-205 focus:border-blue-600 focus:outline-none font-bold"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-slate-550 uppercase tracking-wider block font-bold">Department Selection</label>
-                <select 
-                  value={newCandidate.dept}
-                  onChange={(e) => setNewCandidate(prev => ({ ...prev, dept: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-205 focus:border-blue-600 focus:outline-none font-bold text-slate-800"
-                >
-                  <option value="TECHNICAL DEPT.">TECHNICAL DEPT.</option>
-                  <option value="CREATIVE DEPT.">CREATIVE DEPT.</option>
-                  <option value="DIGITAL MARKETING DEPT.">DIGITAL MARKETING DEPT.</option>
-                </select>
-              </div>
-            </div>
-
-            <div className="p-5 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3.5">
-              <button
-                type="button"
-                onClick={() => setAddModalOpen(false)}
-                className="px-4 py-2 bg-white border border-slate-205 hover:bg-slate-50 text-slate-600 text-xs font-black rounded-xl cursor-pointer font-sans"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-4.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl cursor-pointer font-sans shadow-xs"
-              >
-                Register Offer
-              </button>
-            </div>
-
-          </form>
-        </div>
+      {/* ── Create / Send offer letter modal ── */}
+      {createOfferOpen && (
+        <OfferLetterCreateModal
+          isOpen={createOfferOpen}
+          onClose={() => { setCreateOfferOpen(false); setSelectedOffer(null); }}
+          showAlert={showAlert}
+          initialData={selectedOffer ? {
+            candidateName:  selectedOffer.candidateName,
+            candidateEmail: selectedOffer.candidateEmail,
+            candidatePhone: selectedOffer.candidatePhone,
+            departmentId:   selectedOffer.departmentId,
+            positionId:     selectedOffer.positionId,
+            roleId:         selectedOffer.roleId,
+            salary:         selectedOffer.salary,
+            startDate:      selectedOffer.startDate?.slice(0, 10),
+            employmentType: selectedOffer.employmentType,
+            workLocation:   selectedOffer.workLocation,
+            reportingManager: selectedOffer.reportingManager,
+          } : undefined}
+          onSuccess={() => {
+            setCreateOfferOpen(false);
+            setSelectedOffer(null);
+            fetchOffers();
+            showAlert("Offer letter sent successfully", "success");
+          }}
+        />
       )}
 
+      {/* ── Preview existing sent/accepted offer ── */}
+      {previewOpen && selectedOffer?.renderedHtml && (
+        <OfferLetterPreviewModal
+          isOpen={previewOpen}
+          onClose={() => { setPreviewOpen(false); setSelectedOffer(null); }}
+          previewData={{
+            html: selectedOffer.renderedHtml,
+            subject: selectedOffer.renderedSubject || "",
+            missingVariables: [],
+            payloadData: {},
+          }}
+          formData={{
+            templateId:     selectedOffer.templateId,
+            candidateName:  selectedOffer.candidateName,
+            candidateEmail: selectedOffer.candidateEmail,
+          }}
+          showAlert={showAlert}
+          onSuccess={() => {
+            setPreviewOpen(false);
+            setSelectedOffer(null);
+            fetchOffers();
+          }}
+        />
+      )}
+
+      {/* ── Onboarding Initializer modal ── */}
+      {onboardingOffer && (
+        <OnboardingInitializerModal
+          isOpen={Boolean(onboardingOffer)}
+          onClose={() => setOnboardingOffer(null)}
+          offer={onboardingOffer}
+          showAlert={showAlert}
+          onSuccess={() => {
+            setOnboardingOffer(null);
+            fetchOffers();
+          }}
+        />
+      )}
     </div>
   );
+}
+
+// ─── Stat card ────────────────────────────────────────────────────────────────
+function StatCard({ label, count, icon, iconBg }: { label: string; count: number; icon: React.ReactNode; iconBg: string }) {
+  return (
+    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center justify-between">
+      <div className="space-y-1.5">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{label}</span>
+        <h3 className="text-3xl font-black text-slate-900 tracking-tight">{count}</h3>
+      </div>
+      <div className={`w-11 h-11 rounded-full border flex items-center justify-center ${iconBg}`}>
+        {icon}
+      </div>
+    </div>
+  );
+}
+
+// ─── Table row ────────────────────────────────────────────────────────────────
+function OfferRow({ offer, onSign, onView, onEdit, onOnboarding }: {
+  offer: OfferLetter;
+  onSign: (o: OfferLetter) => void;
+  onView: (o: OfferLetter) => void;
+  onEdit: (o: OfferLetter) => void;
+  onOnboarding: () => void;
+}) {
+  const position   = offer.Position?.title || offer.Role?.name || "—";
+  const department = offer.Department?.name || "—";
+  const startDate  = offer.startDate
+    ? new Date(offer.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })
+    : "—";
+
+  return (
+    <tr className="hover:bg-slate-50/50 transition-colors">
+      {/* Candidate */}
+      <td className="py-3.5 px-5">
+        <div className="font-bold text-slate-900 text-[12.5px]">{offer.candidateName}</div>
+        <div className="text-[10px] text-slate-400 font-bold mt-0.5">{offer.candidateEmail}</div>
+      </td>
+
+      {/* Position */}
+      <td className="py-3.5 px-5">
+        <div className="font-bold text-slate-800">{position}</div>
+        <div className="text-[9.5px] text-blue-600 font-extrabold tracking-wide uppercase mt-0.5">{department}</div>
+      </td>
+
+      {/* Salary */}
+      <td className="py-3.5 px-5 font-bold text-slate-800">{offer.salary || "—"}</td>
+
+      {/* Status badge */}
+      <td className="py-3.5 px-5">
+        <span className={`inline-block text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-md ${STATUS_BADGE[offer.status]}`}>
+          {offer.status === "DRAFT" ? "pending" : offer.status.toLowerCase()}
+        </span>
+      </td>
+
+      {/* Onboarding */}
+      <td className="py-3.5 px-5 text-slate-400 text-[12px] font-medium">
+        {offer.status === "ACCEPTED" ? (
+          <span className="text-emerald-600 font-bold text-[10px] uppercase tracking-wide">Ready</span>
+        ) : "—"}
+      </td>
+
+      {/* Start date */}
+      <td className="py-3.5 px-5 text-slate-500 font-medium text-[12px]">{startDate}</td>
+
+      {/* Action */}
+      <td className="py-3.5 px-5 text-right">
+        <RowAction offer={offer} onSign={onSign} onView={onView} onEdit={onEdit} onOnboarding={onOnboarding} />
+      </td>
+    </tr>
+  );
+}
+
+// ─── Row action button ────────────────────────────────────────────────────────
+function RowAction({ offer, onSign, onView, onEdit, onOnboarding }: {
+  offer: OfferLetter;
+  onSign: (o: OfferLetter) => void;
+  onView: (o: OfferLetter) => void;
+  onEdit: (o: OfferLetter) => void;
+  onOnboarding: () => void;
+}) {
+  if (offer.status === "DRAFT") {
+    return (
+      <div className="flex items-center justify-end gap-1.5">
+        <button onClick={() => onEdit(offer)}
+          className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors">
+          <Pencil className="w-3 h-3" /> Edit
+        </button>
+        <button onClick={() => onSign(offer)}
+          className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-[10px] font-black text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors">
+          <Send className="w-3 h-3" /> Send
+        </button>
+      </div>
+    );
+  }
+  if (offer.status === "SENT") {
+    return (
+      <div className="flex items-center justify-end gap-1.5">
+        <button onClick={() => onEdit(offer)}
+          className="flex items-center gap-1.5 bg-slate-50 hover:bg-slate-100 text-[10px] font-black text-slate-600 border border-slate-200 px-3 py-1.5 rounded-lg transition-colors">
+          <Pencil className="w-3 h-3" /> Edit
+        </button>
+        <button onClick={() => onView(offer)}
+          className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-[10px] font-black text-blue-700 border border-blue-200 px-3 py-1.5 rounded-lg transition-colors">
+          <Eye className="w-3 h-3" /> Preview
+        </button>
+      </div>
+    );
+  }
+  if (offer.status === "ACCEPTED") {
+    return (
+      <button onClick={onOnboarding}
+        className="flex items-center gap-1.5 ml-auto bg-emerald-50 hover:bg-emerald-100 text-[10px] font-black text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg transition-colors">
+        <UserPlus className="w-3 h-3" /> + Onboarding
+      </button>
+    );
+  }
+  return <span className="text-slate-300 text-xs">—</span>;
 }

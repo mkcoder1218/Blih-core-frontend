@@ -21,7 +21,6 @@ import {
   Download,
   Award,
   FileText,
-  Maximize2,
   Filter,
   Check,
   Eye,
@@ -44,62 +43,235 @@ interface OrgNode {
   children: OrgNode[];
 }
 
-interface OrganogramNodeProps {
-  node: OrgNode;
-  onSelect: (node: OrgNode) => void;
-  zoom: number;
-  key?: React.Key;
+// ─── Layout constants ─────────────────────────────────────────────────────────
+const NODE_W = 160;
+const NODE_H = 80;
+const H_GAP  = 40;   // horizontal gap between siblings
+const V_GAP  = 80;   // vertical gap between levels
+
+// ─── Measure subtree width ────────────────────────────────────────────────────
+function subtreeWidth(node: OrgNode): number {
+  if (node.children.length === 0) return NODE_W;
+  const childrenTotal = node.children.reduce((s, c) => s + subtreeWidth(c), 0);
+  const gaps = (node.children.length - 1) * H_GAP;
+  return Math.max(NODE_W, childrenTotal + gaps);
 }
 
-function OrganogramNode({ node, onSelect, zoom }: OrganogramNodeProps) {
-  const initials = node.name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
+// ─── Assign x/y to every node ────────────────────────────────────────────────
+interface PositionedNode {
+  node: OrgNode;
+  x: number;
+  y: number;
+  children: PositionedNode[];
+}
+
+function layoutTree(node: OrgNode, x: number, y: number): PositionedNode {
+  if (node.children.length === 0) {
+    return { node, x, y, children: [] };
+  }
+  const widths = node.children.map(subtreeWidth);
+  const totalW = widths.reduce((s, w) => s + w, 0) + (node.children.length - 1) * H_GAP;
+  let cursor = x - totalW / 2;
+  const positioned: PositionedNode[] = node.children.map((child, i) => {
+    const cw = widths[i];
+    const cx = cursor + cw / 2;
+    cursor += cw + H_GAP;
+    return layoutTree(child, cx, y + NODE_H + V_GAP);
+  });
+  return { node, x, y, children: positioned };
+}
+
+// ─── Collect all nodes + edges ────────────────────────────────────────────────
+function collectNodes(pn: PositionedNode, nodes: PositionedNode[], edges: { x1:number;y1:number;x2:number;y2:number }[]) {
+  nodes.push(pn);
+  pn.children.forEach(child => {
+    edges.push({
+      x1: pn.x,
+      y1: pn.y + NODE_H,
+      x2: child.x,
+      y2: child.y,
+    });
+    collectNodes(child, nodes, edges);
+  });
+}
+
+// ─── Bounding box ─────────────────────────────────────────────────────────────
+function getBounds(nodes: PositionedNode[]) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  nodes.forEach(n => {
+    minX = Math.min(minX, n.x - NODE_W / 2);
+    minY = Math.min(minY, n.y);
+    maxX = Math.max(maxX, n.x + NODE_W / 2);
+    maxY = Math.max(maxY, n.y + NODE_H);
+  });
+  return { minX, minY, maxX, maxY, w: maxX - minX, h: maxY - minY };
+}
+
+// ─── Single node card ─────────────────────────────────────────────────────────
+function OrgCard({ pn, onSelect }: { pn: PositionedNode; onSelect: (n: OrgNode) => void }) {
+  const { node, x, y } = pn;
+  const initials = node.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
+  const hasChildren = node.children.length > 0;
 
   return (
-    <div className="flex flex-col items-center">
-      <div
-        onClick={() => onSelect(node)}
-        className={`relative flex flex-col items-center group cursor-pointer transition-all duration-300 hover:scale-105 active:scale-95`}
-      >
-        <div className={`bg-white border-2 ${node.children.length > 0 ? 'border-blue-600' : 'border-slate-200'} rounded-2xl p-4 shadow-sm min-w-[180px] text-center relative z-10 hover:shadow-md`}>
-          {node.department && (
-            <span className="text-[8px] bg-blue-50 text-blue-600 font-black px-2 py-0.5 rounded-full absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap border border-blue-100 uppercase tracking-widest">{node.department}</span>
-          )}
-          <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-black mx-auto mb-2 text-xs shadow-sm border-2 border-white">
-            {node.avatar ? <img src={node.avatar} className="w-full h-full rounded-full object-cover" /> : initials}
-          </div>
-          <h5 className="text-[11px] font-black text-slate-900 tracking-tight truncate w-full px-2">{node.name}</h5>
-          <p className="text-[9px] text-slate-500 font-bold mt-0.5 truncate w-full px-2">{node.title}</p>
-        </div>
-
-        {node.children.length > 0 && (
-          <div className="w-0.5 h-10 bg-blue-200" />
+    <div
+      onClick={() => onSelect(node)}
+      style={{
+        position: 'absolute',
+        left: x - NODE_W / 2,
+        top: y,
+        width: NODE_W,
+        height: NODE_H,
+      }}
+      className={`cursor-pointer group select-none`}
+    >
+      <div className={`w-full h-full bg-white rounded-xl border-2 ${hasChildren ? 'border-blue-500' : 'border-slate-200'} shadow-sm hover:shadow-md hover:border-blue-400 transition-all flex flex-col items-center justify-center px-2 py-2 relative`}>
+        {node.department && (
+          <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[7px] font-black uppercase tracking-widest bg-blue-600 text-white px-2 py-0.5 rounded-full whitespace-nowrap">
+            {node.department}
+          </span>
         )}
+        <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-[10px] mb-1 flex-shrink-0">
+          {node.avatar
+            ? <img src={node.avatar} className="w-full h-full rounded-full object-cover" alt={initials} />
+            : initials}
+        </div>
+        <p className="text-[10px] font-black text-slate-900 truncate w-full text-center leading-tight">{node.name}</p>
+        <p className="text-[8px] text-slate-400 font-semibold truncate w-full text-center mt-0.5">{node.title}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Full org chart canvas ────────────────────────────────────────────────────
+function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: OrgNode) => void }) {
+  const containerRef = React.useRef<HTMLDivElement>(null);
+  const [pan, setPan] = React.useState({ x: 0, y: 0 });
+  const [scale, setScale] = React.useState(1);
+  const dragging = React.useRef(false);
+  const lastPos = React.useRef({ x: 0, y: 0 });
+
+  // Build layout for all roots side by side
+  const allNodes: PositionedNode[] = [];
+  const allEdges: { x1:number;y1:number;x2:number;y2:number }[] = [];
+
+  let cursor = 0;
+  const rootLayouts: PositionedNode[] = roots.map(root => {
+    const sw = subtreeWidth(root);
+    const layout = layoutTree(root, cursor + sw / 2, 0);
+    cursor += sw + H_GAP * 2;
+    return layout;
+  });
+
+  rootLayouts.forEach(rl => collectNodes(rl, allNodes, allEdges));
+
+  const bounds = allNodes.length > 0 ? getBounds(allNodes) : { minX: 0, minY: 0, w: 400, h: 300 };
+  const PAD = 60;
+  const canvasW = bounds.w + PAD * 2;
+  const canvasH = bounds.h + PAD * 2;
+  const offsetX = -bounds.minX + PAD;
+  const offsetY = -bounds.minY + PAD;
+
+  // Center on mount
+  React.useEffect(() => {
+    if (!containerRef.current) return;
+    const { clientWidth, clientHeight } = containerRef.current;
+    const fitScale = Math.min(1, (clientWidth - 40) / canvasW, (clientHeight - 40) / canvasH);
+    setScale(fitScale);
+    setPan({
+      x: (clientWidth - canvasW * fitScale) / 2,
+      y: (clientHeight - canvasH * fitScale) / 2,
+    });
+  }, [roots.length]);
+
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    setScale(s => Math.min(2, Math.max(0.2, s * delta)));
+  };
+
+  const onMouseDown = (e: React.MouseEvent) => {
+    dragging.current = true;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const onMouseMove = (e: React.MouseEvent) => {
+    if (!dragging.current) return;
+    const dx = e.clientX - lastPos.current.x;
+    const dy = e.clientY - lastPos.current.y;
+    lastPos.current = { x: e.clientX, y: e.clientY };
+    setPan(p => ({ x: p.x + dx, y: p.y + dy }));
+  };
+
+  const onMouseUp = () => { dragging.current = false; };
+
+  return (
+    <div
+      ref={containerRef}
+      className="w-full h-full overflow-hidden relative bg-[#f8fafc] cursor-grab active:cursor-grabbing"
+      onWheel={onWheel}
+      onMouseDown={onMouseDown}
+      onMouseMove={onMouseMove}
+      onMouseUp={onMouseUp}
+      onMouseLeave={onMouseUp}
+    >
+      {/* Dot grid background */}
+      <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ opacity: 0.4 }}>
+        <defs>
+          <pattern id="dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1" fill="#cbd5e1" />
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#dots)" />
+      </svg>
+
+      {/* Transformed canvas */}
+      <div
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+          transformOrigin: '0 0',
+          position: 'absolute',
+          width: canvasW,
+          height: canvasH,
+        }}
+      >
+        {/* SVG connectors */}
+        <svg
+          style={{ position: 'absolute', top: 0, left: 0, width: canvasW, height: canvasH, overflow: 'visible', pointerEvents: 'none' }}
+        >
+          {allEdges.map((e, i) => {
+            const x1 = e.x1 + offsetX;
+            const y1 = e.y1 + offsetY;
+            const x2 = e.x2 + offsetX;
+            const y2 = e.y2 + offsetY;
+            const midY = (y1 + y2) / 2;
+            return (
+              <path
+                key={i}
+                d={`M ${x1} ${y1} C ${x1} ${midY}, ${x2} ${midY}, ${x2} ${y2}`}
+                fill="none"
+                stroke="#93c5fd"
+                strokeWidth="1.5"
+                strokeDasharray="none"
+              />
+            );
+          })}
+        </svg>
+
+        {/* Node cards */}
+        {allNodes.map((pn, i) => (
+          <OrgCard
+            key={pn.node.id || i}
+            pn={{ ...pn, x: pn.x + offsetX, y: pn.y + offsetY }}
+            onSelect={onSelect}
+          />
+        ))}
       </div>
 
-      {node.children.length > 0 && (
-        <div className="relative flex flex-col items-center w-full">
-          {/* Horizontal crossbar */}
-          <div className="absolute top-0 left-0 right-0 flex justify-center">
-            <div
-              className="h-0.5 bg-blue-200"
-              style={{
-                width: `calc(100% - ${100 / node.children.length}%)`,
-                visibility: node.children.length > 1 ? 'visible' : 'hidden'
-              }}
-            />
-          </div>
-
-          <div className="flex justify-center gap-8 pt-0">
-            {node.children.map((child, idx) => (
-              <div key={child.id} className="relative flex flex-col items-center">
-                {/* Vertical line from crossbar to child */}
-                <div className="w-0.5 h-4 bg-blue-200" />
-                <OrganogramNode node={child} onSelect={onSelect} zoom={zoom} />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      {/* Scale indicator */}
+      <div className="absolute bottom-4 right-4 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-[10px] font-black text-slate-500 shadow-sm">
+        {Math.round(scale * 100)}%
+      </div>
     </div>
   );
 }
@@ -433,91 +605,52 @@ export default function PeopleProfilesView({
           </motion.div>
         )}
 
-        {/* --- 3. ORGANOGRAM SCREEN (IMAGE 3) --- */}
+        {/* --- 3. ORGANOGRAM SCREEN --- */}
         {currentProfilesTab === 'organogram' && (
           <motion.div
             key="organogram"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="space-y-6"
+            className="space-y-4"
           >
-            <div>
-              <h4 className="text-sm font-bold text-slate-950 tracking-tight">Oraganization Chart of the Company</h4>
-              <p className="text-[11px] text-slate-500 font-medium">Hierarchy and profiles of all employee.</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-black text-slate-900 tracking-tight">Organization Chart</h4>
+                <p className="text-[11px] text-slate-500 font-medium">Hierarchy and profiles of all employees</p>
+              </div>
+              <button
+                onClick={fetchOrganogram}
+                disabled={loadingOrg}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors disabled:opacity-40"
+              >
+                {loadingOrg ? 'Loading…' : '↺ Refresh'}
+              </button>
             </div>
 
-            {/* Main Interactive organogram tree card */}
-            <div className={`bg-white rounded-3xl border border-slate-100 p-6 flex flex-col justify-between relative shadow-xs overflow-hidden ${isOrganogramFullScreen ? 'fixed inset-6 z-50 bg-white/95 backdrop-blur-md' : 'h-[620px]'
-              }`}>
-              {/* Zoom and fullscreen floating controls (Top Left of Card) */}
-              <div className="absolute top-6 left-6 flex items-center gap-1.5 bg-slate-50 border border-slate-150 p-1.5 rounded-xl z-20 shadow-xs">
-                <button
-                  onClick={() => setOrganogramZoom(Math.max(10, organogramZoom - 5))}
-                  className="p-1 px-2.5 rounded hover:bg-white text-slate-600 font-bold text-xs select-none active:scale-95 transition-all cursor-pointer"
-                >
-                  -
-                </button>
-                <span className="text-xs font-extrabold text-[#475569] px-2 min-w-[36px] text-center font-mono">
-                  {organogramZoom}%
-                </span>
-                <button
-                  onClick={() => setOrganogramZoom(Math.min(100, organogramZoom + 5))}
-                  className="p-1 px-2.5 rounded hover:bg-white text-slate-600 font-bold text-xs select-none active:scale-95 transition-all cursor-pointer"
-                >
-                  +
-                </button>
-                <div className="w-[1px] h-4 bg-slate-200 mx-1" />
-                <button
-                  onClick={() => setIsOrganogramFullScreen(!isOrganogramFullScreen)}
-                  className="p-1.5 rounded hover:bg-white text-slate-600 transition-colors cursor-pointer"
-                  title="Toggle Fullscreen"
-                >
-                  <Maximize2 className="w-3.5 h-3.5 stroke-[2.5]" />
-                </button>
-              </div>
-
-              {/* Connected Grid Canvas with full hierarchy */}
-              <div className="flex-1 overflow-auto flex items-center justify-center p-12 relative bg-slate-50/10 min-h-[500px]">
-                {loadingOrg ? (
-                   <div className="flex flex-col items-center gap-4">
-                      <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Loading Organization Chart...</span>
-                   </div>
-                ) : orgData.length === 0 ? (
-                   <div className="text-center space-y-3">
-                      <Users className="w-12 h-12 text-slate-200 mx-auto" />
-                      <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No active employee hierarchy found.</p>
-                      <button onClick={fetchOrganogram} className="text-[10px] font-black text-blue-600 hover:underline">Retry Fetch</button>
-                   </div>
-                ) : (
-                  <div
-                    className="transition-transform duration-300 origin-center flex flex-col items-center gap-0 w-full py-20 text-center select-none"
-                    style={{ transform: `scale(${organogramZoom / 100})` }}
-                  >
-                    {orgData.map((rootNode) => (
-                      <OrganogramNode 
-                        key={rootNode.id} 
-                        node={rootNode} 
-                        zoom={organogramZoom}
-                        onSelect={(n) => showAlert(`Viewing ${n.name}'s profile and team.`, 'info')} 
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Bottom Instructions Info Pill banner */}
-              <div className="bg-amber-50/50 border border-amber-100 rounded-2xl p-3 text-center self-center w-full max-w-lg mt-4 shadow-sm">
-                <p className="text-[11px] text-slate-500 font-semibold flex items-center justify-center gap-1.5 leading-snug">
-                  <span>💡 Tip: Click on employees to view profile</span>
-                  <span>&bull;</span>
-                  <span>Scroll to zoom</span>
-                  <span>&bull;</span>
-                  <span>Drag to pan</span>
-                </p>
-              </div>
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden" style={{ height: 580 }}>
+              {loadingOrg ? (
+                <div className="flex flex-col items-center justify-center h-full gap-4">
+                  <div className="w-10 h-10 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Building chart…</span>
+                </div>
+              ) : orgData.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-full gap-3">
+                  <Users className="w-12 h-12 text-slate-200" />
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No employee hierarchy found</p>
+                  <button onClick={fetchOrganogram} className="text-[11px] font-black text-blue-600 hover:underline">Retry</button>
+                </div>
+              ) : (
+                <OrgChartCanvas
+                  roots={orgData}
+                  onSelect={(n) => showAlert(`${n.name} · ${n.title}`, 'info')}
+                />
+              )}
             </div>
+
+            <p className="text-center text-[10px] text-slate-400 font-semibold">
+              💡 Scroll to zoom · Drag to pan · Click a card to view profile
+            </p>
           </motion.div>
         )}
 

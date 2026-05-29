@@ -1,61 +1,245 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  Sparkles, 
-  Users, 
-  Clock, 
-  Loader2,
-  TrendingUp
+import {
+  ChevronDown, ChevronUp, Sparkles, Loader2, TrendingUp, Clock, Calendar, Users, Send, CheckCircle, X,
 } from 'lucide-react';
 import OfferLetterModal from './OfferLetterModal';
 import CandidateDetailModal from './CandidateDetailModal';
 import ScheduleInterviewModal from './ScheduleInterviewModal';
-import { useJobApplications, useJobRequests, useScheduleInterview, useAdvanceCandidate } from '../../hooks/useJobRequests';
+import OfferLetterCreateModal from '../offer-letters/OfferLetterCreateModal';
+import {
+  useJobApplications, useJobRequests, useScheduleInterview,
+  useAdvanceCandidate, useInterviews, useCloseJob,
+} from '../../hooks/useJobRequests';
+import { useQuery } from '@tanstack/react-query';
+import { getOfferLetters } from '../../api/offerLetters';
 
-interface RecrutimentOngoingProps {
+interface Props {
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
 }
 
-export default function RecruitmentOngoingRecruitment({ onDraftAiSuggestion, showAlert }: RecrutimentOngoingProps) {
+type SubTab = 'interview' | 'shortlisted' | 'waitlisted';
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+function fmtDate(d: string | null | undefined) {
+  if (!d) return null;
+  return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function fmtTime(d: string | null | undefined) {
+  if (!d) return null;
+  return new Date(d).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+}
+
+// ── Interview schedule cell ───────────────────────────────────────────────────
+
+function InterviewScheduleCell({ interview }: { interview: any | null }) {
+  if (!interview) {
+    return <span className="text-[11px] text-slate-300 font-semibold">—</span>;
+  }
+  if (interview.status === 'completed') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 border border-slate-200 text-slate-600 text-[11px] font-black rounded-lg">
+        Interviewed
+      </span>
+    );
+  }
+  if (interview.status === 'pending_acceptance') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[11px] font-black rounded-lg">
+        <Clock className="w-3 h-3" /> Awaiting
+      </span>
+    );
+  }
+  if (interview.status === 'cancelled') {
+    return (
+      <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-red-50 border border-red-200 text-red-600 text-[11px] font-black rounded-lg">
+        Cancelled
+      </span>
+    );
+  }
+  // scheduled — show date + time
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[12px] font-black text-slate-700">{fmtDate(interview.interviewAt)}</span>
+      <span className="text-[11px] font-bold text-slate-400">{fmtTime(interview.interviewAt)}</span>
+    </div>
+  );
+}
+
+// ── Rating badge ──────────────────────────────────────────────────────────────
+
+function RatingBadge({ score }: { score?: number | null }) {
+  if (score == null) return <span className="text-[11px] text-slate-300 font-semibold">—</span>;
+  // score is avg skill rating on 1–5 scale; display as x/5
+  return (
+    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#fefce8] border border-[#fef08a] text-[#a16207] text-[11px] font-black rounded-full whitespace-nowrap">
+      <Sparkles className="w-3 h-3 fill-[#a16207]" />
+      {score.toFixed(1)}/5
+    </span>
+  );
+}
+
+// ── Top Match card ────────────────────────────────────────────────────────────
+
+function TopMatchCard({ app, onClick }: { app: any; onClick: () => void }) {
+  const meta = app.metadata || {};
+  return (
+    <div
+      onClick={onClick}
+      className="w-full bg-[#f0f5ff] border border-blue-200 rounded-2xl px-6 py-4 cursor-pointer hover:bg-blue-50 transition-all"
+    >
+      <div className="flex items-center justify-between mb-3">
+        <span className="flex items-center gap-1.5 text-[11px] font-black text-blue-600 uppercase tracking-widest">
+          <TrendingUp className="w-3.5 h-3.5" /> Top Match
+        </span>
+        {app.avgSkillRating != null && <RatingBadge score={app.avgSkillRating} />}
+      </div>
+      <div className="grid grid-cols-4 gap-4 items-end">
+        <div>
+          <p className="text-[15px] font-black text-slate-900 leading-tight">{app.fullName || 'Anonymous'}</p>
+          <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{app.phone || meta.phone || '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Experience</p>
+          <p className="text-[13px] font-black text-slate-800">{meta.experience || meta.yearsOfExperience || '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Salary Expectation</p>
+          <p className="text-[13px] font-black text-slate-800">{meta.salaryExpectation || meta.expectedSalary || '—'}</p>
+        </div>
+        <div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-0.5">Can Start</p>
+          <p className="text-[13px] font-black text-slate-800">
+            {meta.availableFrom ? fmtDate(meta.availableFrom) : meta.canStart || '—'}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Candidate grid card (shortlisted / waitlisted) ────────────────────────────
+
+function CandidateGridCard({ app, onClick }: { app: any; onClick: () => void }) {
+  const name = app.fullName || 'Anonymous';
+  const phone = app.phone || app.metadata?.phone || app.email || '—';
+  const dateApplied = fmtDate(app.createdAt);
+
+  return (
+    <div
+      onClick={onClick}
+      className="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-blue-300 hover:shadow-sm transition-all space-y-2"
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[13px] font-black text-slate-900 truncate">{name}</p>
+          <p className="text-[11px] text-slate-400 font-semibold mt-0.5 truncate">{phone}</p>
+        </div>
+        {app.avgSkillRating != null && <RatingBadge score={app.avgSkillRating} />}
+      </div>
+      {dateApplied && (
+        <p className="text-[11px] text-slate-400 font-semibold">{dateApplied}</p>
+      )}
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────────────────────
+
+export default function RecruitmentOngoingRecruitment({ onDraftAiSuggestion, showAlert }: Props) {
   const { data: jobRequests, isLoading: loadingJobs } = useJobRequests({ includePublished: true });
   const { data: applications, isLoading: loadingApps } = useJobApplications();
+  const { data: interviews, isLoading: loadingInterviews } = useInterviews();
   const scheduleMutation = useScheduleInterview();
   const advanceMutation = useAdvanceCandidate();
 
+  // Fetch existing offer letters to know which candidates already have one sent
+  const { data: offerLettersData } = useQuery({
+    queryKey: ['offer-letters-sent-check'],
+    queryFn: async () => {
+      const res = await getOfferLetters({ limit: 500 });
+      const raw = res.data?.data;
+      return Array.isArray(raw) ? raw : (raw?.rows ?? []);
+    },
+    staleTime: 30_000,
+  });
+
+  // Set of emails that already have a SENT or ACCEPTED offer
+  const sentOfferEmails = useMemo(() => {
+    const set = new Set<string>();
+    (offerLettersData || []).forEach((o: any) => {
+      if (o.status === 'SENT' || o.status === 'ACCEPTED') {
+        set.add((o.candidateEmail || '').toLowerCase());
+      }
+    });
+    return set;
+  }, [offerLettersData]);
+
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
-  const [activeSubTab, setActiveSubTab] = useState<Record<string, 'interview' | 'shortlisted' | 'waitlisted'>>({});
+  const [activeSubTab, setActiveSubTab] = useState<Record<string, SubTab>>({});
+  const [closingJobId, setClosingJobId] = useState<string | null>(null);
+  const closeJob = useCloseJob();
 
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showOfferModal, setShowOfferModal] = useState(false);
+  const [showOfferCreateModal, setShowOfferCreateModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<any>(null);
+
+  // index interviews by jobApplicationId — keep most recent per application
+  const interviewByAppId = useMemo(() => {
+    const map: Record<string, any> = {};
+    (interviews || []).forEach((iv: any) => {
+      const existing = map[iv.jobApplicationId];
+      if (!existing || new Date(iv.createdAt) > new Date(existing.createdAt)) {
+        map[iv.jobApplicationId] = iv;
+      }
+    });
+    return map;
+  }, [interviews]);
 
   const ongoingData = useMemo(() => {
     if (!jobRequests?.rows || !applications) return [];
 
-    return jobRequests.rows.map(job => {
-        const jobApps = applications.filter(app => app.jobOpeningId === job.id);
-        const topMatch = jobApps.length > 0 ? [...jobApps].sort((a,b) => (b.score || 0) - (a.score || 0))[0] : null;
+    return jobRequests.rows
+      .map((job: any) => {
+        const jobApps = (applications as any[]).filter((a: any) => a.jobOpeningId === job.id);
+
+        const topMatch = jobApps.length > 0
+          ? [...jobApps].sort((a: any, b: any) => (b.score ?? 0) - (a.score ?? 0))[0]
+          : null;
+
+        // "On Interview" = has any interview record OR is in applied/interview stage
+        // This includes completed interviews (stage may have advanced to "offer")
+        const interviewApps = jobApps.filter((a: any) =>
+          interviewByAppId[a.id] ||
+          !a.stage ||
+          a.stage === 'applied' ||
+          a.stage === 'interview'
+        );
+        const shortlistedApps = jobApps.filter((a: any) => a.stage === 'shortlisted');
+        const waitlistedApps  = jobApps.filter((a: any) => a.stage === 'waitlisted');
+
+        const interviewedCount = interviewApps.filter((a: any) => interviewByAppId[a.id]).length;
 
         return {
-            ...job,
-            apps: jobApps,
-            topMatch,
-            interviewCount: jobApps.filter(a => !a.stage || a.stage === 'interview' || a.stage === 'applied').length,
-            shortlistedCount: jobApps.filter(a => a.stage === 'shortlisted').length,
-            waitlistedCount: jobApps.filter(a => a.stage === 'waitlisted').length,
+          ...job,
+          allApps: jobApps,
+          interviewApps,
+          shortlistedApps,
+          waitlistedApps,
+          topMatch,
+          interviewedCount,
         };
-    }).filter(j => j.apps.length > 0); 
-  }, [jobRequests, applications]);
+      })
+      .filter((j: any) => j.allApps.length > 0);
+  }, [jobRequests, applications, interviewByAppId]);
+
+  // ── handlers ─────────────────────────────────────────────────────────────────
 
   const openCandidateDetail = (candidate: any, job: any) => {
     setSelectedCandidate(candidate);
@@ -65,210 +249,319 @@ export default function RecruitmentOngoingRecruitment({ onDraftAiSuggestion, sho
   };
 
   const handleOpenScheduler = () => {
-    // Force immediate transition
     setShowDetailModal(false);
-    // Use a tiny timeout to ensure the detail modal is considered "closing" before the scheduler opens
-    setTimeout(() => {
-        setShowScheduleModal(true);
-    }, 50);
+    setTimeout(() => setShowScheduleModal(true), 50);
   };
 
   const handleShortlist = () => {
     if (!selectedCandidate) return;
     advanceMutation.mutate({ id: selectedCandidate.id, stage: 'shortlisted' }, {
-      onSuccess: () => {
-        setShowDetailModal(false);
-        showAlert(`${selectedCandidate.fullName || 'Candidate'} shortlisted successfully`, 'success');
-      },
-      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error')
+      onSuccess: () => { setShowDetailModal(false); showAlert(`${selectedCandidate.fullName || 'Candidate'} shortlisted`, 'success'); },
+      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error'),
     });
   };
 
   const handleReject = () => {
     if (!selectedCandidate) return;
     advanceMutation.mutate({ id: selectedCandidate.id, stage: 'rejected' }, {
-      onSuccess: () => {
-        setShowDetailModal(false);
-        showAlert(`${selectedCandidate.fullName || 'Candidate'} rejected`, 'error');
-      },
-      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error')
+      onSuccess: () => { setShowDetailModal(false); showAlert(`${selectedCandidate.fullName || 'Candidate'} rejected`, 'error'); },
+      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error'),
     });
   };
 
   const handleScheduleInterview = (data: any) => {
     scheduleMutation.mutate(data, {
-      onSuccess: () => {
-        setShowScheduleModal(false);
-        showAlert(`Interview scheduled successfully`, 'success');
-      },
-      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error')
+      onSuccess: () => { setShowScheduleModal(false); showAlert('Interview scheduled. Invitation sent to candidate.', 'success'); },
+      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error'),
     });
   };
 
-  if (loadingJobs || loadingApps) {
+  const handleSendOffer = (candidate: any, job: any) => {
+    setSelectedCandidate(candidate);
+    setSelectedJob(job);
+    setShowOfferCreateModal(true);
+  };
+
+  const handleCloseJob = (e: React.MouseEvent, jobId: string, jobTitle: string) => {
+    e.stopPropagation();
+    if (!confirm(`Close "${jobTitle}"? It will be removed from the public careers page immediately.`)) return;
+    setClosingJobId(jobId);
+    closeJob.mutate(jobId, {
+      onSuccess: () => { showAlert(`"${jobTitle}" closed and removed from careers page`, 'success'); setClosingJobId(null); },
+      onError: (err: any) => { showAlert(err?.response?.data?.message || 'Failed to close job', 'error'); setClosingJobId(null); },
+    });
+  };
+
+  // ── loading ───────────────────────────────────────────────────────────────────
+
+  if (loadingJobs || loadingApps || loadingInterviews) {
     return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4 animate-pulse font-sans">
+      <div className="flex flex-col items-center justify-center py-24 gap-4 font-sans">
         <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        <span className="text-sm font-bold text-slate-400 uppercase tracking-widest text-center text-slate-500">Recruitment dashboard loading...</span>
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading recruitment data...</span>
       </div>
     );
   }
 
+  // ── render ────────────────────────────────────────────────────────────────────
+
   return (
-    <div className="space-y-6 font-sans">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white border border-slate-100 p-6 rounded-3xl shadow-3xs">
-        <div>
-          <h1 className="text-xl font-extrabold text-slate-800">Interviews and Schedules</h1>
-          <p className="text-xs text-slate-400 font-semibold mt-1">Track candidates and coordinate the recruitment pipeline</p>
-        </div>
-        <button
-          onClick={() => { onDraftAiSuggestion('Suggest evaluation matrix.'); showAlert('Fetching AI Insights', 'info'); }}
-          className="px-4.5 py-2.5 bg-[#eff6ff] text-[#1a56db] rounded-2xl text-xs font-black flex items-center gap-1.5 border border-blue-200/50 hover:bg-blue-100 transition-all cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5 fill-[#1a56db]" />
-          <span>AI Insight Matrix</span>
-        </button>
+    <div className="space-y-5 font-sans">
+      {/* Page header */}
+      <div className="mb-1">
+        <h1 className="text-[18px] font-black text-slate-900 tracking-tight">Interviews and Schedules</h1>
+        <p className="text-[12px] text-slate-400 font-semibold mt-0.5">Track candidates through the hiring pipeline</p>
       </div>
 
-      {/* Ongoing Jobs List */}
-      <div className="space-y-4">
-        {ongoingData.map((job) => {
-          const currentTab = activeSubTab[job.id] || 'interview';
-          const isExpanded = expandedJobId === job.id;
-          const topMatch = job.topMatch;
+      {ongoingData.length === 0 && (
+        <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center">
+          <Calendar className="w-10 h-10 text-slate-200 mx-auto mb-3" />
+          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No active job postings with applicants</p>
+        </div>
+      )}
 
-          return (
-            <div 
-              key={job.id} 
-              className={`bg-white border transition-all rounded-3xl shadow-3xs overflow-hidden ${
-                isExpanded ? 'border-blue-200 ring-4 ring-blue-50' : 'border-slate-100'
-              }`}
+      {/* Job cards */}
+      {ongoingData.map((job: any) => {
+        const isExpanded = expandedJobId === job.id;
+        const currentTab: SubTab = activeSubTab[job.id] || 'interview';
+
+        const tabApps =
+          currentTab === 'interview'   ? job.interviewApps   :
+          currentTab === 'shortlisted' ? job.shortlistedApps :
+          job.waitlistedApps;
+
+        const dept = job.metadata?.department || job.department || '';
+
+        return (
+          <div key={job.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+
+            {/* ── Card header ── */}
+            <div
+              className="flex items-center justify-between px-6 py-4 cursor-pointer select-none hover:bg-slate-50/60 transition-colors"
+              onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
             >
-              <div 
-                onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
-                className="p-5.5 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-all"
-              >
+              <div className="flex flex-col gap-1">
                 <div className="flex items-center gap-3">
-                  <h3 className="text-[14.5px] font-extrabold text-slate-800 tracking-tight leading-none">{job.title}</h3>
-                  <div className="flex items-center gap-2">
-                    <span className="bg-blue-100/60 text-[#1a56db] px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase border border-blue-200/40">Active</span>
-                    <span className="bg-[#fef9c3] text-[#a16207] border border-[#fef08a] px-2.5 py-0.5 rounded-full text-[10px] font-black">
-                      {job.apps.length} Applicants
-                    </span>
-                  </div>
+                  <h3 className="text-[15px] font-black text-slate-900 tracking-tight">{job.title}</h3>
+                  <span className="px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-black rounded-md uppercase tracking-wide">
+                    Active Job
+                  </span>
                 </div>
-
-                <div className="flex items-center gap-3 text-[10.5px] font-extrabold text-slate-400 uppercase tracking-widest">
-                  {isExpanded ? 'Collapse' : 'Expand'}
-                  {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                </div>
+                {dept && (
+                  <span className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{dept}</span>
+                )}
               </div>
 
-              <AnimatePresence>
-                {isExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.25 }}
-                    className="overflow-hidden"
-                  >
-                    <div className="border-t border-slate-50 p-5.5 space-y-6">
-                      {/* Sub-Tabs */}
-                      <div className="flex items-center justify-between border-b border-slate-50 pb-5">
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest px-3 py-1 bg-slate-50 rounded-lg">{job.department}</span>
-                        <div className="flex gap-1.5 p-1 bg-slate-100/50 rounded-2xl border border-slate-100">
-                          {(['interview', 'shortlisted', 'waitlisted'] as const).map(tabKey => (
-                            <button
-                              key={tabKey}
-                              onClick={(e) => { e.stopPropagation(); setActiveSubTab(prev => ({ ...prev, [job.id]: tabKey })); }}
-                              className={`px-4.5 py-1.5 rounded-xl text-xs font-black transition-all capitalize ${
-                                currentTab === tabKey 
-                                  ? 'bg-white text-blue-600 shadow-3xs border border-slate-200' 
-                                  : 'text-slate-500 hover:text-slate-800'
+              <div className="flex items-center gap-3">
+                {job.interviewedCount > 0 && (
+                  <span className="px-3 py-1 bg-[#fef9c3] border border-[#fef08a] text-[#a16207] text-[11px] font-black rounded-full">
+                    {job.interviewedCount} Interviewed
+                  </span>
+                )}
+                <span className="flex items-center gap-1 text-[11px] font-black text-slate-500 hover:text-slate-800 transition-colors">
+                  {isExpanded
+                    ? <><ChevronUp className="w-4 h-4" /> Less</>
+                    : <><ChevronDown className="w-4 h-4" /> More</>}
+                </span>
+                {/* Close job button */}
+                <button
+                  onClick={(e) => handleCloseJob(e, job.id, job.title)}
+                  disabled={closingJobId === job.id}
+                  title="Close job posting"
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all disabled:opacity-50"
+                >
+                  {closingJobId === job.id
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <X className="w-4 h-4" />
+                  }
+                </button>
+              </div>
+            </div>
+
+            {/* ── Expanded body ── */}
+            <AnimatePresence initial={false}>
+              {isExpanded && (
+                <motion.div
+                  key="body"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="border-t border-slate-100 px-6 pb-6 pt-5 space-y-5">
+
+                    {/* ── Sub-tabs ── */}
+                    <div className="grid grid-cols-3 gap-0 border border-slate-200 rounded-xl overflow-hidden">
+                      {([
+                        { key: 'interview'   as SubTab, label: 'On Interview',  count: job.interviewApps.length   },
+                        { key: 'shortlisted' as SubTab, label: 'Shortlisted',   count: job.shortlistedApps.length },
+                        { key: 'waitlisted'  as SubTab, label: 'Waitlisted',    count: job.waitlistedApps.length  },
+                      ]).map(({ key, label, count }, i) => {
+                        const active = currentTab === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={e => { e.stopPropagation(); setActiveSubTab(p => ({ ...p, [job.id]: key })); }}
+                            className={`py-2.5 text-[12px] font-black transition-colors
+                              ${i > 0 ? 'border-l border-slate-200' : ''}
+                              ${active
+                                ? 'bg-white text-slate-900'
+                                : 'bg-slate-50 text-slate-400 hover:text-slate-700'
                               }`}
-                            >
-                              {tabKey} ({tabKey === 'interview' ? job.interviewCount : tabKey === 'shortlisted' ? job.shortlistedCount : job.waitlistedCount})
-                            </button>
-                          ))}
+                          >
+                            {label} ({count})
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* ── Top Match card ── */}
+                    {job.topMatch && (
+                      <TopMatchCard app={job.topMatch} onClick={() => openCandidateDetail(job.topMatch, job)} />
+                    )}
+
+                    {/* ── Interview tab: table ── */}
+                    {currentTab === 'interview' && (
+                      <div className="space-y-2">
+                        {/* section label */}
+                        <div className="flex items-center gap-2 py-1">
+                          <span className="w-6 h-6 rounded-full bg-[#fef9c3] border border-[#fef08a] flex items-center justify-center">
+                            <Clock className="w-3.5 h-3.5 text-[#a16207]" />
+                          </span>
+                          <span className="text-[13px] font-black text-slate-800">Interviews</span>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-100 overflow-hidden">
+                          {/* header */}
+                          <div className="grid grid-cols-5 px-5 py-2.5 bg-slate-50 border-b border-slate-100">
+                            {['Name of Applicant', 'Interview Schedule', 'Date Applied', 'Rating', 'Action'].map(h => (
+                              <span key={h} className="text-[10px] font-black text-blue-600 uppercase tracking-widest">{h}</span>
+                            ))}
+                          </div>
+
+                          {tabApps.length === 0 ? (
+                            <div className="px-5 py-10 text-center text-[11px] font-bold text-slate-300 uppercase tracking-widest">
+                              No applicants in this stage
+                            </div>
+                          ) : (
+                            tabApps.map((app: any, idx: number) => {
+                              const interview = interviewByAppId[app.id] || null;
+                              const name = app.fullName || 'Anonymous';
+                              return (
+                                <div
+                                  key={app.id || idx}
+                                  className={`grid grid-cols-5 items-center px-5 py-4 transition-colors border-b border-slate-50 last:border-0
+                                    ${idx % 2 === 1 ? 'bg-slate-50/40' : 'bg-white'}`}
+                                >
+                                  <div
+                                    onClick={() => openCandidateDetail(app, job)}
+                                    className="cursor-pointer hover:text-blue-600 transition-colors"
+                                  >
+                                    <p className="text-[13px] font-black text-slate-900">{name}</p>
+                                    <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+                                      {app.phone || app.metadata?.phone || app.email || '—'}
+                                    </p>
+                                  </div>
+                                  <div>
+                                    <InterviewScheduleCell interview={interview} />
+                                  </div>
+                                  <div>
+                                    <p className="text-[12px] font-bold text-slate-700">{fmtDate(app.createdAt) || '—'}</p>
+                                  </div>
+                                  <div>
+                                    <RatingBadge score={app.avgSkillRating} />
+                                  </div>
+                                  <div>
+                                    {interview?.status === 'completed' && (
+                                      sentOfferEmails.has((app.email || '').toLowerCase()) ? (
+                                        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-[10px] font-black text-emerald-700 rounded-lg">
+                                          <CheckCircle className="w-3 h-3" /> Offer Sent
+                                        </span>
+                                      ) : (
+                                        <button
+                                          onClick={() => handleSendOffer(app, job)}
+                                          className="flex items-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-[10px] font-black text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded-lg transition-colors"
+                                        >
+                                          <Send className="w-3 h-3" /> Send Offer
+                                        </button>
+                                      )
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
                         </div>
                       </div>
+                    )}
 
-                      {/* Top Match Card */}
-                      {topMatch && (
-                        <div 
-                          onClick={() => openCandidateDetail(topMatch, job)}
-                          className="max-w-xl bg-white border border-blue-200/60 rounded-[32px] p-8 shadow-2xl relative overflow-hidden group cursor-pointer hover:shadow-blue-500/10 transition-all border-l-4 border-l-blue-600"
-                        >
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-50/50 rounded-bl-[100px] -z-10" />
-                          <div className="flex justify-between items-start mb-6">
-                            <span className="bg-blue-50 text-blue-600 text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-lg flex items-center gap-2 border border-blue-100">
-                              <TrendingUp className="w-3.5 h-3.5" /> AI Match
-                            </span>
-                            <div className="bg-[#fefce8] text-[#a16207] text-[11px] font-black px-3 py-1 rounded-full border border-[#fef08a] flex items-center gap-1">
-                              <Sparkles className="w-3.5 h-3.5 fill-[#a16207]" /> {topMatch.score || 95}% Match
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-8">
-                            <div>
-                              <h4 className="text-xl font-black text-slate-900 group-hover:text-blue-600 transition-colors leading-tight">{topMatch.fullName || 'Anonymous'}</h4>
-                              <p className="text-xs text-slate-450 font-bold mt-1">{topMatch.email || topMatch.metadata?.email}</p>
-                            </div>
-                            <div className="flex flex-col justify-center">
-                              <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Expected Salary</p>
-                              <p className="text-sm font-black text-slate-800">{topMatch.metadata?.salaryExpectation || 'N/A'} ETB</p>
-                            </div>
-                          </div>
+                    {/* ── Shortlisted tab: grid cards ── */}
+                    {currentTab === 'shortlisted' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 py-1">
+                          <span className="w-6 h-6 rounded-full bg-blue-100 border border-blue-200 flex items-center justify-center">
+                            <Users className="w-3.5 h-3.5 text-blue-600" />
+                          </span>
+                          <span className="text-[13px] font-black text-slate-800">Shortlist</span>
                         </div>
-                      )}
 
-                      {/* Candidate Grid/Table Simplified */}
-                      <div className="border border-slate-100 rounded-[28px] overflow-hidden bg-white shadow-3xs">
-                        {job.apps.filter(a => {
-                          if (currentTab === 'interview') return !a.stage || a.stage === 'interview' || a.stage === 'applied';
-                          return a.stage === currentTab;
-                        }).map((app, idx) => {
-                          const appName = app.fullName || app.metadata?.fullName || 'Anonymous';
-                          return (
-                            <div 
-                              key={idx} 
-                              onClick={() => openCandidateDetail(app, job)}
-                              className="flex items-center justify-between p-4 hover:bg-slate-50/70 border-b border-slate-50 last:border-0 transition-all cursor-pointer group"
-                            >
-                              <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600 text-[11px] border border-slate-200/50 uppercase">{appName[0]}</div>
-                                <div>
-                                  <h6 className="font-black text-slate-800 text-[13px]">{appName}</h6>
-                                  <p className="text-[10px] text-slate-450 font-bold">{app.email || app.metadata?.email}</p>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-4">
-                                <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-100 opacity-0 group-hover:opacity-100 transition-all">View Profile</span>
-                                <span className="text-[11px] font-black text-slate-400 bg-slate-50 px-3 py-1 rounded-lg">{app.score || 92}% Rating</span>
-                              </div>
-                            </div>
-                          );
-                        })}
-                        {job.apps.filter(a => {
-                          if (currentTab === 'interview') return !a.stage || a.stage === 'interview' || a.stage === 'applied';
-                          return a.stage === currentTab;
-                        }).length === 0 && (
-                          <div className="p-12 text-center text-slate-400 text-xs font-black uppercase tracking-widest">No candidates in this stage</div>
+                        {tabApps.length === 0 ? (
+                          <div className="rounded-xl border border-slate-100 px-5 py-10 text-center text-[11px] font-bold text-slate-300 uppercase tracking-widest">
+                            No shortlisted candidates
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {tabApps.map((app: any) => (
+                              <CandidateGridCard
+                                key={app.id}
+                                app={app}
+                                onClick={() => openCandidateDetail(app, job)}
+                              />
+                            ))}
+                          </div>
                         )}
                       </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          );
-        })}
-      </div>
+                    )}
 
-      {/* Modals rendered flatly with clear boolean flags */}
-      <CandidateDetailModal 
+                    {/* ── Waitlisted tab: grid cards ── */}
+                    {currentTab === 'waitlisted' && (
+                      <div className="space-y-3">
+                        <div className="flex items-center gap-2 py-1">
+                          <span className="w-6 h-6 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center">
+                            <Users className="w-3.5 h-3.5 text-white" />
+                          </span>
+                          <span className="text-[13px] font-black text-slate-800">Waitlist</span>
+                        </div>
+
+                        {tabApps.length === 0 ? (
+                          <div className="rounded-xl border border-slate-100 px-5 py-10 text-center text-[11px] font-bold text-slate-300 uppercase tracking-widest">
+                            No waitlisted candidates
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                            {tabApps.map((app: any) => (
+                              <CandidateGridCard
+                                key={app.id}
+                                app={app}
+                                onClick={() => openCandidateDetail(app, job)}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
+
+      {/* ── Modals ── */}
+      <CandidateDetailModal
         isOpen={showDetailModal}
         onClose={() => setShowDetailModal(false)}
         candidate={selectedCandidate}
@@ -286,8 +579,9 @@ export default function RecruitmentOngoingRecruitment({ onDraftAiSuggestion, sho
         jobTitle={selectedJob?.title || ''}
         jobApplicationId={selectedCandidate?.id || ''}
         onSchedule={handleScheduleInterview}
+        isLoading={scheduleMutation.isPending}
       />
-      
+
       <OfferLetterModal
         isOpen={showOfferModal}
         onClose={() => setShowOfferModal(false)}
@@ -295,6 +589,39 @@ export default function RecruitmentOngoingRecruitment({ onDraftAiSuggestion, sho
         positionTitle={selectedJob?.title || ''}
         showAlert={showAlert}
       />
+
+      {/* ── Send Offer modal (OfferLetterCreateModal) ── */}
+      {showOfferCreateModal && selectedCandidate && selectedJob && (
+        <OfferLetterCreateModal
+          isOpen={showOfferCreateModal}
+          onClose={() => { setShowOfferCreateModal(false); setSelectedCandidate(null); setSelectedJob(null); }}
+          showAlert={showAlert}
+          initialData={{
+            candidateName:  selectedCandidate.fullName || selectedCandidate.metadata?.fullName || '',
+            candidateEmail: selectedCandidate.email,
+            candidatePhone: selectedCandidate.phone || selectedCandidate.metadata?.phone,
+            // Pre-fill from job opening metadata where available
+            departmentId:   '', // let HR pick from dropdown
+            positionId:     '', // let HR pick from dropdown
+            roleId:         '', // let HR pick from dropdown
+            // Pass the job title so {{positionTitle}} / {{positionName}} resolves in preview
+            positionName:   selectedJob.title || '',
+            positionTitle:  selectedJob.title || '',
+            departmentName: selectedJob.metadata?.department || selectedJob.department || '',
+            salary:         selectedCandidate.metadata?.expectedSalary || '',
+            startDate:      new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
+            employmentType: selectedJob.employmentType || 'Full-time',
+            workLocation:   '',
+            reportingManager: '',
+          }}
+          onSuccess={() => {
+            setShowOfferCreateModal(false);
+            setSelectedCandidate(null);
+            setSelectedJob(null);
+            showAlert('Offer letter sent successfully', 'success');
+          }}
+        />
+      )}
     </div>
   );
 }

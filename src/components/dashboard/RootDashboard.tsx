@@ -60,26 +60,26 @@ export default function RootDashboard({ onNavigateToModule }: RootDashboardProps
   ];
 
   return (
-    <div id="root-dashboard-view" className="space-y-6">
+    <div id="root-dashboard-view" className="space-y-5 sm:space-y-6">
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-5">
         {metrics.map((metric, i) => (
           <div
             key={i}
-            className={`bg-white rounded-2xl border ${metric.color} p-5 shadow-xs transition-all hover:shadow-md hover:translate-y-[-1px]`}
+            className={`bg-white rounded-2xl border ${metric.color} p-4 sm:p-5 shadow-xs transition-all hover:shadow-md hover:translate-y-[-1px]`}
           >
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[11px] font-bold text-slate-500 tracking-tight uppercase">
+                <p className="text-[10px] sm:text-[11px] font-bold text-slate-500 tracking-tight uppercase">
                   {metric.title}
                 </p>
-                <h3 className="text-3xl font-extrabold text-slate-900 mt-2 tracking-tight">
+                <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 mt-1.5 sm:mt-2 tracking-tight">
                   {metric.value}
                 </h3>
               </div>
               {metric.change !== null && (
                 <span
-                  className={`inline-flex items-center gap-0.5 px-2 py-1 rounded-lg text-xs font-bold leading-none ${
+                  className={`inline-flex items-center gap-0.5 px-1.5 sm:px-2 py-1 rounded-lg text-xs font-bold leading-none ${
                     metric.isNegative
                       ? 'bg-rose-50 text-rose-600'
                       : 'bg-emerald-50 text-emerald-600'
@@ -99,11 +99,11 @@ export default function RootDashboard({ onNavigateToModule }: RootDashboardProps
       </div>
 
       {/* Activities and Actions Half-Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6">
         {/* Recent Activities Panel */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-100 p-6 flex flex-col justify-between">
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-100 p-4 sm:p-6 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4 sm:mb-5">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
                   <Activity className="w-4.5 h-4.5" />
@@ -112,7 +112,7 @@ export default function RootDashboard({ onNavigateToModule }: RootDashboardProps
               </div>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-2 sm:space-y-4">
               {mockRecentActivities.map((act) => {
                 const isCompleted = act.status === 'completed';
                 const isActive = act.status === 'active';
@@ -149,14 +149,14 @@ export default function RootDashboard({ onNavigateToModule }: RootDashboardProps
                   <div
                     key={act.id}
                     onClick={() => onNavigateToModule(act.module)}
-                    className="flex items-start justify-between p-3.5 hover:bg-slate-50/50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-slate-100/70"
+                    className="flex items-start justify-between p-3 sm:p-3.5 hover:bg-slate-50/50 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-slate-100/70"
                   >
-                    <div className="space-y-0.5 pr-2">
-                      <h5 className="text-[12px] font-bold text-slate-800">{act.title}</h5>
-                      <p className="text-[11px] text-slate-500 leading-tight">{act.description}</p>
+                    <div className="space-y-0.5 pr-2 min-w-0">
+                      <h5 className="text-[12px] font-bold text-slate-800 truncate">{act.title}</h5>
+                      <p className="text-[11px] text-slate-500 leading-tight line-clamp-2">{act.description}</p>
                       <p className="text-[9px] text-slate-400 font-bold mt-1 uppercase tracking-wider">{act.timeLabel}</p>
                     </div>
-                    <div className="flex-shrink-0">{statusBadge}</div>
+                    <div className="flex-shrink-0 ml-2">{statusBadge}</div>
                   </div>
                 );
               })}
@@ -165,9 +165,9 @@ export default function RootDashboard({ onNavigateToModule }: RootDashboardProps
         </div>
 
         {/* Pending Actions Panel */}
-        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 p-6 flex flex-col justify-between">
+        <div className="lg:col-span-5 bg-white rounded-2xl border border-slate-100 p-4 sm:p-6 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center justify-between mb-4 sm:mb-5">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-orange-50 flex items-center justify-center text-orange-600">
                   <ClipboardList className="w-4.5 h-4.5" />
@@ -176,18 +176,18 @@ export default function RootDashboard({ onNavigateToModule }: RootDashboardProps
               </div>
             </div>
 
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               {mockPendingActions.map((action) => (
                 <div
                   key={action.id}
                   onClick={() => onNavigateToModule(action.module)}
                   className="flex items-center justify-between p-3 bg-slate-50 hover:bg-slate-100/80 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-200"
                 >
-                  <div className="space-y-0.5 pr-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{action.title}</span>
-                    <p className="text-[11px] text-slate-600 font-medium leading-tight">{action.subtitle}</p>
+                  <div className="space-y-0.5 pr-2 min-w-0">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block truncate">{action.title}</span>
+                    <p className="text-[11px] text-slate-600 font-medium leading-tight line-clamp-2">{action.subtitle}</p>
                   </div>
-                  <span className="w-7 h-7 bg-blue-600 text-[11px] font-extrabold text-white rounded-full flex items-center justify-center shadow-xs">
+                  <span className="w-7 h-7 bg-blue-600 text-[11px] font-extrabold text-white rounded-full flex items-center justify-center shadow-xs flex-shrink-0">
                     {action.count}
                   </span>
                 </div>

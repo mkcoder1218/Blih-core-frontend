@@ -115,7 +115,9 @@ export default function OfferLetterTemplateModal({ isOpen, onClose, showAlert, o
                     toolbar: [
                       [{ 'header': [1, 2, 3, false] }],
                       ['bold', 'italic', 'underline', 'strike'],
+                      [{ 'color': [] }, { 'background': [] }],
                       [{ 'list': 'ordered'}, { 'list': 'bullet' }],
+                      [{ 'align': [] }],
                       ['link', 'clean']
                     ],
                   }}

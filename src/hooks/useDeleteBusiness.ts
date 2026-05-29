@@ -6,7 +6,8 @@ export function useDeleteBusiness() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (businessId: string) => {
-      const res = await api.delete<ApiEnvelope<{ ok: true }>>(`/api/v1/businesses/${businessId}`);
+      // Purge permanently removes the business and all associated data
+      const res = await api.delete<ApiEnvelope<{ ok: true }>>(`/api/v1/businesses/${businessId}/purge`);
       return res.data;
     },
     onSuccess: async () => {

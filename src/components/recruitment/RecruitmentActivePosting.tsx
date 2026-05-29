@@ -1,374 +1,420 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  ChevronDown, 
-  ChevronUp, 
-  Sparkles, 
-  Check, 
-  Clock,
-  Briefcase,
-  Users,
-  Loader2,
-  TrendingUp,
-  MapPin,
-  Calendar
+import {
+  ChevronUp, ChevronDown, Check, Briefcase, Loader2, TrendingUp, Sparkles, X,
 } from 'lucide-react';
-import { useJobApplications, useJobRequests, useScheduleInterview, useAdvanceCandidate } from '../../hooks/useJobRequests';
+import {
+  useJobApplications, useJobRequests, useScheduleInterview, useAdvanceCandidate, useInterviews, useCloseJob,
+} from '../../hooks/useJobRequests';
 import CandidateDetailModal from './CandidateDetailModal';
 import ScheduleInterviewModal from './ScheduleInterviewModal';
 
-interface RecruitmentActivePostingProps {
+interface Props {
   onDraftAiSuggestion: (prompt: string) => void;
   showAlert: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
-export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAlert }: RecruitmentActivePostingProps) {
+// Stages that mean the applicant has already been moved out of the "new applicants" pool
+const MOVED_STAGES = new Set(['interview', 'shortlisted', 'waitlisted', 'offer', 'hired', 'rejected']);
+
+export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAlert }: Props) {
   const { data: jobRequests, isLoading: loadingJobs } = useJobRequests({ includePublished: true });
   const { data: applications, isLoading: loadingApps } = useJobApplications();
+  const { data: interviews } = useInterviews();
   const scheduleMutation = useScheduleInterview();
   const advanceMutation = useAdvanceCandidate();
 
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
   const [activeSubTab, setActiveSubTab] = useState<Record<string, 'detail' | 'applicants' | 'analytics'>>({});
+  const [selectedRows, setSelectedRows] = useState<Record<string, Set<string>>>({});
+  const [closingJobId, setClosingJobId] = useState<string | null>(null);
 
-  // Modals
-  const [showDetailModal, setShowDetailModal] = useState<boolean>(false);
-  const [showScheduleModal, setShowScheduleModal] = useState<boolean>(false);
+  const closeJob = useCloseJob();
+
+  const [showDetailModal, setShowDetailModal] = useState(false);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<any>(null);
 
+  // Index of applicant IDs that already have an interview scheduled
+  const scheduledAppIds = useMemo(() => {
+    const ids = new Set<string>();
+    (interviews || []).forEach((iv: any) => {
+      if (iv.jobApplicationId) ids.add(iv.jobApplicationId);
+    });
+    return ids;
+  }, [interviews]);
+
   const activeJobs = useMemo(() => {
     if (!jobRequests?.rows) return [];
-    return jobRequests.rows.filter(j => j.isPosted).map(job => {
-        const jobApps = applications?.filter(app => app.jobOpeningId === job.id) || [];
+    return jobRequests.rows
+      .filter(j => j.isPosted)
+      .map(job => {
+        const allApps = (applications || []).filter((a: any) => a.jobOpeningId === job.id);
+        // Only show applicants who are still in "applied" stage AND not yet scheduled for interview
+        const pendingApps = allApps.filter(
+          (a: any) => !MOVED_STAGES.has(a.stage) && !scheduledAppIds.has(a.id)
+        );
         return {
-            ...job,
-            applicantsCount: jobApps.length,
-            apps: jobApps,
-            viewsCount: Math.floor(Math.random() * 2000) + 500 // Mock views for now
+          ...job,
+          allApps,
+          apps: pendingApps,           // shown in applicants tab
+          applicantsCount: pendingApps.length,
+          totalApplicants: allApps.length,
+          viewsCount: job.views ?? 0,
         };
-    });
-  }, [jobRequests, applications]);
+      });
+  }, [jobRequests, applications, scheduledAppIds]);
 
-  const handleToggleJob = (id: string) => {
-    setExpandedJobId(expandedJobId === id ? null : id);
+  // ── handlers ────────────────────────────────────────────────────────────────
+
+  const toggleRow = (jobId: string, appId: string) => {
+    setSelectedRows(prev => {
+      const set = new Set(prev[jobId] || []);
+      set.has(appId) ? set.delete(appId) : set.add(appId);
+      return { ...prev, [jobId]: set };
+    });
+  };
+
+  const toggleAll = (jobId: string, appIds: string[]) => {
+    setSelectedRows(prev => {
+      const set = prev[jobId] || new Set();
+      const allSelected = appIds.every(id => set.has(id));
+      return { ...prev, [jobId]: allSelected ? new Set() : new Set(appIds) };
+    });
   };
 
   const handleOpenScheduler = () => {
     setShowDetailModal(false);
-    setTimeout(() => {
-        setShowScheduleModal(true);
-    }, 50);
+    setTimeout(() => setShowScheduleModal(true), 50);
   };
 
   const handleShortlist = () => {
     if (!selectedCandidate) return;
     advanceMutation.mutate({ id: selectedCandidate.id, stage: 'shortlisted' }, {
-      onSuccess: () => {
-        setShowDetailModal(false);
-        showAlert(`${selectedCandidate.fullName || 'Candidate'} shortlisted successfully`, 'success');
-      },
-      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error')
+      onSuccess: () => { setShowDetailModal(false); showAlert(`${selectedCandidate.fullName || 'Candidate'} shortlisted`, 'success'); },
+      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error'),
     });
   };
 
   const handleReject = () => {
     if (!selectedCandidate) return;
     advanceMutation.mutate({ id: selectedCandidate.id, stage: 'rejected' }, {
-      onSuccess: () => {
-        setShowDetailModal(false);
-        showAlert(`${selectedCandidate.fullName || 'Candidate'} rejected`, 'error');
-      },
-      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error')
+      onSuccess: () => { setShowDetailModal(false); showAlert(`${selectedCandidate.fullName || 'Candidate'} rejected`, 'error'); },
+      onError: (e: any) => showAlert(`Failed: ${e.message}`, 'error'),
     });
   };
 
   const handleScheduleInterview = (data: any) => {
     scheduleMutation.mutate(data, {
-      onSuccess: () => {
-        setShowScheduleModal(false);
-        showAlert(`Interview invitation sent to ${selectedCandidate?.fullName}`, 'info');
-      },
-      onError: (e: any) => showAlert(`Failed to schedule: ${e.message}`, 'error')
+      onSuccess: () => { setShowScheduleModal(false); showAlert(`Interview invitation sent to ${selectedCandidate?.fullName}`, 'success'); },
+      onError: (e: any) => showAlert(`Failed to schedule: ${e.message}`, 'error'),
     });
   };
 
-  const handleSetSubTab = (jobId: string, subTab: 'detail' | 'applicants' | 'analytics') => {
-    setActiveSubTab(prev => ({ ...prev, [jobId]: subTab }));
+  const handleCloseJob = (e: React.MouseEvent, jobId: string, jobTitle: string) => {
+    e.stopPropagation();
+    if (!confirm(`Close "${jobTitle}"? It will be removed from the public careers page immediately.`)) return;
+    setClosingJobId(jobId);
+    closeJob.mutate(jobId, {
+      onSuccess: () => { showAlert(`"${jobTitle}" closed and removed from careers page`, 'success'); setClosingJobId(null); },
+      onError: (err: any) => { showAlert(err?.response?.data?.message || 'Failed to close job', 'error'); setClosingJobId(null); },
+    });
   };
+
+  // ── loading / empty ──────────────────────────────────────────────────────────
 
   if (loadingJobs || loadingApps) {
     return (
-        <div className="flex flex-col items-center justify-center py-24 gap-4 animate-pulse font-sans">
-            <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest text-center">Syncing published vacancies...</span>
-        </div>
+      <div className="flex flex-col items-center justify-center py-24 gap-4 font-sans">
+        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing published vacancies...</span>
+      </div>
     );
   }
 
   if (activeJobs.length === 0) {
     return (
-        <div className="bg-white border border-slate-100 rounded-[32px] p-16 text-center space-y-6 shadow-3xs font-sans">
-            <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200">
-                <Briefcase className="w-10 h-10" />
-            </div>
-            <div className="space-y-2">
-                <h3 className="text-xl font-black text-slate-900 tracking-tight">No active postings</h3>
-                <p className="text-sm text-slate-500 font-medium max-w-sm mx-auto leading-relaxed">
-                    Once you publish a job request, it will appear here as an active posting on your careers portal.
-                </p>
-            </div>
+      <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center space-y-4 font-sans">
+        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200">
+          <Briefcase className="w-8 h-8" />
         </div>
+        <h3 className="text-lg font-black text-slate-900">No active postings</h3>
+        <p className="text-sm text-slate-400 font-medium max-w-xs mx-auto">
+          Once you publish a job request it will appear here.
+        </p>
+      </div>
     );
   }
 
+  // ── render ───────────────────────────────────────────────────────────────────
+
   return (
-    <div id="active-posting-view-main" className="space-y-6 font-sans">
-      <div className="mb-4">
-        <h3 className="text-[15px] font-bold text-slate-900 tracking-tight">Active Jobs</h3>
-        <p className="text-[11px] text-slate-400 font-medium">View and manage active job posts</p>
-      </div>
+    <div className="space-y-4 font-sans">
+      {activeJobs.map(job => {
+        const isExpanded = expandedJobId === job.id;
+        const currentTab = activeSubTab[job.id] || 'detail';
+        const appIds = job.apps.map((a: any) => a.id);
+        const selected = selectedRows[job.id] || new Set<string>();
+        const allChecked = appIds.length > 0 && appIds.every((id: string) => selected.has(id));
 
-      <div className="space-y-4">
-        {activeJobs.map((job) => {
-          const isExpanded = expandedJobId === job.id;
-          const currentTab = activeSubTab[job.id] || 'detail';
+        return (
+          <div key={job.id}
+            className={`bg-white rounded-2xl border overflow-hidden transition-all ${
+              isExpanded ? 'border-slate-200 shadow-sm' : 'border-slate-200 hover:border-slate-300'
+            }`}>
 
-          return (
-            <div 
-              key={job.id} 
-              className={`bg-white rounded-3xl border transition-all duration-250 overflow-hidden ${
-                isExpanded 
-                  ? 'border-blue-200 ring-4 ring-blue-50/40 shadow-sm' 
-                  : 'border-slate-100/90 hover:border-slate-200 shadow-xs'
-              }`}
+            {/* ── Card header ── */}
+            <div
+              className="px-6 py-4 flex items-center justify-between cursor-pointer select-none hover:bg-slate-50/50 transition-colors"
+              onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
             >
-              <div 
-                className={`p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer select-none ${
-                  isExpanded ? 'bg-slate-50/40 border-b border-slate-100/70' : ''
-                }`}
-                onClick={() => handleToggleJob(job.id)}
-              >
-                <div className="flex flex-col space-y-1.5">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-[14px] font-black text-slate-800 tracking-tight">{job.title}</h4>
-                    <span className="text-[10px] text-white bg-blue-600 font-bold uppercase tracking-wider px-2 py-0.5 rounded">
-                        Active Post
-                    </span>
-                  </div>
-                  
-                  <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-500 font-medium">
-                    <span className="text-[#1a56db] font-bold tracking-tight bg-blue-50/70 px-2 py-0.5 rounded text-[10px]">
-                      {job.department}
-                    </span>
-                    <span className="text-slate-300">&bull;</span>
-                    <span>{job.type}</span>
-                    <span className="text-slate-300">&bull;</span>
-                    <span>{job.positions} Position</span>
-                  </div>
+              {/* left */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-3">
+                  <h4 className="text-[15px] font-black text-slate-900 tracking-tight">{job.title}</h4>
+                  <span className="px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-black rounded uppercase tracking-wide">
+                    Active Post
+                  </span>
                 </div>
-
-                <div className="flex items-center gap-4 self-end md:self-auto">
-                  <div className="bg-slate-50 border border-slate-100 px-3.5 py-1.5 rounded-xl text-center">
-                    <span className="block text-[11px] font-bold text-slate-700 leading-none">
-                      {job.applicantsCount} applicants
-                    </span>
-                  </div>
-                  <div className="bg-slate-50 border border-slate-100 px-3.5 py-1.5 rounded-xl text-center">
-                    <span className="block text-[11px] font-bold text-slate-700 leading-none">
-                      {job.viewsCount} views
-                    </span>
-                  </div>
-                  <button className="w-8 h-8 rounded-full bg-slate-100/80 hover:bg-slate-100 text-slate-500 flex items-center justify-center transition-colors">
-                    {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                  </button>
+                <div className="flex items-center gap-2 text-[11px]">
+                  <span className="text-blue-600 font-black uppercase tracking-widest">{job.department || '—'}</span>
+                  {job.type && <><span className="text-slate-300">·</span><span className="text-slate-500 font-semibold">{job.type}</span></>}
+                  {job.positions && <><span className="text-slate-300">·</span><span className="text-slate-500 font-semibold">{job.positions} Position</span></>}
                 </div>
               </div>
 
-              <AnimatePresence initial={false}>
-                {isExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.22, ease: 'easeInOut' }}
-                    className="overflow-hidden bg-white"
-                  >
-                    <div className="grid grid-cols-3 gap-3 p-3 bg-slate-50/70 border-b border-slate-100 rounded-t-3xl font-sans">
-                      <button
-                        onClick={() => handleSetSubTab(job.id, 'detail')}
-                        className={`py-3.5 text-xs font-bold transition-all text-center rounded-2xl cursor-pointer ${
-                          currentTab === 'detail' ? 'bg-white text-slate-900 border border-slate-200/90 shadow-2xs' : 'bg-slate-100/50 hover:bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        Job Detail
-                      </button>
-                      <button
-                        onClick={() => handleSetSubTab(job.id, 'applicants')}
-                        className={`py-3.5 text-xs font-bold transition-all text-center rounded-2xl cursor-pointer ${
-                          currentTab === 'applicants' ? 'bg-white text-slate-900 border border-slate-200/90 shadow-2xs' : 'bg-slate-100/50 hover:bg-slate-100 text-slate-600'
-                        }`}
-                      >
-                        Applicants ({job.applicantsCount})
-                      </button>
-                      <button
-                        onClick={() => handleSetSubTab(job.id, 'analytics')}
-                        className={`py-3.5 text-xs font-bold transition-all text-center rounded-2xl cursor-pointer ${
-                          currentTab === 'analytics' ? 'bg-white text-slate-900 border border-slate-200/90 shadow-2xs' : 'bg-slate-100/50 hover:bg-[#e2e8f0] text-slate-600'
-                        }`}
-                      >
-                        Analytics
-                      </button>
-                    </div>
+              {/* right */}
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <p className="text-[13px] font-black text-slate-700">{job.applicantsCount} applicants</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-[13px] font-black text-slate-700">{job.viewsCount} views</p>
+                </div>
+                <span className="flex items-center gap-1 text-[11px] font-black text-slate-400">
+                  {isExpanded ? <><ChevronUp className="w-4 h-4" /> Less</> : <><ChevronDown className="w-4 h-4" /> More</>}
+                </span>
+                {/* Close job button */}
+                <button
+                  onClick={(e) => handleCloseJob(e, job.id, job.title)}
+                  disabled={closingJobId === job.id}
+                  title="Close job posting"
+                  className="ml-1 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all disabled:opacity-50"
+                >
+                  {closingJobId === job.id
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <X className="w-4 h-4" />
+                  }
+                </button>
+              </div>
+            </div>
 
-                    <div className="p-6 space-y-6">
-                      {currentTab === 'detail' && (
-                        <div className="space-y-6 animate-fade-in font-sans">
-                          {/* Job Request Details Grid */}
-                          <div className="bg-[#f8fafc] rounded-2xl border border-slate-100 p-5">
-                            <h5 className="text-[11px] font-bold text-slate-800 uppercase tracking-tight mb-4">Role Specification</h5>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                              <div>
-                                <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-extrabold mb-1">Priority</span>
-                                <span className="text-[10px] bg-blue-50 text-blue-600 font-extrabold uppercase tracking-wider px-2 py-0.5 border border-blue-100 rounded">
-                                  {job.priority}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-extrabold mb-1">Due Date</span>
-                                <span className="text-xs text-slate-700 font-bold font-sans">{job.dueDate}</span>
-                              </div>
-                              <div>
-                                <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-extrabold mb-1">Expected Date</span>
-                                <span className="text-xs text-slate-700 font-bold font-sans">{job.expectedDate}</span>
-                              </div>
-                              <div>
-                                <span className="block text-[10px] text-slate-400 uppercase tracking-wider font-extrabold mb-1">Date Published</span>
-                                <span className="text-xs text-slate-700 font-bold font-sans">{job.requestedDate}</span>
-                              </div>
+            {/* ── Expanded body ── */}
+            <AnimatePresence initial={false}>
+              {isExpanded && (
+                <motion.div
+                  key="body"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.22, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  {/* Tab row */}
+                  <div className="grid grid-cols-3 border-t border-slate-100">
+                    {(['detail', 'applicants', 'analytics'] as const).map((tab, i) => {
+                      const label =
+                        tab === 'detail' ? 'Job Detail' :
+                        tab === 'applicants' ? `Applicants (${job.applicantsCount})` :
+                        'Analytics';
+                      const active = currentTab === tab;
+                      return (
+                        <button key={tab}
+                          onClick={e => { e.stopPropagation(); setActiveSubTab(p => ({ ...p, [job.id]: tab })); }}
+                          className={`py-3 text-[12px] font-black transition-colors border-b-2
+                            ${i > 0 ? 'border-l border-slate-100' : ''}
+                            ${active
+                              ? 'border-b-blue-600 text-slate-900 bg-white'
+                              : 'border-b-transparent text-slate-400 bg-slate-50/60 hover:text-slate-700'
+                            }`}>
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="p-6">
+                    {/* ── Job Detail tab ── */}
+                    {currentTab === 'detail' && (
+                      <div className="space-y-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                          {[
+                            { label: 'Priority',       value: job.priority },
+                            { label: 'Due Date',        value: job.dueDate },
+                            { label: 'Expected Date',   value: job.expectedDate },
+                            { label: 'Date Published',  value: job.requestedDate },
+                          ].map(item => (
+                            <div key={item.label} className="bg-slate-50 rounded-2xl p-4">
+                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.label}</p>
+                              <p className="text-[12px] font-black text-slate-700">{item.value || '—'}</p>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-600">
+                          <div className="space-y-4">
+                            <div>
+                              <h5 className="font-black text-slate-900 uppercase text-[10px] tracking-widest mb-2">Job Overview</h5>
+                              <p className="leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">{job.overview}</p>
+                            </div>
+                            <div>
+                              <h5 className="font-black text-slate-900 uppercase text-[10px] tracking-widest mb-2">Requirements</h5>
+                              <ul className="space-y-1.5 pl-1">
+                                {(job.requirements || []).map((r: string, i: number) => (
+                                  <li key={i} className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
+                                    <span className="font-medium">{r}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
                           </div>
-
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs text-slate-600">
-                            <div className="space-y-4">
-                              <div>
-                                <h5 className="font-extrabold text-slate-900 uppercase text-[10.5px] tracking-wider mb-2">Job Overview</h5>
-                                <p className="leading-relaxed bg-slate-50/50 p-3 rounded-xl border border-slate-100/50 font-medium">{job.overview}</p>
-                              </div>
-                              <div>
-                                <h5 className="font-extrabold text-slate-900 uppercase text-[10.5px] tracking-wider mb-2">Requirements</h5>
-                                <ul className="space-y-1.5 pl-1.5">
-                                  {job.requirements?.map((req: string, i: number) => (
-                                    <li key={i} className="flex items-start gap-2">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 flex-shrink-0" />
-                                      <span className="leading-relaxed font-medium">{req}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
+                          <div className="space-y-4">
+                            <div>
+                              <h5 className="font-black text-slate-900 uppercase text-[10px] tracking-widest mb-2">Qualifications</h5>
+                              <ul className="space-y-1.5 pl-1">
+                                {(job.qualifications || []).map((q: string, i: number) => (
+                                  <li key={i} className="flex items-start gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
+                                    <span className="font-medium">{q}</span>
+                                  </li>
+                                ))}
+                              </ul>
                             </div>
-
-                            <div className="space-y-4">
-                              <div>
-                                <h5 className="font-extrabold text-slate-900 uppercase text-[10.5px] tracking-wider mb-2">Qualifications</h5>
-                                <ul className="space-y-1.5 pl-1.5">
-                                  {job.qualifications?.map((qual: string, i: number) => (
-                                    <li key={i} className="flex items-start gap-2">
-                                      <span className="w-1.5 h-1.5 rounded-full bg-blue-400 mt-1.5 flex-shrink-0" />
-                                      <span className="leading-relaxed font-medium">{qual}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              </div>
-                              <div>
-                                <h5 className="font-extrabold text-slate-900 uppercase text-[10.5px] tracking-wider mb-1">Business Justification</h5>
-                                <p className="leading-relaxed text-slate-500 italic bg-slate-50/30 p-2.5 rounded-lg border border-slate-100/30 font-medium">{job.importance}</p>
-                              </div>
+                            <div>
+                              <h5 className="font-black text-slate-900 uppercase text-[10px] tracking-widest mb-1">Business Justification</h5>
+                              <p className="leading-relaxed text-slate-500 italic bg-slate-50 p-3 rounded-xl border border-slate-100 font-medium">{job.importance}</p>
                             </div>
                           </div>
                         </div>
-                      )}
+                      </div>
+                    )}
 
-                      {currentTab === 'applicants' && (
-                        <div className="animate-fade-in space-y-4 font-sans">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 bg-slate-50/50 p-4 rounded-2xl border border-slate-100/60 shadow-3xs">
-                             <div className="flex items-center gap-3">
-                               <Check className="w-4 h-4 text-blue-600" />
-                               <span className="text-xs font-bold text-slate-700">All Applicants Syncing...</span>
-                             </div>
-                             <div className="flex items-center gap-2">
-                                <button className="px-4 py-2 bg-[#1a56db] text-white rounded-xl text-xs font-bold shadow-3xs">Bulk Actions</button>
-                             </div>
+                    {/* ── Applicants tab ── */}
+                    {currentTab === 'applicants' && (
+                      <div className="space-y-4">
+                        {/* toolbar */}
+                        <div className="flex items-center justify-between bg-slate-50 border border-slate-100 rounded-2xl px-4 py-3">
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
+                            <Check className="w-4 h-4 text-blue-600" />
+                            All Applicants Syncing...
+                          </div>
+                          <button className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-black hover:bg-blue-700 transition-colors">
+                            Bulk Actions
+                          </button>
+                        </div>
+
+                        {/* table */}
+                        <div className="border border-slate-100 rounded-2xl overflow-hidden">
+                          {/* header */}
+                          <div className="grid grid-cols-12 gap-2 bg-slate-50 px-5 py-3 border-b border-slate-100">
+                            <div className="col-span-1 flex items-center">
+                              <input type="checkbox" checked={allChecked}
+                                onChange={() => toggleAll(job.id, appIds)}
+                                className="w-4 h-4 rounded border-slate-300 accent-blue-600 cursor-pointer" />
+                            </div>
+                            {['Candidate', 'Applied Date', 'Score', 'Actions'].map((h, i) => (
+                              <span key={h}
+                                className={`text-[10px] font-black text-blue-600 uppercase tracking-widest ${
+                                  i === 0 ? 'col-span-4' : i === 1 ? 'col-span-3' : i === 2 ? 'col-span-2 text-center' : 'col-span-2 text-center'
+                                }`}>
+                                {h}
+                              </span>
+                            ))}
                           </div>
 
-                          <div className="border border-slate-100 rounded-2xl overflow-hidden bg-white shadow-3xs">
-                            <div className="grid grid-cols-12 gap-2 bg-slate-50/80 p-4 text-[10.5px] font-extrabold text-[#1a56db] uppercase tracking-wider font-sans border-b border-slate-100 select-none">
-                              <span className="col-span-1"></span>
-                              <span className="col-span-4">Candidate</span>
-                              <span className="col-span-3">Applied Date</span>
-                              <span className="col-span-2 text-center">Score</span>
-                              <span className="col-span-2 text-center">Actions</span>
+                          {/* rows */}
+                          {job.apps.length === 0 && (
+                            <div className="px-5 py-12 text-center text-[11px] font-bold text-slate-300 uppercase tracking-widest">
+                              No new applicants
                             </div>
+                          )}
 
-                            <div className="divide-y divide-slate-100/70">
-                              {job.apps.length > 0 ? job.apps.map((app, idx) => (
-                                <div 
-                                  key={idx}
-                                  onClick={() => { setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
-                                  className="grid grid-cols-12 gap-2 p-4 items-center hover:bg-slate-50/70 transition-all cursor-pointer font-sans"
-                                >
-                                  <div className="col-span-1 flex items-center justify-center">
-                                    <div className="w-4 h-4 rounded border border-slate-300" />
+                          {job.apps.map((app: any, idx: number) => {
+                            const isChecked = selected.has(app.id);
+                            const name = app.fullName || 'Anonymous';
+                            return (
+                              <div key={app.id || idx}
+                                className={`grid grid-cols-12 gap-2 px-5 py-4 items-center border-b border-slate-50 last:border-0 transition-colors hover:bg-slate-50/60 cursor-pointer
+                                  ${idx % 2 === 1 ? 'bg-slate-50/30' : 'bg-white'}`}
+                                onClick={() => { setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
+                              >
+                                {/* checkbox */}
+                                <div className="col-span-1" onClick={e => { e.stopPropagation(); toggleRow(job.id, app.id); }}>
+                                  <input type="checkbox" checked={isChecked} onChange={() => {}}
+                                    className="w-4 h-4 rounded border-slate-300 accent-blue-600 cursor-pointer" />
+                                </div>
+
+                                {/* candidate */}
+                                <div className="col-span-4 flex items-center gap-3">
+                                  <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-black text-slate-600 uppercase flex-shrink-0">
+                                    {name[0]}
                                   </div>
-                                  <div className="col-span-4 flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-700 text-[11px] border border-slate-200/50 uppercase">
-                                      {(app.fullName || 'U')[0]}
-                                    </div>
-                                    <div>
-                                      <h6 className="font-extrabold text-slate-800 leading-tight">{app.fullName || 'Anonymous'}</h6>
-                                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">{app.email}</p>
-                                    </div>
-                                  </div>
-                                  <span className="col-span-3 text-slate-500 font-semibold">{new Date(app.createdAt).toLocaleDateString()}</span>
-                                  <div className="col-span-2 text-center text-slate-600 font-extrabold font-mono">
-                                    {app.score || 90}%
-                                  </div>
-                                  <div className="col-span-2 flex items-center justify-center">
-                                    <button className="bg-blue-50/40 border border-blue-200/80 text-blue-600 px-3 py-1.5 rounded-xl font-black text-[11px]">✨ View</button>
+                                  <div>
+                                    <p className="text-[13px] font-black text-slate-900 leading-tight">{name}</p>
+                                    <p className="text-[11px] text-slate-400 font-medium">{app.email}</p>
                                   </div>
                                 </div>
-                              )) : (
-                                <div className="p-12 text-center text-slate-400 text-xs font-bold uppercase tracking-widest">No applicants yet</div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      )}
 
-                      {currentTab === 'analytics' && (
-                        <div className="animate-fade-in p-12 text-center">
-                            <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-blue-600">
-                                <TrendingUp className="w-8 h-8" />
-                            </div>
-                            <h4 className="text-sm font-black text-slate-900 tracking-tight">Analytics Processing...</h4>
-                            <p className="text-xs text-slate-500 font-medium mt-1">Real-time view tracking and application conversion rates will appear here soon.</p>
-                        </div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          );
-        })}
-      </div>
+                                {/* applied date */}
+                                <div className="col-span-3">
+                                  <p className="text-[12px] font-bold text-slate-600">
+                                    {new Date(app.createdAt).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })}
+                                  </p>
+                                </div>
 
-      <CandidateDetailModal 
+                                {/* score */}
+                                <div className="col-span-2 flex justify-center">
+                                  <span className="text-[12px] font-black text-slate-700">{app.score ?? 90}%</span>
+                                </div>
+
+                                {/* action */}
+                                <div className="col-span-2 flex justify-center">
+                                  <button
+                                    onClick={e => { e.stopPropagation(); setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
+                                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-600 text-[11px] font-black rounded-xl hover:bg-blue-100 transition-colors">
+                                    <Sparkles className="w-3 h-3 fill-blue-600" /> View
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Analytics tab ── */}
+                    {currentTab === 'analytics' && (
+                      <div className="py-12 text-center">
+                        <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
+                          <TrendingUp className="w-7 h-7 text-blue-600" />
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900">Analytics Processing...</h4>
+                        <p className="text-xs text-slate-400 font-medium mt-1">
+                          Real-time view tracking and conversion rates will appear here soon.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
+
+      <CandidateDetailModal
         isOpen={showDetailModal}
         onClose={() => setShowDetailModal(false)}
         candidate={selectedCandidate}
@@ -378,7 +424,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
         onReject={handleReject}
       />
 
-      <ScheduleInterviewModal 
+      <ScheduleInterviewModal
         isOpen={showScheduleModal}
         onClose={() => setShowScheduleModal(false)}
         onBackToApplication={() => { setShowScheduleModal(false); setShowDetailModal(true); }}
@@ -386,6 +432,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
         jobTitle={selectedJob?.title}
         jobApplicationId={selectedCandidate?.id}
         onSchedule={handleScheduleInterview}
+        isLoading={scheduleMutation.isPending}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, ExternalLink } from "lucide-react";
 import RecruitmentOverview from "../components/recruitment/RecruitmentOverview";
 import RecruitmentRequests from "../components/recruitment/RecruitmentRequests";
 import RecruitmentReadyToPost from "../components/recruitment/RecruitmentReadyToPost";
@@ -9,6 +9,7 @@ import RecruitmentApplicantForms from "../components/recruitment/RecruitmentAppl
 import RecruitmentOffers from "../components/recruitment/RecruitmentOffers";
 import RecruitmentActivePosting from "../components/recruitment/RecruitmentActivePosting";
 import RecruitmentOngoingRecruitment from "../components/recruitment/RecruitmentOngoingRecruitment";
+import InterviewManagementView from "../components/recruitment/InterviewManagementView";
 import CreateJobModal from "../components/recruitment/create-job/CreateJobModal";
 import TemplateSelectionModal from "../components/recruitment/create-job/TemplateSelectionModal";
 import { api } from "../api/client";
@@ -135,11 +136,13 @@ export default function RecruitmentPage() {
           />
         );
       case "offers":
-        return <RecruitmentOffers onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+        return <RecruitmentOffers showAlert={() => {}} />;
       case "active_posting":
         return <RecruitmentActivePosting onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
       case "ongoing_recruitment":
         return <RecruitmentOngoingRecruitment onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+      case "my_interviews":
+        return <InterviewManagementView showAlert={() => {}} />;
       default:
         return <RecruitmentOverview onNavigateToTab={(newTab) => navigate(`/recruitment/${newTab}`)} />;
     }
@@ -149,14 +152,18 @@ export default function RecruitmentPage() {
     <div className="space-y-6">
       {/* Top Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-        <div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight capitalize">
-            {tab.replace(/_/g, ' ')}
-          </h1>
-          <p className="text-xs text-slate-400 font-bold uppercase tracking-widest mt-1">
-            Recruitment & Talent Acquisition
-          </p>
-        </div>
+        {/* Careers page link */}
+        {me?.business?.slug && (
+          <a
+            href={`/careers/${me.business.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 px-4 py-2.5 rounded-xl transition-all"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            View Public Careers Page
+          </a>
+        )}
 
         {tab === "requests" && (
           <button

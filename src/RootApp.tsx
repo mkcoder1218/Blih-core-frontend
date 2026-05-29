@@ -4,7 +4,7 @@ import AuthGuard from "./components/AuthGuard";
 import LoginPage from "./pages/LoginPage";
 import { useMe } from "./hooks/useMe";
 import { setLegacyUser } from "./api/legacyUserStore";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import AppShell from "./pages/AppShell";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import RoleGuard from "./components/RoleGuard";
@@ -14,6 +14,15 @@ import ModulePage from "./pages/ModulePage";
 import PermissionManagement from "./pages/PermissionManagement";
 import PublicCareersPage from "./pages/careers/PublicCareersPage";
 import PublicJobApplicationPage from "./pages/careers/PublicJobApplicationPage";
+import InterviewResponsePage from "./pages/InterviewResponsePage";
+import CandidateOnboardingPage from "./pages/CandidateOnboardingPage";
+
+// Wrapper to extract :onboardingId param and pass as prop
+function CandidateOnboardingRoute() {
+  const { onboardingId } = useParams<{ onboardingId: string }>();
+  if (!onboardingId) return <div>Invalid onboarding link.</div>;
+  return <CandidateOnboardingPage onboardingId={onboardingId} />;
+}
 
 export default function RootApp() {
   const token = useAccessToken();
@@ -22,8 +31,10 @@ export default function RootApp() {
     <BrowserRouter>
       <Routes>
         {/* Public Routes - No Auth Required */}
-        <Route path="/careers" element={<PublicCareersPage />} />
-        <Route path="/careers/:jobId" element={<PublicJobApplicationPage />} />
+        <Route path="/careers/:businessSlug" element={<PublicCareersPage />} />
+        <Route path="/careers/:businessSlug/apply/:jobId" element={<PublicJobApplicationPage />} />
+        <Route path="/interview/respond" element={<InterviewResponsePage />} />
+        <Route path="/career/onboarding/:onboardingId" element={<CandidateOnboardingRoute />} />
         
         {/* Auth Required Routes */}
         <Route

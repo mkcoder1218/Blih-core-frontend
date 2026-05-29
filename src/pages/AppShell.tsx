@@ -18,12 +18,13 @@ export default function AppShell() {
     "overview" | "check-in" | "requests" | "timesheet" | "leaves" | "overtime" | "memo-log" | "work-from-home"
   >("overview");
   const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
-  const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms">("overview");
+  const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("overview");
   const [currentFinanceTab, setCurrentFinanceTab] = useState<"overview" | "salary" | "payroll" | "budget" | "expense" | "benefits">("overview");
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<"overview" | "contract" | "progress" | "probation" | "checklists">("overview");
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<"overview" | "performance_review" | "okrs" | "kpis" | "discipline" | "evaluation_form">("overview");
   const [currentBusinessesTab, setCurrentBusinessesTab] = useState<BusinessesTab>("overview");
   const [isDetailedView, setIsDetailedView] = useState<boolean>(true);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [notification, setNotification] = useState<{ show: boolean; title: string; type: "success" | "info" | "error" }>({
     show: false,
     title: "",
@@ -54,7 +55,15 @@ export default function AppShell() {
   if (!activeUser) return null;
 
   return (
-    <div id="app-window" className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 overflow-hidden font-sans select-none antialiased">
+    <div id="app-window" className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 relative font-sans select-none antialiased">
+      {/* Mobile backdrop — sits above content, below sidebar */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
       <Sidebar
         user={activeUser}
         onLogout={() => {
@@ -84,17 +93,25 @@ export default function AppShell() {
         setCurrentBusinessesTab={setCurrentBusinessesTab}
         isDetailedView={isDetailedView}
         setIsDetailedView={setIsDetailedView}
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
-        <Header currentModule={currentModule} currentRecruitmentTab={currentRecruitmentTab} isDetailedView={isDetailedView} onOpenAiHelper={() => {}} />
+      <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
+        <Header
+          currentModule={currentModule}
+          currentRecruitmentTab={currentRecruitmentTab}
+          isDetailedView={isDetailedView}
+          onOpenAiHelper={() => {}}
+          onMobileMenuOpen={() => setMobileSidebarOpen(true)}
+        />
         <AnimatePresence>
           {notification.show && (
             <motion.div
               initial={{ opacity: 0, y: -20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              className="absolute top-20 right-8 z-50 bg-slate-900 border border-slate-800 text-white shadow-xl px-4 py-3.5 rounded-xl flex items-center gap-3"
+              className="absolute top-20 right-4 sm:right-8 z-[200] bg-slate-900 border border-slate-800 text-white shadow-xl px-4 py-3.5 rounded-xl flex items-center gap-3 max-w-[calc(100vw-2rem)]"
             >
               {notification.type === "success" ? (
                 <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white">
@@ -107,7 +124,7 @@ export default function AppShell() {
             </motion.div>
           )}
         </AnimatePresence>
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#fafbfc]">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#fafbfc]">
           <Outlet context={{ showAlert }} />
         </main>
       </div>

@@ -16,26 +16,48 @@ export default function OfferLetterPreviewModal({ isOpen, onClose, previewData, 
   const [loading, setLoading] = useState(false);
 
   const handleSendOffer = async () => {
-    if (previewData.missingVariables && previewData.missingVariables.length > 0) {
-       showAlert(`Required fields are missing: ${previewData.missingVariables.join(', ')}`, "error");
-       return;
+    // acceptUrl and rejectUrl are always "missing" at preview time — they're generated
+    // server-side at send time. Filter them out before deciding to block.
+    const blockingMissing = (previewData.missingVariables || []).filter(
+      (v: string) => v !== 'acceptUrl' && v !== 'rejectUrl'
+    );
+
+    if (blockingMissing.length > 0) {
+      showAlert(`Required fields are missing: ${blockingMissing.join(', ')}`, 'error');
+      return;
     }
 
     setLoading(true);
     try {
-      // Create draft first, then send
-      const draftRes = await createOfferLetter(formData);
+      // Use payloadData (has resolved names + all fields) for creating the draft
+      // Strip preview-only override keys before saving
+      const draftPayload = { ...(previewData.payloadData || formData) };
+      delete draftPayload.overrideBodyHtml;
+      delete draftPayload.overrideSubject;
+      // Strip keys that aren't DB columns
+      delete draftPayload.departmentName;
+      delete draftPayload.roleName;
+      delete draftPayload.positionName;
+
+      // Validate required fields before hitting the server
+      if (!draftPayload.templateId || !draftPayload.candidateName || !draftPayload.candidateEmail) {
+        showAlert('Template, candidate name and email are required', 'error');
+        setLoading(false);
+        return;
+      }
+
+      const draftRes = await createOfferLetter(draftPayload);
       const newLetterId = draftRes.data?.data?.id;
 
-      if (!newLetterId) throw new Error("Failed to create draft");
+      if (!newLetterId) throw new Error('Failed to create draft');
 
-      // Now send it
-      await sendOfferLetter(newLetterId, previewData.payloadData);
+      // Now send it — pass payloadData so the backend can render with all variables
+      await sendOfferLetter(newLetterId, previewData.payloadData || formData);
       
-      showAlert("Offer letter sent successfully to Candidate!", "success");
+      showAlert('Offer letter sent successfully to Candidate!', 'success');
       onSuccess?.();
     } catch (e: any) {
-      showAlert(e.response?.data?.message || 'Failed to send offer letter', 'error');
+      showAlert(e.response?.data?.message || e.response?.data?.error || 'Failed to send offer letter', 'error');
     } finally {
       setLoading(false);
     }
@@ -71,12 +93,17 @@ export default function OfferLetterPreviewModal({ isOpen, onClose, previewData, 
           </div>
         </div>
 
-        {previewData.missingVariables?.length > 0 && (
-           <div className="bg-amber-50 border-b border-amber-100 p-4 px-6 flex flex-col justify-center">
+        {(() => {
+          const displayMissing = (previewData.missingVariables || []).filter(
+            (v: string) => v !== 'acceptUrl' && v !== 'rejectUrl'
+          );
+          return displayMissing.length > 0 ? (
+            <div className="bg-amber-50 border-b border-amber-100 p-4 px-6 flex flex-col justify-center">
               <span className="text-sm font-bold text-amber-800">Warning: Missing Variables</span>
-              <span className="text-xs text-amber-600">The following variables are not filled: {previewData.missingVariables.join(', ')}. Please update your form.</span>
-           </div>
-        )}
+              <span className="text-xs text-amber-600">The following variables are not filled: {displayMissing.join(', ')}. Please update your form.</span>
+            </div>
+          ) : null;
+        })()}
 
         <div className="flex-1 overflow-y-auto bg-slate-50 p-8 custom-scrollbar relative">
            <div 

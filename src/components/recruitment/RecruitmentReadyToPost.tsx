@@ -19,6 +19,15 @@ export default function RecruitmentReadyToPost({ jobs, onPostSuccess, onEditClic
 
   const activeJob = jobs.find(j => j.id === selectedJobId) || jobs[0];
 
+  // Normalize to arrays defensively — API may return strings or null
+  const toArr = (v: any): string[] => {
+    if (Array.isArray(v)) return v;
+    if (typeof v === 'string' && v.trim()) return v.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+    return [];
+  };
+  const requirements = toArr(activeJob?.requirements);
+  const qualifications = toArr(activeJob?.qualifications);
+
   const handlePublish = () => {
     if (activeJob) {
       onPostSuccess(activeJob.title, activeJob.id);
@@ -94,21 +103,21 @@ export default function RecruitmentReadyToPost({ jobs, onPostSuccess, onEditClic
               <h5 className="font-bold text-white text-sm mb-1">Role Description</h5>
               <p>{activeJob.overview}</p>
             </div>
-            {activeJob.requirements && activeJob.requirements.length > 0 && (
+            {requirements.length > 0 && (
               <div>
                 <h5 className="font-bold text-white text-sm mb-1">Key Requirements</h5>
                 <ul className="list-disc pl-5 space-y-1">
-                  {activeJob.requirements.map((req, i) => (
+                  {requirements.map((req, i) => (
                     <li key={i}>{req}</li>
                   ))}
                 </ul>
               </div>
             )}
-            {activeJob.qualifications && activeJob.qualifications.length > 0 && (
+            {qualifications.length > 0 && (
               <div>
                 <h5 className="font-bold text-white text-sm mb-1">Preferred Qualifications</h5>
                 <ul className="list-disc pl-5 space-y-1">
-                  {activeJob.qualifications.map((qual, i) => (
+                  {qualifications.map((qual, i) => (
                     <li key={i}>{qual}</li>
                   ))}
                 </ul>
@@ -207,7 +216,7 @@ export default function RecruitmentReadyToPost({ jobs, onPostSuccess, onEditClic
                   Requirements
                 </h5>
                 <ul className="space-y-2.5">
-                  {activeJob.requirements?.map((req, index) => (
+                  {requirements.map((req, index) => (
                     <li key={index} className="flex items-start gap-2.5 leading-relaxed">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 flex-shrink-0" />
                       <span className="text-[11px]">{req}</span>
@@ -224,7 +233,7 @@ export default function RecruitmentReadyToPost({ jobs, onPostSuccess, onEditClic
                   Qualifications
                 </h5>
                 <ul className="space-y-2.5">
-                  {activeJob.qualifications?.map((qual, index) => (
+                  {qualifications.map((qual, index) => (
                     <li key={index} className="flex items-start gap-2.5 leading-relaxed">
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-600 mt-1.5 flex-shrink-0" />
                       <span className="text-[11px]">{qual}</span>

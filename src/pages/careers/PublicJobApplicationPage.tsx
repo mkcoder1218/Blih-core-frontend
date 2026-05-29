@@ -27,19 +27,19 @@ import {
 import { motion, AnimatePresence } from "motion/react";
 
 export default function PublicJobApplicationPage() {
-  const { jobId } = useParams();
-  const { data: job, isLoading } = usePublicJob(jobId || "");
+  const { businessSlug, jobId } = useParams<{ businessSlug: string; jobId: string }>();
+  const { data: job, isLoading } = usePublicJob(businessSlug || "", jobId || "");
   const applyMutation = useApplyJob();
   const inkMutation = useIncrementView();
   const uploadMutation = useUploadResume();
   const viewCounted = useRef(false);
 
   useEffect(() => {
-    if (jobId && !viewCounted.current) {
-      inkMutation.mutate(jobId);
+    if (businessSlug && jobId && !viewCounted.current) {
+      inkMutation.mutate({ businessSlug, id: jobId });
       viewCounted.current = true;
     }
-  }, [jobId]);
+  }, [businessSlug, jobId]);
 
   const [formData, setFormData] = useState<any>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
@@ -110,7 +110,7 @@ export default function PublicJobApplicationPage() {
             </p>
           </div>
           <Link
-            to="/careers"
+            to={`/careers/${businessSlug}`}
             className="inline-block bg-blue-600 text-white px-6 py-3 rounded-2xl text-xs font-bold shadow-lg shadow-blue-100 hover:bg-blue-700 transition-all"
           >
             Browse Careers
@@ -147,7 +147,7 @@ export default function PublicJobApplicationPage() {
           </div>
 
           <Link
-            to="/careers"
+            to={`/careers/${businessSlug}`}
             className="block w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-3xl text-sm transition-all shadow-xl shadow-slate-100"
           >
             Back to Careers
@@ -164,7 +164,7 @@ export default function PublicJobApplicationPage() {
       <header className="bg-white/80 backdrop-blur-md border-b border-slate-100 py-4 px-8 sticky top-0 z-50">
         <div className="max-w-5xl mx-auto flex items-center gap-4">
           <Link
-            to="/careers"
+            to={`/careers/${businessSlug}`}
             className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 hover:text-slate-900 transition-all"
           >
             <ChevronLeft className="w-5 h-5" />

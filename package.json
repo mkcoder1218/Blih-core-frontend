@@ -25,6 +25,7 @@
     "react-quill-new": "^3.8.3",
     "react-router-dom": "^6.30.3",
     "recharts": "^3.8.1",
+    "socket.io-client": "^4.8.3",
     "vite": "^6.2.3"
   },
   "devDependencies": {

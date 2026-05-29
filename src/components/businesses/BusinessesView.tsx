@@ -114,6 +114,10 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
   const [adminPhone, setAdminPhone] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
 
+  // Inline error states for modals (toast is hidden behind modal backdrop)
+  const [formError, setFormError] = useState('');
+  const [adminError, setAdminError] = useState('');
+
   const openCreateModal = () => {
     if (!isPlatformSuperAdmin) return;
     setEditingBusiness(null);
@@ -126,6 +130,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     setFormEmployeeCount(10);
     setFormPlanId('');
     setFormSectorFocusId('');
+    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -141,6 +146,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     setFormEmployeeCount(biz.employeeCount);
     setFormPlanId(biz.planId || '');
     setFormSectorFocusId(biz.sectorFocusId || '');
+    setFormError('');
     setIsModalOpen(true);
   };
 
@@ -151,29 +157,41 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     setAdminEmail('');
     setAdminPhone('');
     setAdminPassword('');
+    setAdminError('');
     setAdminModalOpen(true);
   };
 
   const handleDelete = async (id: string, name: string) => {
     if (!isPlatformSuperAdmin) return;
-    if (confirm(`Are you absolutely sure you want to delete and un-register business tenancy for "${name}"?\nThis is dangerous and terminates all current child active sessions.`)) {
+    if (confirm(`⚠️ PERMANENT DELETION WARNING\n\nYou are about to permanently delete "${name}" and ALL associated data including:\n• All users and their accounts\n• All roles and permissions\n• All HR records, employees, onboarding data\n• All recruitment, interviews, job openings\n• All finance, CRM, projects, and other module data\n• All files, notifications, and audit logs\n\nThis action is IRREVERSIBLE and cannot be undone.\n\nType OK to confirm permanent deletion.`)) {
       try {
         await deleteBiz.mutateAsync(id);
-        showAlert(`Terminated business tenant: ${name}`, 'success');
+        showAlert(`Business "${name}" and all associated data permanently deleted.`, 'success');
       } catch (e: any) {
-        showAlert(e?.response?.data?.message || e?.message || 'Failed to delete business', 'error');
+        showAlert(getMutationError(e) || 'Failed to delete business', 'error');
       }
     }
   };
 
-  const getMutationError = (err: any) => err?.response?.data?.message || err?.message || '';
+  const getMutationError = (err: any): string => {
+    const res = err?.response?.data;
+    if (res) {
+      // If data is an array of validation errors, join them
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data.map((e: any) => e.message).join(' • ');
+      }
+      if (res.message) return res.message;
+    }
+    return err?.message || '';
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError('');
 
     if (!isPlatformSuperAdmin) return;
     if (!formName || !formEmail || !formDomain || !formPlanId) {
-      showAlert('Please enter all mandatory fields (name, email, domain/slug, planId).', 'error');
+      setFormError('Please fill in all required fields: name, email, domain/slug, and plan.');
       return;
     }
 
@@ -205,19 +223,20 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
       }
       setIsModalOpen(false);
     } catch (e: any) {
-      showAlert(e?.response?.data?.message || e?.message || 'Save failed', 'error');
+      setFormError(getMutationError(e) || 'Save failed. Please try again.');
     }
   };
 
   const handleCreateAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setAdminError('');
     if (!isPlatformSuperAdmin || !adminBusiness) return;
     try {
       await createAdmin.mutateAsync({ fullName: adminName, email: adminEmail, phone: adminPhone || null, password: adminPassword });
       showAlert(`Business Admin created for ${adminBusiness.name}`, 'success');
       setAdminModalOpen(false);
     } catch (e: any) {
-      showAlert(e?.response?.data?.message || e?.message || 'Failed to create admin', 'error');
+      setAdminError(getMutationError(e) || 'Failed to create admin. Please try again.');
     }
   };
 
@@ -479,6 +498,13 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Inline error banner */}
+                {formError && (
+                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5">
+                    <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <span className="text-xs font-semibold leading-snug">{formError}</span>
+                  </div>
+                )}
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Commercial Name</label>
@@ -651,6 +677,13 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
                 <div className="text-xs text-slate-600">Not authorized.</div>
               ) : (
                 <form onSubmit={handleCreateAdmin} className="space-y-3">
+                  {/* Inline error banner */}
+                  {adminError && (
+                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5">
+                      <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                      <span className="text-xs font-semibold leading-snug">{adminError}</span>
+                    </div>
+                  )}
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Full Name</label>

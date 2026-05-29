@@ -29,6 +29,21 @@
   animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+/* Sidebar mobile drawer behavior */
+/* On mobile/tablet (<lg), sidebar is hidden off-screen by default */
+@media (max-width: 1023px) {
+  #sidebar-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    transform: translateX(-100%);
+  }
+  #sidebar-container[data-mobile-open="true"] {
+    transform: translateX(0);
+  }
+}
+
 /* Base resets */
 body {
   font-family: var(--font-sans);

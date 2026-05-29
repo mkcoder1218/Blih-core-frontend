@@ -57,6 +57,9 @@ export default function App() {
   const [currentBusinessesTab, setCurrentBusinessesTab] = useState<BusinessesTab>('overview');
   const [isDetailedView, setIsDetailedView] = useState<boolean>(true); // Start in detailed Recruitment tab to match Image 1/3/4
 
+  // Mobile sidebar open state
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   // Jobs dynamic collection state
   const [jobs, setJobs] = useState<JobRequest[]>(mockJobRequests);
 
@@ -208,7 +211,15 @@ export default function App() {
   if (!activeUser) return null;
 
   return (
-    <div id="app-window" className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 overflow-hidden font-sans select-none antialiased">
+    <div id="app-window" className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 font-sans select-none antialiased relative">
+      {/* Mobile backdrop overlay — rendered at root level so it's never clipped */}
+      {mobileSidebarOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          onClick={() => setMobileSidebarOpen(false)}
+        />
+      )}
+
       {/* Dynamic Sidebar Container */}
       <Sidebar
         user={activeUser}
@@ -239,16 +250,19 @@ export default function App() {
         setCurrentBusinessesTab={setCurrentBusinessesTab}
         isDetailedView={isDetailedView}
         setIsDetailedView={setIsDetailedView}
+        mobileOpen={mobileSidebarOpen}
+        onMobileClose={() => setMobileSidebarOpen(false)}
       />
 
       {/* Main Work Space column */}
-      <div className="flex-1 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 flex flex-col h-screen overflow-hidden min-w-0">
         {/* Modular Header */}
         <Header
           currentModule={currentModule}
           currentRecruitmentTab={currentRecruitmentTab}
           isDetailedView={isDetailedView}
           onOpenAiHelper={triggerGeneralAiHelp}
+          onMobileMenuOpen={() => setMobileSidebarOpen(true)}
         />
 
         {/* Floating notifications */}
@@ -258,7 +272,7 @@ export default function App() {
               initial={{ opacity: 0, y: -20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              className="absolute top-20 right-8 z-50 bg-slate-900 border border-slate-800 text-white shadow-xl px-4 py-3.5 rounded-xl flex items-center gap-3"
+              className="absolute top-20 right-4 sm:right-8 z-50 bg-slate-900 border border-slate-800 text-white shadow-xl px-4 py-3.5 rounded-xl flex items-center gap-3 max-w-[calc(100vw-2rem)]"
             >
               {notification.type === 'success' ? (
                 <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center text-white">
@@ -273,7 +287,7 @@ export default function App() {
         </AnimatePresence>
 
         {/* Dynamic Context Canvas */}
-        <main className="flex-1 overflow-y-auto p-6 sm:p-8 bg-[#fafbfc]">
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#fafbfc]">
           <AnimatePresence mode="wait">
             <motion.div
               key={`${currentModule}-${currentRecruitmentTab}-${isDetailedView}`}
@@ -456,7 +470,7 @@ export default function App() {
               animate={{ x: 0 }}
               exit={{ x: 440 }}
               transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              className="relative w-full max-w-md bg-white h-full shadow-2xl border-l border-slate-100 flex flex-col justify-between py-6 px-6 z-20"
+              className="relative w-full sm:max-w-md bg-white h-full shadow-2xl border-l border-slate-100 flex flex-col justify-between py-6 px-6 z-20"
             >
               <div>
                 <div className="flex justify-between items-center pb-4 border-b border-slate-100">
@@ -550,7 +564,7 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-100/50 z-20 space-y-5"
+              className="relative w-full max-w-lg mx-4 bg-white rounded-3xl p-6 shadow-2xl border border-slate-100/50 z-20 space-y-5"
             >
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
@@ -669,7 +683,7 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 z-15 space-y-4"
+              className="relative w-full max-w-lg mx-4 bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 z-15 space-y-4"
             >
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <h4 className="text-[13px] font-bold text-slate-900">Modify Job Specifications</h4>
@@ -730,7 +744,7 @@ export default function App() {
               initial={{ scale: 0.85, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.85, opacity: 0 }}
-              className="bg-white rounded-3xl p-8 max-w-sm text-center mx-4 shadow-2xl border border-slate-100 flex flex-col items-center space-y-6"
+              className="bg-white rounded-3xl p-8 max-w-sm w-full text-center mx-4 shadow-2xl border border-slate-100 flex flex-col items-center space-y-6"
             >
               <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center text-emerald-600">
                 <CheckCircle className="w-10 h-10" />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Mail } from 'lucide-react';
-import { getOfferLetters, getOfferLetterTemplates } from '../../api/offerLetters';
+import { Plus, Mail, FileText, Pencil, Trash2 } from 'lucide-react';
+import { getOfferLetters, getOfferLetterTemplates, deleteOfferLetterTemplate } from '../../api/offerLetters';
 import OfferLettersTable from './OfferLettersTable';
 import OfferLetterCreateModal from './OfferLetterCreateModal';
 import OfferLetterTemplateModal from './OfferLetterTemplateModal';
@@ -14,6 +14,7 @@ export default function OfferLettersView() {
   
   const [createLetterOpen, setCreateLetterOpen] = useState(false);
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<any>(null);
   
   const [alert, setAlert] = useState<{title: string, type: string}|null>(null);
 
@@ -104,6 +105,31 @@ export default function OfferLettersView() {
                   </div>
                   <h3 className="font-bold text-slate-900 text-[15px]">{t.name}</h3>
                   <p className="text-xs font-medium text-slate-500 mt-1 line-clamp-2">{t.subject}</p>
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 mt-4 pt-3 border-t border-slate-100">
+                    <button
+                      onClick={e => { e.stopPropagation(); setEditingTemplate(t); setCreateTemplateOpen(true); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-700 text-[11px] font-black rounded-lg transition-colors"
+                    >
+                      <Pencil className="w-3 h-3" /> Edit
+                    </button>
+                    <button
+                      onClick={async e => {
+                        e.stopPropagation();
+                        if (!confirm(`Delete template "${t.name}"?`)) return;
+                        try {
+                          await deleteOfferLetterTemplate(t.id);
+                          showAlert('Template deleted', 'success');
+                          fetchTemplates();
+                        } catch {
+                          showAlert('Failed to delete template', 'error');
+                        }
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-black rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-3 h-3" /> Delete
+                    </button>
+                  </div>
                </div>
              ))}
              {templates.length === 0 && (
@@ -123,9 +149,10 @@ export default function OfferLettersView() {
        />
        <OfferLetterTemplateModal
          isOpen={createTemplateOpen}
-         onClose={() => setCreateTemplateOpen(false)}
+         onClose={() => { setCreateTemplateOpen(false); setEditingTemplate(null); }}
          showAlert={showAlert}
-         onSuccess={fetchTemplates}
+         onSuccess={() => { fetchTemplates(); setEditingTemplate(null); }}
+         initialData={editingTemplate}
        />
     </div>
   );

@@ -9,14 +9,17 @@ export interface Role {
   key: string;
   description?: string;
   isSystemRole: boolean;
+  businessId?: string | null;
   Permissions?: Permission[];
 }
 
-export function useRoles() {
+export function useRoles(businessId?: string) {
   return useQuery({
-    queryKey: ["roles"],
+    queryKey: ["roles", businessId ?? "all"],
     queryFn: async () => {
-      const res = await api.get<ApiEnvelope<{ roles: Role[] }>>("/api/v1/roles");
+      const res = await api.get<ApiEnvelope<{ roles: Role[] }>>("/api/v1/roles", {
+        params: businessId ? { businessId } : undefined,
+      });
       return res.data.data.roles;
     },
   });
