@@ -15,7 +15,7 @@ export default function AppShell() {
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>("overview");
   const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "organogram" | "directory" | "events" | "archive">("overview");
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<
-    "overview" | "check-in" | "requests" | "timesheet" | "leaves" | "overtime" | "memo-log" | "work-from-home"
+    "overview" | "check-in" | "history" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "memo-log" | "work-from-home"
   >("overview");
   const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
   const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("overview");

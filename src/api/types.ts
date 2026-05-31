@@ -32,6 +32,129 @@ export type Business = {
   sectorFocusId?: string | null;
 };
 
+export type BusinessAttendanceSettings = {
+  id: string;
+  businessId: string;
+  attendanceEnabled: boolean;
+  locationName: string | null;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  allowedRadiusMeters: number;
+  timezone: string;
+  expectedDailyMinutes: number;
+  defaultStartTime: string;
+  defaultEndTime: string;
+  lateGracePeriodMinutes: number;
+  lunchBreakEnabled?: boolean;
+  lunchMode?: "FIXED" | "FLEXIBLE";
+  fixedLunchStartTime?: string | null;
+  fixedLunchEndTime?: string | null;
+  allowMultipleLunchBreaks?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type UpsertBusinessAttendanceSettingsRequest = {
+  attendanceEnabled: boolean;
+  locationName?: string | null;
+  address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  allowedRadiusMeters?: number;
+  timezone?: string;
+  expectedDailyMinutes?: number;
+  defaultStartTime?: string;
+  defaultEndTime?: string;
+  lateGracePeriodMinutes?: number;
+  lunchBreakEnabled?: boolean;
+  lunchMode?: "FIXED" | "FLEXIBLE";
+  fixedLunchStartTime?: string | null;
+  fixedLunchEndTime?: string | null;
+  allowMultipleLunchBreaks?: boolean;
+};
+
+export type AttendanceEventType = "CHECK_IN" | "LUNCH_OUT" | "LUNCH_IN" | "CHECK_OUT";
+
+export type AttendanceMeTimelineItem = {
+  id: string;
+  type: AttendanceEventType;
+  label: string;
+  timestampUtc: string;
+  withinAllowedRadius: boolean;
+  distanceMeters: number;
+};
+
+export type AttendanceMeTodayResponse = {
+  settings: BusinessAttendanceSettings | null;
+  disabledReason: string | null;
+  timeline: AttendanceMeTimelineItem[];
+  nextAllowed: AttendanceEventType[];
+  calculation?: any;
+  lunch?: {
+    lunchBreakEnabled: boolean;
+    lunchMode: string;
+    fixedLunchStartTime: string | null;
+    fixedLunchEndTime: string | null;
+    allowMultipleLunchBreaks: boolean;
+  };
+};
+
+export type AttendanceMeCreateEventRequest = {
+  type: AttendanceEventType;
+  latitude: number;
+  longitude: number;
+};
+
+export type AttendanceMeHistoryResponse = {
+  rows: any[];
+  count: number;
+  page: number;
+  size: number;
+};
+
+export type AttendanceHrSummaryResponse = {
+  date: string;
+  timezone: string;
+  cards: {
+    inProgress: number;
+    totalCheckIns: number;
+    completed: number;
+    missed: number;
+    lateArrivals: number;
+  };
+};
+
+export type AttendanceHrDailyRow = {
+  employeeId: string;
+  employeeName: string;
+  employeeEmail: string;
+  department: { id: string; name: string } | null;
+  events: {
+    checkInAtUtc: string | null;
+    lunchOutAtUtc: string | null;
+    lunchInAtUtc: string | null;
+    checkOutAtUtc: string | null;
+  };
+  workedMinutes: number;
+  breakMinutes: number;
+  status: string;
+  isLate: boolean;
+};
+
+export type AttendanceHrDailyResponse = {
+  date: string;
+  timezone: string;
+  rows: AttendanceHrDailyRow[];
+};
+
+export type AttendanceHrEmployeeResponse = {
+  date: string;
+  timezone: string;
+  employee: { id: string; fullName: string; email: string; department: { id: string; name: string } | null };
+  events: any[];
+};
+
 export type Plan = {
   id: string;
   name: string;

@@ -30,6 +30,11 @@ import {
   ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import EmployeeAttendancePage from './EmployeeAttendancePage';
+import HrAttendanceCheckInsPage from './hr/HrAttendanceCheckInsPage';
+import { useLegacyUser } from '../../api/legacyUserStore';
+import EmployeeAttendanceHistoryPage from './EmployeeAttendanceHistoryPage';
+import HrLateReasonsPage from './hr/HrLateReasonsPage';
 
 interface AttendanceViewProps {
   currentAttendanceTab: 'overview' | 'check-in' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home';
@@ -42,6 +47,34 @@ export default function AttendanceView({
   onDraftAiSuggestion,
   showAlert,
 }: AttendanceViewProps) {
+  const legacyUser = useLegacyUser();
+  const role = legacyUser?.role || "Employee";
+  const isHr = role === "HR Manager" || role === "Business Admin" || role === "Super Admin";
+
+  if (currentAttendanceTab === 'overview' || currentAttendanceTab === 'check-in') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        {isHr ? <HrAttendanceCheckInsPage /> : <EmployeeAttendancePage />}
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'history') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <EmployeeAttendanceHistoryPage />
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'late-reasons') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        {isHr ? <HrLateReasonsPage /> : <div className="text-xs text-slate-600">Not authorized.</div>}
+      </div>
+    );
+  }
+
   // --- STATE FOR INTERACTIVITY ---
   // Pagination & Filtering
   const [currentPage, setCurrentPage] = useState<number>(1);

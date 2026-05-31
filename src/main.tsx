@@ -2,6 +2,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import RootApp from './RootApp';
 import './index.css';
+import 'leaflet/dist/leaflet.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AlertProvider } from './contexts/AlertContext';
 

@@ -144,6 +144,8 @@ export default function Sidebar({
   const attendanceTabs = [
     { id: 'overview', label: 'Overview', badge: 0 },
     { id: 'check-in', label: 'Check-in', badge: 0 },
+    { id: 'history', label: 'History', badge: 0 },
+    { id: 'late-reasons', label: 'Late Reasons', badge: 0 },
     { id: 'requests', label: 'Requests', badge: 0 },
     { id: 'timesheet', label: 'Timesheet', badge: 0 },
     { id: 'leaves', label: 'Leaves', badge: 0 },

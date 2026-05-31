@@ -32,10 +32,16 @@ import { useDeleteBusiness } from '../../hooks/useDeleteBusiness';
 import { useCreateBusinessAdmin } from '../../hooks/useCreateBusinessAdmin';
 import { usePlans } from '../../hooks/usePlans';
 import { useSectorFocuses } from '../../hooks/useSectorFocuses';
+import { useAttendanceSettings } from '../../hooks/useAttendanceSettings';
+import { useUpsertAttendanceSettings } from '../../hooks/useUpsertAttendanceSettings';
 import type { Business as ApiBusiness } from '../../api/types';
 import type { BusinessesTab } from '../../types';
 import PlansTab from './PlansTab';
 import SectorFocusTab from './SectorFocusTab';
+import AttendanceSettingsForm from './attendance/AttendanceSettingsForm';
+import type { BusinessAttendanceSettings } from '../../api/types';
+import type { BusinessAttendanceSettingsDraft } from './attendance/attendanceSettings.types';
+import { validateAttendanceSettings } from './attendance/attendanceSettings.schema';
 
 type ViewBusiness = ApiBusiness & {
   legalName: string;
@@ -49,13 +55,13 @@ type ViewBusiness = ApiBusiness & {
 
 function toViewBusiness(b: ApiBusiness): ViewBusiness {
   const createdAt = (b as any).createdAt ? new Date((b as any).createdAt) : null;
-  const established = createdAt ? createdAt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' }) : '—';
+  const established = createdAt ? createdAt.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: '2-digit' }) : 'â€”';
   return {
     ...b,
     legalName: b.name,
-    sector: '—',
+    sector: 'â€”',
     domain: b.slug,
-    location: '—',
+    location: 'â€”',
     statusLabel: b.status === 'active' ? 'Active' : 'Suspended',
     established,
     employeeCount: 0,
@@ -75,6 +81,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
   const createBiz = useCreateBusiness();
   const updateBiz = useUpdateBusiness();
   const deleteBiz = useDeleteBusiness();
+  const upsertAttendance = useUpsertAttendanceSettings();
   const plansQuery = usePlans();
   const sectorFocusesQuery = useSectorFocuses();
 
@@ -88,7 +95,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
   const businesses: ViewBusiness[] = (businessesQuery.data?.data?.businesses || [])
     .map(toViewBusiness)
-    .map((b) => ({ ...b, sector: b.sectorFocusId ? (sectorMap.get(b.sectorFocusId) || 'â€”') : 'â€”' }));
+    .map((b) => ({ ...b, sector: b.sectorFocusId ? (sectorMap.get(b.sectorFocusId) || 'Ã¢â‚¬â€') : 'Ã¢â‚¬â€' }));
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -108,6 +115,32 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
   const [formEmployeeCount, setFormEmployeeCount] = useState(1);
   const [formPlanId, setFormPlanId] = useState('');
   const [formSectorFocusId, setFormSectorFocusId] = useState('');
+  const [modalStep, setModalStep] = useState<0 | 1 | 2>(0);
+
+  const defaultAttendanceDraft: BusinessAttendanceSettingsDraft = React.useMemo(
+    () => ({
+      attendanceEnabled: false,
+      locationName: '',
+      address: '',
+      latitude: null,
+      longitude: null,
+      allowedRadiusMeters: 100,
+      timezone: 'UTC',
+      expectedDailyMinutes: 480,
+      defaultStartTime: '09:00',
+      defaultEndTime: '17:00',
+      lateGracePeriodMinutes: 0,
+      lunchBreakEnabled: true,
+      lunchMode: 'FLEXIBLE',
+      fixedLunchStartTime: '12:00',
+      fixedLunchEndTime: '13:00',
+      allowMultipleLunchBreaks: false,
+    }),
+    []
+  );
+
+  const [attendanceDraft, setAttendanceDraft] = useState<BusinessAttendanceSettingsDraft>(defaultAttendanceDraft);
+  const [attendanceValid, setAttendanceValid] = useState(true);
 
   const [adminName, setAdminName] = useState('');
   const [adminEmail, setAdminEmail] = useState('');
@@ -131,6 +164,9 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     setFormPlanId('');
     setFormSectorFocusId('');
     setFormError('');
+    setAttendanceDraft(defaultAttendanceDraft);
+    setAttendanceValid(true);
+    setModalStep(0);
     setIsModalOpen(true);
   };
 
@@ -147,8 +183,36 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     setFormPlanId(biz.planId || '');
     setFormSectorFocusId(biz.sectorFocusId || '');
     setFormError('');
+    setAttendanceDraft(defaultAttendanceDraft);
+    setAttendanceValid(true);
+    setModalStep(0);
     setIsModalOpen(true);
   };
+
+  const attendanceSettingsQuery = useAttendanceSettings(editingBusiness?.id || null, isModalOpen && Boolean(editingBusiness));
+  React.useEffect(() => {
+    if (!editingBusiness) return;
+    const s = attendanceSettingsQuery.data?.data?.attendanceSettings as BusinessAttendanceSettings | undefined;
+    if (!s) return;
+    setAttendanceDraft({
+      attendanceEnabled: Boolean(s.attendanceEnabled),
+      locationName: s.locationName || '',
+      address: s.address || '',
+      latitude: s.latitude ?? null,
+      longitude: s.longitude ?? null,
+      allowedRadiusMeters: s.allowedRadiusMeters ?? 100,
+      timezone: s.timezone || 'UTC',
+      expectedDailyMinutes: s.expectedDailyMinutes ?? 480,
+      defaultStartTime: s.defaultStartTime || '09:00',
+      defaultEndTime: s.defaultEndTime || '17:00',
+      lateGracePeriodMinutes: s.lateGracePeriodMinutes ?? 0,
+      lunchBreakEnabled: s.lunchBreakEnabled ?? true,
+      lunchMode: (s.lunchMode as any) || 'FLEXIBLE',
+      fixedLunchStartTime: s.fixedLunchStartTime || '12:00',
+      fixedLunchEndTime: s.fixedLunchEndTime || '13:00',
+      allowMultipleLunchBreaks: s.allowMultipleLunchBreaks ?? false,
+    });
+  }, [editingBusiness?.id, attendanceSettingsQuery.data?.data?.attendanceSettings?.id]);
 
   const openAdminModal = (biz: ViewBusiness) => {
     if (!isPlatformSuperAdmin) return;
@@ -163,7 +227,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
   const handleDelete = async (id: string, name: string) => {
     if (!isPlatformSuperAdmin) return;
-    if (confirm(`⚠️ PERMANENT DELETION WARNING\n\nYou are about to permanently delete "${name}" and ALL associated data including:\n• All users and their accounts\n• All roles and permissions\n• All HR records, employees, onboarding data\n• All recruitment, interviews, job openings\n• All finance, CRM, projects, and other module data\n• All files, notifications, and audit logs\n\nThis action is IRREVERSIBLE and cannot be undone.\n\nType OK to confirm permanent deletion.`)) {
+    if (confirm(`âš ï¸ PERMANENT DELETION WARNING\n\nYou are about to permanently delete "${name}" and ALL associated data including:\nâ€¢ All users and their accounts\nâ€¢ All roles and permissions\nâ€¢ All HR records, employees, onboarding data\nâ€¢ All recruitment, interviews, job openings\nâ€¢ All finance, CRM, projects, and other module data\nâ€¢ All files, notifications, and audit logs\n\nThis action is IRREVERSIBLE and cannot be undone.\n\nType OK to confirm permanent deletion.`)) {
       try {
         await deleteBiz.mutateAsync(id);
         showAlert(`Business "${name}" and all associated data permanently deleted.`, 'success');
@@ -178,7 +242,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     if (res) {
       // If data is an array of validation errors, join them
       if (Array.isArray(res.data) && res.data.length > 0) {
-        return res.data.map((e: any) => e.message).join(' • ');
+        return res.data.map((e: any) => e.message).join(' â€¢ ');
       }
       if (res.message) return res.message;
     }
@@ -195,6 +259,31 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
       return;
     }
 
+    const attendanceErrors = validateAttendanceSettings(attendanceDraft);
+    if (Object.keys(attendanceErrors).length > 0 || !attendanceValid) {
+      setFormError('Please fix the Attendance Configuration section before saving.');
+      return;
+    }
+
+    const attendancePayload = {
+      attendanceEnabled: attendanceDraft.attendanceEnabled,
+      locationName: attendanceDraft.locationName || null,
+      address: attendanceDraft.address || null,
+      latitude: attendanceDraft.latitude,
+      longitude: attendanceDraft.longitude,
+      allowedRadiusMeters: attendanceDraft.allowedRadiusMeters ?? undefined,
+      timezone: attendanceDraft.timezone,
+      expectedDailyMinutes: attendanceDraft.expectedDailyMinutes ?? undefined,
+      defaultStartTime: attendanceDraft.defaultStartTime,
+      defaultEndTime: attendanceDraft.defaultEndTime,
+      lateGracePeriodMinutes: attendanceDraft.lateGracePeriodMinutes ?? undefined,
+      lunchBreakEnabled: attendanceDraft.lunchBreakEnabled,
+      lunchMode: attendanceDraft.lunchMode,
+      fixedLunchStartTime: attendanceDraft.lunchMode === "FIXED" ? attendanceDraft.fixedLunchStartTime : null,
+      fixedLunchEndTime: attendanceDraft.lunchMode === "FIXED" ? attendanceDraft.fixedLunchEndTime : null,
+      allowMultipleLunchBreaks: attendanceDraft.allowMultipleLunchBreaks,
+    };
+
     try {
       if (editingBusiness) {
         await updateBiz.mutateAsync({
@@ -209,9 +298,10 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
             status: formStatus === 'Active' ? 'active' : 'inactive'
           }
         });
+        await upsertAttendance.mutateAsync({ businessId: editingBusiness.id, data: attendancePayload });
         showAlert(`Successfully configured "${formName}" parameters!`, 'success');
       } else {
-        await createBiz.mutateAsync({
+        const created = await createBiz.mutateAsync({
           name: formName,
           slug: formDomain,
           email: formEmail,
@@ -219,6 +309,10 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
           planId: formPlanId,
           sectorFocusId: formSectorFocusId || null
         });
+        const newBusinessId = (created as any)?.data?.business?.id as string | undefined;
+        if (newBusinessId) {
+          await upsertAttendance.mutateAsync({ businessId: newBusinessId, data: attendancePayload });
+        }
         showAlert(`Registered new system-wide business tenant: ${formName}!`, 'success');
       }
       setIsModalOpen(false);
@@ -410,7 +504,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
                     <td className="py-4.5 px-4">
                       <div className="space-y-0.5">
                         <span className="font-bold block text-[11px] text-slate-800">
-                          {biz.planId ? (plans.find((p) => p.id === biz.planId)?.name || 'â€”') : 'â€”'}
+                          {biz.planId ? (plans.find((p) => p.id === biz.planId)?.name || 'Ã¢â‚¬â€') : 'Ã¢â‚¬â€'}
                         </span>
                         <span className="text-[10px] text-slate-400 font-medium block">Since {biz.established}</span>
                       </div>
@@ -505,6 +599,30 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
                     <span className="text-xs font-semibold leading-snug">{formError}</span>
                   </div>
                 )}
+
+                {/* Stepper */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    {[0, 1, 2].map((step) => (
+                      <button
+                        key={step}
+                        type="button"
+                        onClick={() => setModalStep(step as 0 | 1 | 2)}
+                        className={[
+                          "h-7 px-2.5 rounded-xl text-[11px] font-extrabold border transition-colors cursor-pointer",
+                          modalStep === step ? "bg-blue-50 border-blue-200 text-[#1a56db]" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50",
+                        ].join(" ")}
+                      >
+                        {step === 0 ? "Business" : step === 1 ? "Attendance" : "Review"}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="text-[11px] font-bold text-slate-500">Step {modalStep + 1} of 3</div>
+                </div>
+
+                {/* Panels (kept mounted so required inputs still validate on final submit) */}
+                <div className="max-h-[62vh] overflow-y-auto pr-1 space-y-4">
+                  <div className={modalStep === 0 ? "space-y-4" : "hidden space-y-4"}>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Commercial Name</label>
@@ -604,6 +722,26 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
                   </div>
                 </div>
 
+                  </div>
+
+                  <div className={modalStep === 1 ? "space-y-4" : "hidden space-y-4"}>
+                {editingBusiness && attendanceSettingsQuery.isLoading ? (
+                  <div className="bg-slate-50/60 border border-slate-200/70 rounded-2xl p-4">
+                    <div className="text-xs font-bold text-slate-800">Attendance configuration</div>
+                    <div className="text-[11px] text-slate-600 mt-1">Loading current settings…</div>
+                  </div>
+                ) : editingBusiness && attendanceSettingsQuery.isError ? (
+                  <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
+                    <div className="text-xs font-bold text-red-800">Attendance configuration</div>
+                    <div className="text-[11px] text-red-700 mt-1">Failed to load attendance settings. You can still update business details.</div>
+                  </div>
+                ) : (
+                  <AttendanceSettingsForm value={attendanceDraft} onChange={setAttendanceDraft} onValidityChange={setAttendanceValid} />
+                )}
+
+                  </div>
+
+                  <div className={modalStep === 2 ? "space-y-4" : "hidden space-y-4"}>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Routing Status</label>
@@ -631,6 +769,13 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
                   </div>
                 </div>
 
+                  <div className="bg-slate-50/60 border border-slate-200/70 rounded-2xl p-4">
+                    <div className="text-xs font-bold text-slate-800">Review</div>
+                    <div className="text-[11px] text-slate-600 mt-1">Confirm details, then save.</div>
+                  </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
                   <button
                     type="button"
@@ -639,12 +784,33 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
                   >
                     Discard Changes
                   </button>
+
                   <button
-                    type="submit"
-                    className="bg-[#1a56db] hover:bg-[#124bbf] font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs cursor-pointer select-none"
+                    type="button"
+                    onClick={() => setModalStep((s) => (s === 0 ? 0 : ((s - 1) as 0 | 1 | 2)))}
+                    disabled={modalStep === 0}
+                    className="px-4 text-slate-500 font-bold hover:bg-slate-50 disabled:hover:bg-transparent disabled:text-slate-300 leading-none py-2.5 rounded-xl text-xs cursor-pointer"
                   >
-                    {editingBusiness ? 'Apply Config Parameters' : 'Deploy Tenant Instance'}
+                    Back
                   </button>
+
+                  {modalStep < 2 ? (
+                    <button
+                      type="button"
+                      onClick={() => setModalStep((s) => (s === 2 ? 2 : ((s + 1) as 0 | 1 | 2)))}
+                      disabled={modalStep === 1 && !attendanceValid}
+                      className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-500 font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs cursor-pointer select-none"
+                    >
+                      Next
+                    </button>
+                  ) : (
+                    <button
+                      type="submit"
+                      className="bg-[#1a56db] hover:bg-[#124bbf] font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs cursor-pointer select-none"
+                    >
+                      {editingBusiness ? 'Apply Config Parameters' : 'Deploy Tenant Instance'}
+                    </button>
+                  )}
                 </div>
               </form>
             </motion.div>
