@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { api } from '../../api/client';
+import React, { useState } from 'react';
+import { useOrganogram, useEmployees, useDeleteEmployee } from '../../hooks/useHrRecords';
 import {
   Users,
   CheckSquare,
@@ -302,67 +302,38 @@ export default function PeopleProfilesView({
 
   const [activeEventCategory, setActiveEventCategory] = useState<'birthdays' | 'anniversaries' | 'promotions' | 'holidays'>('birthdays');
 
-  // Zoom control state (Organogram Tab)
-  const [organogramZoom, setOrganogramZoom] = useState<number>(100);
-  const [isOrganogramFullScreen, setIsOrganogramFullScreen] = useState<boolean>(false);
-  const [orgData, setOrgData] = useState<OrgNode[]>([]);
-  const [loadingOrg, setLoadingOrg] = useState(false);
-  const [employees, setEmployees] = useState<any[]>([]);
-  const [loadingEmployees, setLoadingEmployees] = useState(false);
-  const [totalEmployees, setTotalEmployees] = useState(0);
+  // Organogram & Directory — React Query hooks
   const [currentPage, setCurrentPage] = useState(1);
-  const [employeesPerPage] = useState(10);
+  const employeesPerPage = 10;
   const [activeActionsMenu, setActiveActionsMenu] = useState<string | null>(null);
   const [updateEmployeeModalOpen, setUpdateEmployeeModalOpen] = useState(false);
   const [updateEmployeeUserId, setUpdateEmployeeUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (currentProfilesTab === 'organogram') {
-      fetchOrganogram();
-    }
-  }, [currentProfilesTab]);
+  const { data: orgResult, isLoading: loadingOrg, refetch: refetchOrg } = useOrganogram();
+  const orgData: OrgNode[] = (orgResult as any) ?? [];
 
-  const fetchOrganogram = async () => {
-    try {
-      setLoadingOrg(true);
-      const res = await api.get('/api/v1/hr/organogram');
-      setOrgData(res.data?.data?.tree || res.data?.tree || []);
-    } catch (e: any) {
-      showAlert(e.message || "Failed to load organogram", "error");
-    } finally {
-      setLoadingOrg(false);
-    }
+  const { data: empResult, isLoading: loadingEmployees, refetch: refetchEmployees } = useEmployees({
+    limit: employeesPerPage,
+    offset: (currentPage - 1) * employeesPerPage,
+  });
+  const employees: any[] = empResult?.employees ?? [];
+  const totalEmployees: number = empResult?.total ?? 0;
+
+  const deleteEmployeeMutation = useDeleteEmployee();
+
+  const fetchOrganogram = () => refetchOrg();
+  const fetchEmployees = (page: number = 1) => {
+    setCurrentPage(page);
+    refetchEmployees();
   };
-
-  const fetchEmployees = async (page: number = 1) => {
-    try {
-      setLoadingEmployees(true);
-      const offset = (page - 1) * employeesPerPage;
-      const res = await api.get(`/api/v1/hr/records?limit=${employeesPerPage}&offset=${offset}`);
-      setEmployees(res.data?.data || []);
-      setTotalEmployees(res.data?.meta?.total || 0);
-      setCurrentPage(page);
-    } catch (e: any) {
-      showAlert(e.message || "Failed to load employees", "error");
-    } finally {
-      setLoadingEmployees(false);
-    }
-  };
-
-  useEffect(() => {
-    if (currentProfilesTab === 'directory') {
-       fetchEmployees(1);
-    }
-  }, [currentProfilesTab]);
 
   const handleDeleteEmployee = async (userId: string) => {
     if (!window.confirm("Are you sure you want to delete this employee record?")) return;
     try {
-       await api.delete(`/api/v1/hr/records/${userId}`);
-       showAlert("Employee record deleted successfully", "success");
-       fetchEmployees();
+      await deleteEmployeeMutation.mutateAsync(userId);
+      showAlert("Employee record deleted successfully", "success");
     } catch (e: any) {
-       showAlert(e.message || "Failed to delete record", "error");
+      showAlert(e.message || "Failed to delete record", "error");
     }
   };
 
@@ -620,7 +591,7 @@ export default function PeopleProfilesView({
                 <p className="text-[11px] text-slate-500 font-medium">Hierarchy and profiles of all employees</p>
               </div>
               <button
-                onClick={fetchOrganogram}
+                onClick={() => refetchOrg()}
                 disabled={loadingOrg}
                 className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-bold text-slate-600 hover:bg-slate-100 border border-slate-200 rounded-lg transition-colors disabled:opacity-40"
               >
@@ -638,7 +609,7 @@ export default function PeopleProfilesView({
                 <div className="flex flex-col items-center justify-center h-full gap-3">
                   <Users className="w-12 h-12 text-slate-200" />
                   <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">No employee hierarchy found</p>
-                  <button onClick={fetchOrganogram} className="text-[11px] font-black text-blue-600 hover:underline">Retry</button>
+                  <button onClick={refetchOrg} className="text-[11px] font-black text-blue-600 hover:underline">Retry</button>
                 </div>
               ) : (
                 <OrgChartCanvas
@@ -669,7 +640,7 @@ export default function PeopleProfilesView({
                 <p className="text-[11px] text-slate-500 font-medium">Directory of employees and profiles</p>
               </div>
               <button 
-                onClick={() => fetchEmployees(currentPage)}
+                onClick={() => refetchEmployees()}
                 disabled={loadingEmployees}
                 className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:underline disabled:opacity-50"
               >
@@ -900,7 +871,7 @@ export default function PeopleProfilesView({
               <div className="flex justify-center items-center gap-1.5 pt-4 border-t border-slate-50">
                 <button
                   disabled={currentPage === 1}
-                  onClick={() => fetchEmployees(currentPage - 1)}
+                  onClick={() => setCurrentPage(p => p - 1)}
                   className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronLeft className="w-4 h-4" />
@@ -909,7 +880,7 @@ export default function PeopleProfilesView({
                 {Array.from({ length: Math.ceil(totalEmployees / employeesPerPage) }).map((_, i) => (
                   <button
                     key={i}
-                    onClick={() => fetchEmployees(i + 1)}
+                    onClick={() => setCurrentPage(i + 1)}
                     className={`w-7 h-7 font-black text-xs rounded-full flex items-center justify-center cursor-pointer transition-all ${
                       currentPage === i + 1 
                         ? 'bg-blue-600 text-white shadow-md scale-110' 
@@ -928,7 +899,7 @@ export default function PeopleProfilesView({
 
                 <button
                   disabled={currentPage >= Math.ceil(totalEmployees / employeesPerPage)}
-                  onClick={() => fetchEmployees(currentPage + 1)}
+                  onClick={() => setCurrentPage(p => p + 1)}
                   className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
                 >
                   <ChevronRight className="w-4 h-4" />

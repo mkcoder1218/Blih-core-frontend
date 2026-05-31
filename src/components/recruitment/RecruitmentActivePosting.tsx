@@ -166,47 +166,54 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
 
             {/* ── Card header ── */}
             <div
-              className="px-6 py-4 flex items-center justify-between cursor-pointer select-none hover:bg-slate-50/50 transition-colors"
+              className="px-4 sm:px-6 py-4 cursor-pointer select-none hover:bg-slate-50/50 transition-colors"
               onClick={() => setExpandedJobId(isExpanded ? null : job.id)}
             >
-              {/* left */}
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-3">
-                  <h4 className="text-[15px] font-black text-slate-900 tracking-tight">{job.title}</h4>
-                  <span className="px-2.5 py-0.5 bg-blue-600 text-white text-[10px] font-black rounded uppercase tracking-wide">
+              {/* top row: title + badge + close button */}
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap min-w-0">
+                  <h4 className="text-[14px] sm:text-[15px] font-black text-slate-900 tracking-tight leading-tight">{job.title}</h4>
+                  <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-black rounded uppercase tracking-wide whitespace-nowrap flex-shrink-0">
                     Active Post
                   </span>
                 </div>
-                <div className="flex items-center gap-2 text-[11px]">
-                  <span className="text-blue-600 font-black uppercase tracking-widest">{job.department || '—'}</span>
-                  {job.type && <><span className="text-slate-300">·</span><span className="text-slate-500 font-semibold">{job.type}</span></>}
-                  {job.positions && <><span className="text-slate-300">·</span><span className="text-slate-500 font-semibold">{job.positions} Position</span></>}
-                </div>
-              </div>
-
-              {/* right */}
-              <div className="flex items-center gap-4">
-                <div className="text-right">
-                  <p className="text-[13px] font-black text-slate-700">{job.applicantsCount} applicants</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[13px] font-black text-slate-700">{job.viewsCount} views</p>
-                </div>
-                <span className="flex items-center gap-1 text-[11px] font-black text-slate-400">
-                  {isExpanded ? <><ChevronUp className="w-4 h-4" /> Less</> : <><ChevronDown className="w-4 h-4" /> More</>}
-                </span>
-                {/* Close job button */}
+                {/* Close button — always top-right */}
                 <button
                   onClick={(e) => handleCloseJob(e, job.id, job.title)}
                   disabled={closingJobId === job.id}
                   title="Close job posting"
-                  className="ml-1 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all disabled:opacity-50"
+                  className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all disabled:opacity-50"
                 >
                   {closingJobId === job.id
                     ? <Loader2 className="w-4 h-4 animate-spin" />
                     : <X className="w-4 h-4" />
                   }
                 </button>
+              </div>
+
+              {/* meta row: dept · type · positions */}
+              <div className="flex items-center gap-2 flex-wrap text-[11px] mt-1.5">
+                <span className="text-blue-600 font-black uppercase tracking-widest">{job.department || '—'}</span>
+                {job.type && <><span className="text-slate-300">·</span><span className="text-slate-500 font-semibold">{job.type}</span></>}
+                {job.positions && <><span className="text-slate-300">·</span><span className="text-slate-500 font-semibold">{job.positions} Position{job.positions > 1 ? 's' : ''}</span></>}
+              </div>
+
+              {/* stats + expand toggle row */}
+              <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center gap-4">
+                  <div>
+                    <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider leading-none">Applicants</p>
+                    <p className="text-[14px] font-black text-slate-700 mt-0.5">{job.applicantsCount}</p>
+                  </div>
+                  <div className="w-px h-8 bg-slate-100" />
+                  <div>
+                    <p className="text-[11px] text-slate-400 font-semibold uppercase tracking-wider leading-none">Views</p>
+                    <p className="text-[14px] font-black text-slate-700 mt-0.5">{job.viewsCount}</p>
+                  </div>
+                </div>
+                <span className="flex items-center gap-1 text-[11px] font-black text-slate-400">
+                  {isExpanded ? <><ChevronUp className="w-4 h-4" /> Less</> : <><ChevronDown className="w-4 h-4" /> More</>}
+                </span>
               </div>
             </div>
 
@@ -244,7 +251,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
                     })}
                   </div>
 
-                  <div className="p-6">
+                  <div className="p-4 sm:p-6">
                     {/* ── Job Detail tab ── */}
                     {currentTab === 'detail' && (
                       <div className="space-y-6">
@@ -315,82 +322,110 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
                           </button>
                         </div>
 
-                        {/* table */}
-                        <div className="border border-slate-100 rounded-2xl overflow-hidden">
-                          {/* header */}
-                          <div className="grid grid-cols-12 gap-2 bg-slate-50 px-5 py-3 border-b border-slate-100">
-                            <div className="col-span-1 flex items-center">
-                              <input type="checkbox" checked={allChecked}
-                                onChange={() => toggleAll(job.id, appIds)}
-                                className="w-4 h-4 rounded border-slate-300 accent-blue-600 cursor-pointer" />
-                            </div>
-                            {['Candidate', 'Applied Date', 'Score', 'Actions'].map((h, i) => (
-                              <span key={h}
-                                className={`text-[10px] font-black text-blue-600 uppercase tracking-widest ${
-                                  i === 0 ? 'col-span-4' : i === 1 ? 'col-span-3' : i === 2 ? 'col-span-2 text-center' : 'col-span-2 text-center'
-                                }`}>
-                                {h}
-                              </span>
-                            ))}
+                        {job.apps.length === 0 && (
+                          <div className="border border-slate-100 rounded-2xl px-5 py-12 text-center text-[11px] font-bold text-slate-300 uppercase tracking-widest">
+                            No new applicants
                           </div>
+                        )}
 
-                          {/* rows */}
-                          {job.apps.length === 0 && (
-                            <div className="px-5 py-12 text-center text-[11px] font-bold text-slate-300 uppercase tracking-widest">
-                              No new applicants
-                            </div>
-                          )}
-
-                          {job.apps.map((app: any, idx: number) => {
-                            const isChecked = selected.has(app.id);
-                            const name = app.fullName || 'Anonymous';
-                            return (
-                              <div key={app.id || idx}
-                                className={`grid grid-cols-12 gap-2 px-5 py-4 items-center border-b border-slate-50 last:border-0 transition-colors hover:bg-slate-50/60 cursor-pointer
-                                  ${idx % 2 === 1 ? 'bg-slate-50/30' : 'bg-white'}`}
-                                onClick={() => { setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
-                              >
-                                {/* checkbox */}
-                                <div className="col-span-1" onClick={e => { e.stopPropagation(); toggleRow(job.id, app.id); }}>
-                                  <input type="checkbox" checked={isChecked} onChange={() => {}}
-                                    className="w-4 h-4 rounded border-slate-300 accent-blue-600 cursor-pointer" />
-                                </div>
-
-                                {/* candidate */}
-                                <div className="col-span-4 flex items-center gap-3">
-                                  <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-black text-slate-600 uppercase flex-shrink-0">
-                                    {name[0]}
-                                  </div>
-                                  <div>
-                                    <p className="text-[13px] font-black text-slate-900 leading-tight">{name}</p>
-                                    <p className="text-[11px] text-slate-400 font-medium">{app.email}</p>
-                                  </div>
-                                </div>
-
-                                {/* applied date */}
-                                <div className="col-span-3">
-                                  <p className="text-[12px] font-bold text-slate-600">
-                                    {new Date(app.createdAt).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })}
-                                  </p>
-                                </div>
-
-                                {/* score */}
-                                <div className="col-span-2 flex justify-center">
-                                  <span className="text-[12px] font-black text-slate-700">{app.score ?? 90}%</span>
-                                </div>
-
-                                {/* action */}
-                                <div className="col-span-2 flex justify-center">
-                                  <button
-                                    onClick={e => { e.stopPropagation(); setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
-                                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-600 text-[11px] font-black rounded-xl hover:bg-blue-100 transition-colors">
-                                    <Sparkles className="w-3 h-3 fill-blue-600" /> View
-                                  </button>
-                                </div>
+                        {/* Desktop table — hidden on mobile */}
+                        {job.apps.length > 0 && (
+                          <div className="border border-slate-100 rounded-2xl overflow-hidden hidden sm:block">
+                            {/* header */}
+                            <div className="grid grid-cols-12 gap-2 bg-slate-50 px-5 py-3 border-b border-slate-100">
+                              <div className="col-span-1 flex items-center">
+                                <input type="checkbox" checked={allChecked}
+                                  onChange={() => toggleAll(job.id, appIds)}
+                                  className="w-4 h-4 rounded border-slate-300 accent-blue-600 cursor-pointer" />
                               </div>
-                            );
-                          })}
-                        </div>
+                              {['Candidate', 'Applied Date', 'Score', 'Actions'].map((h, i) => (
+                                <span key={h}
+                                  className={`text-[10px] font-black text-blue-600 uppercase tracking-widest ${
+                                    i === 0 ? 'col-span-4' : i === 1 ? 'col-span-3' : i === 2 ? 'col-span-2 text-center' : 'col-span-2 text-center'
+                                  }`}>
+                                  {h}
+                                </span>
+                              ))}
+                            </div>
+                            {/* rows */}
+                            {job.apps.map((app: any, idx: number) => {
+                              const isChecked = selected.has(app.id);
+                              const name = app.fullName || 'Anonymous';
+                              return (
+                                <div key={app.id || idx}
+                                  className={`grid grid-cols-12 gap-2 px-5 py-4 items-center border-b border-slate-50 last:border-0 transition-colors hover:bg-slate-50/60 cursor-pointer
+                                    ${idx % 2 === 1 ? 'bg-slate-50/30' : 'bg-white'}`}
+                                  onClick={() => { setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
+                                >
+                                  <div className="col-span-1" onClick={e => { e.stopPropagation(); toggleRow(job.id, app.id); }}>
+                                    <input type="checkbox" checked={isChecked} onChange={() => {}}
+                                      className="w-4 h-4 rounded border-slate-300 accent-blue-600 cursor-pointer" />
+                                  </div>
+                                  <div className="col-span-4 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-black text-slate-600 uppercase flex-shrink-0">
+                                      {name[0]}
+                                    </div>
+                                    <div>
+                                      <p className="text-[13px] font-black text-slate-900 leading-tight">{name}</p>
+                                      <p className="text-[11px] text-slate-400 font-medium">{app.email}</p>
+                                    </div>
+                                  </div>
+                                  <div className="col-span-3">
+                                    <p className="text-[12px] font-bold text-slate-600">
+                                      {new Date(app.createdAt).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', year: 'numeric' })}
+                                    </p>
+                                  </div>
+                                  <div className="col-span-2 flex justify-center">
+                                    <span className="text-[12px] font-black text-slate-700">{app.score ?? 90}%</span>
+                                  </div>
+                                  <div className="col-span-2 flex justify-center">
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
+                                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-600 text-[11px] font-black rounded-xl hover:bg-blue-100 transition-colors">
+                                      <Sparkles className="w-3 h-3 fill-blue-600" /> View
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+
+                        {/* Mobile card list — shown only on mobile */}
+                        {job.apps.length > 0 && (
+                          <div className="space-y-2 sm:hidden">
+                            {job.apps.map((app: any, idx: number) => {
+                              const name = app.fullName || 'Anonymous';
+                              return (
+                                <div key={app.id || idx}
+                                  className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center justify-between gap-3 cursor-pointer hover:bg-slate-50/60 transition-colors"
+                                  onClick={() => { setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0">
+                                    <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-black text-slate-600 uppercase flex-shrink-0">
+                                      {name[0]}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <p className="text-[13px] font-black text-slate-900 leading-tight truncate">{name}</p>
+                                      <p className="text-[11px] text-slate-400 font-medium truncate">{app.email}</p>
+                                      <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                                        {new Date(app.createdAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <span className="text-[12px] font-black text-slate-700">{app.score ?? 90}%</span>
+                                    <button
+                                      onClick={e => { e.stopPropagation(); setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
+                                      className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-600 text-[11px] font-black rounded-xl hover:bg-blue-100 transition-colors">
+                                      <Sparkles className="w-3 h-3 fill-blue-600" /> View
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     )}
 

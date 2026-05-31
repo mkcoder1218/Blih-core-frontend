@@ -247,16 +247,16 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
         )}
 
         {skillRatings.map(sr => (
-          <div key={sr.skillId} className="flex items-center justify-between px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
-            <div className="flex items-center gap-2">
+          <div key={sr.skillId} className="flex flex-col sm:flex-row sm:items-center gap-2 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
               <button onClick={() => handleRemoveSkill(sr.skillId)}
                 className="text-slate-300 hover:text-rose-400 transition-colors flex-shrink-0">
                 <X className="w-3.5 h-3.5" />
               </button>
-              <span className="text-[13px] font-black text-slate-800">{sr.skillName}</span>
+              <span className="text-[13px] font-black text-slate-800 truncate">{sr.skillName}</span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-[10px] text-slate-400 font-bold mr-1">Your Rating:</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-slate-400 font-bold">Your Rating:</span>
               {[1,2,3,4,5].map(r => (
                 <button key={r} title={RATING_LABEL[r]}
                   onClick={() => { setSkillRatings(prev => prev.map(s => s.skillId === sr.skillId ? { ...s, actualRating: r } : s)); markDirty(); }}
@@ -264,7 +264,7 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
                   <Star className="w-3.5 h-3.5 fill-current" />
                 </button>
               ))}
-              {sr.actualRating && <span className="text-[10px] font-bold text-slate-500 ml-1 w-20">{RATING_LABEL[sr.actualRating]}</span>}
+              {sr.actualRating && <span className="text-[10px] font-bold text-slate-500">{RATING_LABEL[sr.actualRating]}</span>}
             </div>
           </div>
         ))}
@@ -273,8 +273,8 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
       {/* ── Candidate overall score ── */}
       <div className="space-y-2">
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Your Candidate Rating</p>
-        <div className="flex items-center gap-3 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
-          <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-slate-50 border border-slate-100 rounded-xl">
+          <div className="flex items-center gap-1 flex-wrap">
             {[1,2,3,4,5,6,7,8,9,10].map(n => (
               <button key={n} onClick={() => { setCandidateScore(n * 10); markDirty(); }}
                 className={`w-7 h-7 rounded-lg text-[11px] font-black transition-all ${candidateScore && n * 10 <= candidateScore ? "bg-blue-600 text-white" : "bg-white border border-slate-200 text-slate-400 hover:border-blue-300"}`}>
@@ -282,12 +282,14 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
               </button>
             ))}
           </div>
-          <span className="text-[13px] font-black text-slate-700 ml-2">{candidateScore ? `${candidateScore}%` : "—"}</span>
-          {candidateScore && (
-            <button onClick={() => { setCandidateScore(null); markDirty(); }} className="text-slate-300 hover:text-slate-500 transition-colors ml-auto">
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="flex items-center gap-2 ml-auto">
+            <span className="text-[13px] font-black text-slate-700">{candidateScore ? `${candidateScore}%` : "—"}</span>
+            {candidateScore && (
+              <button onClick={() => { setCandidateScore(null); markDirty(); }} className="text-slate-300 hover:text-slate-500 transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -332,16 +334,16 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
 
       {/* ── Action buttons ── */}
       {iv.status === "scheduled" && (
-        <div className="flex gap-3 pt-1 border-t border-slate-100">
+        <div className="flex flex-col sm:flex-row gap-3 pt-1 border-t border-slate-100">
           {isLeader ? (
             <>
               <button onClick={handleComplete} disabled={completeMut.isPending}
-                className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-2xl text-[12px] font-black hover:bg-green-700 transition-all disabled:opacity-60">
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-2xl text-[12px] font-black hover:bg-green-700 transition-all disabled:opacity-60">
                 {completeMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {(iv.currentSession || 1) < (iv.totalSessions || 1) ? `Complete Session ${iv.currentSession || 1}` : "Complete Final Session"}
               </button>
               <button onClick={handleCancel} disabled={cancelMut.isPending}
-                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-red-200 text-red-500 rounded-2xl text-[12px] font-black hover:bg-red-50 transition-all disabled:opacity-60">
+                className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-red-200 text-red-500 rounded-2xl text-[12px] font-black hover:bg-red-50 transition-all disabled:opacity-60">
                 <XCircle className="w-4 h-4" /> Cancel Interview
               </button>
             </>
@@ -447,18 +449,23 @@ export default function InterviewManagementView({ showAlert }: Props) {
         return (
           <div key={iv.id} className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
             {/* Card header */}
-            <div className="px-5 py-4 flex items-center justify-between cursor-pointer hover:bg-slate-50/50 transition-colors select-none"
+            <div className="px-4 sm:px-5 py-4 cursor-pointer hover:bg-slate-50/50 transition-colors select-none"
               onClick={() => setExpandedId(isExpanded ? null : iv.id)}>
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-black text-blue-600 text-[13px] uppercase flex-shrink-0">
+
+              {/* top row: avatar + name/position + chevron */}
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-black text-blue-600 text-[13px] uppercase flex-shrink-0 mt-0.5">
                   {(candidate?.fullName || "?")[0]}
                 </div>
-                <div>
-                  <p className="text-[14px] font-black text-slate-900 leading-tight">{candidate?.fullName || "Unknown"}</p>
-                  <p className="text-[11px] text-slate-400 font-semibold">{job?.title || "Position"}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[14px] font-black text-slate-900 leading-tight truncate">{candidate?.fullName || "Unknown"}</p>
+                  <p className="text-[11px] text-slate-400 font-semibold truncate">{job?.title || "Position"}</p>
                 </div>
+                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform flex-shrink-0 mt-1 ${isExpanded ? "rotate-180" : ""}`} />
               </div>
-              <div className="flex items-center gap-3">
+
+              {/* bottom row: status badge + date/time */}
+              <div className="flex items-center justify-between mt-3 pl-12">
                 <span className={`px-3 py-1 rounded-full text-[10px] font-black ${STATUS_STYLE[iv.status] || "bg-slate-100 text-slate-500"}`}>
                   {STATUS_LABEL[iv.status] || iv.status}
                 </span>
@@ -470,7 +477,6 @@ export default function InterviewManagementView({ showAlert }: Props) {
                     {new Date(iv.interviewAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
                   </p>
                 </div>
-                <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isExpanded ? "rotate-180" : ""}`} />
               </div>
             </div>
 
