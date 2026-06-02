@@ -1,4 +1,5 @@
 import axios, { AxiosError, type AxiosInstance } from "axios";
+import { notifyAuthChanged } from "./authState";
 import { clearAuthTokens, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from "./storage";
 import type { ApiEnvelope } from "./types";
 
@@ -23,6 +24,29 @@ api.interceptors.request.use((config) => {
 
 let refreshing: Promise<string | null> | null = null;
 
+function clearBrowserStorage() {
+  try {
+    localStorage.clear();
+  } catch {
+    // ignore
+  }
+  try {
+    sessionStorage.clear();
+  } catch {
+    // ignore
+  }
+}
+
+function redirectToLogin() {
+  clearAuthTokens();
+  clearBrowserStorage();
+  notifyAuthChanged();
+
+  if (typeof window !== "undefined" && window.location.pathname !== "/") {
+    window.location.assign("/");
+  }
+}
+
 async function refreshAccessToken(): Promise<string | null> {
   const rt = getRefreshToken();
   if (!rt) return null;
@@ -41,19 +65,27 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const status = error.response?.status;
     const originalConfig: any = error.config;
+    const url = String(originalConfig?.url ?? "");
+    const isAuthRequest = url.includes("/api/v1/auth/login") || url.includes("/api/v1/auth/refresh");
+
+    if (status === 401 && isAuthRequest) {
+      redirectToLogin();
+      return Promise.reject(error);
+    }
+
     if (status === 401 && originalConfig && !originalConfig.__isRetryRequest) {
-        originalConfig.__isRetryRequest = true;
+      originalConfig.__isRetryRequest = true;
       try {
         if (!refreshing) refreshing = refreshAccessToken().finally(() => (refreshing = null));
         const token = await refreshing;
         if (!token) {
-          clearAuthTokens();
+          redirectToLogin();
           return Promise.reject(error);
         }
         originalConfig.headers = { ...(originalConfig.headers as any), Authorization: `Bearer ${token}` } as any;
         return api.request(originalConfig);
       } catch (e) {
-        clearAuthTokens();
+        redirectToLogin();
         return Promise.reject(e);
       }
     }

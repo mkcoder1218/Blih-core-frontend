@@ -1,5 +1,5 @@
 import { api } from "./client";
-import type { ApiEnvelope, AttendanceHrDailyResponse, AttendanceHrEmployeeResponse, AttendanceHrSummaryResponse } from "./types";
+import type { ApiEnvelope, AttendanceHrDailyResponse, AttendanceHrEmployeeResponse, AttendanceHrReportResponse, AttendanceHrSummaryResponse } from "./types";
 
 export async function getAttendanceHrSummary(params: { date?: string; departmentId?: string } = {}) {
   const res = await api.get<ApiEnvelope<AttendanceHrSummaryResponse>>("/api/v1/attendance/hr/summary", { params });
@@ -33,7 +33,7 @@ export async function getAttendanceHrReport(params: {
   sortBy?: string;
   sortOrder?: string;
 } ) {
-  const res = await api.get<ApiEnvelope<any>>("/api/v1/attendance/hr/report", { params });
+  const res = await api.get<ApiEnvelope<AttendanceHrReportResponse>>("/api/v1/attendance/hr/report", { params });
   return res.data;
 }
 

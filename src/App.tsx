@@ -17,6 +17,7 @@ import RecruitmentActivePosting from './components/recruitment/RecruitmentActive
 import RecruitmentOngoingRecruitment from './components/recruitment/RecruitmentOngoingRecruitment';
 import OtherModulesView from './components/dashboard/OtherModulesView';
 import PeopleProfilesView from './components/people/PeopleProfilesView';
+import EmployeeDetailPage from './components/people/EmployeeDetailPage';
 import AttendanceView from './components/attendance/AttendanceView';
 import CareerManagementView from './components/career/CareerManagementView';
 import ExitOffboardingView from './components/offboarding/ExitOffboardingView';
@@ -37,6 +38,9 @@ import { setLegacyUser, useLegacyUser } from './api/legacyUserStore';
 export default function App() {
   const activeUser = useLegacyUser();
 
+  // Employee detail page state (profile icon click)
+  const [showEmployeeDetail, setShowEmployeeDetail] = useState(false);
+
   // Navigation states
   const [currentModule, setCurrentModule] = useState<MainModule>(() => {
     try {
@@ -48,7 +52,7 @@ export default function App() {
   });
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>('overview');
   const [currentProfilesTab, setCurrentProfilesTab] = useState<'overview' | 'create' | 'organogram' | 'directory' | 'events' | 'archive'>('overview');
-  const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home'>('overview');
+  const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'check-me-in' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home'>('overview');
   const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture'>('overview');
   const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms'>('overview');
   const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'salary' | 'payroll' | 'budget' | 'expense' | 'benefits'>('overview');
@@ -228,6 +232,7 @@ export default function App() {
           clearAuthTokens();
           notifyAuthChanged();
         }}
+        onProfileClick={() => setShowEmployeeDetail(true)}
         currentModule={currentModule}
         setCurrentModule={setCurrentModule}
         currentRecruitmentTab={currentRecruitmentTab}
@@ -289,6 +294,21 @@ export default function App() {
         {/* Dynamic Context Canvas */}
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#fafbfc]">
           <AnimatePresence mode="wait">
+            {showEmployeeDetail ? (
+              <motion.div
+                key="employee-detail"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -6 }}
+                transition={{ duration: 0.15 }}
+                className="h-full"
+              >
+                <EmployeeDetailPage
+                  user={activeUser!}
+                  onBack={() => setShowEmployeeDetail(false)}
+                />
+              </motion.div>
+            ) : (
             <motion.div
               key={`${currentModule}-${currentRecruitmentTab}-${isDetailedView}`}
               initial={{ opacity: 0, y: 6 }}
@@ -454,6 +474,7 @@ export default function App() {
                 />
               )}
             </motion.div>
+            )}
           </AnimatePresence>
         </main>
       </div>

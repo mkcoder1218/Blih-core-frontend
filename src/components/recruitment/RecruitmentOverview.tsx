@@ -11,6 +11,8 @@ import {
   frequentlyPostedJobs
 } from '../../mockData';
 import { Sparkles, Calendar, TrendingUp, Users, ArrowUpRight } from 'lucide-react';
+import { useLegacyUser } from '../../api/legacyUserStore';
+import AttendanceShortcutCard from '../attendance/AttendanceShortcutCard';
 
 interface RecruitmentOverviewProps {
   onNavigateToTab: (tabId: string) => void;
@@ -20,6 +22,8 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
   const [selectedJob, setSelectedJob] = useState<'Marketing Manager' | 'Full-stack Developer'>('Marketing Manager');
   const [hoveredFreqPoint, setHoveredFreqPoint] = useState<number | null>(null);
   const [hoveredAnalyticPoint, setHoveredAnalyticPoint] = useState<number | null>(null);
+  const legacyUser = useLegacyUser();
+  const isEmployee = legacyUser?.role === 'Employee';
 
   // Convert points to smooth SVG path
   const getCurvePath = (data: { count: number }[], height: number, width: number, maxVal: number) => {
@@ -65,6 +69,11 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
 
   return (
     <div id="recruitment-overview-view" className="space-y-6">
+      {isEmployee && (
+        <div className="max-w-xl">
+          <AttendanceShortcutCard />
+        </div>
+      )}
       {/* Metrics Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
         <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">

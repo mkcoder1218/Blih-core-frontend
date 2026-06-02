@@ -15,7 +15,7 @@ export default function AppShell() {
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>("overview");
   const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "organogram" | "directory" | "events" | "archive">("overview");
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<
-    "overview" | "check-in" | "history" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "memo-log" | "work-from-home"
+    "overview" | "check-in" | "check-me-in" | "history" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "memo-log" | "work-from-home"
   >("overview");
   const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
   const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("overview");
@@ -51,6 +51,23 @@ export default function AppShell() {
     if (p.includes("/permissions")) return "permissions";
     return userRole === "Super Admin" ? "businesses" : "recruitment";
   }, [location.pathname, userRole]);
+
+  React.useEffect(() => {
+    const segments = location.pathname.split("/");
+    if (segments.length >= 3) {
+      const module = segments[2];
+      const tab = segments[3] || "overview";
+      if (module === "recruitment") setCurrentRecruitmentTab(tab as any);
+      if (module === "profiles") setCurrentProfilesTab(tab as any);
+      if (module === "attendance") setCurrentAttendanceTab(tab as any);
+      if (module === "talent") setCurrentTalentTab(tab as any);
+      if (module === "exit") setCurrentExitTab(tab as any);
+      if (module === "finance") setCurrentFinanceTab(tab as any);
+      if (module === "onboarding") setCurrentOnboardingTab(tab as any);
+      if (module === "performance") setCurrentPerformanceTab(tab as any);
+      if (module === "businesses") setCurrentBusinessesTab(tab as any);
+    }
+  }, [location.pathname]);
 
   if (!activeUser) return null;
 

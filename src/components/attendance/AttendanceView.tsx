@@ -31,13 +31,15 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import EmployeeAttendancePage from './EmployeeAttendancePage';
+import AttendanceShortcutCard from './AttendanceShortcutCard';
 import HrAttendanceCheckInsPage from './hr/HrAttendanceCheckInsPage';
 import { useLegacyUser } from '../../api/legacyUserStore';
 import EmployeeAttendanceHistoryPage from './EmployeeAttendanceHistoryPage';
 import HrLateReasonsPage from './hr/HrLateReasonsPage';
+import { useAttendanceHrReport } from '../../hooks/useAttendanceHrReport';
 
 interface AttendanceViewProps {
-  currentAttendanceTab: 'overview' | 'check-in' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home';
+  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -51,37 +53,32 @@ export default function AttendanceView({
   const role = legacyUser?.role || "Employee";
   const isHr = role === "HR Manager" || role === "Business Admin" || role === "Super Admin";
 
-  if (currentAttendanceTab === 'overview' || currentAttendanceTab === 'check-in') {
-    return (
-      <div className="h-full flex flex-col space-y-6">
-        {isHr ? <HrAttendanceCheckInsPage /> : <EmployeeAttendancePage />}
-      </div>
-    );
-  }
-
-  if (currentAttendanceTab === 'history') {
-    return (
-      <div className="h-full flex flex-col space-y-6">
-        <EmployeeAttendanceHistoryPage />
-      </div>
-    );
-  }
-
-  if (currentAttendanceTab === 'late-reasons') {
-    return (
-      <div className="h-full flex flex-col space-y-6">
-        {isHr ? <HrLateReasonsPage /> : <div className="text-xs text-slate-600">Not authorized.</div>}
-      </div>
-    );
-  }
+  const todayYmd = new Date().toISOString().slice(0, 10);
+  const formatMinutes = (minutes: number) => {
+    const safeMinutes = Math.max(0, Math.round(minutes || 0));
+    const hours = Math.floor(safeMinutes / 60);
+    const mins = safeMinutes % 60;
+    return mins ? `${hours}h ${mins}m` : `${hours}h`;
+  };
+  const toYmd = (date: Date) => date.toISOString().slice(0, 10);
+  const startOfWeek = (ymd: string) => {
+    const date = new Date(`${ymd}T00:00:00Z`);
+    const day = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() - day + 1);
+    return toYmd(date);
+  };
+  const startOfMonth = (ymd: string) => `${ymd.slice(0, 7)}-01`;
+  const formatDisplayDate = (ymd: string) =>
+    new Intl.DateTimeFormat('en-US', { weekday: 'long', month: 'short', day: '2-digit', year: 'numeric' }).format(new Date(`${ymd}T00:00:00Z`));
 
   // --- STATE FOR INTERACTIVITY ---
   // Pagination & Filtering
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [searchEmployees, setSearchEmployees] = useState<string>('');
-  const [deptFilter, setDeptFilter] = useState<string>('Marketing');
+  const [deptFilter, setDeptFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [sortBy, setSortBy] = useState<string>('Name');
+  const [timesheetRange, setTimesheetRange] = useState<string>('Monthly');
 
   // Highlight/Select individual rows for detailed panels (Split Layouts)
   const [selectedLeaveIndex, setSelectedLeaveIndex] = useState<number>(0);
@@ -90,7 +87,7 @@ export default function AttendanceView({
   const [selectedWfhIndex, setSelectedWfhIndex] = useState<number>(0);
 
   // Active dates
-  const [activeDate, setActiveDate] = useState<string>('Tuesday, Dec 14, 2025');
+  const [activeDate, setActiveDate] = useState<string>(todayYmd);
 
   // Multi-state list of pending approval items for realistic updates
   const [overtimeRequests, setOvertimeRequests] = useState([
@@ -209,6 +206,74 @@ export default function AttendanceView({
     showAlert(`${status} request successfully!`, status === 'Accepted' ? 'success' : 'info');
   };
 
+  const timesheetStartDate = timesheetRange === 'Daily' ? activeDate : timesheetRange === 'Weekly' ? startOfWeek(activeDate) : startOfMonth(activeDate);
+  const timesheetStatus = statusFilter === 'All' ? undefined : statusFilter;
+  const timesheetSortBy = sortBy === 'Name' ? 'name' : sortBy === 'Status' ? 'status' : 'workedMinutes';
+  const timesheetReport = useAttendanceHrReport({
+    startDate: timesheetStartDate,
+    endDate: activeDate,
+    status: timesheetStatus,
+    search: searchEmployees || undefined,
+    sortBy: timesheetSortBy,
+    sortOrder: 'asc',
+    enabled: currentAttendanceTab === 'timesheet' && isHr,
+  });
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [searchEmployees, statusFilter, sortBy, timesheetRange, activeDate]);
+
+  const timesheetRows = React.useMemo(() => {
+    const grouped = new Map<string, {
+      employeeId: string;
+      employeeName: string;
+      departmentName: string;
+      weekMinutes: number;
+      monthMinutes: number;
+      overtimeMinutes: number;
+      leaveMinutes: number;
+      billableMinutes: number;
+    }>();
+    const weekStart = startOfWeek(activeDate);
+    const rows = timesheetReport.data?.data?.rows || [];
+
+    for (const row of rows) {
+      const current = grouped.get(row.employeeId) || {
+        employeeId: row.employeeId,
+        employeeName: row.employeeName,
+        departmentName: row.department?.name || 'Unassigned',
+        weekMinutes: 0,
+        monthMinutes: 0,
+        overtimeMinutes: 0,
+        leaveMinutes: 0,
+        billableMinutes: 0,
+      };
+
+      const worked = Number(row.totalWorkedMinutes || 0);
+      const overtime = Number(row.overtimeMinutes || 0);
+      current.monthMinutes += worked;
+      current.overtimeMinutes += overtime;
+      current.billableMinutes += Math.max(0, worked - overtime);
+      if (row.date >= weekStart) current.weekMinutes += worked;
+      grouped.set(row.employeeId, current);
+    }
+
+    const values = Array.from(grouped.values());
+    values.sort((a, b) => {
+      if (sortBy === 'Department') return a.departmentName.localeCompare(b.departmentName) || a.employeeName.localeCompare(b.employeeName);
+      if (sortBy === 'Hours') return b.monthMinutes - a.monthMinutes;
+      return a.employeeName.localeCompare(b.employeeName);
+    });
+    return values;
+  }, [activeDate, sortBy, timesheetReport.data]);
+
+  const timesheetPageSize = 8;
+  const totalTimesheetPages = Math.max(1, Math.ceil(timesheetRows.length / timesheetPageSize));
+  const visibleTimesheetRows = timesheetRows.slice((currentPage - 1) * timesheetPageSize, currentPage * timesheetPageSize);
+  const avgMonthHours = timesheetRows.length ? Math.round(timesheetRows.reduce((sum, row) => sum + row.monthMinutes, 0) / timesheetRows.length / 60) : 0;
+  const avgWeekHours = timesheetRows.length ? Math.round(timesheetRows.reduce((sum, row) => sum + row.weekMinutes, 0) / timesheetRows.length / 60) : 0;
+  const totalLeaveHours = Math.round(timesheetRows.reduce((sum, row) => sum + row.leaveMinutes, 0) / 60);
+
   // --- DUMMY DATA FOR TABLES & LISTS ---
   const employeesList = [
     { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', type: 'Full-Time', email: 'alexg@gmail.com', phone: '+251 922 76 6767' },
@@ -239,6 +304,49 @@ export default function AttendanceView({
     { name: 'Jessica Parker', role: 'Full Stack Developer', dept: 'Marketing', leaveType: 'Sick', dates: 'Dec 30, 2025 - Jan 03, 2026', duration: '4Days', status: 'Approved' },
   ];
 
+  // overview tab: employees see the self check-in directly; HR sees their check-in dashboard.
+  if (currentAttendanceTab === 'overview') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        {isHr ? <HrAttendanceCheckInsPage /> : <EmployeeAttendancePage />}
+      </div>
+    );
+  }
+
+  // check-in tab: only HR uses this to see the real-time check-ins list.
+  if (currentAttendanceTab === 'check-in') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <HrAttendanceCheckInsPage />
+      </div>
+    );
+  }
+
+  // check-me-in tab: self-service check-in for everyone (including HR/Admins).
+  if (currentAttendanceTab === 'check-me-in') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <EmployeeAttendancePage />
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'history') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <EmployeeAttendanceHistoryPage />
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'late-reasons') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        {isHr ? <HrLateReasonsPage /> : <div className="text-xs text-slate-600">Not authorized.</div>}
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col space-y-6">
       <AnimatePresence mode="wait">
@@ -246,7 +354,7 @@ export default function AttendanceView({
         {/* ====================================================
             1. OVERVIEW SCREEN (IMAGE 1)
             ==================================================== */}
-        {currentAttendanceTab === 'overview' && (
+        {(currentAttendanceTab as any) === 'overview' && (
           <motion.div
             key="overview"
             initial={{ opacity: 0, y: 15 }}
@@ -417,7 +525,7 @@ export default function AttendanceView({
         {/* ====================================================
             2. CHECK-IN SCREEN (IMAGE 2)
             ==================================================== */}
-        {currentAttendanceTab === 'check-in' && (
+        {(currentAttendanceTab as any) === 'check-in' && (
           <motion.div
             key="check-in"
             initial={{ opacity: 0, y: 15 }}
@@ -430,7 +538,7 @@ export default function AttendanceView({
               <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
                 <div>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">In Progress</span>
-                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">12</span>
+                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">{avgMonthHours}</span>
                 </div>
                 <div className="w-10 h-10 bg-blue-50/70 border border-blue-100/30 rounded-xl flex items-center justify-center text-blue-600">
                   <Clock className="w-5 h-5" />
@@ -440,7 +548,7 @@ export default function AttendanceView({
               <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
                 <div>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Check-ins</span>
-                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">28</span>
+                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">{avgWeekHours}</span>
                 </div>
                 <div className="w-10 h-10 bg-blue-50/70 border border-blue-100/30 rounded-xl flex items-center justify-center text-blue-600">
                   <CheckSquare className="w-5 h-5" />
@@ -450,7 +558,7 @@ export default function AttendanceView({
               <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
                 <div>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Completed</span>
-                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">45</span>
+                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">{totalLeaveHours}</span>
                 </div>
                 <div className="w-10 h-10 bg-blue-50/70 border border-blue-100/30 rounded-xl flex items-center justify-center text-blue-600">
                   <CheckSquare className="w-5 h-5" />
@@ -486,9 +594,7 @@ export default function AttendanceView({
                   onChange={(e) => setDeptFilter(e.target.value)}
                   className="px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold text-slate-700 outline-none"
                 >
-                  <option value="Marketing">Marketing</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Executive">Executive</option>
+                  <option value="All">All departments</option>
                 </select>
 
                 <select
@@ -497,11 +603,15 @@ export default function AttendanceView({
                   className="px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold text-slate-700 outline-none"
                 >
                   <option value="All">Status</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Missed">Missed</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="IN_PROGRESS">In progress</option>
+                  <option value="ON_BREAK">On lunch</option>
+                  <option value="MISSED">Missed</option>
                 </select>
 
                 <select
+                  value={timesheetRange}
+                  onChange={(e) => setTimesheetRange(e.target.value)}
                   className="px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold text-slate-700 outline-none"
                 >
                   <option>Daily</option>
@@ -512,7 +622,7 @@ export default function AttendanceView({
             </div>
 
             <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
-              <span>8 employees found</span>
+              <span>{timesheetRows.length} employees found</span>
               <div className="flex items-center gap-1">
                 <span>Sort by:</span>
                 <select
@@ -522,6 +632,7 @@ export default function AttendanceView({
                 >
                   <option value="Name">Name</option>
                   <option value="Department">Department</option>
+                  <option value="Hours">Hours</option>
                 </select>
               </div>
             </div>
@@ -532,7 +643,7 @@ export default function AttendanceView({
                 <span className="text-xs font-bold text-slate-900">Check-in Entries</span>
                 <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 rounded-lg p-1.5">
                   <Calendar className="w-4 h-4" />
-                  <span className="font-bold">{activeDate}</span>
+                  <span className="font-bold">{formatDisplayDate(activeDate)}</span>
                 </div>
               </div>
 
@@ -749,7 +860,7 @@ export default function AttendanceView({
               <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
                 <div>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Avg Work Hours This Month</span>
-                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">12</span>
+                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">{avgMonthHours}</span>
                 </div>
                 <div className="w-10 h-10 bg-blue-50/70 border border-blue-100/30 rounded-xl flex items-center justify-center text-blue-600">
                   <Clock className="w-5 h-5" />
@@ -759,7 +870,7 @@ export default function AttendanceView({
               <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
                 <div>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Avg Work Hours This Week</span>
-                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">28</span>
+                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">{avgWeekHours}</span>
                 </div>
                 <div className="w-10 h-10 bg-blue-50/70 border border-blue-100/30 rounded-xl flex items-center justify-center text-blue-600">
                   <Clock className="w-5 h-5" />
@@ -769,7 +880,7 @@ export default function AttendanceView({
               <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
                 <div>
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Total Leaves</span>
-                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">45</span>
+                  <span className="text-3xl font-black text-slate-900 mt-1 block tracking-tight">{totalLeaveHours}</span>
                 </div>
                 <div className="w-10 h-10 bg-blue-50/70 border border-blue-100/30 rounded-xl flex items-center justify-center text-blue-600">
                   <CheckSquare className="w-5 h-5" />
@@ -805,9 +916,7 @@ export default function AttendanceView({
                   onChange={(e) => setDeptFilter(e.target.value)}
                   className="px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold text-slate-700 outline-none"
                 >
-                  <option value="Marketing">Marketing</option>
-                  <option value="Engineering">Engineering</option>
-                  <option value="Executive">Executive</option>
+                  <option value="All">All departments</option>
                 </select>
 
                 <select
@@ -816,11 +925,15 @@ export default function AttendanceView({
                   className="px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold text-slate-700 outline-none"
                 >
                   <option value="All">Status</option>
-                  <option value="Completed">Completed</option>
-                  <option value="Missed">Missed</option>
+                  <option value="COMPLETED">Completed</option>
+                  <option value="IN_PROGRESS">In progress</option>
+                  <option value="ON_BREAK">On lunch</option>
+                  <option value="MISSED">Missed</option>
                 </select>
 
                 <select
+                  value={timesheetRange}
+                  onChange={(e) => setTimesheetRange(e.target.value)}
                   className="px-3 py-2 border border-slate-200 rounded-xl bg-white text-xs font-semibold text-slate-700 outline-none"
                 >
                   <option>Daily</option>
@@ -831,7 +944,7 @@ export default function AttendanceView({
             </div>
 
             <div className="flex justify-between items-center text-xs font-semibold text-slate-500">
-              <span>8 employees found</span>
+              <span>{timesheetRows.length} employees found</span>
               <div className="flex items-center gap-1">
                 <span>Sort by:</span>
                 <select
@@ -841,6 +954,7 @@ export default function AttendanceView({
                 >
                   <option value="Name">Name</option>
                   <option value="Department">Department</option>
+                  <option value="Hours">Hours</option>
                 </select>
               </div>
             </div>
@@ -851,7 +965,7 @@ export default function AttendanceView({
                 <span className="text-xs font-bold text-slate-900">Timesheet</span>
                 <div className="flex items-center gap-1.5 text-xs text-slate-600 bg-slate-50 rounded-lg p-1.5">
                   <Calendar className="w-4 h-4" />
-                  <span className="font-bold">{activeDate}</span>
+                  <span className="font-bold">{formatDisplayDate(activeDate)}</span>
                 </div>
               </div>
 
@@ -868,22 +982,34 @@ export default function AttendanceView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50 text-slate-700 font-sans">
-                    {employeesList.map((emp, index) => (
-                      <tr key={index} className="hover:bg-slate-50/50 text-xs transition-colors">
+                    {timesheetReport.isLoading ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 px-2 text-center text-xs font-semibold text-slate-500">Loading timesheet...</td>
+                      </tr>
+                    ) : timesheetReport.isError ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 px-2 text-center text-xs font-semibold text-red-600">Failed to load timesheet data.</td>
+                      </tr>
+                    ) : visibleTimesheetRows.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-8 px-2 text-center text-xs font-semibold text-slate-500">No timesheet data matches the current filters.</td>
+                      </tr>
+                    ) : visibleTimesheetRows.map((emp) => (
+                      <tr key={emp.employeeId} className="hover:bg-slate-50/50 text-xs transition-colors">
                         <td className="py-3 px-2 flex items-center gap-2.5">
                           <span className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-sans font-bold flex-shrink-0">
-                            JP
+                            {emp.employeeName.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase() || 'EM'}
                           </span>
                           <div>
-                            <h4 className="font-sans font-extrabold text-slate-900 leading-none">{emp.name}</h4>
-                            <span className="text-[10px] font-medium text-slate-400 block mt-1">{emp.role}</span>
+                            <h4 className="font-sans font-extrabold text-slate-900 leading-none">{emp.employeeName}</h4>
+                            <span className="text-[10px] font-medium text-slate-400 block mt-1">{emp.departmentName}</span>
                           </div>
                         </td>
-                        <td className="py-3 px-2 text-slate-600 font-semibold">42h</td>
-                        <td className="py-3 px-2 text-slate-600 font-semibold">160h</td>
-                        <td className="py-3 px-2 text-slate-600 font-semibold">4h</td>
-                        <td className="py-3 px-2 text-slate-600 font-semibold font-mono">24h</td>
-                        <td className="py-3 px-2 text-right font-black text-blue-600 text-[13px]">156h</td>
+                        <td className="py-3 px-2 text-slate-600 font-semibold">{formatMinutes(emp.weekMinutes)}</td>
+                        <td className="py-3 px-2 text-slate-600 font-semibold">{formatMinutes(emp.monthMinutes)}</td>
+                        <td className="py-3 px-2 text-slate-600 font-semibold">{formatMinutes(emp.overtimeMinutes)}</td>
+                        <td className="py-3 px-2 text-slate-600 font-semibold font-mono">{formatMinutes(emp.leaveMinutes)}</td>
+                        <td className="py-3 px-2 text-right font-black text-blue-600 text-[13px]">{formatMinutes(emp.billableMinutes)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -892,10 +1018,14 @@ export default function AttendanceView({
 
               {/* Table pagination foot */}
               <div className="flex justify-center items-center gap-1.5 mt-4 pt-3 border-t border-slate-100">
-                <button className="p-1 rounded hover:bg-slate-50 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer">
+                <button
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1 rounded hover:bg-slate-50 disabled:hover:bg-transparent disabled:text-slate-300 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                {[1, 2, 3, 4].map((num) => (
+                {Array.from({ length: totalTimesheetPages }, (_, index) => index + 1).map((num) => (
                   <button
                     key={num}
                     onClick={() => setCurrentPage(num)}
@@ -908,7 +1038,11 @@ export default function AttendanceView({
                     {num}
                   </button>
                 ))}
-                <button className="p-1 rounded hover:bg-slate-50 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer">
+                <button
+                  onClick={() => setCurrentPage((page) => Math.min(totalTimesheetPages, page + 1))}
+                  disabled={currentPage >= totalTimesheetPages}
+                  className="p-1 rounded hover:bg-slate-50 disabled:hover:bg-transparent disabled:text-slate-300 transition-colors text-slate-400 hover:text-slate-700 cursor-pointer"
+                >
                   <ChevronRight className="w-4 h-4" />
                 </button>
               </div>

@@ -45,6 +45,7 @@ interface SidebarProps {
   setIsDetailedView: (val: boolean) => void;
   user?: { name: string; email: string; role: string } | null;
   onLogout?: () => void;
+  onProfileClick?: () => void;
   mobileOpen?: boolean;
   onMobileClose?: () => void;
 }
@@ -74,6 +75,7 @@ export default function Sidebar({
   setIsDetailedView,
   user,
   onLogout,
+  onProfileClick,
   mobileOpen = false,
   onMobileClose,
 }: SidebarProps) {
@@ -141,18 +143,30 @@ export default function Sidebar({
     { id: 'archive', label: 'Archive', badge: 0 },
   ] as const;
 
-  const attendanceTabs = [
-    { id: 'overview', label: 'Overview', badge: 0 },
-    { id: 'check-in', label: 'Check-in', badge: 0 },
-    { id: 'history', label: 'History', badge: 0 },
-    { id: 'late-reasons', label: 'Late Reasons', badge: 0 },
-    { id: 'requests', label: 'Requests', badge: 0 },
-    { id: 'timesheet', label: 'Timesheet', badge: 0 },
-    { id: 'leaves', label: 'Leaves', badge: 0 },
-    { id: 'overtime', label: 'Overtime', badge: 0 },
-    { id: 'memo-log', label: 'Memo Log', badge: 0 },
-    { id: 'work-from-home', label: 'Work-from-Home', badge: 0 },
-  ] as const;
+  const isHr = user?.role === 'HR Manager' || user?.role === 'Business Admin';
+
+  const attendanceTabs = isHr
+    ? [
+        { id: 'overview', label: 'Overview', badge: 0 },
+        { id: 'check-in', label: 'Check-ins', badge: 0 },
+        { id: 'check-me-in', label: 'Check me in', badge: 0 },
+        { id: 'history', label: 'History', badge: 0 },
+        { id: 'late-reasons', label: 'Late Reasons', badge: 0 },
+        { id: 'requests', label: 'Requests', badge: 0 },
+        { id: 'timesheet', label: 'Timesheet', badge: 0 },
+        { id: 'leaves', label: 'Leaves', badge: 0 },
+        { id: 'overtime', label: 'Overtime', badge: 0 },
+        { id: 'memo-log', label: 'Memo Log', badge: 0 },
+        { id: 'work-from-home', label: 'Work-from-Home', badge: 0 },
+      ]
+    : [
+        { id: 'overview', label: 'Check me in', badge: 0 },
+        { id: 'history', label: 'History', badge: 0 },
+        { id: 'requests', label: 'Requests', badge: 0 },
+        { id: 'leaves', label: 'Leaves', badge: 0 },
+        { id: 'overtime', label: 'Overtime', badge: 0 },
+        { id: 'work-from-home', label: 'Work-from-Home', badge: 0 },
+      ];
 
   const talentTabs = [
     { id: 'overview', label: 'Overview', badge: 4 },
@@ -281,7 +295,8 @@ export default function Sidebar({
           </div>
 
           <button
-            onClick={() => { setIsDetailedView(false); onMobileClose?.(); }}
+            onClick={() => { onProfileClick?.(); }}
+            title="My Profile"
             className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm font-semibold border border-white/20 transition-all cursor-pointer"
           >
             {user ? getInitials(user.name) : 'AY'}
@@ -464,9 +479,13 @@ export default function Sidebar({
       {/* User block */}
       <div className="border-t border-white/10 pt-4 px-2 mt-auto flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-full bg-white text-[#1a56db] flex items-center justify-center text-xs font-bold leading-none shadow-sm flex-shrink-0">
+          <button
+            onClick={() => onProfileClick?.()}
+            title="My Profile"
+            className="w-8 h-8 rounded-full bg-white text-[#1a56db] flex items-center justify-center text-xs font-bold leading-none shadow-sm flex-shrink-0 hover:ring-2 hover:ring-white/50 transition-all cursor-pointer"
+          >
             {user ? getInitials(user.name) : 'AY'}
-          </div>
+          </button>
           <div className="overflow-hidden min-w-0">
             <p className="text-xs font-bold text-white truncate leading-none">{user ? user.name : 'Aytenew Y.'}</p>
             <p className="text-[10px] text-blue-100/70 truncate leading-tight mt-0.5">{user ? user.email : 'aytenew@blihmarketing.com'}</p>

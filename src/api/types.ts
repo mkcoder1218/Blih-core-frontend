@@ -148,6 +148,31 @@ export type AttendanceHrDailyResponse = {
   rows: AttendanceHrDailyRow[];
 };
 
+export type AttendanceHrReportRow = {
+  employeeId: string;
+  employeeName: string;
+  department: { id: string; name: string } | null;
+  date: string;
+  checkInAtUtc: string | null;
+  lunchOutAtUtc: string | null;
+  lunchInAtUtc: string | null;
+  checkOutAtUtc: string | null;
+  totalWorkedMinutes: number;
+  totalBreakMinutes: number;
+  expectedMinutes: number;
+  overtimeMinutes: number;
+  missingMinutes: number;
+  lateByMinutes: number;
+  currentStatus: string;
+  lateReasonName?: string;
+  lateExplanation?: string;
+};
+
+export type AttendanceHrReportResponse = {
+  timezone: string;
+  rows: AttendanceHrReportRow[];
+};
+
 export type AttendanceHrEmployeeResponse = {
   date: string;
   timezone: string;
