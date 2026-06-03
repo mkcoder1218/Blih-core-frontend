@@ -280,12 +280,14 @@ interface PeopleProfilesViewProps {
   currentProfilesTab: 'overview' | 'create' | 'organogram' | 'directory' | 'events' | 'archive';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
+  onViewProfile?: (employee: any) => void;
 }
 
 export default function PeopleProfilesView({
   currentProfilesTab,
   onDraftAiSuggestion,
   showAlert,
+  onViewProfile,
 }: PeopleProfilesViewProps) {
   // Directory & Archive Selection States
   const [selectedDirectoryRow, setSelectedDirectoryRow] = useState<number>(0);
@@ -752,7 +754,8 @@ export default function PeopleProfilesView({
                         return (
                           <tr
                             key={emp.id}
-                            className={`group transition-all relative ${isActive
+                            onClick={() => onViewProfile?.(emp)}
+                            className={`group transition-all relative cursor-pointer ${isActive
                                 ? 'bg-slate-50/70 z-10'
                                 : 'hover:bg-slate-50/30'
                               } ${activeActionsMenu === emp.id ? 'z-50' : 'z-0'}`}
@@ -825,7 +828,7 @@ export default function PeopleProfilesView({
                                       <button 
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          showAlert(`Viewing ${emp.user?.fullName}'s profile`, 'info');
+                                          onViewProfile?.(emp);
                                           setActiveActionsMenu(null);
                                         }}
                                         className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"

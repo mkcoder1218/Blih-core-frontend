@@ -40,6 +40,7 @@ export default function App() {
 
   // Employee detail page state (profile icon click)
   const [showEmployeeDetail, setShowEmployeeDetail] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
 
   // Navigation states
   const [currentModule, setCurrentModule] = useState<MainModule>(() => {
@@ -304,8 +305,13 @@ export default function App() {
                 className="h-full"
               >
                 <EmployeeDetailPage
-                  user={activeUser!}
-                  onBack={() => setShowEmployeeDetail(false)}
+                  targetUserId={selectedEmployee ? selectedEmployee.userId || selectedEmployee.user?.id : undefined}
+                  user={selectedEmployee ? {
+                    name: selectedEmployee.user?.fullName || 'Unknown',
+                    email: selectedEmployee.user?.email || '',
+                    role: selectedEmployee.position?.title || selectedEmployee.department?.name || 'Staff',
+                  } : activeUser!}
+                  onBack={() => { setShowEmployeeDetail(false); setSelectedEmployee(null); }}
                 />
               </motion.div>
             ) : (
@@ -414,6 +420,7 @@ export default function App() {
                   currentProfilesTab={currentProfilesTab}
                   onDraftAiSuggestion={(ctx) => handleTriggerAiGenerate(ctx, 'profiles')}
                   showAlert={showAlert}
+                  onViewProfile={(emp) => { setSelectedEmployee(emp); setShowEmployeeDetail(true); }}
                 />
               ) : currentModule === 'attendance' ? (
                 /* 4. High Fidelity Attendance Tabs */

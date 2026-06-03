@@ -228,6 +228,12 @@ export default function Sidebar({
     onMobileClose?.();
   };
 
+  const handleProfileClick = () => {
+    onProfileClick?.();
+    navigate(`/${roleSegment}/my-profile`);
+    onMobileClose?.();
+  };
+
   // Helper: tab button class
   const tabCls = (isActive: boolean) =>
     `w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
@@ -295,7 +301,7 @@ export default function Sidebar({
           </div>
 
           <button
-            onClick={() => { onProfileClick?.(); }}
+            onClick={handleProfileClick}
             title="My Profile"
             className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-sm font-semibold border border-white/20 transition-all cursor-pointer"
           >
@@ -480,7 +486,7 @@ export default function Sidebar({
       <div className="border-t border-white/10 pt-4 px-2 mt-auto flex items-center justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <button
-            onClick={() => onProfileClick?.()}
+            onClick={handleProfileClick}
             title="My Profile"
             className="w-8 h-8 rounded-full bg-white text-[#1a56db] flex items-center justify-center text-xs font-bold leading-none shadow-sm flex-shrink-0 hover:ring-2 hover:ring-white/50 transition-all cursor-pointer"
           >

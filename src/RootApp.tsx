@@ -16,6 +16,7 @@ import PublicCareersPage from "./pages/careers/PublicCareersPage";
 import PublicJobApplicationPage from "./pages/careers/PublicJobApplicationPage";
 import InterviewResponsePage from "./pages/InterviewResponsePage";
 import CandidateOnboardingPage from "./pages/CandidateOnboardingPage";
+import MyProfilePage from "./pages/MyProfilePage";
 
 // Wrapper to extract :onboardingId param and pass as prop
 function CandidateOnboardingRoute() {
@@ -49,6 +50,7 @@ export default function RootApp() {
                   <Route path="/unauthorized" element={<UnauthorizedPage />} />
                   <Route path="/" element={<AppShell />}>
                     <Route index element={<HomeRedirect />} />
+                    <Route path="employee/my-profile" element={<MyProfilePage />} />
                     <Route path="employee/recruitment" element={<RecruitmentPage />} />
                     <Route path="employee/recruitment/:tab" element={<RecruitmentPage />} />
                     <Route path="employee/:module" element={<ModulePage />} />
@@ -66,6 +68,14 @@ export default function RootApp() {
                       element={
                         <RoleGuard allow="hr_manager">
                           <RecruitmentPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="hr-manager/my-profile"
+                      element={
+                        <RoleGuard allow="hr_manager">
+                          <MyProfilePage />
                         </RoleGuard>
                       }
                     />
@@ -98,6 +108,14 @@ export default function RootApp() {
                       element={
                         <RoleGuard allow="business_admin">
                           <RecruitmentPage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="business-admin/my-profile"
+                      element={
+                        <RoleGuard allow="business_admin">
+                          <MyProfilePage />
                         </RoleGuard>
                       }
                     />
@@ -146,6 +164,14 @@ export default function RootApp() {
                       element={
                         <RoleGuard allow="platform_super_admin">
                           <PermissionManagement />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
+                      path="super-admin/my-profile"
+                      element={
+                        <RoleGuard allow="platform_super_admin">
+                          <MyProfilePage />
                         </RoleGuard>
                       }
                     />

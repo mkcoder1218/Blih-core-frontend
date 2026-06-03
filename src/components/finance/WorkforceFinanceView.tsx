@@ -46,6 +46,8 @@ import {
   Compass,
   ArrowRight
 } from 'lucide-react';
+import { useCreateBudgetReallocation, useFinanceApprovalAction, useWorkforceFinance } from '../../hooks/useWorkforceFinance';
+import { exportWorkforceFinance } from '../../api/finance';
 
 interface WorkforceFinanceViewProps {
   currentTab: 'overview' | 'salary' | 'payroll' | 'budget' | 'expense' | 'benefits';
@@ -61,215 +63,80 @@ export default function WorkforceFinanceView({
   // Common states
   const [searchQuery, setSearchQuery] = useState('');
   const [deptFilter, setDeptFilter] = useState('All');
+  const { data = {}, isLoading, isError, error } = useWorkforceFinance({ tab: currentTab, q: searchQuery, department: deptFilter });
+  const approvalAction = useFinanceApprovalAction();
+  const createReallocation = useCreateBudgetReallocation();
 
-  // Interactive local states for approvals
-  const [pendingApprovals, setPendingApprovals] = useState([
-    {
-      id: 'pa-1',
-      type: 'Salary Adjustment',
-      priority: 'High',
-      employee: 'Emily Davis',
-      descr: 'Competitive salary adjustment based on recent engineering lead role',
-      amount: 10000,
-      date: '2024-04-10',
-      status: 'pending',
-    },
-    {
-      id: 'pa-2',
-      type: 'Salary Adjustment',
-      priority: 'Medium',
-      employee: 'Emily Davis',
-      descr: 'Annual market rate parity realignment for marketing coordinator',
-      amount: 6500,
-      date: '2024-04-10',
-      status: 'pending',
-    },
-    {
-      id: 'pa-3',
-      type: 'Expense Approval',
-      priority: 'Low',
-      employee: 'Emily Davis',
-      descr: 'Offsite design workshop catering and canvas rental supplies',
-      amount: 1200,
-      date: '2024-04-10',
-      status: 'pending',
-    },
-    {
-      id: 'pa-4',
-      type: 'Expense Approval',
-      priority: 'Low',
-      employee: 'Emily Davis',
-      descr: 'Client strategy dinner at Grand Brasserie including transport',
-      amount: 850,
-      date: '2024-04-10',
-      status: 'pending',
-    }
-  ]);
+  const formatMoney = (value: number = 0, compact = false) =>
+    new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: compact ? 'compact' : 'standard', maximumFractionDigits: compact ? 1 : 0 }).format(Number(value || 0));
+  const formatDate = (value?: string | null) => value ? new Date(value).toISOString().slice(0, 10) : 'Not scheduled';
+  const pct = (value: number = 0) => `${Number(value || 0).toFixed(1)}%`;
 
-  const [salaryAdjustRequests, setSalaryAdjustRequests] = useState([
-    {
-      id: 'sar-1',
-      employee: 'Sarah Johnson',
-      dept: 'Marketing',
-      rating: '4.71/5.00',
-      currentSalary: 85000,
-      requestedSalary: 100000,
-      increase: 15000,
-      pct: '17.6%',
-      reason: 'Annual performance increase + market adjustment',
-      date: '2024-02-18',
-      status: 'pending',
-    },
-    {
-      id: 'sar-2',
-      employee: 'Sarah Johnson',
-      dept: 'Marketing',
-      rating: '4.71/5.00',
-      currentSalary: 85000,
-      requestedSalary: 100000,
-      increase: 15000,
-      pct: '17.6%',
-      reason: 'Annual performance increase + market adjustment',
-      date: '2024-02-18',
-      status: 'pending',
-    }
-  ]);
+  const overview = (data as any).overview ?? {};
+  const salary = (data as any).salary ?? {};
+  const payroll = (data as any).payroll ?? {};
+  const budget = (data as any).budget ?? {};
+  const expense = (data as any).expense ?? {};
+  const benefits = (data as any).benefits ?? {};
 
-  const [expenseAwaiting, setExpenseAwaiting] = useState([
-    {
-      id: 'exp-1',
-      title: 'Production Equipment Rental',
-      priority: 'High',
-      dept: 'Engineering Dev Team',
-      reason: 'Temporary backup servers to meet high traffic during launch week',
-      budget: 'Project Budget',
-      requestedBy: 'John Smith',
-      date: '2024-02-15',
-      amount: 8500,
-      status: 'pending',
-    },
-    {
-      id: 'exp-2',
-      title: 'Transportation Reimbursement',
-      priority: 'Medium',
-      dept: 'Sales Team',
-      reason: 'Research team marketing travel and client on-site workshops',
-      budget: 'Department Budget - Sales',
-      requestedBy: 'Nelson Cruz',
-      date: '2024-02-14',
-      amount: 3200,
-      status: 'pending',
-    },
-    {
-      id: 'exp-3',
-      title: 'Marketing Campaign Launch',
-      priority: 'High',
-      dept: 'Marketing Department',
-      reason: 'Beacon ads and offline community billboard space lease',
-      budget: 'Department Budget - Marketing',
-      requestedBy: 'Sarah Johnson',
-      date: '2024-02-13',
-      amount: 12000,
-      status: 'pending',
-    }
-  ]);
+  const pendingApprovals = overview.pendingApprovals ?? [];
+  const salaryAdjustRequests = salary.requests ?? [];
+  const expenseAwaiting = expense.requests ?? [];
+  const payrollTrendData = overview.payrollTrend ?? [];
+  const deptBudgetUtilizationData = overview.departmentBudgetUtilization ?? budget.departmentBudgetUtilization ?? [];
+  const scatterData = salary.performanceComparison ?? [];
+  const deptSalaryData = salary.departmentSalary ?? [];
+  const expensePieData = expense.breakdown ?? [];
+  const expenseTrendData = expense.trend ?? [];
+  const benefitsDeptData = benefits.departmentValues ?? [];
 
-  // Action helpers
-  const handleAction = (id: string, action: 'approve' | 'reject', listType: 'pending' | 'salary' | 'expense') => {
-    if (listType === 'pending') {
-      setPendingApprovals(prev => prev.filter(p => {
-        if (p.id === id) {
-          showAlert(`Successfully ${action === 'approve' ? 'Approved' : 'Rejected'} ${p.type} of $${p.amount.toLocaleString()}!`, 'success');
-          return false;
-        }
-        return true;
-      }));
-    } else if (listType === 'salary') {
-      setSalaryAdjustRequests(prev => prev.filter(p => {
-        if (p.id === id) {
-          showAlert(`Successfully ${action === 'approve' ? 'Approved' : 'Rejected'} Salary adjustment for ${p.employee}!`, 'success');
-          return false;
-        }
-        return true;
-      }));
-    } else if (listType === 'expense') {
-      setExpenseAwaiting(prev => prev.filter(p => {
-        if (p.id === id) {
-          showAlert(`Successfully ${action === 'approve' ? 'Approved' : 'Rejected'} Expense: ${p.title}!`, 'success');
-          return false;
-        }
-        return true;
-      }));
+  const handleAction = async (id: string, action: 'approve' | 'reject', listType: 'pending' | 'salary' | 'expense') => {
+    const source = listType === 'salary'
+      ? salaryAdjustRequests.find((item: any) => item.id === id)
+      : listType === 'expense'
+        ? expenseAwaiting.find((item: any) => item.id === id)
+        : pendingApprovals.find((item: any) => item.id === id);
+    const kind = source?.kind === 'budget' ? 'budget' : source?.kind === 'expense' || listType === 'expense' ? 'expense' : 'salary';
+
+    try {
+      await approvalAction.mutateAsync({ kind, id, action });
+      showAlert(`Successfully ${action === 'approve' ? 'approved' : 'rejected'} ${source?.type || 'finance request'}.`, 'success');
+    } catch (err: any) {
+      showAlert(err?.response?.data?.error || `Unable to ${action} finance request.`, 'error');
     }
   };
 
-  // 1. OVERVIEW DATA
-  const payrollTrendData = [
-    { name: 'Aug', amount: 440000 },
-    { name: 'Sep', amount: 445000 },
-    { name: 'Oct', amount: 448000 },
-    { name: 'Nov', amount: 452000 },
-    { name: 'Dec', amount: 458000 },
-    { name: 'Jan', amount: 455000 },
-    { name: 'Feb', amount: 462000 }
-  ];
+  const handleExport = async (tab: string) => {
+    try {
+      const res = await exportWorkforceFinance(tab);
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `workforce-finance-${tab}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+      showAlert('Finance export prepared.', 'success');
+    } catch (err: any) {
+      showAlert(err?.response?.data?.error || 'Unable to export finance data.', 'error');
+    }
+  };
 
-  const deptBudgetUtilizationData = [
-    { name: 'Marketing', spent: 400000, allocated: 500000 },
-    { name: 'Sales', spent: 380000, allocated: 450000 },
-    { name: 'Design', spent: 290000, allocated: 320000 },
-    { name: 'Analytics', spent: 310000, allocated: 380000 },
-    { name: 'HR', spent: 200000, allocated: 250000 },
-    { name: 'Engineering', spent: 850000, allocated: 1000000 }
-  ];
+  const handleBudgetReallocationRequest = async () => {
+    try {
+      await createReallocation.mutateAsync({ amount: 0, reason: 'Budget reallocation requested from Workforce Finance' });
+      showAlert('Budget reallocation request created.', 'success');
+    } catch (err: any) {
+      showAlert(err?.response?.data?.error || 'Unable to create reallocation request.', 'error');
+    }
+  };
 
-  // 2. SALARY DATA
-  const scatterData = [
-    { x: 55, y: 3.2, name: 'Analyst' },
-    { x: 65, y: 3.5, name: 'Designer' },
-    { x: 75, y: 3.8, name: 'Developer' },
-    { x: 82, y: 4.1, name: 'Sr. Recruiter' },
-    { x: 95, y: 4.5, name: 'Lead Dev' },
-    { x: 110, y: 4.7, name: 'Manager' },
-    { x: 125, y: 4.8, name: 'Director' }
-  ];
+  if (isLoading) {
+    return <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-xs font-bold text-slate-400">Loading workforce finance data...</div>;
+  }
 
-  const deptSalaryData = [
-    { name: 'Engineering', amount: 110000 },
-    { name: 'Marketing', amount: 85000 },
-    { name: 'Sales', amount: 80000 },
-    { name: 'Design', amount: 90000 },
-    { name: 'Analytics', amount: 95000 },
-    { name: 'HR', amount: 75000 }
-  ];
-
-  // 5. EXPENSE DATA
-  const expensePieData = [
-    { name: 'Software Licenses', value: 45, color: '#1d4ed8' },
-    { name: 'Equipment Rental', value: 25, color: '#3b82f6' },
-    { name: 'Office Supplies', value: 15, color: '#93c5fd' },
-    { name: 'Team Travel', value: 10, color: '#60a5fa' },
-    { name: 'Miscellaneous', value: 5, color: '#bfdbfe' }
-  ];
-
-  const expenseTrendData = [
-    { month: 'Sep', amount: 56000 },
-    { month: 'Oct', amount: 62000 },
-    { month: 'Nov', amount: 64000 },
-    { month: 'Dec', amount: 68000 },
-    { month: 'Jan', amount: 65000 },
-    { month: 'Feb', amount: 72000 }
-  ];
-
-  // 6. BENEFITS DATA
-  const benefitsDeptData = [
-    { name: 'Engineering', value: 110500 },
-    { name: 'Marketing', value: 102000 },
-    { name: 'Sales', value: 98500 },
-    { name: 'Design', value: 89000 },
-    { name: 'Analytics', value: 92000 },
-    { name: 'HR', value: 78000 }
-  ];
+  if (isError) {
+    return <div className="bg-white rounded-2xl border border-rose-100 p-8 text-center text-xs font-bold text-rose-600">{(error as any)?.response?.data?.error || 'Unable to load workforce finance data.'}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -287,7 +154,7 @@ export default function WorkforceFinanceView({
                       {pendingApprovals.length} items
                     </span>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mt-2 tracking-tight">$53,500</h3>
+                  <h3 className="text-2xl font-black text-slate-900 mt-2 tracking-tight">{formatMoney(overview.totals?.pendingApprovalAmount)}</h3>
                 </div>
                 <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
                   <Clock className="w-5 h-5" />
@@ -301,10 +168,10 @@ export default function WorkforceFinanceView({
                   <div className="flex items-center gap-2">
                     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Expenses This Month</p>
                     <span className="bg-blue-50 text-blue-600 font-extrabold text-[10px] px-2 py-0.5 rounded-full">
-                      15 items
+                      {overview.totals?.monthlyExpenseItems ?? 0} items
                     </span>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mt-2 tracking-tight">$22,300</h3>
+                  <h3 className="text-2xl font-black text-slate-900 mt-2 tracking-tight">{formatMoney(overview.totals?.monthlyExpenses)}</h3>
                 </div>
                 <div className="w-9 h-9 bg-slate-50 rounded-xl flex items-center justify-center text-slate-400">
                   <Clock className="w-5 h-5" />
@@ -318,10 +185,10 @@ export default function WorkforceFinanceView({
                   <div className="flex items-center gap-2">
                     <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Total Budget</p>
                     <span className="bg-emerald-50 text-emerald-600 font-bold text-[10px] px-1.5 py-0.5 rounded-md flex items-center gap-0.5">
-                      <ArrowUpRight className="w-3 h-3" /> +8%
+                      <ArrowUpRight className="w-3 h-3" /> {pct(overview.totals?.totalBudgetDeltaPercent)}
                     </span>
                   </div>
-                  <h3 className="text-2xl font-black text-slate-900 mt-2 tracking-tight">$2.5M</h3>
+                  <h3 className="text-2xl font-black text-slate-900 mt-2 tracking-tight">{formatMoney(overview.totals?.totalBudget, true)}</h3>
                 </div>
                 <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600">
                   <DollarSign className="w-5 h-5" />
@@ -337,45 +204,19 @@ export default function WorkforceFinanceView({
               <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-wider">Recent Notifications</h4>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="bg-slate-50/70 rounded-xl p-3.5 flex items-start gap-3 border border-slate-100">
-                <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 flex-shrink-0">
-                  <Check className="w-4 h-4 stroke-[2.5]" />
+              {(overview.notifications ?? []).length > 0 ? overview.notifications.map((notice: any) => (
+                <div key={notice.id} className={`${notice.priority === 'high' || notice.priority === 'urgent' ? 'bg-red-50/40 border-red-50' : 'bg-slate-50/70 border-slate-100'} rounded-xl p-3.5 flex items-start gap-3 border`}>
+                  <div className={`${notice.priority === 'high' || notice.priority === 'urgent' ? 'bg-red-100 text-red-600' : 'bg-blue-50 text-blue-600'} w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0`}>
+                    {notice.priority === 'high' || notice.priority === 'urgent' ? <AlertTriangle className="w-4 h-4" /> : <Check className="w-4 h-4 stroke-[2.5]" />}
+                  </div>
+                  <div>
+                    <h5 className="text-[11.5px] font-bold text-slate-800 leading-tight">{notice.title}</h5>
+                    <span className="text-[9.5px] text-slate-400 font-bold block mt-1">{formatDate(notice.date)}</span>
+                  </div>
                 </div>
-                <div>
-                  <h5 className="text-[11.5px] font-bold text-slate-800 leading-tight">February payroll processing scheduled for Feb 25</h5>
-                  <span className="text-[9.5px] text-slate-400 font-bold block mt-1">2024-02-18</span>
-                </div>
-              </div>
-
-              <div className="bg-red-50/40 rounded-xl p-3.5 flex items-start gap-3 border border-red-50">
-                <div className="w-7 h-7 bg-red-100 text-red-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <AlertTriangle className="w-4 h-4" />
-                </div>
-                <div>
-                  <h5 className="text-[11.5px] font-bold text-slate-800 leading-tight">4 salary adjustments pending approval</h5>
-                  <span className="text-[9.5px] text-red-500 font-bold block mt-1">2024-02-16</span>
-                </div>
-              </div>
-
-              <div className="bg-amber-50/45 rounded-xl p-3.5 flex items-start gap-3 border border-amber-50">
-                <div className="w-7 h-7 bg-amber-100 text-amber-700 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Clock className="w-4 h-4" />
-                </div>
-                <div>
-                  <h5 className="text-[11.5px] font-bold text-slate-800 leading-tight">Q1 budget review meeting on Feb 22</h5>
-                  <span className="text-[9.5px] text-amber-600 font-bold block mt-1">2024-02-17</span>
-                </div>
-              </div>
-
-              <div className="bg-slate-50/70 rounded-xl p-3.5 flex items-start gap-3 border border-slate-100">
-                <div className="w-7 h-7 bg-blue-50 rounded-lg flex items-center justify-center text-blue-600 flex-shrink-0">
-                  <Check className="w-4 h-4 stroke-[2.5]" />
-                </div>
-                <div>
-                  <h5 className="text-[11.5px] font-bold text-slate-800 leading-tight">Annual benefits enrollment opens March 1</h5>
-                  <span className="text-[9.5px] text-slate-400 font-bold block mt-1">2024-02-15</span>
-                </div>
-              </div>
+              )) : (
+                <div className="md:col-span-2 p-5 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs font-semibold">No recent finance notifications.</div>
+              )}
             </div>
           </div>
 
@@ -480,7 +321,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Salary</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$87,450</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(salary.totals?.avgSalary)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
             </div>
@@ -488,7 +329,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Payroll</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$13.14M</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(salary.totals?.totalPayroll, true)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
             </div>
@@ -504,7 +345,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Increase</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">8.5%</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{pct(salary.totals?.avgIncreasePercent)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
             </div>
@@ -532,15 +373,15 @@ export default function WorkforceFinanceView({
                   <div key={sar.id} className="bg-slate-50/70 rounded-2xl border border-slate-100 p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-xs font-mono">
-                        SJ
+                        {sar.employee?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'NA'}
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
                           <h5 className="text-xs font-bold text-slate-900">{sar.employee}</h5>
-                          <span className="text-[10px] text-slate-400 font-semibold">{sar.dept}</span>
+                          <span className="text-[10px] text-slate-400 font-semibold">{sar.department}</span>
                         </div>
                         <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                          Performance: <strong className="text-emerald-600">{sar.rating}</strong>
+                          Status: <strong className="text-emerald-600">{sar.status}</strong>
                         </p>
                       </div>
                     </div>
@@ -548,19 +389,19 @@ export default function WorkforceFinanceView({
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white p-3.5 rounded-xl border border-slate-100/80 flex-1 max-w-2xl text-[11px] font-semibold">
                       <div>
                         <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Current Salary</span>
-                        <span className="text-slate-800">${sar.currentSalary.toLocaleString()}</span>
+                        <span className="text-slate-800">{formatMoney(sar.currentSalary)}</span>
                       </div>
                       <div>
                         <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Requested Salary</span>
-                        <span className="text-[#2563eb] font-extrabold">${sar.requestedSalary.toLocaleString()}</span>
+                        <span className="text-[#2563eb] font-extrabold">{formatMoney(sar.requestedSalary)}</span>
                       </div>
                       <div>
                         <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Increase</span>
-                        <span className="text-emerald-600 font-extrabold">+${sar.increase.toLocaleString()} ({sar.pct})</span>
+                        <span className="text-emerald-600 font-extrabold">+{formatMoney(sar.increase)} ({pct(sar.pct)})</span>
                       </div>
                       <div>
                         <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Requested Date</span>
-                        <span className="text-slate-700">{sar.date}</span>
+                        <span className="text-slate-700">{formatDate(sar.date)}</span>
                       </div>
                     </div>
 
@@ -632,18 +473,16 @@ export default function WorkforceFinanceView({
               <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Staffing Breakdowns</h4>
               <div className="space-y-3.5 overflow-y-auto max-h-[220px]">
                 {[
-                  { name: 'Engineering', count: 45, avg: '$88k', total: '$4.43M' },
-                  { name: 'Marketing', count: 28, avg: '$75k', total: '$2.10M' },
-                  { name: 'Sales', count: 32, avg: '$65k', total: '$2.04M' }
-                ].map((dep, idx) => (
+                  ...(deptSalaryData ?? [])
+                ].map((dep: any, idx) => (
                   <div key={idx} className="bg-slate-50/70 p-3 rounded-xl border border-slate-100/80 flex justify-between items-center text-xs">
                     <div>
                       <h5 className="font-bold text-slate-800">{dep.name}</h5>
                       <span className="text-[10px] text-slate-400 font-semibold">{dep.count} employees</span>
                     </div>
                     <div className="text-right font-semibold">
-                      <p className="text-slate-800">{dep.avg} avg</p>
-                      <span className="text-[10px] text-blue-600 font-bold block">{dep.total} Total</span>
+                      <p className="text-slate-800">{formatMoney(dep.amount, true)} avg</p>
+                      <span className="text-[10px] text-blue-600 font-bold block">{formatMoney(dep.total, true)} Total</span>
                     </div>
                   </div>
                 ))}
@@ -669,10 +508,8 @@ export default function WorkforceFinanceView({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
-                { name: 'John Smith', dept: 'Engineering', role: 'Lead Engineer', sal: '$110,000', perf: '4.5/5.0', join: '2020-03-15' },
-                { name: 'Sarah Johnson', dept: 'Marketing', role: 'Marketing Manager', sal: '$95,000', perf: '4.7/5.0', join: '2019-06-20' },
-                { name: 'Dr. Samantha Lee', dept: 'Analytics', role: 'Analytics Director', sal: '$125,000', perf: '4.8/5.0', join: '2019-01-10' }
-              ].filter(emp => emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || emp.role.toLowerCase().includes(searchQuery.toLowerCase())).map((emp, i) => (
+                ...(salary.employees ?? [])
+              ].filter((emp: any) => emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || emp.role.toLowerCase().includes(searchQuery.toLowerCase())).map((emp: any, i) => (
                 <div key={i} className="bg-slate-50/50 hover:bg-slate-50 rounded-2xl border border-slate-100 p-4 flex flex-col justify-between hover:shadow-xs transition-all">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
@@ -681,7 +518,7 @@ export default function WorkforceFinanceView({
                       </div>
                       <div>
                         <h5 className="text-[12px] font-black text-slate-800 leading-none">{emp.name}</h5>
-                        <span className="text-[10px] text-slate-400 font-bold block mt-1 uppercase">{emp.dept}</span>
+                        <span className="text-[10px] text-slate-400 font-bold block mt-1 uppercase">{emp.department}</span>
                       </div>
                     </div>
                     <button
@@ -695,15 +532,15 @@ export default function WorkforceFinanceView({
                   <div className="grid grid-cols-3 gap-2 mt-4 pt-3.5 border-t border-slate-100/80 text-[10.5px] font-semibold text-slate-700">
                     <div>
                       <span className="block text-[8px] text-slate-450 uppercase tracking-wider mb-0.5">Salary</span>
-                      <strong className="text-blue-600 font-bold">{emp.sal}</strong>
+                      <strong className="text-blue-600 font-bold">{formatMoney(emp.salary)}</strong>
                     </div>
                     <div>
                       <span className="block text-[8px] text-slate-450 uppercase tracking-wider mb-0.5">Rating</span>
-                      <span>{emp.perf}</span>
+                      <span>{emp.performance ?? 'N/A'}</span>
                     </div>
                     <div>
                       <span className="block text-[8px] text-slate-450 uppercase tracking-wider mb-0.5">Join Date</span>
-                      <span className="text-slate-500">{emp.join}</span>
+                      <span className="text-slate-500">{formatDate(emp.hireDate)}</span>
                     </div>
                   </div>
                 </div>
@@ -715,59 +552,28 @@ export default function WorkforceFinanceView({
           <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
             <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest pb-1 border-b border-slate-50">Salary Audit Log</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3">
-                {[
-                  { name: 'Michael Chen', action: 'Salary Adjustment', original: '$85,000', outcome: '$110,000', badge: 'Annual review', date: '2024-02-01', by: 'HR Manager' },
-                  { name: 'Emily Rodriguez', action: 'New Employee', original: '$85,000', outcome: '$85,000', badge: 'New hire', date: '2024-01-15', by: 'Department Head' },
-                  { name: 'Sarah Johnson', action: 'Bonus Payment', original: '$5,000', outcome: '$5,000', badge: 'Performance bonus', date: '2024-01-10', by: 'CFO' }
-                ].map((log, i) => (
+              <div className="space-y-3 md:col-span-2">
+                {(salary.auditLogs ?? []).length > 0 ? salary.auditLogs.map((log: any, i: number) => (
                   <div key={i} className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100/70 flex justify-between items-center text-xs">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h5 className="font-extrabold text-slate-900">{log.name}</h5>
+                        <h5 className="font-extrabold text-slate-900">{log.entityType}</h5>
                         <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-1.5 py-0.5 rounded-md">{log.action}</span>
                       </div>
                       <div className="mt-2 text-[11px] text-slate-600 font-semibold flex items-center gap-1">
-                        <span>{log.original}</span>
+                        <span>{formatMoney(log.beforeData?.currentSalary ?? log.beforeData?.amount)}</span>
                         <ArrowRight className="w-3 h-3 text-slate-400" />
-                        <span className="text-[#2563eb]">{log.outcome}</span>
-                        <span className="text-[9.5px] text-slate-400 font-bold ml-1">({log.badge})</span>
+                        <span className="text-[#2563eb]">{formatMoney(log.afterData?.requestedSalary ?? log.afterData?.amount)}</span>
+                        <span className="text-[9.5px] text-slate-400 font-bold ml-1">({log.entityId})</span>
                       </div>
                     </div>
                     <div className="text-right text-[10px] text-slate-400 font-bold">
-                      <p>{log.date}</p>
-                      <span className="block mt-1 font-semibold text-slate-500">By {log.by}</span>
+                      <p>{formatDate(log.date)}</p>
                     </div>
                   </div>
-                ))}
-              </div>
-
-              {/* Second column symmetric logs to match Image 2 */}
-              <div className="space-y-3">
-                {[
-                  { name: 'Michael Chen', action: 'Salary Adjustment', original: '$85,000', outcome: '$110,000', badge: 'Annual review', date: '2024-02-01', by: 'HR Manager' },
-                  { name: 'Emily Rodriguez', action: 'New Employee', original: '$85,000', outcome: '$85,000', badge: 'New hire', date: '2024-01-15', by: 'Department Head' },
-                  { name: 'Sarah Johnson', action: 'Bonus Payment', original: '$5,000', outcome: '$5,000', badge: 'Performance bonus', date: '2024-01-10', by: 'CFO' }
-                ].map((log, i) => (
-                  <div key={i} className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100/70 flex justify-between items-center text-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h5 className="font-extrabold text-slate-900">{log.name}</h5>
-                        <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-1.5 py-0.5 rounded-md">{log.action}</span>
-                      </div>
-                      <div className="mt-2 text-[11px] text-slate-600 font-semibold flex items-center gap-1">
-                        <span>{log.original}</span>
-                        <ArrowRight className="w-3 h-3 text-slate-400" />
-                        <span className="text-[#2563eb]">{log.outcome}</span>
-                        <span className="text-[9.5px] text-slate-400 font-bold ml-1">({log.badge})</span>
-                      </div>
-                    </div>
-                    <div className="text-right text-[10px] text-slate-400 font-bold">
-                      <p>{log.date}</p>
-                      <span className="block mt-1 font-semibold text-slate-500">By {log.by}</span>
-                    </div>
-                  </div>
-                ))}
+                )) : (
+                  <div className="p-6 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs font-semibold">No salary audit events yet.</div>
+                )}
               </div>
             </div>
           </div>
@@ -781,12 +587,7 @@ export default function WorkforceFinanceView({
           <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
             <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Upcoming Payroll Schedule (Next 5 Days)</h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {[
-                { date: 'Feb 25', title: 'scheduled', val: '$425,680', label: '5 days left', color: 'bg-blue-600/10 text-blue-700' },
-                { date: 'Feb 28', title: 'commission', val: '$15,000', label: '8 days left', color: 'bg-slate-100 text-slate-700 font-bold' },
-                { date: 'Feb 28', title: 'bonus', val: '$12,500', label: '8 days left', color: 'bg-emerald-50 text-emerald-700' },
-                { date: 'Mar 1', title: 'overtime', val: '$3,500', label: '9 days left', color: 'bg-indigo-50 text-indigo-700' }
-              ].map((sch, i) => (
+              {(payroll.schedule ?? []).map((sch: any, i: number) => (
                 <div key={i} className="bg-slate-50/70 rounded-2xl border border-slate-100/90 p-4 flex flex-col justify-between space-y-4">
                   <div className="flex justify-between items-start">
                     <div>
@@ -795,9 +596,9 @@ export default function WorkforceFinanceView({
                         {sch.title}
                       </span>
                     </div>
-                    <h5 className="text-sm font-black text-slate-950">{sch.val}</h5>
+                    <h5 className="text-sm font-black text-slate-950">{formatMoney(sch.amount)}</h5>
                   </div>
-                  <div className="text-[10px] text-slate-400 font-bold text-right uppercase tracking-wider">{sch.label}</div>
+                  <div className="text-[10px] text-slate-400 font-bold text-right uppercase tracking-wider">{sch.daysLeft} days left</div>
                 </div>
               ))}
             </div>
@@ -835,7 +636,7 @@ export default function WorkforceFinanceView({
                 <span>Sort</span>
               </button>
               <button
-                onClick={() => showAlert('Initiated CSV summary download', 'success')}
+                onClick={() => handleExport('payroll')}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs py-1.5 px-4 flex items-center gap-1.5 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -845,13 +646,9 @@ export default function WorkforceFinanceView({
           </div>
 
           <div className="space-y-1.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Employee Payroll Details (3)</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Employee Payroll Details ({payroll.records?.length ?? 0})</span>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {[
-                { name: 'Sarah Johnson', role: 'Lead Engineer', base: '$110,000', pension: '$550', gross: '$9,167', tax: '$2,292', net: '$6,325' },
-                { name: 'Sarah Johnson', role: 'Lead Engineer', base: '$110,000', pension: '$550', gross: '$9,167', tax: '$2,292', net: '$6,325' },
-                { name: 'Sarah Johnson', role: 'Lead Engineer', base: '$110,000', pension: '$550', gross: '$9,167', tax: '$2,292', net: '$6,325' }
-              ].map((emp, i) => (
+              {(payroll.records ?? []).map((emp: any, i: number) => (
                 <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 space-y-4 hover:shadow-xs transition-shadow">
                   <div className="flex items-center gap-3 pb-3 border-b border-slate-50">
                     <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">
@@ -866,25 +663,25 @@ export default function WorkforceFinanceView({
                   <div className="grid grid-cols-2 gap-y-3.5 text-xs font-semibold text-slate-600">
                     <div>
                       <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">Base Salary</span>
-                      <span className="text-slate-800 font-extrabold">{emp.base}</span>
+                      <span className="text-slate-800 font-extrabold">{formatMoney(emp.baseSalary)}</span>
                     </div>
                     <div>
                       <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">Pension</span>
-                      <span className="text-slate-800 font-extrabold">{emp.pension}</span>
+                      <span className="text-slate-800 font-extrabold">{formatMoney(emp.pension)}</span>
                     </div>
                     <div>
                       <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">Monthly Gross</span>
-                      <span className="text-slate-800 font-extrabold">{emp.gross}</span>
+                      <span className="text-slate-800 font-extrabold">{formatMoney(emp.grossPay)}</span>
                     </div>
                     <div>
                       <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5 text-rose-450">Tax</span>
-                      <span className="text-rose-500 font-extrabold">{emp.tax}</span>
+                      <span className="text-rose-500 font-extrabold">{formatMoney(emp.tax)}</span>
                     </div>
                   </div>
 
                   <div className="bg-[#f0f4ff]/70 px-4 py-2.5 rounded-xl border border-[#2563eb]/5 flex justify-between items-center text-xs">
                     <span className="text-[10px] font-bold text-[#2563eb] uppercase tracking-wider">Net Pay</span>
-                    <strong className="text-[#2563eb] text-[13px] font-black">{emp.net}</strong>
+                    <strong className="text-[#2563eb] text-[13px] font-black">{formatMoney(emp.netPay)}</strong>
                   </div>
 
                   <button
@@ -903,7 +700,7 @@ export default function WorkforceFinanceView({
             <div className="flex justify-between items-center">
               <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Monthly Payment Summary</h4>
               <button
-                onClick={() => showAlert('Prepared Excel sheets download', 'success')}
+                onClick={() => handleExport('payroll')}
                 className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-605 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
               >
                 <Download className="w-3.5 h-3.5" />
@@ -913,35 +710,33 @@ export default function WorkforceFinanceView({
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
-                { name: 'January 2024', count: '150 employees', gross: '$1,095,600', pension: '$50,000', tax: '$273,800', net: '$755,964' },
-                { name: 'February 2024', count: '155 employees', gross: '$1,120,000', pension: '$52,000', tax: '$280,000', net: '$780,000' },
-                { name: 'March 2024', count: '160 employees', gross: '$1,150,000', pension: '$54,000', tax: '$290,000', net: '$800,000' }
-              ].map((sum, i) => (
+                ...(payroll.monthlySummaries ?? [])
+              ].map((sum: any, i) => (
                 <div key={i} className="bg-slate-50/50 hover:bg-slate-50 rounded-2xl border border-slate-100 p-4.5 space-y-4">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-black flex items-center justify-center text-xs">JS</div>
                     <div>
                       <h4 className="text-xs font-bold text-slate-900 leading-none">{sum.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold block mt-1">{sum.count}</p>
+                      <p className="text-[10px] text-slate-400 font-semibold block mt-1">{sum.count} employees</p>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-y-3 text-[11px] font-semibold text-slate-600">
                     <div>
                       <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider">Total Gross</span>
-                      <strong className="text-slate-800">${sum.gross}</strong>
+                      <strong className="text-slate-800">{formatMoney(sum.gross)}</strong>
                     </div>
                     <div>
                       <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider">Total Pension</span>
-                      <strong className="text-slate-800">${sum.pension}</strong>
+                      <strong className="text-slate-800">{formatMoney(sum.pension)}</strong>
                     </div>
                     <div>
                       <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider text-rose-450">Total Tax</span>
-                      <strong className="text-rose-500">${sum.pension}</strong>
+                      <strong className="text-rose-500">{formatMoney(sum.tax)}</strong>
                     </div>
                     <div>
                       <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider text-[#2563eb]">Total Net</span>
-                      <strong className="text-[#2563eb]">${sum.net}</strong>
+                      <strong className="text-[#2563eb]">{formatMoney(sum.net)}</strong>
                     </div>
                   </div>
 
@@ -966,7 +761,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Allocated</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$1.79M</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(budget.totals?.allocated, true)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
             </div>
@@ -974,7 +769,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Spent</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$1.25M</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(budget.totals?.spent, true)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
             </div>
@@ -982,7 +777,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Remaining</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$0.55M</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(budget.totals?.remaining, true)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
             </div>
@@ -990,7 +785,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Utilization</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">69.6%</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{pct(budget.totals?.utilization)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
             </div>
@@ -1003,7 +798,7 @@ export default function WorkforceFinanceView({
               <p className="text-[11px] text-slate-400 font-semibold font-sans">Create and manage different budget types for your organization</p>
             </div>
             <button
-              onClick={() => onDraftAiSuggestion('budget planning framework')}
+              onClick={handleBudgetReallocationRequest}
               className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold px-4 py-2 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer shadow-xs transition-colors"
             >
               <Plus className="w-4 h-4" />
@@ -1034,26 +829,23 @@ export default function WorkforceFinanceView({
             <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider block">Current Budget Allocations</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
-                { name: 'Project Budget', tier: 'Q1 2024', text: 'Development of new product features and infrastructure upgrades', tags: ['Engineering', 'Product', 'Design'], alloc: '$850,000', spent: '$625,000', rem: '$225,000', pct: 73.5 },
-                { name: 'Culture Building', tier: 'Q1 2024', text: 'Development of new product features and infrastructure upgrades', tags: ['Engineering', 'Product', 'Design'], alloc: '$850,000', spent: '$625,000', rem: '$225,000', pct: 73.5 },
-                { name: 'Project Budget', tier: 'Q1 2024', text: 'Development of new product features and infrastructure upgrades', tags: ['Engineering', 'Product', 'Design'], alloc: '$850,000', spent: '$625,000', rem: '$225,000', pct: 73.5 },
-                { name: 'Culture Building', tier: 'Q1 2024', text: 'Development of new product features and infrastructure upgrades', tags: ['Engineering', 'Product', 'Design'], alloc: '$850,000', spent: '$625,000', rem: '$225,000', pct: 73.5 }
-              ].map((bud, i) => (
+                ...(budget.allocations ?? [])
+              ].map((bud: any, i) => (
                 <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 space-y-4 hover:shadow-xs transition-shadow">
                   <div className="flex justify-between items-start pb-2 border-b border-slate-50">
                     <div>
                       <h4 className="text-xs font-black text-slate-900 leading-none">{bud.name}</h4>
-                      <span className="text-[10px] text-slate-400 font-bold block mt-1.5">{bud.tier}</span>
+                      <span className="text-[10px] text-slate-400 font-bold block mt-1.5">{bud.periodType}</span>
                     </div>
                     <span className="text-[10px] bg-slate-100 text-slate-650 font-bold px-2.5 py-0.5 rounded-md">
                       Pending
                     </span>
                   </div>
 
-                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{bud.text}</p>
+                  <p className="text-[11px] text-slate-500 font-medium leading-relaxed">{bud.metadata?.description || bud.department || 'Organization budget allocation'}</p>
 
                   <div className="flex flex-wrap gap-1.5">
-                    {bud.tags.map((tag) => (
+                    {([bud.department, bud.status].filter(Boolean)).map((tag) => (
                       <span key={tag} className="text-[9px] bg-slate-50 border border-slate-100 hover:bg-slate-100 text-slate-600 font-bold px-2 py-0.5 rounded tracking-wide">
                         {tag}
                       </span>
@@ -1063,15 +855,15 @@ export default function WorkforceFinanceView({
                   <div className="grid grid-cols-3 gap-3 pt-3.5 border-t border-slate-50 text-[10.5px] font-semibold text-slate-700">
                     <div>
                       <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider mb-0.5">Allocated</span>
-                      <strong className="text-slate-900 font-extrabold">{bud.alloc}</strong>
+                      <strong className="text-slate-900 font-extrabold">{formatMoney(bud.allocated)}</strong>
                     </div>
                     <div>
                       <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider text-blue-600">Spent</span>
-                      <strong className="text-blue-600 font-extrabold">{bud.spent}</strong>
+                      <strong className="text-blue-600 font-extrabold">{formatMoney(bud.spent)}</strong>
                     </div>
                     <div>
                       <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider">Remaining</span>
-                      <strong className="text-slate-800 font-extrabold">{bud.rem}</strong>
+                      <strong className="text-slate-800 font-extrabold">{formatMoney(bud.remaining)}</strong>
                     </div>
                   </div>
 
@@ -1079,10 +871,10 @@ export default function WorkforceFinanceView({
                   <div className="space-y-1.5">
                     <div className="flex justify-between text-[10px] font-bold text-slate-400">
                       <span>UTILIZATION</span>
-                      <span className="text-slate-700">{bud.pct}%</span>
+                      <span className="text-slate-700">{pct(bud.utilization)}</span>
                     </div>
                     <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-blue-600 h-full rounded-full" style={{ width: `${bud.pct}%` }} />
+                      <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min(bud.utilization || 0, 100)}%` }} />
                     </div>
                   </div>
                 </div>
@@ -1095,46 +887,39 @@ export default function WorkforceFinanceView({
             <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider block">Previous Annual Budgets</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
-                { year: 'Year 2022', variance: 'Variance: Under by $220,000', total: '$7.20M', alloc: '$7.20M', spent: '$6.98M' },
-                { year: 'Year 2022', variance: 'Variance: Under by $220,000', total: '$7.20M', alloc: '$7.20M', spent: '$6.98M' }
-              ].map((an, i) => (
+                ...(budget.annualSummaries ?? [])
+              ].map((an: any, i) => (
                 <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 space-y-4">
                   <div className="flex justify-between items-start pb-2 border-b border-slate-100/60">
                     <div>
                       <h4 className="text-xs font-black text-slate-900 leading-none">{an.year}</h4>
                       <p className="text-[10px] text-emerald-600 font-bold uppercase mt-1">
-                        {an.variance}
+                        Variance: {an.variance >= 0 ? 'Under' : 'Over'} by {formatMoney(Math.abs(an.variance))}
                       </p>
                     </div>
-                    <h3 className="text-sm font-black text-blue-700">{an.total}</h3>
+                    <h3 className="text-sm font-black text-blue-700">{formatMoney(an.allocated, true)}</h3>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4 text-[11px] font-semibold">
                     <div className="bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
                       <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">Total Allocated</span>
-                      <strong className="text-slate-800">{an.alloc}</strong>
+                      <strong className="text-slate-800">{formatMoney(an.allocated)}</strong>
                     </div>
                     <div className="bg-slate-50/50 p-2.5 rounded-xl border border-slate-100">
                       <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">Total Spent</span>
-                      <strong className="text-slate-800">{an.spent}</strong>
+                      <strong className="text-slate-800">{formatMoney(an.spent)}</strong>
                     </div>
                   </div>
 
                   <div>
                     <span className="block text-[9px] text-slate-400 font-bold uppercase tracking-widest mb-2.5">Department Breakdown</span>
                     <div className="grid grid-cols-3 gap-2 text-[10px] font-bold text-slate-550">
-                      <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
-                        <span>Engineering:</span>
-                        <strong className="text-blue-600 font-bold">$2,100k</strong>
-                      </div>
-                      <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
-                        <span>Marketing:</span>
-                        <strong className="text-blue-600 font-bold">$820k</strong>
-                      </div>
-                      <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
-                        <span>Sales:</span>
-                        <strong className="text-blue-600 font-bold">$1250k</strong>
-                      </div>
+                      {(an.departments ?? []).map((dep: any) => (
+                        <div key={dep.name} className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+                          <span>{dep.name}:</span>
+                          <strong className="text-blue-600 font-bold">{formatMoney(dep.allocated, true)}</strong>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </div>
@@ -1152,7 +937,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Expense</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$683.7k</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(expense.totals?.totalExpense, true)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><Compass className="w-4 h-4" /></div>
             </div>
@@ -1168,7 +953,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unexpected</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">2</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{expense.totals?.unexpected ?? 0}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-red-100 text-red-650 flex items-center justify-center"><AlertTriangle className="w-4 h-4" /></div>
             </div>
@@ -1176,7 +961,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">This Month</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$654k</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(expense.totals?.thisMonth, true)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
             </div>
@@ -1231,7 +1016,7 @@ export default function WorkforceFinanceView({
           {/* Expense Requests Awaiting Approval */}
           <div className="bg-white rounded-2xl border border-blue-500/20 p-5 space-y-4">
             <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest flex items-center gap-1">
-              <span>●</span>
+              <span />
               <span>Expense Requests Awaiting Approval ({expenseAwaiting.length})</span>
             </h4>
 
@@ -1263,12 +1048,12 @@ export default function WorkforceFinanceView({
                       </div>
                       <div>
                         <span className="block text-[8px] text-slate-400 uppercase tracking-wider">Requested Date</span>
-                        <span className="text-slate-700 block">{exp.date}</span>
+                        <span className="text-slate-700 block">{formatDate(exp.date)}</span>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-3 justify-between md:justify-center">
-                      <h4 className="text-base font-black text-blue-600">${exp.amount.toLocaleString()}</h4>
+                      <h4 className="text-base font-black text-blue-600">{formatMoney(exp.amount)}</h4>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleAction(exp.id, 'reject', 'expense')}
@@ -1299,21 +1084,19 @@ export default function WorkforceFinanceView({
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Recent Expenses</span>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
               {[
-                { title: 'Office Supplies', amount: '$2,500', budget: 'Miscellaneous Budget', resp: 'Operations Team', status: 'Completed', date: 'Feb 2024' },
-                { title: 'Software Licenses', amount: '$15,000', budget: 'Department Budget - Engineering', resp: 'IT Department', status: 'Completed', date: 'Feb 2024' },
-                { title: 'Team Building', amount: '$4,500', budget: 'Culture Building', resp: 'HR Department', status: 'Unassigned', date: 'Jan 2024' }
-              ].map((rec, i) => (
+                ...(expense.recent ?? [])
+              ].map((rec: any, i) => (
                 <div key={i} className="bg-white rounded-3xl border border-slate-105 p-5 space-y-4 shadow-xs">
                   <div className="flex justify-between items-start pb-2 border-b border-slate-50">
                     <div>
                       <h5 className="text-xs font-black text-slate-900 leading-none">{rec.title}</h5>
                       <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded inline-block mt-2 ${
-                        rec.status === 'Completed' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'
+                        rec.status === 'approved' || rec.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-slate-100 text-slate-600'
                       }`}>
                         {rec.status}
                       </span>
                     </div>
-                    <h4 className="text-sm font-black text-slate-950">{rec.amount}</h4>
+                    <h4 className="text-sm font-black text-slate-950">{formatMoney(rec.amount)}</h4>
                   </div>
 
                   <div className="text-[10.5px] font-semibold text-slate-600 space-y-2">
@@ -1323,11 +1106,11 @@ export default function WorkforceFinanceView({
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400 uppercase text-[9px]">Responsibility:</span>
-                      <strong className="text-slate-800">{rec.resp}</strong>
+                      <strong className="text-slate-800">{rec.requestedBy}</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400 uppercase text-[9px]">Date:</span>
-                      <strong className="text-slate-700">{rec.date}</strong>
+                      <strong className="text-slate-700">{formatDate(rec.date)}</strong>
                     </div>
                   </div>
                 </div>
@@ -1339,33 +1122,23 @@ export default function WorkforceFinanceView({
           <div className="bg-red-50/20 rounded-2xl border border-rose-500/20 p-5 space-y-4">
             <h4 className="text-xs font-extrabold text-red-700 uppercase tracking-widest flex items-center gap-1.5">
               <AlertTriangle className="w-4 h-4 text-red-600" />
-              <span>Unexpected Expenses (2)</span>
+              <span>Unexpected Expenses ({expense.unexpected?.length ?? 0})</span>
             </h4>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="bg-red-500/[0.04] p-4 rounded-xl border border-red-50 border-l-4 border-l-red-500 flex justify-between items-start">
+              {(expense.unexpected ?? []).map((item: any) => (
+              <div key={item.id} className="bg-red-500/[0.04] p-4 rounded-xl border border-red-50 border-l-4 border-l-red-500 flex justify-between items-start">
                 <div>
-                  <h5 className="text-xs font-extrabold text-red-800">Emergency equipment repair</h5>
-                  <p className="text-[10.5px] text-slate-505 font-bold mt-1">Date: 2024-02-12</p>
+                  <h5 className="text-xs font-extrabold text-red-800">{item.title}</h5>
+                  <p className="text-[10.5px] text-slate-505 font-bold mt-1">Date: {formatDate(item.date)}</p>
                   <span className="text-[9.5px] uppercase font-bold text-slate-400 block mt-2">Covered by Buffer Budget</span>
                 </div>
                 <div className="text-right font-semibold">
-                  <h5 className="font-extrabold text-red-700">$5,200</h5>
-                  <span className="text-[10px] text-slate-400 mt-1 block">Approved by: CTO</span>
+                  <h5 className="font-extrabold text-red-700">{formatMoney(item.amount)}</h5>
+                  <span className="text-[10px] text-slate-400 mt-1 block">Status: {item.status}</span>
                 </div>
               </div>
-
-              <div className="bg-red-500/[0.04] p-4 rounded-xl border border-red-50 border-l-4 border-l-red-500 flex justify-between items-start">
-                <div>
-                  <h5 className="text-xs font-extrabold text-red-800">Legal consultation fees</h5>
-                  <p className="text-[10.5px] text-slate-505 font-bold mt-1">Date: 2024-02-10</p>
-                  <span className="text-[9.5px] uppercase font-bold text-slate-400 block mt-2">Covered by Buffer Budget</span>
-                </div>
-                <div className="text-right font-semibold">
-                  <h5 className="font-extrabold text-red-700">$3,800</h5>
-                  <span className="text-[10px] text-slate-400 mt-1 block">Approved by: CEO</span>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -1374,19 +1147,18 @@ export default function WorkforceFinanceView({
             <span className="text-[10px] font-bold text-slate-404 uppercase tracking-wider block font-sans">Expense History</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
-                { period: 'January 2024', total: '$683,720', details: ['Salaries & Benefits $458,000', 'Operations $124,000', 'Marketing $48,000', 'Equipment $45,000', 'Other $8,720'] },
-                { period: 'December 2023', total: '$855,280', details: ['Salaries & Benefits $482,000', 'Operations $185,000', 'Marketing $120,000', 'Equipment $52,000', 'Other $16,280'] }
-              ].map((hist, i) => (
+                ...(expense.history ?? [])
+              ].map((hist: any, i) => (
                 <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 space-y-4.5">
                   <div className="flex justify-between items-center pb-2 border-b border-slate-100/60">
                     <h4 className="text-xs font-black text-slate-900">{hist.period}</h4>
-                    <span className="text-sm font-black text-blue-600">Total Expenses: {hist.total}</span>
+                    <span className="text-sm font-black text-blue-600">Total Expenses: {formatMoney(hist.total)}</span>
                   </div>
 
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[10px] font-semibold text-slate-600">
-                    {hist.details.map((item, idx) => (
+                    {Object.entries(hist.categories ?? {}).map(([name, amount]: any, idx) => (
                       <div key={idx} className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[10px]">
-                        {item.split(' ').slice(0, -1).join(' ')}: <strong className="text-slate-800">{item.split(' ').slice(-1)[0]}</strong>
+                        {name}: <strong className="text-slate-800">{formatMoney(amount)}</strong>
                       </div>
                     ))}
                   </div>
@@ -1405,7 +1177,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Benefits Value</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$2.85M</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(benefits.totals?.totalValue, true)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-50 text-emerald-600 font-bold text-xs flex items-center justify-center">+12%</div>
             </div>
@@ -1413,7 +1185,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg per Employee</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">$18,269</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(benefits.totals?.avgPerEmployee)}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 font-bold text-xs flex items-center justify-center">-5%</div>
             </div>
@@ -1421,7 +1193,7 @@ export default function WorkforceFinanceView({
             <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
               <div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Enrollments</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">150</h3>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{benefits.totals?.activeEnrollments ?? 0}</h3>
               </div>
               <div className="w-8 h-8 rounded-lg bg-blue-100 text-[#1a56db] flex items-center justify-center"><Percent className="w-4 h-4" /></div>
             </div>
@@ -1433,15 +1205,15 @@ export default function WorkforceFinanceView({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold font-sans">
               <div className="bg-[#eff6ff] p-4.5 rounded-2xl border border-blue-100 text-center">
                 <span className="block text-[9.5px] text-blue-500 uppercase tracking-widest">Total Pool</span>
-                <h3 className="text-xl font-black text-blue-600 mt-1.5">$450,000</h3>
+                <h3 className="text-xl font-black text-blue-600 mt-1.5">{formatMoney((benefits.benefits ?? []).filter((b: any) => b.category === 'profit_sharing').reduce((sum: number, b: any) => sum + b.annualBudget, 0))}</h3>
               </div>
               <div className="bg-slate-50 p-4.5 rounded-2xl text-center border border-slate-150">
                 <span className="block text-[9.5px] text-slate-400 uppercase tracking-widest">Eligible Employees</span>
-                <h3 className="text-xl font-black text-slate-800 mt-1.5">142</h3>
+                <h3 className="text-xl font-black text-slate-800 mt-1.5">{benefits.totals?.activeEnrollments ?? 0}</h3>
               </div>
               <div className="bg-slate-50 p-4.5 rounded-2xl text-center border border-slate-150">
                 <span className="block text-[9.5px] text-slate-400 uppercase tracking-widest">Payout per Employee</span>
-                <h3 className="text-xl font-black text-slate-850 mt-1.5">$3,169</h3>
+                <h3 className="text-xl font-black text-slate-850 mt-1.5">{formatMoney(benefits.totals?.avgPerEmployee)}</h3>
               </div>
             </div>
 
@@ -1449,21 +1221,18 @@ export default function WorkforceFinanceView({
               <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-widest block mb-2">Division-by-Tier details</span>
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 {[
-                  { name: 'Executive', count: 5, value: 'Executive: 5 employees', label: '$15,000 avg', width: '10%' },
-                  { name: 'Mid-level', count: 55, value: 'Mid-level: 55 employees', label: '$3,500 avg', width: '70%' },
-                  { name: 'Senior', count: 25, value: 'Senior: 25 employees', label: '$10,000 avg', width: '30%' },
-                  { name: 'Junior', count: 57, value: 'Junior: 57 employees', label: '$1,500 avg', width: '90%' }
-                ].map((tier, i) => (
+                  ...(benefits.departmentValues ?? [])
+                ].map((tier: any, i) => (
                   <div key={i} className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 flex flex-col justify-between space-y-2">
                     <div className="flex justify-between items-center text-[10.5px] font-semibold text-slate-700">
                       <span>{tier.name}</span>
-                      <span className="text-slate-450">{tier.label}</span>
+                      <span className="text-slate-450">{formatMoney(tier.avg)} avg</span>
                     </div>
-                    {/* Linear slider mock indicator */}
+                    {/* Linear enrollment indicator */}
                     <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-blue-600 h-full rounded-full" style={{ width: tier.width }} />
+                      <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min((tier.employees || 0) * 10, 100)}%` }} />
                     </div>
-                    <span className="text-[9.5px] text-slate-400 font-bold block">{tier.value}</span>
+                    <span className="text-[9.5px] text-slate-400 font-bold block">{tier.employees} enrollments</span>
                   </div>
                 ))}
               </div>
@@ -1476,31 +1245,31 @@ export default function WorkforceFinanceView({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
               <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-100">
                 <span className="block text-[9.5px] text-slate-400 uppercase tracking-widest font-bold">Total Budget</span>
-                <h3 className="text-lg font-black text-slate-900 mt-1.5">$320,000</h3>
+                <h3 className="text-lg font-black text-slate-900 mt-1.5">{formatMoney((benefits.benefits ?? []).filter((b: any) => b.category === 'bonus').reduce((sum: number, b: any) => sum + b.annualBudget, 0))}</h3>
               </div>
               <div className="bg-blue-50 p-4.5 rounded-2xl border border-blue-100">
                 <span className="block text-[9.5px] text-blue-500 uppercase tracking-widest font-bold">Paid Out</span>
-                <h3 className="text-lg font-black text-blue-600 mt-1.5">$285,000</h3>
+                <h3 className="text-lg font-black text-blue-600 mt-1.5">{formatMoney((benefits.enrollments ?? []).reduce((sum: number, e: any) => sum + e.value, 0))}</h3>
               </div>
               <div className="bg-slate-50 p-4.5 rounded-2xl border border-slate-100">
                 <span className="block text-[9.5px] text-slate-400 uppercase tracking-widest font-bold">Pending</span>
-                <h3 className="text-lg font-black text-slate-800 mt-1.5">$35,000</h3>
+                <h3 className="text-lg font-black text-slate-800 mt-1.5">{formatMoney(0)}</h3>
               </div>
             </div>
 
             <div className="space-y-1">
               <span className="text-[9.5px] font-extrabold text-slate-400 uppercase tracking-widest block mb-2">Top Recipients</span>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                {[1, 2, 3, 4].map((rec) => (
-                  <div key={rec} className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 flex items-center justify-between gap-3 text-xs">
+                {(benefits.enrollments ?? []).slice(0, 4).map((rec: any) => (
+                  <div key={rec.id} className="bg-slate-50/50 p-3 rounded-xl border border-slate-100 flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2">
                       <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-xs font-black">JS</div>
                       <div>
-                        <h5 className="font-bold text-slate-800 leading-none">John Smith</h5>
-                        <p className="text-[9px] text-slate-400 font-bold mt-1.5 uppercase leading-none truncate">Outstanding Leadership</p>
+                        <h5 className="font-bold text-slate-800 leading-none">{rec.department || 'Employee'}</h5>
+                        <p className="text-[9px] text-slate-400 font-bold mt-1.5 uppercase leading-none truncate">{rec.status}</p>
                       </div>
                     </div>
-                    <strong className="text-blue-600 font-black">$12,000</strong>
+                    <strong className="text-blue-600 font-black">{formatMoney(rec.value)}</strong>
                   </div>
                 ))}
               </div>
@@ -1512,37 +1281,34 @@ export default function WorkforceFinanceView({
             <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider block">Monthly Allowances</span>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {[
-                { title: 'Transportation Allowance', pct: 85, allocated: '$40,000', count: '120 employees', max: '$175' },
-                { title: 'Meal Allowance', pct: 100, allocated: '$35,000', count: '150 employees', max: '$233' },
-                { title: 'Remote Work Stipend', pct: 50, allocated: '$20,000', count: '45 employees', max: '$115' },
-                { title: 'Phone & Internet Stipend', pct: 100, allocated: '$15,000', count: '150 employees', max: '$70' }
-              ].map((all, i) => (
+                ...(benefits.benefits ?? []).filter((b: any) => b.category === 'allowance')
+              ].map((all: any, i) => (
                 <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 space-y-3 shadow-xs">
                   <div className="flex justify-between items-start pb-2 border-b border-slate-50">
-                    <h5 className="text-[11.5px] font-black text-slate-900 leading-tight block max-w-[140px]">{all.title}</h5>
+                    <h5 className="text-[11.5px] font-black text-slate-900 leading-tight block max-w-[140px]">{all.name}</h5>
                     <span className="text-[10px] bg-[#eff6ff] text-blue-600 font-extrabold px-1.5 py-0.5 rounded-md">
-                      {all.pct}%
+                      {pct(all.monthlyBudget ? ((benefits.enrollments ?? []).filter((e: any) => e.benefitId === all.id).length / Math.max(benefits.totals?.activeEnrollments ?? 1, 1)) * 100 : 0)}
                     </span>
                   </div>
 
                   <div className="space-y-2.5 text-[10.5px] font-semibold text-slate-600">
                     <div className="flex justify-between">
                       <span className="text-slate-400 uppercase text-[9px]">Monthly Budget:</span>
-                      <strong className="text-slate-800">{all.allocated}</strong>
+                      <strong className="text-slate-800">{formatMoney(all.monthlyBudget)}</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400 uppercase text-[9px]">Enrolled Employees:</span>
-                      <strong className="text-slate-800">{all.count}</strong>
+                      <strong className="text-slate-800">{(benefits.enrollments ?? []).filter((e: any) => e.benefitId === all.id).length} employees</strong>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-slate-400 uppercase text-[9px]">Per Employee Max:</span>
-                      <strong className="text-blue-600 font-bold">{all.max}</strong>
+                      <strong className="text-blue-600 font-bold">{formatMoney(all.perEmployeeMax)}</strong>
                     </div>
                   </div>
 
                   {/* Slider indicator */}
                   <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                    <div className="bg-blue-600 h-full rounded-full" style={{ width: `${all.pct}%` }} />
+                    <div className="bg-blue-600 h-full rounded-full" style={{ width: `${Math.min(((benefits.enrollments ?? []).filter((e: any) => e.benefitId === all.id).length / Math.max(benefits.totals?.activeEnrollments ?? 1, 1)) * 100, 100)}%` }} />
                   </div>
                 </div>
               ))}
@@ -1554,27 +1320,26 @@ export default function WorkforceFinanceView({
             <span className="text-[10px] font-bold text-slate-405 uppercase tracking-wider block">Insurance Benefits</span>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
-                { name: 'Health Insurance', total: '$125,000/mo', employer: '85%', employee: '15%', coverage: 'Medical, Dental, Vision', enrolled: '150 employees' },
-                { name: 'Dental Insurance', total: '$15,000/mo', employer: '85%', employee: '15%', coverage: 'Medical, Dental, Vision', enrolled: '151 employees' } // micro mismatch to resemble Image 4
-              ].map((ins, i) => (
+                ...(benefits.benefits ?? []).filter((b: any) => b.category === 'insurance')
+              ].map((ins: any, i) => (
                 <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 space-y-4">
                   <div className="flex justify-between items-center pb-2 border-b border-slate-50">
                     <h5 className="text-[12.5px] font-black text-slate-900 leading-none">{ins.name}</h5>
-                    <span className="text-sm font-black text-blue-600">{ins.total}</span>
+                    <span className="text-sm font-black text-blue-600">{formatMoney(ins.monthlyBudget)}/mo</span>
                   </div>
 
                   <div className="grid grid-cols-3 gap-2.5 text-[10.5px] font-semibold text-slate-600">
                     <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100/80">
                       <span className="block text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">Employer</span>
-                      <strong className="text-slate-900">{ins.employer}</strong>
+                      <strong className="text-slate-900">{pct(ins.employerSharePercent)}</strong>
                     </div>
                     <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100/80">
                       <span className="block text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">Employee</span>
-                      <strong className="text-slate-900">{ins.employee}</strong>
+                      <strong className="text-slate-900">{pct(ins.employeeSharePercent)}</strong>
                     </div>
                     <div className="bg-slate-50 p-2 rounded-xl text-center border border-slate-100/80">
                       <span className="block text-[8px] text-slate-400 uppercase tracking-wider mb-0.5">Enrolled</span>
-                      <strong className="text-[#2563eb]">{ins.enrolled}</strong>
+                      <strong className="text-[#2563eb]">{(benefits.enrollments ?? []).filter((e: any) => e.benefitId === ins.id).length} employees</strong>
                     </div>
                   </div>
                 </div>
@@ -1596,22 +1361,22 @@ export default function WorkforceFinanceView({
               <div className="flex-1 md:px-6 py-4 md:py-0 grid grid-cols-2 gap-4 text-center">
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <span className="block text-[9px] text-slate-400 uppercase font-bold tracking-wider">Participants</span>
-                  <span className="text-sm font-extrabold text-slate-900 mt-1 block">145</span>
+                  <span className="text-sm font-extrabold text-slate-900 mt-1 block">{(benefits.enrollments ?? []).filter((e: any) => (benefits.benefits ?? []).find((b: any) => b.id === e.benefitId)?.category === 'retirement').length}</span>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-105">
                   <span className="block text-[9px] text-slate-400 uppercase font-bold tracking-wider">Participation Rate</span>
-                  <span className="text-sm font-extrabold text-slate-900 mt-1 block">93%</span>
+                  <span className="text-sm font-extrabold text-slate-900 mt-1 block">{pct((benefits.enrollments ?? []).length ? ((benefits.enrollments ?? []).filter((e: any) => (benefits.benefits ?? []).find((b: any) => b.id === e.benefitId)?.category === 'retirement').length / (benefits.enrollments ?? []).length) * 100 : 0)}</span>
                 </div>
               </div>
 
               <div className="flex-1 md:pl-6 pt-4 md:pt-0 grid grid-cols-2 gap-4 text-center">
                 <div className="bg-blue-50/50 p-3 rounded-xl border border-blue-100">
                   <span className="block text-[9px] text-blue-500 uppercase font-bold tracking-wider">Employer Match</span>
-                  <span className="text-sm font-extrabold text-blue-600 mt-1 block">$93k</span>
+                  <span className="text-sm font-extrabold text-blue-600 mt-1 block">{formatMoney((benefits.benefits ?? []).filter((b: any) => b.category === 'retirement').reduce((sum: number, b: any) => sum + b.monthlyBudget, 0), true)}</span>
                 </div>
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
                   <span className="block text-[9px] text-slate-450 uppercase font-bold tracking-wider">Total Contributions</span>
-                  <span className="text-sm font-extrabold text-[#111827] mt-1 block">$185k</span>
+                  <span className="text-sm font-extrabold text-[#111827] mt-1 block">{formatMoney((benefits.enrollments ?? []).filter((e: any) => (benefits.benefits ?? []).find((b: any) => b.id === e.benefitId)?.category === 'retirement').reduce((sum: number, e: any) => sum + e.value, 0), true)}</span>
                 </div>
               </div>
             </div>
@@ -1626,22 +1391,16 @@ export default function WorkforceFinanceView({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
               {[
-                { title: 'Professional Development', details: 'Budget: $15,000 • Participants: 30', icon: ShieldCheck, color: 'text-blue-600 bg-blue-50' },
-                { title: 'Wellness Programs', details: 'Budget: $12,000 • Participants: 120', icon: ShieldCheck, color: 'text-purple-600 bg-purple-50' },
-                { title: 'Gym Membership', details: 'Budget: $4,000 • Participants: 95', icon: ShieldCheck, color: 'text-sky-600 bg-sky-50' },
-                { title: 'Childcare Assistance', details: 'Budget: $35,050 • Participants: 20', icon: ShieldCheck, color: 'text-teal-600 bg-teal-50' },
-                { title: 'Tuition Reimbursement', details: 'Budget: $72,500 • Participants: 8', icon: ShieldCheck, color: 'text-amber-600 bg-amber-50' },
-                { title: 'Employee Assistance Program', details: 'Budget: $19,500 • Participants: 153', icon: ShieldCheck, color: 'text-rose-600 bg-rose-50' }
-              ].map((perk, i) => {
-                const Icon = perk.icon;
+                ...(benefits.benefits ?? []).filter((b: any) => !['allowance', 'insurance', 'retirement', 'bonus', 'profit_sharing'].includes(b.category))
+              ].map((perk: any, i) => {
                 return (
                   <div key={i} className="bg-slate-50/50 p-4 rounded-2xl border border-slate-100/70 flex items-start gap-3.5">
-                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 ${perk.color}`}>
-                      <Icon className="w-4.5 h-4.5" />
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 text-blue-600 bg-blue-50">
+                      <ShieldCheck className="w-4.5 h-4.5" />
                     </div>
                     <div>
-                      <h5 className="text-[11.5px] font-black text-slate-900 leading-tight">{perk.title}</h5>
-                      <span className="text-[10px] text-slate-400 font-bold block mt-1">{perk.details}</span>
+                      <h5 className="text-[11.5px] font-black text-slate-900 leading-tight">{perk.name}</h5>
+                      <span className="text-[10px] text-slate-400 font-bold block mt-1">Budget: {formatMoney(perk.annualBudget || perk.monthlyBudget)} - Participants: {(benefits.enrollments ?? []).filter((e: any) => e.benefitId === perk.id).length}</span>
                     </div>
                   </div>
                 );
@@ -1670,16 +1429,14 @@ export default function WorkforceFinanceView({
               <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Benefits Department metrics</h4>
               <div className="space-y-3">
                 {[
-                  { name: 'Engineering', employees: '45 employees', val: '$110.5k avg' },
-                  { name: 'Marketing', employees: '28 employees', val: '$102.0k avg' },
-                  { name: 'Sales', employees: '32 employees', val: '$98.5k avg' }
-                ].map((item, idx) => (
+                  ...(benefits.departmentValues ?? [])
+                ].map((item: any, idx) => (
                   <div key={idx} className="bg-slate-50/70 p-3 rounded-xl border border-slate-100 flex justify-between items-center text-xs">
                     <div>
                       <h5 className="font-bold text-slate-800">{item.name}</h5>
-                      <span className="text-[10px] text-slate-400 font-semibold">{item.employees}</span>
+                      <span className="text-[10px] text-slate-400 font-semibold">{item.employees} employees</span>
                     </div>
-                    <strong className="text-blue-600 font-extrabold">{item.val}</strong>
+                    <strong className="text-blue-600 font-extrabold">{formatMoney(item.avg, true)} avg</strong>
                   </div>
                 ))}
               </div>
