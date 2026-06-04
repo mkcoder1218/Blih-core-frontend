@@ -38,6 +38,8 @@ import type { Business as ApiBusiness } from '../../api/types';
 import type { BusinessesTab } from '../../types';
 import PlansTab from './PlansTab';
 import SectorFocusTab from './SectorFocusTab';
+import AuditLogsTab from './AuditLogsTab';
+import NotificationsTab from './NotificationsTab';
 import AttendanceSettingsForm from './attendance/AttendanceSettingsForm';
 import type { BusinessAttendanceSettings } from '../../api/types';
 import type { BusinessAttendanceSettingsDraft } from './attendance/attendanceSettings.types';
@@ -352,6 +354,8 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
   if (currentTab === 'plans') return <PlansTab showAlert={showAlert} />;
   if (currentTab === 'sector_focus') return <SectorFocusTab showAlert={showAlert} />;
+  if (currentTab === 'audit_logs') return <AuditLogsTab showAlert={showAlert} />;
+  if (currentTab === 'notifications') return <NotificationsTab showAlert={showAlert} />;
 
   return (
     <div className="space-y-6">

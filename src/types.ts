@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import type { EmploymentStatus } from "./constants/employee";
+
 export type MainModule =
   | 'recruitment'
   | 'onboarding'
@@ -25,7 +27,7 @@ export type RecruitmentTab =
   | 'closed_posts'
   | 'applicant_forms';
 
-export type BusinessesTab = 'overview' | 'plans' | 'sector_focus' | 'integrations' | 'security';
+export type BusinessesTab = 'overview' | 'plans' | 'sector_focus' | 'integrations' | 'security' | 'audit_logs' | 'notifications';
 
 export interface JobRequest {
   id: string;
@@ -80,7 +82,7 @@ export interface EmployeeProfile {
   role: string;
   email: string;
   dept: string;
-  status: 'Active' | 'On Leave' | 'Onboarding' | 'Suspended';
+  status: EmploymentStatus;
   salary: string;
   experience: string;
   gender: 'Male' | 'Female' | 'Other';

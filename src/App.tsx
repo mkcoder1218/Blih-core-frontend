@@ -56,7 +56,7 @@ export default function App() {
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'check-me-in' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home'>('overview');
   const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture'>('overview');
   const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms'>('overview');
-  const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'salary' | 'payroll' | 'budget' | 'expense' | 'benefits'>('overview');
+  const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits'>('overview');
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<'overview' | 'contract' | 'progress' | 'probation' | 'checklists'>('overview');
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form'>('overview');
   const [currentBusinessesTab, setCurrentBusinessesTab] = useState<BusinessesTab>('overview');

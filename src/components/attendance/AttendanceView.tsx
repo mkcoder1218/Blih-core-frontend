@@ -36,6 +36,7 @@ import HrAttendanceCheckInsPage from './hr/HrAttendanceCheckInsPage';
 import { useLegacyUser } from '../../api/legacyUserStore';
 import EmployeeAttendanceHistoryPage from './EmployeeAttendanceHistoryPage';
 import HrLateReasonsPage from './hr/HrLateReasonsPage';
+import OvertimePage from './OvertimePage';
 import { useAttendanceHrReport } from '../../hooks/useAttendanceHrReport';
 
 interface AttendanceViewProps {
@@ -343,6 +344,14 @@ export default function AttendanceView({
     return (
       <div className="h-full flex flex-col space-y-6">
         {isHr ? <HrLateReasonsPage /> : <div className="text-xs text-slate-600">Not authorized.</div>}
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'overtime') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <OvertimePage showAlert={showAlert} />
       </div>
     );
   }

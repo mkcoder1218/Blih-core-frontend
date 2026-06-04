@@ -205,11 +205,34 @@ export default function EmployeeAttendancePage() {
   const [lateByMinutes, setLateByMinutes] = React.useState(0);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
 
+  // Compute how many minutes late a check-in right now would be, using the
+  // same logic as the backend (defaultStartTime + lateGracePeriodMinutes vs current local time).
+  const computeLateByMinutes = React.useCallback((): number => {
+    if (!settings?.defaultStartTime) return 0;
+    const grace = Number(settings.lateGracePeriodMinutes ?? 0);
+    const toMins = (hhmm: string) =>
+      Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+    const expectedM = toMins(settings.defaultStartTime) + grace;
+    try {
+      const parts = new Intl.DateTimeFormat("en-US", {
+        timeZone: tz,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      }).formatToParts(new Date());
+      const get = (k: string) => Number(parts.find((p) => p.type === k)?.value ?? 0);
+      const nowM = get("hour") * 60 + get("minute");
+      return Math.max(0, nowM - expectedM);
+    } catch {
+      return 0;
+    }
+  }, [settings, tz]);
+
   const handleAction = async (type: AttendanceEventType) => {
     if (!coords) return;
     setSubmitError(null);
     if (type === "CHECK_IN") {
-      const late = Number(calculation?.lateByMinutes || 0);
+      const late = computeLateByMinutes();
       if (late > 0) {
         setLateByMinutes(late);
         setLateModalOpen(true);
@@ -404,6 +427,16 @@ export default function EmployeeAttendancePage() {
                 {nextAllowed.length === 0 ? (
                   <div className="text-[12px] text-slate-500 font-semibold mt-2">
                     No attendance action available right now.
+                  </div>
+                ) : null}
+
+                {/* Late check-in notice */}
+                {nextAllowed.includes("CHECK_IN") && computeLateByMinutes() > 0 ? (
+                  <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      You are <span className="font-black">{computeLateByMinutes()} min late</span> — you'll be asked to provide a reason before checking in.
+                    </span>
                   </div>
                 ) : null}
 

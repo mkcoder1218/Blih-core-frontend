@@ -17,3 +17,37 @@ export async function exportWorkforceFinance(tab: string) {
 export async function createBudgetReallocation(data: Record<string, unknown>) {
   return api.post("/api/v1/finance/budget-reallocations", data);
 }
+
+// ── Payroll Templates ──────────────────────────────────────────────────────────
+export async function listPayrollTemplates() {
+  return api.get("/api/v1/finance/payroll-templates");
+}
+
+export async function createPayrollTemplate(data: Record<string, unknown>) {
+  return api.post("/api/v1/finance/payroll-templates", data);
+}
+
+export async function updatePayrollTemplate(id: string, data: Record<string, unknown>) {
+  return api.put(`/api/v1/finance/payroll-templates/${id}`, data);
+}
+
+export async function deletePayrollTemplate(id: string) {
+  return api.delete(`/api/v1/finance/payroll-templates/${id}`);
+}
+
+export async function previewPayrollCalculation(data: Record<string, unknown>) {
+  return api.post("/api/v1/finance/payroll-templates/preview", data);
+}
+
+// ── Employee Payroll Links ─────────────────────────────────────────────────────
+export async function getPayrollDashboard() {
+  return api.get("/api/v1/finance/payroll-dashboard");
+}
+
+export async function linkEmployeeToTemplate(data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number }) {
+  return api.post("/api/v1/finance/payroll-links", data);
+}
+
+export async function unlinkEmployee(userId: string) {
+  return api.delete(`/api/v1/finance/payroll-links/${userId}`);
+}

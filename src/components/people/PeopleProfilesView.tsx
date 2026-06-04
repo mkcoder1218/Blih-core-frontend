@@ -4,6 +4,7 @@
  */
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOrganogram, useEmployees, useDeleteEmployee } from '../../hooks/useHrRecords';
 import {
   Users,
@@ -28,11 +29,13 @@ import {
   ExternalLink,
   MoreVertical,
   Pencil,
-  Trash
+  Trash,
+  Upload
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
 import CreateEmployeeModal from './CreateEmployeeModal';
+import BulkEmployeeImportPage from '../../pages/BulkEmployeeImportPage';
 
 interface OrgNode {
   id: string;
@@ -205,6 +208,16 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 
   const onMouseUp = () => { dragging.current = false; };
 
+  const zoomIn  = () => setScale(s => Math.min(2, parseFloat((s * 1.2).toFixed(3))));
+  const zoomOut = () => setScale(s => Math.max(0.2, parseFloat((s / 1.2).toFixed(3))));
+  const resetView = () => {
+    if (!containerRef.current) return;
+    const { clientWidth, clientHeight } = containerRef.current;
+    const fitScale = Math.min(1, (clientWidth - 40) / canvasW, (clientHeight - 40) / canvasH);
+    setScale(fitScale);
+    setPan({ x: (clientWidth - canvasW * fitScale) / 2, y: (clientHeight - canvasH * fitScale) / 2 });
+  };
+
   return (
     <div
       ref={containerRef}
@@ -268,16 +281,30 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
         ))}
       </div>
 
-      {/* Scale indicator */}
-      <div className="absolute bottom-4 right-4 bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-[10px] font-black text-slate-500 shadow-sm">
-        {Math.round(scale * 100)}%
+      {/* Zoom controls */}
+      <div className="absolute bottom-4 right-4 flex items-center gap-1">
+        <button
+          onClick={(e) => { e.stopPropagation(); zoomOut(); }}
+          className="w-7 h-7 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors text-sm font-black select-none"
+          title="Zoom out"
+        >−</button>
+        <button
+          onClick={(e) => { e.stopPropagation(); resetView(); }}
+          className="h-7 px-2 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center text-[10px] font-black text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-colors select-none min-w-[44px]"
+          title="Reset view"
+        >{Math.round(scale * 100)}%</button>
+        <button
+          onClick={(e) => { e.stopPropagation(); zoomIn(); }}
+          className="w-7 h-7 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center text-slate-600 hover:bg-slate-50 hover:border-slate-300 transition-colors text-sm font-black select-none"
+          title="Zoom in"
+        >+</button>
       </div>
     </div>
   );
 }
 
 interface PeopleProfilesViewProps {
-  currentProfilesTab: 'overview' | 'create' | 'organogram' | 'directory' | 'events' | 'archive';
+  currentProfilesTab: 'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'events' | 'archive';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
   onViewProfile?: (employee: any) => void;
@@ -289,6 +316,7 @@ export default function PeopleProfilesView({
   showAlert,
   onViewProfile,
 }: PeopleProfilesViewProps) {
+  const navigate = useNavigate();
   // Directory & Archive Selection States
   const [selectedDirectoryRow, setSelectedDirectoryRow] = useState<number>(0);
   const [selectedArchiveRow, setSelectedArchiveRow] = useState<number>(0);
@@ -578,6 +606,17 @@ export default function PeopleProfilesView({
           </motion.div>
         )}
 
+        {currentProfilesTab === 'bulk_create' && (
+          <motion.div
+            key="bulk_create"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <BulkEmployeeImportPage />
+          </motion.div>
+        )}
+
         {/* --- 3. ORGANOGRAM SCREEN --- */}
         {currentProfilesTab === 'organogram' && (
           <motion.div
@@ -622,7 +661,7 @@ export default function PeopleProfilesView({
             </div>
 
             <p className="text-center text-[10px] text-slate-400 font-semibold">
-              💡 Scroll to zoom · Drag to pan · Click a card to view profile
+              💡 Scroll to zoom · Drag to pan · Click a card to view profile · Click % to reset view
             </p>
           </motion.div>
         )}
@@ -641,13 +680,21 @@ export default function PeopleProfilesView({
                 <h4 className="text-sm font-bold text-slate-950 tracking-tight">All Employees & Profiles</h4>
                 <p className="text-[11px] text-slate-500 font-medium">Directory of employees and profiles</p>
               </div>
-              <button 
-                onClick={() => refetchEmployees()}
-                disabled={loadingEmployees}
-                className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:underline disabled:opacity-50"
-              >
-                {loadingEmployees ? 'Reloading...' : 'Reload Roster'}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => navigate('../bulk_create')}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-black text-white hover:bg-blue-700"
+                >
+                  <Upload className="w-3.5 h-3.5" /> Bulk Import Employees
+                </button>
+                <button
+                  onClick={() => refetchEmployees()}
+                  disabled={loadingEmployees}
+                  className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:underline disabled:opacity-50"
+                >
+                  {loadingEmployees ? 'Reloading...' : 'Reload Roster'}
+                </button>
+              </div>
             </div>
 
             <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">

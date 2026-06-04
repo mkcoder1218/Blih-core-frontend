@@ -17,6 +17,7 @@ import PublicJobApplicationPage from "./pages/careers/PublicJobApplicationPage";
 import InterviewResponsePage from "./pages/InterviewResponsePage";
 import CandidateOnboardingPage from "./pages/CandidateOnboardingPage";
 import MyProfilePage from "./pages/MyProfilePage";
+import BulkEmployeeImportPage from "./pages/BulkEmployeeImportPage";
 
 // Wrapper to extract :onboardingId param and pass as prop
 function CandidateOnboardingRoute() {
@@ -50,6 +51,7 @@ export default function RootApp() {
                   <Route path="/unauthorized" element={<UnauthorizedPage />} />
                   <Route path="/" element={<AppShell />}>
                     <Route index element={<HomeRedirect />} />
+                    <Route path="employees/bulk-import" element={<BulkEmployeeImportPage />} />
                     <Route path="employee/my-profile" element={<MyProfilePage />} />
                     <Route path="employee/recruitment" element={<RecruitmentPage />} />
                     <Route path="employee/recruitment/:tab" element={<RecruitmentPage />} />

@@ -1,3 +1,5 @@
+import type { EmploymentStatus, EmploymentType } from "../constants/employee";
+
 export type ApiEnvelope<T> = {
   success: boolean;
   message: string;
@@ -380,4 +382,53 @@ export type User = SafeUser;
 export type UsersResponse = {
   rows: User[];
   count: number;
+};
+
+export type EmployeeSalaryInfo = {
+  baseSalary: number | string | null;
+  currency: string;
+};
+
+export type EmployeeEmergencyContact = {
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  email: string | null;
+  city: string | null;
+  country: string | null;
+};
+
+export type EmployeeMetadata = {
+  dateOfBirth?: string | null;
+  city?: string | null;
+  countryOfBirth?: string | null;
+  additionalPhone?: string | null;
+  branch?: string | null;
+  bankDetails?: { bankName?: string | null; accountNumber?: string | null }[];
+  assetsAndCredentials?: any[];
+  additionalNotes?: string | null;
+  uploads?: Record<string, any>;
+  [key: string]: any;
+};
+
+export type EmployeeRecord = {
+  id: string;
+  businessId: string;
+  userId: string;
+  employeeCode: string;
+  departmentId?: string | null;
+  positionId?: string | null;
+  managerUserId?: string | null;
+  employmentType?: EmploymentType | null;
+  employmentStatus: EmploymentStatus;
+  hireDate: string;
+  contractStartDate?: string | null;
+  probationEndDate?: string | null;
+  contractEndDate?: string | null;
+  salaryInfo?: EmployeeSalaryInfo;
+  emergencyContact?: EmployeeEmergencyContact;
+  metadata?: EmployeeMetadata;
+  user?: User;
+  department?: Department | null;
+  position?: Position | null;
 };

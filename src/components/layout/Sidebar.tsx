@@ -3,6 +3,19 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useMyPermissions } from '../../hooks/usePermissions';
+import {
+  RECRUITMENT_TAB_PERMISSIONS,
+  ONBOARDING_TAB_PERMISSIONS,
+  PROFILES_TAB_PERMISSIONS,
+  ATTENDANCE_TAB_PERMISSIONS,
+  PERFORMANCE_TAB_PERMISSIONS,
+  TALENT_TAB_PERMISSIONS,
+  EXIT_TAB_PERMISSIONS,
+  FINANCE_TAB_PERMISSIONS,
+  BUSINESSES_TAB_PERMISSIONS,
+  MODULE_PERMISSIONS,
+} from '../../config/tabPermissions';
 import {
   Brain,
   Search,
@@ -33,8 +46,8 @@ interface SidebarProps {
   setCurrentTalentTab: (tab: 'overview' | 'career' | 'training' | 'culture') => void;
   currentExitTab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding';
   setCurrentExitTab: (tab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding') => void;
-  currentFinanceTab: 'overview' | 'salary' | 'payroll' | 'budget' | 'expense' | 'benefits';
-  setCurrentFinanceTab: (tab: 'overview' | 'salary' | 'payroll' | 'budget' | 'expense' | 'benefits') => void;
+  currentFinanceTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits';
+  setCurrentFinanceTab: (tab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits') => void;
   currentOnboardingTab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists';
   setCurrentOnboardingTab: (tab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists') => void;
   currentPerformanceTab: 'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form';
@@ -80,6 +93,20 @@ export default function Sidebar({
   onMobileClose,
 }: SidebarProps) {
   const navigate = useNavigate();
+  const { hasAny, isSuperAdmin } = useMyPermissions();
+
+  // ── Helper: filter a tab list by the permission map ───────────────────────
+  function allowedTabs<T extends { id: string }>(
+    tabs: readonly T[],
+    permMap: Record<string, { requires: string[] }>
+  ): T[] {
+    return tabs.filter((t) => {
+      const entry = permMap[t.id];
+      // If a tab has no entry in the map, deny it (safe default — add it to the map to expose it)
+      if (!entry) return false;
+      return hasAny(...entry.requires);
+    });
+  }
 
   const roleSegment =
     user?.role === 'Super Admin'
@@ -96,120 +123,127 @@ export default function Sidebar({
     return parts[0] ? parts[0].slice(0, 2).toUpperCase() : 'CO';
   };
 
-  const mainModules = [
-    ...(user?.role === 'Super Admin'
-      ? [
-          { id: 'businesses', label: 'Businesses', icon: Building2, badge: 0 },
-          { id: 'permissions', label: 'Roles & Permissions', icon: Shield, badge: 0 },
-        ]
-      : [
-          { id: 'recruitment', label: 'Recruitment & Hiring', icon: UserPlus, badge: 4 },
-          { id: 'onboarding', label: 'Onboarding & Probation', icon: UserCheck, badge: 3 },
-          { id: 'profiles', label: 'People Profiles', icon: Users, badge: 0 },
-          { id: 'attendance', label: 'Attendance & Leave', icon: Calendar, badge: 0 },
-          { id: 'performance', label: 'Performance', icon: TrendingUp, badge: 0 },
-          { id: 'talent', label: 'Career Management', icon: GraduationCap, badge: 0 },
-          { id: 'exit', label: 'Exit & Off boarding', icon: LogOut, badge: 0 },
-          { id: 'finance', label: 'Workforce Finance', icon: CircleDollarSign, badge: 0 },
-        ]),
-  ] as any[];
-
-  const recruitmentTabs = [
-    { id: 'overview', label: 'Overview', badge: 4 },
-    { id: 'requests', label: 'Requests', badge: 4 },
-    { id: 'ready_to_post', label: 'Ready to Post', badge: 2 },
-    { id: 'active_posting', label: 'Active Posting', badge: 0 },
-    { id: 'ongoing_recruitment', label: 'Ongoing Recruitment', badge: 0 },
-    { id: 'my_interviews', label: 'My Interviews', badge: 0 },
-    { id: 'offers', label: 'Offers', badge: 0 },
-    { id: 'closed_posts', label: 'Closed Posts', badge: 0 },
-    { id: 'applicant_forms', label: 'Applicant Forms', badge: 0 },
+  // ── Module list: derived from permissions, not role strings ───────────────
+  const ALL_MODULES = [
+    { id: 'businesses',  label: 'Businesses',             icon: Building2,       badge: 0 },
+    { id: 'permissions', label: 'Roles & Permissions',    icon: Shield,          badge: 0 },
+    { id: 'recruitment', label: 'Recruitment & Hiring',   icon: UserPlus,        badge: 4 },
+    { id: 'onboarding',  label: 'Onboarding & Probation', icon: UserCheck,       badge: 3 },
+    { id: 'profiles',    label: 'People Profiles',        icon: Users,           badge: 0 },
+    { id: 'attendance',  label: 'Attendance & Leave',     icon: Calendar,        badge: 0 },
+    { id: 'performance', label: 'Performance',            icon: TrendingUp,      badge: 0 },
+    { id: 'talent',      label: 'Career Management',      icon: GraduationCap,   badge: 0 },
+    { id: 'exit',        label: 'Exit & Offboarding',     icon: LogOut,          badge: 0 },
+    { id: 'finance',     label: 'Workforce Finance',      icon: CircleDollarSign,badge: 0 },
   ] as const;
 
-  const onboardingTabs = [
-    { id: 'overview', label: 'Overview', badge: 0 },
-    { id: 'contract', label: 'Contract', badge: 0 },
-    { id: 'progress', label: 'Progress', badge: 0 },
-    { id: 'probation', label: 'Probation', badge: 0 },
+  const mainModules = ALL_MODULES.filter((m) => {
+    const required = MODULE_PERMISSIONS[m.id];
+    if (!required) return false;
+    return hasAny(...required);
+  });
+
+  // ── All possible tabs — filtered at render time via allowedTabs() ─────────
+
+  const ALL_RECRUITMENT_TABS = [
+    { id: 'overview',            label: 'Overview',            badge: 4 },
+    { id: 'requests',            label: 'Requests',            badge: 4 },
+    { id: 'ready_to_post',       label: 'Ready to Post',       badge: 2 },
+    { id: 'active_posting',      label: 'Active Posting',      badge: 0 },
+    { id: 'ongoing_recruitment', label: 'Ongoing Recruitment', badge: 0 },
+    { id: 'my_interviews',       label: 'My Interviews',       badge: 0 },
+    { id: 'offers',              label: 'Offers',              badge: 0 },
+    { id: 'closed_posts',        label: 'Closed Posts',        badge: 0 },
+    { id: 'applicant_forms',     label: 'Applicant Forms',     badge: 0 },
+  ] as const;
+
+  const ALL_ONBOARDING_TABS = [
+    { id: 'overview',   label: 'Overview',   badge: 0 },
+    { id: 'contract',   label: 'Contract',   badge: 0 },
+    { id: 'progress',   label: 'Progress',   badge: 0 },
+    { id: 'probation',  label: 'Probation',  badge: 0 },
     { id: 'checklists', label: 'Checklists', badge: 0 },
   ] as const;
 
-  const profilesTabs = [
-    { id: 'overview', label: 'Overview', badge: 0 },
-    { id: 'create', label: 'Create', badge: 0 },
-    { id: 'organogram', label: 'Organogram', badge: 0 },
-    { id: 'directory', label: 'Directory', badge: 0 },
-    { id: 'events', label: 'Events', badge: 0 },
-    { id: 'archive', label: 'Archive', badge: 0 },
+  const ALL_PROFILES_TABS = [
+    { id: 'overview',    label: 'Overview',    badge: 0 },
+    { id: 'create',      label: 'Create',      badge: 0 },
+    { id: 'bulk_create', label: 'Bulk Create', badge: 0 },
+    { id: 'organogram',  label: 'Organogram',  badge: 0 },
+    { id: 'directory',   label: 'Directory',   badge: 0 },
+    { id: 'events',      label: 'Events',      badge: 0 },
+    { id: 'archive',     label: 'Archive',     badge: 0 },
   ] as const;
 
-  const isHr = user?.role === 'HR Manager' || user?.role === 'Business Admin';
-
-  const attendanceTabs = isHr
-    ? [
-        { id: 'overview', label: 'Overview', badge: 0 },
-        { id: 'check-in', label: 'Check-ins', badge: 0 },
-        { id: 'check-me-in', label: 'Check me in', badge: 0 },
-        { id: 'history', label: 'History', badge: 0 },
-        { id: 'late-reasons', label: 'Late Reasons', badge: 0 },
-        { id: 'requests', label: 'Requests', badge: 0 },
-        { id: 'timesheet', label: 'Timesheet', badge: 0 },
-        { id: 'leaves', label: 'Leaves', badge: 0 },
-        { id: 'overtime', label: 'Overtime', badge: 0 },
-        { id: 'memo-log', label: 'Memo Log', badge: 0 },
-        { id: 'work-from-home', label: 'Work-from-Home', badge: 0 },
-      ]
-    : [
-        { id: 'overview', label: 'Check me in', badge: 0 },
-        { id: 'history', label: 'History', badge: 0 },
-        { id: 'requests', label: 'Requests', badge: 0 },
-        { id: 'leaves', label: 'Leaves', badge: 0 },
-        { id: 'overtime', label: 'Overtime', badge: 0 },
-        { id: 'work-from-home', label: 'Work-from-Home', badge: 0 },
-      ];
-
-  const talentTabs = [
-    { id: 'overview', label: 'Overview', badge: 4 },
-    { id: 'career', label: 'Career', badge: 4 },
-    { id: 'training', label: 'Training & Skills', badge: 3 },
-    { id: 'culture', label: 'Culture', badge: 0 },
+  const ALL_ATTENDANCE_TABS = [
+    { id: 'overview',       label: 'Overview',          badge: 0 },
+    { id: 'check-in',       label: 'Check-ins',         badge: 0 },
+    { id: 'check-me-in',    label: 'Check me in',       badge: 0 },
+    { id: 'history',        label: 'History',           badge: 0 },
+    { id: 'late-reasons',   label: 'Late Reasons',      badge: 0 },
+    { id: 'requests',       label: 'Requests',          badge: 0 },
+    { id: 'timesheet',      label: 'Timesheet',         badge: 0 },
+    { id: 'leaves',         label: 'Leaves',            badge: 0 },
+    { id: 'overtime',       label: 'Overtime',          badge: 0 },
+    { id: 'memo-log',       label: 'Memo Log',          badge: 0 },
+    { id: 'work-from-home', label: 'Work-from-Home',    badge: 0 },
   ] as const;
 
-  const exitTabs = [
-    { id: 'overview', label: 'Overview', badge: 1 },
+  const ALL_TALENT_TABS = [
+    { id: 'overview', label: 'Overview',         badge: 4 },
+    { id: 'career',   label: 'Career',           badge: 4 },
+    { id: 'training', label: 'Training & Skills',badge: 3 },
+    { id: 'culture',  label: 'Culture',          badge: 0 },
+  ] as const;
+
+  const ALL_EXIT_TABS = [
+    { id: 'overview',    label: 'Overview',             badge: 1 },
     { id: 'offboarding', label: 'Offboarding Requests', badge: 0 },
-    { id: 'resign', label: 'Resign', badge: 2 },
-    { id: 'interviews', label: 'Interviews', badge: 2 },
-    { id: 'documents', label: 'Documents', badge: 0 },
-    { id: 'clearance', label: 'Clearance Checklist', badge: 0 },
-    { id: 'forms', label: 'Related Forms', badge: 0 },
+    { id: 'resign',      label: 'Resign',               badge: 2 },
+    { id: 'interviews',  label: 'Interviews',           badge: 2 },
+    { id: 'documents',   label: 'Documents',            badge: 0 },
+    { id: 'clearance',   label: 'Clearance Checklist',  badge: 0 },
+    { id: 'forms',       label: 'Related Forms',        badge: 0 },
   ] as const;
 
-  const financeTabs = [
-    { id: 'overview', label: 'Overview', badge: 4 },
-    { id: 'salary', label: 'Salary', badge: 4 },
-    { id: 'payroll', label: 'Payroll', badge: 3 },
-    { id: 'budget', label: 'Budget', badge: 0 },
-    { id: 'expense', label: 'Expense', badge: 0 },
-    { id: 'benefits', label: 'Benefits', badge: 0 },
+  const ALL_FINANCE_TABS = [
+    { id: 'overview',        label: 'Overview',         badge: 4 },
+    { id: 'salary_payroll',  label: 'Salary & Payroll', badge: 7 },
+    { id: 'payroll_template', label: 'Pay Templates',   badge: 0 },
+    { id: 'budget',          label: 'Budget',           badge: 0 },
+    { id: 'expense',         label: 'Expense',          badge: 0 },
+    { id: 'benefits',        label: 'Benefits',         badge: 0 },
   ] as const;
 
-  const performanceTabs = [
-    { id: 'overview', label: 'Overview', badge: 4 },
+  const ALL_PERFORMANCE_TABS = [
+    { id: 'overview',           label: 'Overview',           badge: 4 },
     { id: 'performance_review', label: 'Performance Review', badge: 4 },
-    { id: 'okrs', label: 'OKRs', badge: 3 },
-    { id: 'kpis', label: 'KPIs', badge: 0 },
-    { id: 'discipline', label: 'Discipline', badge: 0 },
-    { id: 'evaluation_form', label: 'Evaluation Form', badge: 0 },
+    { id: 'okrs',               label: 'OKRs',               badge: 3 },
+    { id: 'kpis',               label: 'KPIs',               badge: 0 },
+    { id: 'discipline',         label: 'Discipline',         badge: 0 },
+    { id: 'evaluation_form',    label: 'Evaluation Form',    badge: 0 },
   ] as const;
 
-  const businessesTabs = [
-    { id: 'overview', label: 'Overview', badge: 0 },
-    { id: 'plans', label: 'Plans', badge: 0 },
-    { id: 'sector_focus', label: 'Sector Focus', badge: 0 },
-    { id: 'integrations', label: 'Integrations', badge: 0 },
-    { id: 'security', label: 'Security & SSO', badge: 0 },
+  const ALL_BUSINESSES_TABS = [
+    { id: 'overview',      label: 'Overview',      badge: 0 },
+    { id: 'plans',         label: 'Plans',         badge: 0 },
+    { id: 'sector_focus',  label: 'Sector Focus',  badge: 0 },
+    { id: 'integrations',  label: 'Integrations',  badge: 0 },
+    { id: 'security',      label: 'Security & SSO',badge: 0 },
+    { id: 'audit_logs',    label: 'Audit Logs',    badge: 0 },
+    { id: 'notifications', label: 'Notifications', badge: 0 },
   ] as const;
+
+  // ── Resolved tab arrays (filtered by user permissions) ────────────────────
+  const recruitmentTabs   = allowedTabs(ALL_RECRUITMENT_TABS,  RECRUITMENT_TAB_PERMISSIONS);
+  const onboardingTabs    = allowedTabs(ALL_ONBOARDING_TABS,   ONBOARDING_TAB_PERMISSIONS);
+  const profilesTabs      = allowedTabs(ALL_PROFILES_TABS,     PROFILES_TAB_PERMISSIONS);
+  const attendanceTabs    = allowedTabs(ALL_ATTENDANCE_TABS,   ATTENDANCE_TAB_PERMISSIONS);
+  const talentTabs        = allowedTabs(ALL_TALENT_TABS,       TALENT_TAB_PERMISSIONS);
+  const exitTabs          = allowedTabs(ALL_EXIT_TABS,         EXIT_TAB_PERMISSIONS);
+  const financeTabs       = allowedTabs(ALL_FINANCE_TABS,      FINANCE_TAB_PERMISSIONS);
+  const performanceTabs   = allowedTabs(ALL_PERFORMANCE_TABS,  PERFORMANCE_TAB_PERMISSIONS);
+  const businessesTabs    = allowedTabs(ALL_BUSINESSES_TABS,   BUSINESSES_TAB_PERMISSIONS);
 
   const handleModuleClick = (moduleId: MainModule) => {
     setCurrentModule(moduleId);

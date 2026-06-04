@@ -16,6 +16,12 @@ import OfferLetterTemplateModal from "../offer-letters/OfferLetterTemplateModal"
 import { CreateDepartmentModal, CreatePositionModal } from "./OrgModals";
 import { UserSearchSelect } from "./UserSearchSelect";
 import { PlusCircle } from "lucide-react";
+import {
+  DEFAULT_EMPLOYMENT_STATUS,
+  DEFAULT_EMPLOYMENT_TYPE,
+  EMPLOYMENT_STATUS_OPTIONS,
+  EMPLOYMENT_TYPE_OPTIONS,
+} from "../../constants/employee";
 
 interface CreateEmployeeModalProps {
   isOpen: boolean;
@@ -71,9 +77,13 @@ export default function CreateEmployeeModal({
     positionId: "",
     reportingTo: "",
     startDate: "",
+    contractStartDate: "",
+    contractEndDate: "",
+    employmentStatus: DEFAULT_EMPLOYMENT_STATUS,
     monthlySalary: "",
+    salaryCurrency: "ETB",
     probationPeriod: "3",
-    employmentType: "full_time",
+    employmentType: DEFAULT_EMPLOYMENT_TYPE,
     additionalNotes: "",
 
     dateOfBirth: "",
@@ -175,7 +185,15 @@ export default function CreateEmployeeModal({
         startDate: record?.hireDate
           ? new Date(record.hireDate).toISOString().slice(0, 10)
           : "",
+        contractStartDate: record?.contractStartDate
+          ? new Date(record.contractStartDate).toISOString().slice(0, 10)
+          : "",
+        contractEndDate: record?.contractEndDate
+          ? new Date(record.contractEndDate).toISOString().slice(0, 10)
+          : "",
+        employmentStatus: record?.employmentStatus || formData.employmentStatus,
         monthlySalary: salaryInfo?.baseSalary ?? "",
+        salaryCurrency: salaryInfo?.currency || formData.salaryCurrency,
         probationPeriod: probationPeriod || formData.probationPeriod,
         employmentType: record?.employmentType || formData.employmentType,
         additionalNotes: metadata?.additionalNotes || "",
@@ -383,8 +401,12 @@ export default function CreateEmployeeModal({
           positionId: formData.positionId,
           systemRole: formData.systemRole,
           startDate: formData.startDate,
+          contractStartDate: formData.contractStartDate,
+          contractEndDate: formData.contractEndDate,
+          employmentStatus: formData.employmentStatus,
           employmentType: formData.employmentType,
           monthlySalary: formData.monthlySalary,
+          salaryCurrency: formData.salaryCurrency,
           probationPeriod: formData.probationPeriod,
           dateOfBirth: formData.dateOfBirth,
           city: formData.city,
@@ -462,6 +484,24 @@ export default function CreateEmployeeModal({
         setIfChanged(profile, "startDate", formData.startDate, base.startDate);
         setIfChanged(
           profile,
+          "contractStartDate",
+          formData.contractStartDate,
+          base.contractStartDate,
+        );
+        setIfChanged(
+          profile,
+          "contractEndDate",
+          formData.contractEndDate,
+          base.contractEndDate,
+        );
+        setIfChanged(
+          profile,
+          "employmentStatus",
+          formData.employmentStatus,
+          base.employmentStatus,
+        );
+        setIfChanged(
+          profile,
           "employmentType",
           formData.employmentType,
           base.employmentType,
@@ -471,6 +511,12 @@ export default function CreateEmployeeModal({
           "monthlySalary",
           formData.monthlySalary,
           base.monthlySalary,
+        );
+        setIfChanged(
+          profile,
+          "salaryCurrency",
+          formData.salaryCurrency,
+          base.salaryCurrency,
         );
         setIfChanged(
           profile,
@@ -943,11 +989,56 @@ export default function CreateEmployeeModal({
                         onChange={handleInputChange}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:bg-white focus:border-blue-500 outline-none transition-all"
                       >
-                        <option value="full_time">Full Time</option>
-                        <option value="part_time">Part Time</option>
-                        <option value="contractor">Contractor</option>
-                        <option value="intern">Intern</option>
+                        {EMPLOYMENT_TYPE_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
                       </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase">
+                        Employment Status
+                      </label>
+                      <select
+                        name="employmentStatus"
+                        value={formData.employmentStatus}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:bg-white focus:border-blue-500 outline-none transition-all"
+                      >
+                        {EMPLOYMENT_STATUS_OPTIONS.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase">
+                        Contract Start Date
+                      </label>
+                      <input
+                        type="date"
+                        name="contractStartDate"
+                        value={formData.contractStartDate}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:bg-white focus:border-blue-500 outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase">
+                        Contract End Date
+                      </label>
+                      <input
+                        type="date"
+                        name="contractEndDate"
+                        value={formData.contractEndDate}
+                        onChange={handleInputChange}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:bg-white focus:border-blue-500 outline-none transition-all"
+                      />
                     </div>
 
                     <div className="space-y-2">
@@ -959,6 +1050,19 @@ export default function CreateEmployeeModal({
                         value={formData.monthlySalary}
                         onChange={handleInputChange}
                         placeholder="e.g. 15000"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:bg-white focus:border-blue-500 outline-none transition-all"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-[11px] font-bold text-slate-500 uppercase">
+                        Salary Currency
+                      </label>
+                      <input
+                        name="salaryCurrency"
+                        value={formData.salaryCurrency}
+                        onChange={handleInputChange}
+                        placeholder="ETB"
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium focus:bg-white focus:border-blue-500 outline-none transition-all"
                       />
                     </div>

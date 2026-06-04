@@ -46,13 +46,323 @@ import {
   Compass,
   ArrowRight
 } from 'lucide-react';
-import { useCreateBudgetReallocation, useFinanceApprovalAction, useWorkforceFinance } from '../../hooks/useWorkforceFinance';
+import { useCreateBudgetReallocation, useFinanceApprovalAction, useWorkforceFinance, usePayrollTemplates, useCreatePayrollTemplate, useUpdatePayrollTemplate, useDeletePayrollTemplate, usePreviewPayroll, usePayrollDashboard, useLinkEmployee, useUnlinkEmployee } from '../../hooks/useWorkforceFinance';
+import type { PayrollTemplate, LinkedEmployee, PendingEmployee } from '../../hooks/useWorkforceFinance';
 import { exportWorkforceFinance } from '../../api/finance';
+import PayrollTemplatePanel from './PayrollTemplatePanel';
+import PayrollLinkPanel from './PayrollLinkPanel';
 
 interface WorkforceFinanceViewProps {
-  currentTab: 'overview' | 'salary' | 'payroll' | 'budget' | 'expense' | 'benefits';
+  currentTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (message: string, type?: 'success' | 'info' | 'error') => void;
+}
+
+// ─── Salary & Payroll merged panel ───────────────────────────────────────────
+function SalaryPayrollPanel({
+  salary, payroll, salaryAdjustRequests, searchQuery, setSearchQuery,
+  formatMoney, formatDate, pct, scatterData, deptSalaryData,
+  handleAction, handleExport, onDraftAiSuggestion, showAlert,
+}: {
+  salary: any; payroll: any; salaryAdjustRequests: any[];
+  searchQuery: string; setSearchQuery: (v: string) => void;
+  formatMoney: (v?: number, compact?: boolean) => string;
+  formatDate: (v?: string | null) => string;
+  pct: (v?: number) => string;
+  scatterData: any[]; deptSalaryData: any[];
+  handleAction: (id: string, action: 'approve' | 'reject', listType: 'pending' | 'salary' | 'expense') => void;
+  handleExport: (tab: string) => void;
+  onDraftAiSuggestion: (ctx: string) => void;
+  showAlert: (msg: string, type?: 'success' | 'info' | 'error') => void;
+}) {
+  const [subTab, setSubTab] = useState<'salary' | 'payroll'>('salary');
+  // Pull linked employee net-pay map for the salary tab
+  const { data: payrollDash } = usePayrollDashboard();
+  const linkedMap = new Map<string, any>(
+    (payrollDash?.linked ?? []).map((l: any) => [l.employeeUserId, l])
+  );
+
+  return (
+    <div className="space-y-6 animate-fade-in font-sans">
+      {/* Sub-tab switcher */}
+      <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 w-fit shadow-xs">
+        <button
+          onClick={() => setSubTab('salary')}
+          className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+            subTab === 'salary'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+          }`}
+        >
+          Salary
+        </button>
+        <button
+          onClick={() => setSubTab('payroll')}
+          className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+            subTab === 'payroll'
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
+          }`}
+        >
+          Payroll
+        </button>
+      </div>
+
+      {/* ── SALARY CONTENT ── */}
+      {subTab === 'salary' && (
+        <div className="space-y-6">
+          {/* Stat Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Salary</p>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(salary.totals?.avgSalary)}</h3>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Payroll</p>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(salary.totals?.totalPayroll, true)}</h3>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Requests</p>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{salaryAdjustRequests.length}</h3>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><FileText className="w-4 h-4" /></div>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Increase</p>
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{pct(salary.totals?.avgIncreasePercent)}</h3>
+              </div>
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
+            </div>
+          </div>
+
+          {/* Salary Adjustment Requests */}
+          <div className="bg-white rounded-2xl border border-blue-500/20 p-5 space-y-4">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-2">
+                <span className="text-blue-600"><DollarSign className="w-4 h-4 stroke-[3]" /></span>
+                <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Salary Adjustment Requests</h4>
+              </div>
+              <button
+                onClick={() => onDraftAiSuggestion('salary adjustment guidelines')}
+                className="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer select-none transition-colors"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>AI Compensation Guidance</span>
+              </button>
+            </div>
+            <div className="space-y-3">
+              {salaryAdjustRequests.length > 0 ? salaryAdjustRequests.map((sar) => (
+                <div key={sar.id} className="bg-slate-50/70 rounded-2xl border border-slate-100 p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-xs font-mono">
+                      {sar.employee?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'NA'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h5 className="text-xs font-bold text-slate-900">{sar.employee}</h5>
+                        <span className="text-[10px] text-slate-400 font-semibold">{sar.department}</span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
+                        Status: <strong className="text-emerald-600">{sar.status}</strong>
+                      </p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white p-3.5 rounded-xl border border-slate-100/80 flex-1 max-w-2xl text-[11px] font-semibold">
+                    <div>
+                      <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Current Salary</span>
+                      <span className="text-slate-800">{formatMoney(sar.currentSalary)}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Requested Salary</span>
+                      <span className="text-[#2563eb] font-extrabold">{formatMoney(sar.requestedSalary)}</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Increase</span>
+                      <span className="text-emerald-600 font-extrabold">+{formatMoney(sar.increase)} ({pct(sar.pct)})</span>
+                    </div>
+                    <div>
+                      <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Requested Date</span>
+                      <span className="text-slate-700">{formatDate(sar.date)}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col justify-center text-[11px] font-medium leading-normal bg-white/70 p-3 rounded-xl border border-slate-100 text-slate-650 max-w-xs flex-1">
+                    <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider mb-0.5">Reason</span>
+                    <p className="line-clamp-2">{sar.reason}</p>
+                  </div>
+                  <div className="flex gap-2 self-end md:self-center">
+                    <button onClick={() => handleAction(sar.id, 'reject', 'salary')} className="px-3 py-1.5 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 font-bold rounded-lg text-xs transition-colors cursor-pointer">Reject</button>
+                    <button onClick={() => handleAction(sar.id, 'approve', 'salary')} className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer shadow-xs">Approve</button>
+                  </div>
+                </div>
+              )) : (
+                <div className="p-8 text-center text-slate-450 border border-dashed border-slate-200 rounded-2xl bg-white/50">
+                  <span className="text-xs font-semibold">All salary adjustments fully reviewed.</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Charts + Dept breakdown */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Salary vs Performance Correlation</h4>
+              <div className="h-[210px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis type="number" dataKey="x" name="Salary" unit="k" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} />
+                    <YAxis type="number" dataKey="y" name="Performance" min={3} max={5} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} />
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} />
+                    <Scatter name="Employees" data={scatterData} fill="#2563eb" />
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Salary by Department</h4>
+              <div className="h-[210px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={deptSalaryData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
+                    <YAxis tickFormatter={(val) => `$${val/1000}k`} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
+                    <Tooltip />
+                    <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 p-5 space-y-3.5">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Staffing Breakdowns</h4>
+              <div className="space-y-3.5 overflow-y-auto max-h-[220px]">
+                {(deptSalaryData ?? []).map((dep: any, idx: number) => (
+                  <div key={idx} className="bg-slate-50/70 p-3 rounded-xl border border-slate-100/80 flex justify-between items-center text-xs">
+                    <div>
+                      <h5 className="font-bold text-slate-800">{dep.name}</h5>
+                      <span className="text-[10px] text-slate-400 font-semibold">{dep.count} employees</span>
+                    </div>
+                    <div className="text-right font-semibold">
+                      <p className="text-slate-800">{formatMoney(dep.amount, true)} avg</p>
+                      <span className="text-[10px] text-blue-600 font-bold block">{formatMoney(dep.total, true)} Total</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Employee Salary Details */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-50">
+              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Employee Salary Details</h4>
+              <div className="relative w-full max-w-sm">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search employees..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:bg-white focus:border-blue-500 font-semibold text-slate-700"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {(salary.employees ?? []).filter((emp: any) =>
+                emp.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                emp.role.toLowerCase().includes(searchQuery.toLowerCase())
+              ).map((emp: any, i: number) => {
+                const linked = linkedMap.get(emp.userId);
+                return (
+                <div key={i} className="bg-slate-50/50 hover:bg-slate-50 rounded-2xl border border-slate-100 p-4 flex flex-col justify-between hover:shadow-xs transition-all">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                        {emp.name.split(' ').map((n: string) => n[0]).join('')}
+                      </div>
+                      <div>
+                        <h5 className="text-[12px] font-black text-slate-800 leading-none">{emp.name}</h5>
+                        <span className="text-[10px] text-slate-400 font-bold block mt-1 uppercase">{emp.department}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      {linked ? (
+                        <span className="text-[9px] bg-emerald-50 text-emerald-600 font-extrabold px-2 py-0.5 rounded-full">Linked</span>
+                      ) : (
+                        <span className="text-[9px] bg-amber-50 text-amber-600 font-extrabold px-2 py-0.5 rounded-full">Pending</span>
+                      )}
+                      <button onClick={() => showAlert(`Inspecting records for ${emp.name}`, 'info')} className="text-[10px] bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 text-slate-500 font-extrabold px-2.5 py-1 rounded-lg transition-colors cursor-pointer">View</button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-2 mt-4 pt-3.5 border-t border-slate-100/80 text-[10.5px] font-semibold text-slate-700">
+                    <div>
+                      <span className="block text-[8px] text-slate-450 uppercase tracking-wider mb-0.5">Base</span>
+                      <strong className="text-slate-700 font-bold">{formatMoney(linked?.baseSalary ?? emp.salary)}</strong>
+                    </div>
+                    <div>
+                      <span className="block text-[8px] text-slate-450 uppercase tracking-wider mb-0.5">Gross</span>
+                      <strong className="text-slate-700 font-bold">{linked ? formatMoney(linked.grossPay) : '—'}</strong>
+                    </div>
+                    <div>
+                      <span className="block text-[8px] text-emerald-600 uppercase tracking-wider mb-0.5 font-extrabold">Net Pay</span>
+                      <strong className={`font-extrabold ${linked ? 'text-blue-600' : 'text-slate-400'}`}>
+                        {linked ? formatMoney(linked.netPay) : 'Not set'}
+                      </strong>
+                    </div>
+                  </div>
+                  {linked && (
+                    <div className="mt-2 pt-2 border-t border-slate-100/60 flex justify-between text-[10px] font-semibold text-slate-500">
+                      <span>Template: <strong className="text-slate-700">{linked.templateName}</strong></span>
+                      <span className="text-rose-500">-{formatMoney(linked.totalDeductions)} deducted</span>
+                    </div>
+                  )}
+                </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Salary Audit Log */}
+          <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
+            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest pb-1 border-b border-slate-50">Salary Audit Log</h4>
+            <div className="space-y-3">
+              {(salary.auditLogs ?? []).length > 0 ? salary.auditLogs.map((log: any, i: number) => (
+                <div key={i} className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100/70 flex justify-between items-center text-xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h5 className="font-extrabold text-slate-900">{log.entityType}</h5>
+                      <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-1.5 py-0.5 rounded-md">{log.action}</span>
+                    </div>
+                    <div className="mt-2 text-[11px] text-slate-600 font-semibold flex items-center gap-1">
+                      <span>{formatMoney(log.beforeData?.currentSalary ?? log.beforeData?.amount)}</span>
+                      <ArrowRight className="w-3 h-3 text-slate-400" />
+                      <span className="text-[#2563eb]">{formatMoney(log.afterData?.requestedSalary ?? log.afterData?.amount)}</span>
+                      <span className="text-[9.5px] text-slate-400 font-bold ml-1">({log.entityId})</span>
+                    </div>
+                  </div>
+                  <div className="text-right text-[10px] text-slate-400 font-bold"><p>{formatDate(log.date)}</p></div>
+                </div>
+              )) : (
+                <div className="p-6 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs font-semibold">No salary audit events yet.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PAYROLL CONTENT ── */}
+      {subTab === 'payroll' && (
+        <PayrollLinkPanel showAlert={showAlert} />
+      )}
+    </div>
+  );
 }
 
 export default function WorkforceFinanceView({
@@ -313,447 +623,32 @@ export default function WorkforceFinanceView({
         </div>
       )}
 
-      {/* 2. SALARY TABS */}
-      {currentTab === 'salary' && (
-        <div className="space-y-6 animate-fade-in">
-          {/* Top Info Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Salary</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(salary.totals?.avgSalary)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Payroll</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(salary.totals?.totalPayroll, true)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Requests</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{salaryAdjustRequests.length}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><FileText className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Increase</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{pct(salary.totals?.avgIncreasePercent)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
-            </div>
-          </div>
-
-          {/* Salary Adjustment Requests Container */}
-          <div className="bg-white rounded-2xl border border-blue-500/20 p-5 space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-blue-600"><DollarSign className="w-4 h-4 stroke-[3]" /></span>
-                <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Salary Adjustment Requests</h4>
-              </div>
-              <button
-                onClick={() => onDraftAiSuggestion('salary adjustment guidelines')}
-                className="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer select-none transition-colors"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>AI Compensation Guidance</span>
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              {salaryAdjustRequests.length > 0 ? (
-                salaryAdjustRequests.map((sar) => (
-                  <div key={sar.id} className="bg-slate-50/70 rounded-2xl border border-slate-100 p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-blue-600 text-white font-extrabold flex items-center justify-center text-xs font-mono">
-                        {sar.employee?.split(' ').map((n: string) => n[0]).join('').slice(0, 2) || 'NA'}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h5 className="text-xs font-bold text-slate-900">{sar.employee}</h5>
-                          <span className="text-[10px] text-slate-400 font-semibold">{sar.department}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">
-                          Status: <strong className="text-emerald-600">{sar.status}</strong>
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-white p-3.5 rounded-xl border border-slate-100/80 flex-1 max-w-2xl text-[11px] font-semibold">
-                      <div>
-                        <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Current Salary</span>
-                        <span className="text-slate-800">{formatMoney(sar.currentSalary)}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Requested Salary</span>
-                        <span className="text-[#2563eb] font-extrabold">{formatMoney(sar.requestedSalary)}</span>
-                      </div>
-                      <div>
-                        <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Increase</span>
-                        <span className="text-emerald-600 font-extrabold">+{formatMoney(sar.increase)} ({pct(sar.pct)})</span>
-                      </div>
-                      <div>
-                        <span className="block text-[9px] text-slate-400 uppercase tracking-wider">Requested Date</span>
-                        <span className="text-slate-700">{formatDate(sar.date)}</span>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-col justify-center text-[11px] font-medium leading-normal bg-white/70 p-3 rounded-xl border border-slate-100 text-slate-650 max-w-xs flex-1">
-                      <span className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider mb-0.5">Reason</span>
-                      <p className="line-clamp-2">{sar.reason}</p>
-                    </div>
-
-                    <div className="flex gap-2 self-end md:self-center">
-                      <button
-                        onClick={() => handleAction(sar.id, 'reject', 'salary')}
-                        className="px-3 py-1.5 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-800 font-bold rounded-lg text-xs transition-colors cursor-pointer"
-                      >
-                        Reject
-                      </button>
-                      <button
-                        onClick={() => handleAction(sar.id, 'approve', 'salary')}
-                        className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer shadow-xs"
-                      >
-                        Approve
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="p-8 text-center text-slate-450 border border-dashed border-slate-200 rounded-2xl bg-white/50">
-                  <span className="text-xs font-semibold">All salary adjustments fully reviewed.</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Sub Row Charts AND Dept Data Metrics */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            {/* Correlation scatter chart */}
-            <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Salary vs Performance Correlation</h4>
-              <div className="h-[210px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <ScatterChart margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-                    <XAxis type="number" dataKey="x" name="Salary" unit="k" tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} />
-                    <YAxis type="number" dataKey="y" name="Performance" min={3} max={5} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} />
-                    <Tooltip cursor={{ strokeDasharray: '3 3' }} />
-                    <Scatter name="Employees" data={scatterData} fill="#2563eb" />
-                  </ScatterChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Salary by Department Bar chart */}
-            <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Salary by Department</h4>
-              <div className="h-[210px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={deptSalaryData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                    <XAxis dataKey="name" tick={{ fontSize: 9, fill: '#94a3b8', fontWeight: 600 }} axisLine={false} tickLine={false} />
-                    <YAxis tickFormatter={(val) => `$${val/1000}k`} tick={{ fontSize: 10, fill: '#94a3b8' }} axisLine={false} tickLine={false} />
-                    <Tooltip />
-                    <Bar dataKey="amount" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            {/* Department Breakdowns details */}
-            <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-100 p-5 space-y-3.5">
-              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Staffing Breakdowns</h4>
-              <div className="space-y-3.5 overflow-y-auto max-h-[220px]">
-                {[
-                  ...(deptSalaryData ?? [])
-                ].map((dep: any, idx) => (
-                  <div key={idx} className="bg-slate-50/70 p-3 rounded-xl border border-slate-100/80 flex justify-between items-center text-xs">
-                    <div>
-                      <h5 className="font-bold text-slate-800">{dep.name}</h5>
-                      <span className="text-[10px] text-slate-400 font-semibold">{dep.count} employees</span>
-                    </div>
-                    <div className="text-right font-semibold">
-                      <p className="text-slate-800">{formatMoney(dep.amount, true)} avg</p>
-                      <span className="text-[10px] text-blue-600 font-bold block">{formatMoney(dep.total, true)} Total</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Employee Salary Details list */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-50">
-              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Employee Salary Details</h4>
-              <div className="relative w-full max-w-sm">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search employees..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:bg-white focus:border-blue-500 font-semibold text-slate-700"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {[
-                ...(salary.employees ?? [])
-              ].filter((emp: any) => emp.name.toLowerCase().includes(searchQuery.toLowerCase()) || emp.role.toLowerCase().includes(searchQuery.toLowerCase())).map((emp: any, i) => (
-                <div key={i} className="bg-slate-50/50 hover:bg-slate-50 rounded-2xl border border-slate-100 p-4 flex flex-col justify-between hover:shadow-xs transition-all">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
-                        {emp.name.split(' ').map(n => n[0]).join('')}
-                      </div>
-                      <div>
-                        <h5 className="text-[12px] font-black text-slate-800 leading-none">{emp.name}</h5>
-                        <span className="text-[10px] text-slate-400 font-bold block mt-1 uppercase">{emp.department}</span>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => showAlert(`Inspecting records for ${emp.name}`, 'info')}
-                      className="text-[10px] bg-white border border-slate-200 hover:bg-slate-50 hover:text-slate-800 text-slate-500 font-extrabold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
-                    >
-                      View
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 mt-4 pt-3.5 border-t border-slate-100/80 text-[10.5px] font-semibold text-slate-700">
-                    <div>
-                      <span className="block text-[8px] text-slate-450 uppercase tracking-wider mb-0.5">Salary</span>
-                      <strong className="text-blue-600 font-bold">{formatMoney(emp.salary)}</strong>
-                    </div>
-                    <div>
-                      <span className="block text-[8px] text-slate-450 uppercase tracking-wider mb-0.5">Rating</span>
-                      <span>{emp.performance ?? 'N/A'}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[8px] text-slate-450 uppercase tracking-wider mb-0.5">Join Date</span>
-                      <span className="text-slate-500">{formatDate(emp.hireDate)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Salary Audit Log */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest pb-1 border-b border-slate-50">Salary Audit Log</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-3 md:col-span-2">
-                {(salary.auditLogs ?? []).length > 0 ? salary.auditLogs.map((log: any, i: number) => (
-                  <div key={i} className="bg-slate-50/50 p-3.5 rounded-xl border border-slate-100/70 flex justify-between items-center text-xs">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h5 className="font-extrabold text-slate-900">{log.entityType}</h5>
-                        <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-1.5 py-0.5 rounded-md">{log.action}</span>
-                      </div>
-                      <div className="mt-2 text-[11px] text-slate-600 font-semibold flex items-center gap-1">
-                        <span>{formatMoney(log.beforeData?.currentSalary ?? log.beforeData?.amount)}</span>
-                        <ArrowRight className="w-3 h-3 text-slate-400" />
-                        <span className="text-[#2563eb]">{formatMoney(log.afterData?.requestedSalary ?? log.afterData?.amount)}</span>
-                        <span className="text-[9.5px] text-slate-400 font-bold ml-1">({log.entityId})</span>
-                      </div>
-                    </div>
-                    <div className="text-right text-[10px] text-slate-400 font-bold">
-                      <p>{formatDate(log.date)}</p>
-                    </div>
-                  </div>
-                )) : (
-                  <div className="p-6 text-center text-slate-400 border border-dashed border-slate-200 rounded-xl text-xs font-semibold">No salary audit events yet.</div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* 2. SALARY & PAYROLL (merged) */}
+      {currentTab === 'salary_payroll' && (
+        <SalaryPayrollPanel
+          salary={salary}
+          payroll={payroll}
+          salaryAdjustRequests={salaryAdjustRequests}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          formatMoney={formatMoney}
+          formatDate={formatDate}
+          pct={pct}
+          scatterData={scatterData}
+          deptSalaryData={deptSalaryData}
+          handleAction={handleAction}
+          handleExport={handleExport}
+          onDraftAiSuggestion={onDraftAiSuggestion}
+          showAlert={showAlert}
+        />
       )}
 
-      {/* 3. PAYROLL TABS */}
-      {currentTab === 'payroll' && (
-        <div className="space-y-6 animate-fade-in font-sans">
-          {/* Upcoming Payroll Schedule (Next 5 Days) */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-            <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Upcoming Payroll Schedule (Next 5 Days)</h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {(payroll.schedule ?? []).map((sch: any, i: number) => (
-                <div key={i} className="bg-slate-50/70 rounded-2xl border border-slate-100/90 p-4 flex flex-col justify-between space-y-4">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="text-[13px] font-black text-slate-900 leading-none">{sch.date}</h4>
-                      <span className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-md inline-block mt-2 ${sch.color}`}>
-                        {sch.title}
-                      </span>
-                    </div>
-                    <h5 className="text-sm font-black text-slate-950">{formatMoney(sch.amount)}</h5>
-                  </div>
-                  <div className="text-[10px] text-slate-400 font-bold text-right uppercase tracking-wider">{sch.daysLeft} days left</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Filtering row */}
-          <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative w-48">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search employees..."
-                  className="w-full bg-slate-50 border border-slate-100 rounded-xl py-1.5 pl-9 pr-3 text-xs focus:outline-none focus:bg-white focus:border-blue-500 font-bold"
-                />
-              </div>
-
-              <select className="bg-slate-50 border border-slate-100 rounded-xl py-1.5 px-3 text-xs text-slate-600 font-bold focus:outline-none cursor-pointer">
-                <option>Department</option>
-              </select>
-              <select className="bg-slate-50 border border-slate-100 rounded-xl py-1.5 px-3 text-xs text-slate-600 font-bold focus:outline-none cursor-pointer">
-                <option>Salary Range</option>
-              </select>
-              <select className="bg-slate-50 border border-slate-100 rounded-xl py-1.5 px-3 text-xs text-slate-600 font-bold focus:outline-none cursor-pointer">
-                <option>Period</option>
-              </select>
-              <select className="bg-slate-50 border border-slate-100 rounded-xl py-1.5 px-3 text-xs text-slate-600 font-bold focus:outline-none cursor-pointer">
-                <option>Job Type</option>
-              </select>
-            </div>
-
-            <div className="flex gap-2">
-              <button className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-bold rounded-xl text-xs py-1.5 px-3.5 flex items-center gap-1.5 cursor-pointer">
-                <Compass className="w-3.5 h-3.5" />
-                <span>Sort</span>
-              </button>
-              <button
-                onClick={() => handleExport('payroll')}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs py-1.5 px-4 flex items-center gap-1.5 cursor-pointer"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export</span>
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Employee Payroll Details ({payroll.records?.length ?? 0})</span>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {(payroll.records ?? []).map((emp: any, i: number) => (
-                <div key={i} className="bg-white rounded-3xl border border-slate-100 p-5 space-y-4 hover:shadow-xs transition-shadow">
-                  <div className="flex items-center gap-3 pb-3 border-b border-slate-50">
-                    <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">
-                      {emp.name.split(' ').map(n=>n[0]).join('')}
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-extrabold text-slate-900 leading-none">{emp.name}</h4>
-                      <span className="text-[10px] text-slate-405 font-bold block mt-1 uppercase">{emp.role}</span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-y-3.5 text-xs font-semibold text-slate-600">
-                    <div>
-                      <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">Base Salary</span>
-                      <span className="text-slate-800 font-extrabold">{formatMoney(emp.baseSalary)}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">Pension</span>
-                      <span className="text-slate-800 font-extrabold">{formatMoney(emp.pension)}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5">Monthly Gross</span>
-                      <span className="text-slate-800 font-extrabold">{formatMoney(emp.grossPay)}</span>
-                    </div>
-                    <div>
-                      <span className="block text-[9px] text-slate-400 uppercase tracking-widest mb-0.5 text-rose-450">Tax</span>
-                      <span className="text-rose-500 font-extrabold">{formatMoney(emp.tax)}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-[#f0f4ff]/70 px-4 py-2.5 rounded-xl border border-[#2563eb]/5 flex justify-between items-center text-xs">
-                    <span className="text-[10px] font-bold text-[#2563eb] uppercase tracking-wider">Net Pay</span>
-                    <strong className="text-[#2563eb] text-[13px] font-black">{formatMoney(emp.netPay)}</strong>
-                  </div>
-
-                  <button
-                    onClick={() => showAlert(`Displaying payment history for ${emp.name}`, 'info')}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl text-xs transition-colors cursor-pointer select-none"
-                  >
-                    View Payment History
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Monthly Payment Summary */}
-          <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">
-            <div className="flex justify-between items-center">
-              <h4 className="text-xs font-extrabold text-slate-800 uppercase tracking-widest">Monthly Payment Summary</h4>
-              <button
-                onClick={() => handleExport('payroll')}
-                className="bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-605 font-bold px-3 py-1.5 rounded-xl text-xs flex items-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Export All</span>
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-              {[
-                ...(payroll.monthlySummaries ?? [])
-              ].map((sum: any, i) => (
-                <div key={i} className="bg-slate-50/50 hover:bg-slate-50 rounded-2xl border border-slate-100 p-4.5 space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-600 text-white font-black flex items-center justify-center text-xs">JS</div>
-                    <div>
-                      <h4 className="text-xs font-bold text-slate-900 leading-none">{sum.name}</h4>
-                      <p className="text-[10px] text-slate-400 font-semibold block mt-1">{sum.count} employees</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-y-3 text-[11px] font-semibold text-slate-600">
-                    <div>
-                      <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider">Total Gross</span>
-                      <strong className="text-slate-800">{formatMoney(sum.gross)}</strong>
-                    </div>
-                    <div>
-                      <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider">Total Pension</span>
-                      <strong className="text-slate-800">{formatMoney(sum.pension)}</strong>
-                    </div>
-                    <div>
-                      <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider text-rose-450">Total Tax</span>
-                      <strong className="text-rose-500">{formatMoney(sum.tax)}</strong>
-                    </div>
-                    <div>
-                      <span className="block text-[8.5px] text-slate-400 uppercase tracking-wider text-[#2563eb]">Total Net</span>
-                      <strong className="text-[#2563eb]">{formatMoney(sum.net)}</strong>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => showAlert(`Inspecting ledger stats for ${sum.name}`, 'info')}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg text-[11px] transition-colors cursor-pointer"
-                  >
-                    View Payment History
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      {/* 2b. PAY TEMPLATES */}
+      {currentTab === 'payroll_template' && (
+        <PayrollTemplatePanel showAlert={showAlert} />
       )}
 
-      {/* 4. BUDGET TABS */}
+      {/* 3. BUDGET TABS */}
       {currentTab === 'budget' && (
         <div className="space-y-6 animate-fade-in">
           {/* Top Info Cards */}
