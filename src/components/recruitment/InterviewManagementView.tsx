@@ -10,6 +10,7 @@ import {
 } from "../../hooks/useJobRequests";
 import { useInterviewNotifications } from "../../hooks/useSocket";
 import { useMe } from "../../hooks/useMe";
+import { LoadingSpinner, EmptyState, StatusBadge, UserAvatar, InfoAlert } from "@/components/ui/blih";
 
 const STATUS_STYLE: Record<string, string> = {
   pending_acceptance: "bg-amber-100 text-amber-700",
@@ -399,12 +400,7 @@ export default function InterviewManagementView({ showAlert }: Props) {
   }, [refetch, showAlert]);
   useInterviewNotifications(handleNotification);
 
-  if (isLoading) return (
-    <div className="flex flex-col items-center justify-center py-24 gap-3">
-      <Loader2 className="w-7 h-7 text-blue-600 animate-spin" />
-      <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Loading interviews…</span>
-    </div>
-  );
+  if (isLoading) return <LoadingSpinner label="Loading interviews…" />;
 
   const list = interviews || [];
 
@@ -436,10 +432,11 @@ export default function InterviewManagementView({ showAlert }: Props) {
       </AnimatePresence>
 
       {list.length === 0 && (
-        <div className="bg-white border border-slate-100 rounded-2xl p-16 text-center">
-          <Calendar className="w-10 h-10 text-slate-200 mx-auto mb-3" />
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">No interviews assigned</p>
-        </div>
+        <EmptyState
+          icon={<Calendar />}
+          title="No interviews assigned"
+          compact
+        />
       )}
 
       {list.map((iv: any) => {
@@ -454,9 +451,7 @@ export default function InterviewManagementView({ showAlert }: Props) {
 
               {/* top row: avatar + name/position + chevron */}
               <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center font-black text-blue-600 text-[13px] uppercase flex-shrink-0 mt-0.5">
-                  {(candidate?.fullName || "?")[0]}
-                </div>
+                <UserAvatar name={candidate?.fullName || '?'} size="sm" />
                 <div className="flex-1 min-w-0">
                   <p className="text-[14px] font-black text-slate-900 leading-tight truncate">{candidate?.fullName || "Unknown"}</p>
                   <p className="text-[11px] text-slate-400 font-semibold truncate">{job?.title || "Position"}</p>
@@ -466,9 +461,10 @@ export default function InterviewManagementView({ showAlert }: Props) {
 
               {/* bottom row: status badge + date/time */}
               <div className="flex items-center justify-between mt-3 pl-12">
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black ${STATUS_STYLE[iv.status] || "bg-slate-100 text-slate-500"}`}>
-                  {STATUS_LABEL[iv.status] || iv.status}
-                </span>
+                <StatusBadge
+                  label={STATUS_LABEL[iv.status] || iv.status}
+                  tone={iv.status === 'completed' ? 'emerald' : iv.status === 'cancelled' ? 'rose' : iv.status === 'scheduled' ? 'blue' : 'amber'}
+                />
                 <div className="text-right">
                   <p className="text-[12px] font-black text-slate-700">
                     {new Date(iv.interviewAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}

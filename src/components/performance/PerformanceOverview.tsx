@@ -1,336 +1,348 @@
-import React, { useState } from 'react';
-import { TrendingUp, Clock, Target, ArrowUpRight, ChevronDown, Award } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { AlertTriangle, Award, BriefcaseBusiness, CheckCircle2, Clock, Filter, Target, TrendingUp } from 'lucide-react';
+import { getPerformanceOverview, type EmployeeProjectMetrics, type PerformanceOverviewResponse } from '../../api/performance';
+import { EmptyState, SectionCard, StatCard, StatCardGrid } from '@/components/ui/blih';
 
 export default function PerformanceOverview() {
-  const [selectedQuad, setSelectedQuad] = useState('2nd Quad');
+  const [overview, setOverview] = useState<PerformanceOverviewResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [projectFilter, setProjectFilter] = useState({ employee: 'All', department: 'All', project: 'All', period: 'Current period', status: 'All', team: 'All' });
 
-  // Top performers mock data
-  const performers = {
-    marketing: [
-      { rank: 1, name: 'Sarah Johnson', score: '92%' },
-      { rank: 2, name: 'Samantha Lee', score: '90%' },
-      { rank: 3, name: 'John Smith', score: '82%' },
-    ],
-    design: [
-      { rank: 1, name: 'Sarah Johnson', score: '92%' },
-      { rank: 2, name: 'Samantha Lee', score: '90%' },
-      { rank: 3, name: 'John Smith', score: '82%' },
-    ],
-    engineering: [
-      { rank: 1, name: 'Sarah Johnson', score: '92%' },
-      { rank: 2, name: 'Samantha Lee', score: '90%' },
-      { rank: 3, name: 'John Smith', score: '82%' },
-    ]
-  };
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    getPerformanceOverview()
+      .then((data) => {
+        if (!alive) return;
+        setOverview(data || null);
+        setError(null);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setOverview(null);
+        setError('Performance analytics could not be loaded.');
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => { alive = false; };
+  }, []);
 
-  const departments = [
-    { name: 'Engineering', count: 45, score: '4.3' },
-    { name: 'Marketing', count: 28, score: '4.5' },
-    { name: 'Design', count: 18, score: '4.4' },
-    { name: 'Sales', count: 32, score: '4.1' },
-    { name: 'Analytics', count: 15, score: '4.6' },
-    { name: 'HR', count: 12, score: '4.2' },
-  ];
+  const projectRows = overview?.projectDashboard.rows || [];
+  const projectDepartments = useMemo(() => {
+    return Array.from(new Set(projectRows.map((row) => row.employee.department?.name).filter(Boolean) as string[]));
+  }, [projectRows]);
+  const projectEmployees = useMemo(() => projectRows.map((row) => row.employee.name || row.employee.email || 'Employee'), [projectRows]);
+  const projectNames = useMemo(() => {
+    return Array.from(new Set(projectRows.flatMap((row) => row.tasks.map((task) => task.project?.title).filter(Boolean) as string[])));
+  }, [projectRows]);
+  const statuses = useMemo(() => Array.from(new Set(projectRows.flatMap((row) => row.tasks.map((task) => task.status)))), [projectRows]);
+
+  const filteredProjectRows = projectRows.filter((row) => {
+    const employeeName = row.employee.name || row.employee.email || '';
+    const departmentName = row.employee.department?.name || '';
+    const taskStatusMatch = projectFilter.status === 'All' || row.tasks.some((task) => task.status === projectFilter.status);
+    const projectMatch = projectFilter.project === 'All' || row.tasks.some((task) => task.project?.title === projectFilter.project);
+    return (
+      (projectFilter.employee === 'All' || employeeName === projectFilter.employee) &&
+      (projectFilter.department === 'All' || departmentName === projectFilter.department) &&
+      (projectFilter.team === 'All' || departmentName === projectFilter.team) &&
+      taskStatusMatch &&
+      projectMatch
+    );
+  });
+
+  const projectTotals = summarizeProjects(filteredProjectRows);
+  const weightedCompletion = projectTotals.assignedWeight ? Math.round((projectTotals.completedWeight / projectTotals.assignedWeight) * 100) : 0;
+  const distributionTotal = overview ? Object.values(overview.distribution).reduce((sum, value) => sum + value, 0) : 0;
+
+  if (loading) {
+    return <SectionCard><EmptyState icon={<Clock className="w-8 h-8" />} title="Loading performance analytics..." compact /></SectionCard>;
+  }
+
+  if (error) {
+    return <SectionCard><EmptyState icon={<AlertTriangle className="w-8 h-8" />} title={error} compact /></SectionCard>;
+  }
+
+  if (!overview) {
+    return <SectionCard><EmptyState icon={<Target className="w-8 h-8" />} title="No performance analytics available yet." compact /></SectionCard>;
+  }
 
   return (
     <div id="performance-overview-panel" className="space-y-6">
-      {/* Top 3 Banners */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white border border-slate-100/80 rounded-2xl p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-            <TrendingUp className="w-5 h-5 stroke-[2.5]" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Most Improved</span>
-            <p className="text-[15px] font-extrabold text-slate-900 mt-0.5">Engineering Team</p>
-            <span className="text-[11px] font-semibold text-emerald-500 block mt-0.5">+15% this quarter</span>
-          </div>
-        </div>
+      <StatCardGrid cols={3}>
+        <StatCard
+          label="Most Improved"
+          value={overview.summary.mostImprovedDepartment || 'No scored reviews'}
+          icon={<TrendingUp className="w-5 h-5 stroke-[2.5]" />}
+          tone="blue"
+          trend="Based on completed review scores"
+          trendPositive={Boolean(overview.summary.mostImprovedDepartment)}
+        />
+        <StatCard
+          label="Reviews Due"
+          value={`${overview.summary.reviewsDue}`}
+          icon={<Clock className="w-5 h-5 stroke-[2.5]" />}
+          tone={overview.summary.reviewsDue > 0 ? 'rose' : 'blue'}
+          trend={overview.summary.reviewsDue > 0 ? 'pending review action' : 'no pending reviews'}
+          trendPositive={overview.summary.reviewsDue === 0}
+        />
+        <StatCard
+          label="Active OKRs"
+          value={`${overview.summary.activeOkrs}`}
+          icon={<Target className="w-5 h-5 stroke-[2.5]" />}
+          tone="blue"
+          trend={`${overview.summary.onTrackOkrs}% on track`}
+          trendPositive={overview.summary.onTrackOkrs >= 70}
+        />
+      </StatCardGrid>
 
-        <div className="bg-white border border-slate-100/80 rounded-2xl p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-            <Clock className="w-5 h-5 stroke-[2.5]" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Reviews Due</span>
-            <p className="text-[15px] font-extrabold text-slate-900 mt-0.5">12 This Week</p>
-            <span className="text-[11px] font-semibold text-rose-500 block mt-0.5">3 overdue</span>
-          </div>
-        </div>
+      <ProjectEvidenceSection
+        projectRows={projectRows}
+        filteredProjectRows={filteredProjectRows}
+        projectFilter={projectFilter}
+        setProjectFilter={setProjectFilter}
+        projectEmployees={projectEmployees}
+        projectDepartments={projectDepartments}
+        projectNames={projectNames}
+        statuses={statuses}
+        weightedCompletion={weightedCompletion}
+        projectTotals={projectTotals}
+      />
 
-        <div className="bg-white border border-slate-100/80 rounded-2xl p-5 shadow-xs flex items-center gap-4">
-          <div className="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center">
-            <Target className="w-5 h-5 stroke-[2.5]" />
-          </div>
-          <div>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Active OKRs</span>
-            <p className="text-[15px] font-extrabold text-slate-900 mt-0.5">156 Company-wide</p>
-            <span className="text-[11px] font-semibold text-blue-600 block mt-0.5">87% on track</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Top Performing Employees Box */}
-      <div className="bg-white border border-blue-100 rounded-3xl p-6 shadow-xs relative overflow-hidden">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-6 border-b border-slate-100">
-          <div className="flex items-center gap-2">
-            <Award className="w-5 h-5 text-blue-600 stroke-[2]" />
-            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">Top Performing Employees</h3>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-slate-400 font-semibold">Monday, Jan 21, 2025 - Tuesday, Mar 24, 2025</span>
-            <div className="relative">
-              <select
-                value={selectedQuad}
-                onChange={(e) => setSelectedQuad(e.target.value)}
-                className="appearance-none bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl py-1.5 pl-3 pr-8 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none"
-              >
-                <option value="1st Quad">1st Quad</option>
-                <option value="2nd Quad">2nd Quad</option>
-                <option value="3rd Quad">3rd Quad</option>
-                <option value="4th Quad">4th Quad</option>
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </div>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-5">
-          {/* Digital Marketing Team */}
-          <div className="space-y-3.5">
-            <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Digital Marketing Team</h4>
-            <div className="space-y-2">
-              {performers.marketing.map((p) => (
-                <div key={p.rank} className="flex items-center justify-between bg-slate-50/50 p-2.5 px-3.5 rounded-xl border border-slate-100/50">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                      p.rank === 1 ? 'bg-amber-100 text-amber-700' : p.rank === 2 ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-700'
-                    }`}>
-                      {p.rank}
-                    </span>
-                    <span className="text-xs font-bold text-slate-700">{p.name}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50/80 px-2 py-0.5 rounded-md">OKR: {p.score}</span>
+      <SectionCard title="Top Performing Employees" icon={<Award className="w-5 h-5" />} accent="blue">
+        {overview.topEmployees.length === 0 ? (
+          <EmptyState icon={<Award className="w-8 h-8" />} title="No scored performance reviews yet." compact />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-5">
+            {groupTopEmployees(overview.topEmployees).map((group) => (
+              <div key={group.department} className="space-y-3.5">
+                <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">{group.department}</h4>
+                <div className="space-y-2">
+                  {group.employees.map((employee, index) => (
+                    <div key={employee.reviewId} className="flex items-center justify-between bg-slate-50/50 p-2.5 px-3.5 rounded-xl border border-slate-100/50">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black bg-blue-100 text-blue-700">
+                          {index + 1}
+                        </span>
+                        <span className="text-xs font-bold text-slate-700 truncate">{employee.name}</span>
+                      </div>
+                      <span className="text-[10px] font-bold text-blue-600 bg-blue-50/80 px-2 py-0.5 rounded-md">{employee.score.toFixed(1)}/5</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
+        )}
+      </SectionCard>
 
-          {/* Design and Creative Team */}
-          <div className="space-y-3.5">
-            <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Design and Creative Team</h4>
-            <div className="space-y-2">
-              {performers.design.map((p) => (
-                <div key={p.rank} className="flex items-center justify-between bg-slate-50/50 p-2.5 px-3.5 rounded-xl border border-slate-100/50">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                      p.rank === 1 ? 'bg-amber-100 text-amber-700' : p.rank === 2 ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-700'
-                    }`}>
-                      {p.rank}
-                    </span>
-                    <span className="text-xs font-bold text-slate-700">{p.name}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50/80 px-2 py-0.5 rounded-md">OKR: {p.score}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Engineering Team */}
-          <div className="space-y-3.5">
-            <h4 className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider">Engineering Team</h4>
-            <div className="space-y-2">
-              {performers.engineering.map((p) => (
-                <div key={p.rank} className="flex items-center justify-between bg-slate-50/50 p-2.5 px-3.5 rounded-xl border border-slate-100/50">
-                  <div className="flex items-center gap-2.5">
-                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${
-                      p.rank === 1 ? 'bg-amber-100 text-amber-700' : p.rank === 2 ? 'bg-slate-200 text-slate-700' : 'bg-orange-100 text-orange-700'
-                    }`}>
-                      {p.rank}
-                    </span>
-                    <span className="text-xs font-bold text-slate-700">{p.name}</span>
-                  </div>
-                  <span className="text-[10px] font-bold text-blue-600 bg-blue-50/80 px-2 py-0.5 rounded-md">OKR: {p.score}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Trends & Distribution charts */}
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-        {/* Performance & Work Hours Trend */}
-        <div className="lg:col-span-3 bg-white border border-slate-100 rounded-3xl p-5 shadow-xs space-y-4">
-          <div className="flex justify-between items-center px-1">
-            <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight">Performance & Work Hours Trend</h4>
-            <span className="text-[10px] font-bold text-slate-400">Scale 1-5 Rating</span>
-          </div>
+        <SectionCard title="Performance Trend" className="lg:col-span-3">
+          {overview.trend.length === 0 ? (
+            <EmptyState icon={<TrendingUp className="w-8 h-8" />} title="No review trend data yet." compact />
+          ) : (
+            <TrendChart points={overview.trend} />
+          )}
+        </SectionCard>
 
-          <div className="relative h-44 w-full pt-2">
-            {/* Custom high fidelity SVG line chart */}
-            <svg viewBox="0 0 500 150" className="w-full h-full overflow-visible">
-              {/* Dotted helper lines */}
-              <line x1="30" y1="20" x2="470" y2="20" stroke="#f1f5f9" strokeDasharray="3 3" />
-              <line x1="30" y1="60" x2="470" y2="60" stroke="#e2e8f0" strokeDasharray="3 3" />
-              <line x1="30" y1="100" x2="470" y2="100" stroke="#f1f5f9" strokeDasharray="3 3" />
-              <line x1="30" y1="130" x2="470" y2="130" stroke="#f1f5f9" />
-
-              {/* Grid vertical dots */}
-              <line x1="40" y1="20" x2="40" y2="130" stroke="#f1f5f9" strokeDasharray="2 2" strokeWidth="1" />
-              <line x1="110" y1="20" x2="110" y2="130" stroke="#f1f5f9" strokeDasharray="2 2" strokeWidth="1" />
-              <line x1="180" y1="20" x2="180" y2="130" stroke="#e2e8f0" strokeDasharray="2 2" strokeWidth="1" />
-              <line x1="250" y1="20" x2="250" y2="130" stroke="#f1f5f9" strokeDasharray="2 2" strokeWidth="1" />
-              <line x1="320" y1="20" x2="320" y2="130" stroke="#f1f5f9" strokeDasharray="2 2" strokeWidth="1" />
-              <line x1="390" y1="20" x2="390" y2="130" stroke="#f1f5f9" strokeDasharray="2 2" strokeWidth="1" />
-              <line x1="460" y1="20" x2="460" y2="130" stroke="#f1f5f9" strokeDasharray="2 2" strokeWidth="1" />
-
-              {/* Main rating line */}
-              <path
-                d="M 40 65 Q 75 58 110 50 T 180 40 T 250 80 T 320 50 T 390 55 T 460 35"
-                fill="none"
-                stroke="#2563eb"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-
-              {/* Glowing Dots */}
-              <circle cx="40" cy="65" r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2" className="drop-shadow-sm" />
-              <circle cx="110" cy="50" r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="180" cy="40" r="6" fill="#1d4ed8" stroke="#ffffff" strokeWidth="2" className="drop-shadow-md" />
-              <circle cx="250" cy="80" r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="320" cy="50" r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="390" cy="55" r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="460" cy="35" r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
-
-              {/* Point ratings */}
-              <text x="40" y="52" fill="#1e293b" fontSize="8" fontWeight="bold" textAnchor="middle">4.1</text>
-              <text x="110" y="38" fill="#1e293b" fontSize="8" fontWeight="bold" textAnchor="middle">4.2</text>
-              <text x="180" y="28" fill="#2563eb" fontSize="9" fontWeight="extrabold" textAnchor="middle">4.4</text>
-              <text x="250" y="93" fill="#1e293b" fontSize="8" fontWeight="bold" textAnchor="middle">3.9</text>
-              <text x="320" y="38" fill="#1e293b" fontSize="8" fontWeight="bold" textAnchor="middle">4.3</text>
-              <text x="390" y="43" fill="#1e293b" fontSize="8" fontWeight="bold" textAnchor="middle">4.2</text>
-              <text x="460" y="24" fill="#1e293b" fontSize="8" fontWeight="bold" textAnchor="middle">4.5</text>
-
-              {/* Bottom Labels */}
-              <text x="40" y="145" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">Jan</text>
-              <text x="110" y="145" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">Feb</text>
-              <text x="180" y="145" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">Mar</text>
-              <text x="250" y="145" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">Apr</text>
-              <text x="320" y="145" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">May</text>
-              <text x="390" y="145" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">Jun</text>
-              <text x="460" y="145" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">Jul</text>
-            </svg>
-          </div>
-        </div>
-
-        {/* Performance Distribution Donut */}
-        <div className="lg:col-span-2 bg-white border border-slate-100 rounded-3xl p-5 shadow-xs flex flex-col justify-between">
-          <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight px-1 block mb-3">Performance Distribution</h4>
-
-          <div className="flex items-center gap-4 justify-center py-2">
-            {/* Beautiful SVG Donut chart representation */}
-            <div className="relative w-28 h-28 flex-shrink-0">
-              <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                {/* Background base circle */}
-                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#f1f5f9" strokeWidth="4" />
-                {/* Meets Segment: 52% (start 0, length 52) */}
-                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#60a5fa" strokeWidth="4" strokeDasharray="52 48" strokeDashoffset="0" />
-                {/* Exceeds Segment: 35% (start 52, length 35) */}
-                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#2563eb" strokeWidth="4.5" strokeDasharray="35 65" strokeDashoffset="-52" />
-                {/* Below Segment: 10% (start 87, length 10) */}
-                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#93c5fd" strokeWidth="4" strokeDasharray="10 90" strokeDashoffset="-87" />
-                {/* Needs Improvement Segment: 3% (start 97, length 3) */}
-                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#dbeafe" strokeWidth="4" strokeDasharray="3 97" strokeDashoffset="-97" />
-              </svg>
-              {/* Abs labels overlay */}
-              <span className="absolute top-[28px] right-3 text-[9px] font-black text-blue-800 bg-white shadow-xs p-0.5 px-1 rounded-sm">35%</span>
-              <span className="absolute bottom-[28px] left-3 text-[9px] font-black text-slate-800 bg-white shadow-xs p-0.5 px-1 rounded-sm">52%</span>
-              <span className="absolute bottom-1 right-5 text-[9px] font-black text-slate-800 bg-white shadow-xs p-0.5 px-1 rounded-sm">10%</span>
-              <span className="absolute top-5 right-6 text-[9px] font-black text-slate-800 bg-white shadow-xs p-0.5 px-1 rounded-sm">3%</span>
-            </div>
-
-            {/* Custom Label Legends */}
-            <div className="space-y-1.5 text-[11px] font-semibold min-w-0">
-              <div className="flex items-center gap-1.5 truncate">
-                <span className="w-2.5 h-2.5 bg-blue-600 rounded-full flex-shrink-0" />
-                <span className="text-slate-500 truncate">Exceeds (4.5-5.0)</span>
-                <span className="text-slate-800 font-extrabold ml-auto">35%</span>
-              </div>
-              <div className="flex items-center gap-1.5 truncate">
-                <span className="w-2.5 h-2.5 bg-blue-400 rounded-full flex-shrink-0" />
-                <span className="text-slate-500 truncate">Meets (3.5-4.4)</span>
-                <span className="text-slate-800 font-extrabold ml-auto">52%</span>
-              </div>
-              <div className="flex items-center gap-1.5 truncate">
-                <span className="w-2.5 h-2.5 bg-blue-300 rounded-full flex-shrink-0" />
-                <span className="text-slate-500 truncate">Below (2.5-3.4)</span>
-                <span className="text-slate-800 font-extrabold ml-auto">10%</span>
-              </div>
-              <div className="flex items-center gap-1.5 truncate">
-                <span className="w-2.5 h-2.5 bg-blue-100 rounded-full flex-shrink-0" />
-                <span className="text-slate-500 truncate">Needs Imp. (&lt;2.5)</span>
-                <span className="text-slate-800 font-extrabold ml-auto">3%</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        <SectionCard title="Performance Distribution" className="lg:col-span-2">
+          {distributionTotal === 0 ? (
+            <EmptyState icon={<Target className="w-8 h-8" />} title="No scored reviews to distribute yet." compact />
+          ) : (
+            <Distribution data={overview.distribution} total={distributionTotal} />
+          )}
+        </SectionCard>
       </div>
 
-      {/* Department Performance Overview Bar Chart Row */}
-      <div className="bg-white border border-slate-100 rounded-3xl p-6 shadow-xs space-y-6">
-        <h4 className="text-xs font-black text-slate-900 uppercase tracking-tight block">Department Performance Overview</h4>
-
-        {/* Crisp Custom Bar Plot layout */}
-        <div className="relative pt-4 pb-2 border-b border-slate-100/60">
-          <div className="grid grid-cols-6 items-end gap-5 sm:gap-8 h-40 max-w-4xl mx-auto px-4">
-            {departments.map((dept) => {
-              // Map score from 0-5 into percentage Height
-              const rawVal = parseFloat(dept.score);
-              const percentage = Math.round((rawVal / 5) * 100);
-
-              return (
-                <div key={dept.name} className="flex flex-col items-center group relative h-full justify-end">
-                  {/* Floating value trigger on hover */}
-                  <span className="opacity-0 group-hover:opacity-100 absolute -top-5 transition-opacity bg-slate-950 text-white text-[9px] font-black px-2 py-0.5 rounded-md pointer-events-none z-10">
-                    {dept.score}
-                  </span>
-
-                  {/* Rating indicator */}
-                  <span className="text-[10px] font-semibold text-slate-400 mb-1">{dept.score}</span>
-
-                  {/* Core solid bar */}
-                  <div
-                    style={{ height: `${percentage}%` }}
-                    className="w-full bg-blue-600 hover:bg-blue-700 rounded-lg transition-all shadow-xs group-hover:scale-105 duration-200 relative overflow-hidden"
-                  >
-                    {/* Gloss glass element */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-white/0 to-white/10" />
+      <SectionCard title="Department Performance Overview">
+        {overview.departments.length === 0 ? (
+          <EmptyState icon={<BriefcaseBusiness className="w-8 h-8" />} title="No departments found." compact />
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
+              {overview.departments.map((dept) => (
+                <div key={dept.id || dept.name} className="bg-slate-50/60 border border-slate-100 p-3.5 rounded-2xl flex flex-col justify-between hover:bg-slate-50 transition-colors">
+                  <div>
+                    <span className="text-xs font-bold text-slate-800 block">{dept.name}</span>
+                    <span className="text-[10px] text-slate-400 font-medium">{dept.employeeCount} employees</span>
                   </div>
-
-                  {/* Horizontal dash baseline base indicator */}
-                  <span className="text-[9px] font-extrabold text-slate-400 mt-2 tracking-tight truncate w-full text-center">
-                    {dept.name}
+                  <span className="text-sm font-black text-blue-600 block mt-2 text-right">
+                    {dept.averageScore === null ? 'No score' : `${dept.averageScore}/5.0`}
                   </span>
                 </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Bottom stats cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
-          {departments.map((dept) => (
-            <div key={dept.name} className="bg-slate-50/60 border border-slate-100 p-3.5 rounded-2xl flex flex-col justify-between hover:bg-slate-50 transition-colors">
-              <div>
-                <span className="text-xs font-bold text-slate-800 block">{dept.name}</span>
-                <span className="text-[10px] text-slate-400 font-medium">{dept.count} employees</span>
-              </div>
-              <span className="text-sm font-black text-blue-600 block mt-2 text-right">{dept.score}/5.0</span>
+              ))}
             </div>
-          ))}
-        </div>
+          </>
+        )}
+      </SectionCard>
+    </div>
+  );
+}
+
+function ProjectEvidenceSection(props: {
+  projectRows: EmployeeProjectMetrics[];
+  filteredProjectRows: EmployeeProjectMetrics[];
+  projectFilter: Record<string, string>;
+  setProjectFilter: React.Dispatch<React.SetStateAction<any>>;
+  projectEmployees: string[];
+  projectDepartments: string[];
+  projectNames: string[];
+  statuses: string[];
+  weightedCompletion: number;
+  projectTotals: ReturnType<typeof summarizeProjects>;
+}) {
+  return (
+    <SectionCard
+      title="Project Delivery Evidence"
+      icon={<BriefcaseBusiness className="w-5 h-5" />}
+      accent="blue"
+      action={<div className="flex items-center gap-2 text-[10px] font-bold text-slate-400"><Filter className="w-3.5 h-3.5" /><span>Supporting evidence only</span></div>}
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-2.5 pb-4">
+        {[
+          { value: props.projectFilter.employee, key: 'employee', options: ['All', ...props.projectEmployees] },
+          { value: props.projectFilter.department, key: 'department', options: ['All', ...props.projectDepartments] },
+          { value: props.projectFilter.project, key: 'project', options: ['All', ...props.projectNames] },
+          { value: props.projectFilter.period, key: 'period', options: ['Current period'] },
+          { value: props.projectFilter.status, key: 'status', options: ['All', ...props.statuses] },
+          { value: props.projectFilter.team, key: 'team', options: ['All', ...props.projectDepartments] },
+        ].map((filter) => (
+          <select
+            key={filter.key}
+            value={filter.value}
+            onChange={(e) => props.setProjectFilter((prev: any) => ({ ...prev, [filter.key]: e.target.value }))}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-bold text-slate-700 cursor-pointer focus:outline-none focus:border-blue-400"
+          >
+            {filter.options.map((option) => <option key={option} value={option}>{option}</option>)}
+          </select>
+        ))}
       </div>
+
+      {props.projectRows.length === 0 ? (
+        <EmptyState icon={<BriefcaseBusiness className="w-8 h-8" />} title="No project task evidence found for this period." compact />
+      ) : (
+        <>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <ProjectMetric label="Weighted complete" value={`${props.weightedCompletion}%`} icon={<CheckCircle2 className="w-4 h-4" />} />
+            <ProjectMetric label="Overdue tasks" value={props.projectTotals.overdueTasks} icon={<Clock className="w-4 h-4" />} tone="rose" />
+            <ProjectMetric label="Blocked / reopened" value={`${props.projectTotals.blockedTasks}/${props.projectTotals.reopenedTasks}`} icon={<AlertTriangle className="w-4 h-4" />} tone="amber" />
+            <ProjectMetric label="Approved work" value={props.projectTotals.approvedTasks} icon={<Award className="w-4 h-4" />} />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+            {props.filteredProjectRows.slice(0, 3).map((row) => (
+              <div key={row.employee.id} className="bg-slate-50/60 border border-slate-100 rounded-xl p-3.5">
+                <div className="flex justify-between items-start gap-3">
+                  <div>
+                    <span className="block text-xs font-black text-slate-900">{row.employee.name || row.employee.email}</span>
+                    <span className="block text-[10px] font-bold text-slate-400">{row.employee.department?.name || 'Unassigned'}</span>
+                  </div>
+                  <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-1 rounded-lg">{row.summary.weightedCompletionRate}%</span>
+                </div>
+                <div className="grid grid-cols-4 gap-2 mt-3 text-center">
+                  <MiniMetric label="Done" value={row.summary.completedTasks} />
+                  <MiniMetric label="Late" value={row.summary.overdueTasks} />
+                  <MiniMetric label="Block" value={row.summary.blockedTasks} />
+                  <MiniMetric label="Reopen" value={row.summary.reopenedTasks} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </SectionCard>
+  );
+}
+
+function summarizeProjects(rows: EmployeeProjectMetrics[]) {
+  return rows.reduce((acc, row) => {
+    acc.assignedWeight += row.summary.assignedWeight;
+    acc.completedWeight += row.summary.completedWeight;
+    acc.overdueTasks += row.summary.overdueTasks;
+    acc.blockedTasks += row.summary.blockedTasks;
+    acc.reopenedTasks += row.summary.reopenedTasks;
+    acc.approvedTasks += row.summary.approvedTasks;
+    return acc;
+  }, { assignedWeight: 0, completedWeight: 0, overdueTasks: 0, blockedTasks: 0, reopenedTasks: 0, approvedTasks: 0 });
+}
+
+function groupTopEmployees(employees: PerformanceOverviewResponse['topEmployees']) {
+  const groups = new Map<string, PerformanceOverviewResponse['topEmployees']>();
+  for (const employee of employees) {
+    const existing = groups.get(employee.department) || [];
+    if (existing.length < 3) existing.push(employee);
+    groups.set(employee.department, existing);
+  }
+  return Array.from(groups.entries()).slice(0, 3).map(([department, groupEmployees]) => ({ department, employees: groupEmployees }));
+}
+
+function TrendChart({ points }: { points: Array<{ month: string; score: number }> }) {
+  const width = 500;
+  const height = 150;
+  const chartPoints = points.map((point, index) => {
+    const x = 40 + (index * (420 / Math.max(points.length - 1, 1)));
+    const y = 130 - ((point.score / 5) * 110);
+    return { ...point, x, y };
+  });
+  const path = chartPoints.map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`).join(' ');
+  return (
+    <div className="relative h-44 w-full pt-2">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+        <line x1="30" y1="130" x2="470" y2="130" stroke="#f1f5f9" />
+        <line x1="30" y1="75" x2="470" y2="75" stroke="#e2e8f0" strokeDasharray="3 3" />
+        <line x1="30" y1="20" x2="470" y2="20" stroke="#f1f5f9" strokeDasharray="3 3" />
+        <path d={path} fill="none" stroke="#2563eb" strokeWidth="3" strokeLinecap="round" />
+        {chartPoints.map((point) => (
+          <g key={`${point.month}-${point.x}`}>
+            <circle cx={point.x} cy={point.y} r="5" fill="#2563eb" stroke="#ffffff" strokeWidth="2" />
+            <text x={point.x} y={point.y - 12} fill="#1e293b" fontSize="8" fontWeight="bold" textAnchor="middle">{point.score}</text>
+            <text x={point.x} y="145" fill="#94a3b8" fontSize="9" fontWeight="bold" textAnchor="middle">{point.month}</text>
+          </g>
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function Distribution({ data, total }: { data: PerformanceOverviewResponse['distribution']; total: number }) {
+  const rows = [
+    { label: 'Exceeds (4.5-5.0)', value: data.exceeds, color: 'bg-blue-600' },
+    { label: 'Meets (3.5-4.4)', value: data.meets, color: 'bg-blue-400' },
+    { label: 'Below (2.5-3.4)', value: data.below, color: 'bg-blue-300' },
+    { label: 'Needs Imp. (<2.5)', value: data.needsImprovement, color: 'bg-blue-100' },
+  ];
+  return (
+    <div className="space-y-2 text-[11px] font-semibold py-4">
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center gap-2">
+          <span className={`w-2.5 h-2.5 ${row.color} rounded-full flex-shrink-0`} />
+          <span className="text-slate-500 flex-1">{row.label}</span>
+          <span className="text-slate-800 font-extrabold">{Math.round((row.value / total) * 100)}%</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProjectMetric({ label, value, icon, tone = 'blue' }: { label: string; value: string | number; icon: React.ReactNode; tone?: 'blue' | 'rose' | 'amber' }) {
+  const toneClass = tone === 'rose' ? 'text-rose-600 bg-rose-50' : tone === 'amber' ? 'text-amber-700 bg-amber-50' : 'text-blue-600 bg-blue-50';
+  return (
+    <div className="border border-slate-100 rounded-xl p-3 bg-white flex items-center justify-between">
+      <div>
+        <span className="block text-[10px] font-black uppercase text-slate-400">{label}</span>
+        <span className="block text-lg font-black text-slate-950 mt-1">{value}</span>
+      </div>
+      <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${toneClass}`}>{icon}</span>
+    </div>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="bg-white border border-slate-100 rounded-lg py-2">
+      <span className="block text-xs font-black text-slate-900">{value}</span>
+      <span className="block text-[9px] font-bold text-slate-400 uppercase">{label}</span>
     </div>
   );
 }

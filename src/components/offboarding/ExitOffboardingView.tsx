@@ -10,6 +10,7 @@ import {
 } from 'recharts';
 import OffboardingSubmitTab from './tabs/OffboardingSubmitTab';
 import ResignationsTab from './tabs/ResignationsTab';
+import { StatCard, StatCardGrid } from '@/components/ui/blih';
 
 interface ExitOffboardingViewProps {
   currentTab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding';
@@ -153,25 +154,12 @@ export default function ExitOffboardingView({
       {/* ── 1. OVERVIEW ─────────────────────────────────────────────────────── */}
       {currentTab === 'overview' && (
         <div className="space-y-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            {[
-              { label: 'Active Resignations', value: '8',  badge: '+2 this month', badgeColor: 'bg-blue-50 text-blue-600',    icon: <Mail className="w-5 h-5" />,        iconBg: 'bg-blue-50 text-blue-600' },
-              { label: 'Pending Interviews',  value: '5',  badge: '2 scheduled',   badgeColor: 'bg-amber-50 text-amber-600',  icon: <Calendar className="w-5 h-5" />,    iconBg: 'bg-amber-50 text-amber-600' },
-              { label: 'Clearance Pending',   value: '12', badge: '4 urgent',      badgeColor: 'bg-red-50 text-red-600',      icon: <AlertCircle className="w-5 h-5" />, iconBg: 'bg-red-50 text-red-600' },
-              { label: 'Completed This Month',value: '6',  badge: '2 pending',     badgeColor: 'bg-emerald-50 text-emerald-600', icon: <CheckCircle className="w-5 h-5" />, iconBg: 'bg-emerald-50 text-emerald-600' },
-            ].map(s => (
-              <div key={s.label} className="bg-white p-5 rounded-2xl border border-slate-100 flex items-center justify-between shadow-sm">
-                <div className="space-y-1">
-                  <span className="text-xs font-semibold text-slate-400 block uppercase tracking-wider">{s.label}</span>
-                  <span className="text-3xl font-bold text-slate-800">{s.value}</span>
-                </div>
-                <div className="flex flex-col items-end justify-between h-full py-1">
-                  <span className={`font-bold text-[10px] px-2 py-0.5 rounded-full ${s.badgeColor}`}>{s.badge}</span>
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${s.iconBg}`}>{s.icon}</div>
-                </div>
-              </div>
-            ))}
-          </div>
+          <StatCardGrid cols={4}>
+            <StatCard label="Active Resignations"  value="8"  icon={<Mail className="w-5 h-5" />}        tone="blue"    trend="+2 this month"  trendPositive={false} />
+            <StatCard label="Pending Interviews"   value="5"  icon={<Calendar className="w-5 h-5" />}    tone="amber"   trend="2 scheduled"    trendPositive={true} />
+            <StatCard label="Clearance Pending"    value="12" icon={<AlertCircle className="w-5 h-5" />} tone="rose"    trend="4 urgent"       trendPositive={false} />
+            <StatCard label="Completed This Month" value="6"  icon={<CheckCircle className="w-5 h-5" />} tone="emerald" trend="2 pending"       trendPositive={false} />
+          </StatCardGrid>
 
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-slate-700 tracking-tight uppercase">Active Resignation Notifications</h3>

@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import {
-  UserPlus, CheckCircle, Clock, TrendingUp, Plus, RefreshCw, ExternalLink, Sparkles, Loader2,
+  UserPlus, CheckCircle, TrendingUp, Plus, RefreshCw, ExternalLink, Sparkles, Loader2,
 } from 'lucide-react';
 import { useOnboardings } from '../../../hooks/useCandidateOnboarding';
+import { StatCard, StatCardGrid, StatusBadge } from '@/components/ui/blih';
 
 const STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
   PENDING_CANDIDATE_COMPLETION: { label: 'Pending',    color: 'text-amber-600',  bg: 'bg-amber-50 border-amber-200' },
@@ -53,21 +54,11 @@ export default function OnboardingProgressTab({
   return (
     <div id="tab-progress-pane" className="space-y-6 animate-fade-in font-sans pb-12">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {[
-          { label: 'Active Onboarding', value: isLoading ? '—' : activeCount, icon: <UserPlus className="w-5 h-5" />, color: 'bg-blue-50 text-blue-600' },
-          { label: 'Submitted / Completed', value: isLoading ? '—' : completedCount, icon: <CheckCircle className="w-5 h-5" />, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Avg. Completion', value: isLoading ? '—' : `${avgProgress}%`, icon: <TrendingUp className="w-5 h-5" />, color: 'bg-violet-50 text-violet-600' },
-        ].map(({ label, value, icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-center">
-            <div>
-              <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">{label}</p>
-              <h3 className="text-3xl font-black text-slate-900 mt-2">{value}</h3>
-            </div>
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${color}`}>{icon}</div>
-          </div>
-        ))}
-      </div>
+      <StatCardGrid cols={3}>
+        <StatCard label="Active Onboarding"      value={isLoading ? '—' : activeCount}    icon={<UserPlus className="w-5 h-5" />}    tone="blue" />
+        <StatCard label="Submitted / Completed"  value={isLoading ? '—' : completedCount} icon={<CheckCircle className="w-5 h-5" />} tone="emerald" />
+        <StatCard label="Avg. Completion"        value={isLoading ? '—' : `${avgProgress}%`} icon={<TrendingUp className="w-5 h-5" />} tone="violet" />
+      </StatCardGrid>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100">

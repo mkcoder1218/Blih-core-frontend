@@ -1,23 +1,8 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOrganogram, useEmployees, useDeleteEmployee } from '../../hooks/useHrRecords';
 import {
-  Users,
-  CheckSquare,
-  Calendar,
-  Clock,
-  TrendingUp,
-  Plus,
-  Search,
-  Sparkles,
-  Trash2,
-  Copy,
-  ChevronRight,
+  Users, CheckSquare, Calendar, Clock, TrendingUp, Plus, Search, Sparkles, Trash2, Copy, ChevronRight,
   ChevronLeft,
   Download,
   Award,
@@ -36,6 +21,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
 import CreateEmployeeModal from './CreateEmployeeModal';
 import BulkEmployeeImportPage from '../../pages/BulkEmployeeImportPage';
+import { StatCard, StatCardGrid, UserAvatar } from '@/components/ui/blih';
 
 interface OrgNode {
   id: string;
@@ -559,37 +545,11 @@ export default function PeopleProfilesView({
             </div>
 
             {/* Bottom Row Checklist Trackers */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-2xl border border-slate-100 p-5 flex justify-between items-center shadow-xs">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Checklists</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">3</span>
-                </div>
-                <div className="w-10 h-10 bg-blue-50/70 rounded-xl flex items-center justify-center text-blue-600">
-                  <CheckSquare className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-slate-100 p-5 flex justify-between items-center shadow-xs">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Total Items</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">37</span>
-                </div>
-                <div className="w-10 h-10 bg-blue-50/70 rounded-xl flex items-center justify-center text-blue-600">
-                  <CheckSquare className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-slate-100 p-5 flex justify-between items-center shadow-xs">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Times Used</span>
-                  <span className="text-2xl font-black text-slate-900 mt-1 block">28</span>
-                </div>
-                <div className="w-10 h-10 bg-blue-50/70 rounded-xl flex items-center justify-center text-blue-600">
-                  <Calendar className="w-5 h-5" />
-                </div>
-              </div>
-            </div>
+            <StatCardGrid cols={3}>
+              <StatCard label="Total Checklists" value={3}  icon={<CheckSquare className="w-5 h-5" />} tone="blue" />
+              <StatCard label="Total Items"      value={37} icon={<CheckSquare className="w-5 h-5" />} tone="blue" />
+              <StatCard label="Times Used"       value={28} icon={<Calendar className="w-5 h-5" />}    tone="emerald" />
+            </StatCardGrid>
           </motion.div>
         )}
 

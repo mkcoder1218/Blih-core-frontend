@@ -11,6 +11,9 @@ import OfferLetterCreateModal from "../offer-letters/OfferLetterCreateModal";
 import OfferLetterPreviewModal from "../offer-letters/OfferLetterPreviewModal";
 import CreateEmployeeModal from "../people/CreateEmployeeModal";
 import OnboardingInitializerModal from "../onboarding/OnboardingInitializerModal";
+import {
+  StatCard, StatCardGrid, TabSwitcher, StatusBadge, LoadingSpinner, EmptyState,
+} from "@/components/ui/blih";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type OfferStatus = "DRAFT" | "SENT" | "ACCEPTED" | "REJECTED";
@@ -41,14 +44,6 @@ interface OfferLetter {
   workLocation?: string;
   reportingManager?: string;
 }
-
-// ─── Status badge ─────────────────────────────────────────────────────────────
-const STATUS_BADGE: Record<OfferStatus, string> = {
-  DRAFT:    "bg-amber-100 text-amber-700",
-  SENT:     "bg-blue-100 text-blue-700",
-  ACCEPTED: "bg-emerald-100 text-emerald-700",
-  REJECTED: "bg-rose-100 text-rose-700",
-};
 
 // ─── Toast ────────────────────────────────────────────────────────────────────
 function Toast({ msg, type, onDone }: { msg: string; type: "success" | "error" | "info"; onDone: () => void }) {
@@ -100,7 +95,6 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
     setLoading(true);
     try {
       const res = await getOfferLetters({ limit: 100 });
-      // API returns paginated: { rows, count } or flat array
       const raw = res.data?.data;
       const rows: OfferLetter[] = Array.isArray(raw) ? raw : (raw?.rows ?? []);
       setOffers(rows);
@@ -126,19 +120,16 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
     return true;
   });
 
-  // ── Open preview for an existing sent/accepted offer ──
   const handleViewOffer = (offer: OfferLetter) => {
     setSelectedOffer(offer);
     setPreviewOpen(true);
   };
 
-  // ── Open create modal pre-filled for a draft ──
   const handleSignOffer = (offer: OfferLetter) => {
     setSelectedOffer(offer);
     setCreateOfferOpen(true);
   };
 
-  // ── Open create modal pre-filled for editing any offer ──
   const handleEditOffer = (offer: OfferLetter) => {
     setSelectedOffer(offer);
     setCreateOfferOpen(true);
@@ -152,11 +143,11 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
       </AnimatePresence>
 
       {/* ── Stats row ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <StatCard label="Pending Offers"  count={pendingCount}  icon={<Clock className="w-5 h-5" />}        iconBg="bg-amber-50 border-amber-100 text-amber-500" />
-        <StatCard label="Accepted Offers" count={acceptedCount} icon={<CheckCircle2 className="w-5 h-5" />} iconBg="bg-blue-50 border-blue-100 text-blue-500" />
-        <StatCard label="Rejected Offers" count={rejectedCount} icon={<Briefcase className="w-5 h-5" />}    iconBg="bg-rose-50 border-rose-100 text-rose-500" />
-      </div>
+      <StatCardGrid cols={3}>
+        <StatCard label="Pending Offers"  value={pendingCount}  icon={<Clock className="w-5 h-5" />}        tone="amber" />
+        <StatCard label="Accepted Offers" value={acceptedCount} icon={<CheckCircle2 className="w-5 h-5" />} tone="blue" />
+        <StatCard label="Rejected Offers" value={rejectedCount} icon={<Briefcase className="w-5 h-5" />}    tone="rose" />
+      </StatCardGrid>
 
       {/* ── Header ── */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-white p-5 rounded-2xl border border-slate-100 shadow-sm gap-4">
@@ -177,22 +168,15 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
       </div>
 
       {/* ── Tab bar ── */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-1 flex shadow-sm">
-        {([
-          { label: "Offers",   val: "Offers"   as TabKey, count: pendingCount  },
-          { label: "Accepted", val: "Accepted" as TabKey, count: acceptedCount },
-          { label: `Rejected${rejectedCount > 0 ? ` (${rejectedCount})` : ""}`, val: "Rejected" as TabKey, count: rejectedCount },
-        ] as { label: string; val: TabKey; count: number }[]).map(item => (
-          <button key={item.val} onClick={() => setActiveTab(item.val)}
-            className={`flex-1 py-3 text-xs font-black rounded-xl transition-all text-center ${
-              activeTab === item.val
-                ? "bg-slate-100/80 text-slate-950 shadow-sm"
-                : "text-slate-400 hover:text-slate-700"
-            }`}>
-            {item.label}
-          </button>
-        ))}
-      </div>
+      <TabSwitcher
+        tabs={[
+          { id: "Offers",   label: "Offers",   badge: pendingCount  },
+          { id: "Accepted", label: "Accepted", badge: acceptedCount },
+          { id: "Rejected", label: "Rejected", badge: rejectedCount },
+        ]}
+        active={activeTab}
+        onChange={(id) => setActiveTab(id as TabKey)}
+      />
 
       {/* ── Table card ── */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
@@ -207,10 +191,7 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
         </div>
 
         {loading ? (
-          <div className="flex items-center justify-center py-16 gap-2 text-slate-400">
-            <Loader2 className="w-5 h-5 animate-spin" />
-            <span className="text-xs font-bold">Loading offers…</span>
-          </div>
+          <LoadingSpinner label="Loading offers…" />
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
@@ -238,8 +219,11 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
                 ))}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="text-center py-14 text-slate-400 font-bold text-xs">
-                      No {activeTab.toLowerCase()} offers found.
+                    <td colSpan={7}>
+                      <EmptyState
+                        title={`No ${activeTab.toLowerCase()} offers found.`}
+                        compact
+                      />
                     </td>
                   </tr>
                 )}
@@ -249,7 +233,7 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
         )}
       </div>
 
-      {/* ── Add Candidate modal (CreateEmployeeModal from /profiles/create) ── */}
+      {/* ── Add Candidate modal ── */}
       <CreateEmployeeModal
         isOpen={addCandidateOpen}
         onClose={() => setAddCandidateOpen(false)}
@@ -331,21 +315,6 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
   );
 }
 
-// ─── Stat card ────────────────────────────────────────────────────────────────
-function StatCard({ label, count, icon, iconBg }: { label: string; count: number; icon: React.ReactNode; iconBg: string }) {
-  return (
-    <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-sm flex items-center justify-between">
-      <div className="space-y-1.5">
-        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{label}</span>
-        <h3 className="text-3xl font-black text-slate-900 tracking-tight">{count}</h3>
-      </div>
-      <div className={`w-11 h-11 rounded-full border flex items-center justify-center ${iconBg}`}>
-        {icon}
-      </div>
-    </div>
-  );
-}
-
 // ─── Table row ────────────────────────────────────────────────────────────────
 function OfferRow({ offer, onSign, onView, onEdit, onOnboarding }: {
   offer: OfferLetter;
@@ -379,9 +348,10 @@ function OfferRow({ offer, onSign, onView, onEdit, onOnboarding }: {
 
       {/* Status badge */}
       <td className="py-3.5 px-5">
-        <span className={`inline-block text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-md ${STATUS_BADGE[offer.status]}`}>
-          {offer.status === "DRAFT" ? "pending" : offer.status.toLowerCase()}
-        </span>
+        <StatusBadge
+          label={offer.status === "DRAFT" ? "Pending" : offer.status.charAt(0) + offer.status.slice(1).toLowerCase()}
+          tone={offer.status === "DRAFT" ? "amber" : offer.status === "SENT" ? "blue" : offer.status === "ACCEPTED" ? "emerald" : "rose"}
+        />
       </td>
 
       {/* Onboarding */}

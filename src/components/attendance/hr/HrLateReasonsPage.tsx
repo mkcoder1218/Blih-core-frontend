@@ -1,5 +1,7 @@
 import React from "react";
 import { useCreateHrLateReason, useDeactivateHrLateReason, useHrLateReasons, useUpdateHrLateReason } from "../../../hooks/useHrLateReasons";
+import { PageHeader, SectionCard, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
+import { Button } from "@/components/ui/button";
 
 export default function HrLateReasonsPage() {
   const q = useHrLateReasons();
@@ -16,66 +18,51 @@ export default function HrLateReasonsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 sm:p-6">
-        <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">HR Attendance</div>
-        <div className="text-[18px] font-black text-slate-900 tracking-tight mt-1">Late reasons</div>
-        <div className="text-[12px] text-slate-600 font-semibold mt-1">Manage reusable categories employees select when checking in late.</div>
-      </div>
+      <PageHeader
+        eyebrow="HR Attendance"
+        title="Late Reasons"
+        description="Manage reusable categories employees select when checking in late."
+      />
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4 space-y-3">
-        <div className="text-[12px] font-extrabold text-slate-900">Create reason</div>
-        {formError ? <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">{formError}</div> : null}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <input value={name} onChange={(e) => setName(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700" placeholder="Reason name" />
-          <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
-            <input type="checkbox" checked={requiresComment} onChange={(e) => setRequiresComment(e.target.checked)} className="h-4 w-4 accent-[#1a56db]" />
-            <span className="text-xs font-semibold text-slate-700">Requires comment</span>
-          </label>
+      <SectionCard title="Create Reason">
+        {formError && <InfoAlert variant="error" message={formError} className="mb-3" />}
+        <div className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <input value={name} onChange={(e) => setName(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700" placeholder="Reason name" />
+            <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
+              <input type="checkbox" checked={requiresComment} onChange={(e) => setRequiresComment(e.target.checked)} className="h-4 w-4 accent-[#1a56db]" />
+              <span className="text-xs font-semibold text-slate-700">Requires comment</span>
+            </label>
+          </div>
+          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700" placeholder="Description (optional)" />
+          <Button
+            onClick={async () => {
+              setFormError("");
+              if (name.trim().length < 2) { setFormError("Name is required."); return; }
+              try {
+                await create.mutateAsync({ name: name.trim(), description: description.trim() || null, requiresComment });
+                setName(""); setDescription(""); setRequiresComment(false);
+              } catch (e: any) {
+                setFormError(e?.response?.data?.message || e?.message || "Failed to create reason");
+              }
+            }}
+            disabled={create.isPending}
+            className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white text-xs h-9 rounded-xl"
+          >
+            {create.isPending ? "Creating…" : "Create"}
+          </Button>
         </div>
-        <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700" placeholder="Description (optional)" />
-        <button
-          onClick={async () => {
-            setFormError("");
-            if (name.trim().length < 2) {
-              setFormError("Name is required.");
-              return;
-            }
-            try {
-              await create.mutateAsync({ name: name.trim(), description: description.trim() || null, requiresComment });
-              setName("");
-              setDescription("");
-              setRequiresComment(false);
-            } catch (e: any) {
-              setFormError(e?.response?.data?.message || e?.message || "Failed to create reason");
-            }
-          }}
-          disabled={create.isPending}
-          className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs"
-        >
-          {create.isPending ? "Creating…" : "Create"}
-        </button>
-      </div>
+      </SectionCard>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100">
-          <div className="text-[12px] font-extrabold text-slate-900">Reasons</div>
-          <div className="text-[11px] text-slate-600 font-semibold mt-0.5">{reasons.length} total</div>
-        </div>
-
-        {q.isLoading ? <div className="px-5 py-6 text-[12px] text-slate-600 font-semibold">Loading…</div> : null}
-        {q.isError ? <div className="px-5 py-6 text-[12px] text-red-700 font-semibold">Failed to load reasons.</div> : null}
-
+      <SectionCard title="Reasons" description={`${reasons.length} total`}>
+        {q.isLoading && <LoadingSpinner label="Loading…" />}
+        {q.isError && <InfoAlert variant="error" message="Failed to load reasons." />}
         <div className="divide-y divide-slate-100">
           {reasons.map((r: any) => (
-            <ReasonRow
-              key={r.id}
-              r={r}
-              onSave={async (data) => update.mutateAsync({ reasonId: r.id, data })}
-              onDeactivate={async () => deactivate.mutateAsync(r.id)}
-            />
+            <ReasonRow key={r.id} r={r} onSave={async (data) => update.mutateAsync({ reasonId: r.id, data })} onDeactivate={async () => deactivate.mutateAsync(r.id)} />
           ))}
         </div>
-      </div>
+      </SectionCard>
     </div>
   );
 }
@@ -99,7 +86,7 @@ function ReasonRow({
 
   return (
     <div className="px-5 py-4">
-      {err ? <div className="mb-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">{err}</div> : null}
+      {err ? <InfoAlert variant="error" message={err} className="mb-2" /> : null}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {editing ? (

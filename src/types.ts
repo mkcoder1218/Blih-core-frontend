@@ -14,6 +14,7 @@ export type MainModule =
   | 'talent'
   | 'exit'
   | 'finance'
+  | 'projects'
   | 'businesses'
   | 'permissions';
 
@@ -23,11 +24,13 @@ export type RecruitmentTab =
   | 'ready_to_post'
   | 'active_posting'
   | 'ongoing_recruitment'
+  | 'my_interviews'
   | 'offers'
   | 'closed_posts'
   | 'applicant_forms';
 
 export type BusinessesTab = 'overview' | 'plans' | 'sector_focus' | 'integrations' | 'security' | 'audit_logs' | 'notifications';
+export type ProjectsTab = 'overview' | 'all' | 'mine' | 'my-tasks' | 'board';
 
 export interface JobRequest {
   id: string;
@@ -38,6 +41,8 @@ export interface JobRequest {
   requestedDate: string;
   priority: 'High' | 'Medium' | 'Low';
   status: 'pending' | 'approved' | 'declined' | 'draft';
+  postingStatus?: 'draft' | 'open' | 'paused' | 'closed' | 'active' | 'published' | string;
+  views?: number;
   dueDate?: string;
   expectedDate?: string;
   requestedBy?: {

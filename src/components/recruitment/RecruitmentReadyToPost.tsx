@@ -5,7 +5,8 @@
 
 import { useState } from 'react';
 import { JobRequest } from '../../types';
-import { Sparkles, Calendar, User, Eye, Edit3, Send, AlertCircle, CheckCircle, FileText } from 'lucide-react';
+import { Sparkles, Eye, Edit3, Send, CheckCircle } from 'lucide-react';
+import { EmptyState } from '@/components/ui/blih';
 
 interface RecruitmentReadyToPostProps {
   jobs: JobRequest[];
@@ -36,15 +37,11 @@ export default function RecruitmentReadyToPost({ jobs, onPostSuccess, onEditClic
 
   if (!activeJob) {
     return (
-      <div className="border-2 border-dashed border-slate-100 rounded-3xl p-12 text-center bg-slate-50/50">
-        <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm border border-slate-100">
-          <CheckCircle className="w-8 h-8 text-slate-200" />
-        </div>
-        <p className="text-sm font-bold text-slate-500 mb-1">No jobs ready to post</p>
-        <p className="text-[11px] text-slate-400 max-w-[240px] mx-auto">
-          Fully approved vacancy requests will appear here for final publishing.
-        </p>
-      </div>
+      <EmptyState
+        icon={<CheckCircle />}
+        title="No jobs ready to post"
+        description="Fully approved vacancy requests will appear here for final publishing."
+      />
     );
   }
 

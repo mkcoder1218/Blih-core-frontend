@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Mail, Clock, Search, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
+import { StatCard, StatCardGrid, FilterBar } from '@/components/ui/blih';
 
 interface Contract {
   id: string;
@@ -58,21 +59,11 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
   return (
     <div id="tab-contract-pane" className="space-y-6 animate-fade-in font-sans pb-12">
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {[
-          { label: 'Active Contracts', value: 12, icon: <FileText className="w-5 h-5" /> },
-          { label: 'Offer Letters Sent', value: 28, icon: <Mail className="w-5 h-5" /> },
-          { label: 'On Probation', value: 45, icon: <Clock className="w-5 h-5" /> },
-        ].map(({ label, value, icon }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-center">
-            <div>
-              <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">{label}</p>
-              <h3 className="text-3xl font-black text-slate-900 mt-2">{value}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">{icon}</div>
-          </div>
-        ))}
-      </div>
+      <StatCardGrid cols={3}>
+        <StatCard label="Active Contracts"   value={12} icon={<FileText className="w-5 h-5" />} tone="blue" />
+        <StatCard label="Offer Letters Sent" value={28} icon={<Mail className="w-5 h-5" />}    tone="cyan" />
+        <StatCard label="On Probation"       value={45} icon={<Clock className="w-5 h-5" />}   tone="amber" />
+      </StatCardGrid>
 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100">

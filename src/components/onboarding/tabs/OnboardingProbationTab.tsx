@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Calendar, TrendingUp, Award, Sparkles, Clock, ChevronDown, ChevronUp } from 'lucide-react';
+import { StatCard, StatCardGrid, SectionCard, UserAvatar } from '@/components/ui/blih';
 
 interface KPI { label: string; score: number; target: number; pct: string }
 interface Review { title: string; date: string; label: string; val: string }
@@ -63,36 +64,29 @@ export default function OnboardingProbationTab({ onDraftAiSuggestion, showAlert 
   return (
     <div id="tab-probation-pane" className="space-y-6 animate-fade-in font-sans pb-12">
       {/* Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {[
-          { label: 'On Probation', value: 3, icon: <Calendar className="w-5 h-5" /> },
-          { label: 'Avg Performance', value: '57%', icon: <TrendingUp className="w-5 h-5" /> },
-          { label: 'Pending Reviews', value: 3, icon: <Award className="w-5 h-5" /> },
-        ].map(({ label, value, icon }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-center">
-            <div>
-              <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">{label}</p>
-              <h3 className="text-3xl font-black text-slate-900 mt-2">{value}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">{icon}</div>
-          </div>
-        ))}
-      </div>
+      <StatCardGrid cols={3}>
+        <StatCard label="On Probation"    value={3}    icon={<Calendar className="w-5 h-5" />}  tone="blue" />
+        <StatCard label="Avg Performance" value="57%"  icon={<TrendingUp className="w-5 h-5" />} tone="emerald" />
+        <StatCard label="Pending Reviews" value={3}    icon={<Award className="w-5 h-5" />}     tone="amber" />
+      </StatCardGrid>
 
       {/* Header */}
-      <div className="bg-white p-4 rounded-2xl border border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">Performance and Probation</h3>
-          <p className="text-[11px] text-slate-400 font-semibold mt-0.5">KPI tracking, reviews, and results of employees on probation.</p>
-        </div>
-        <button
-          onClick={() => onDraftAiSuggestion('Provide strategic tips to manage low-performing probation employees with sensitivity.')}
-          className="bg-blue-50 hover:bg-blue-100 text-blue-600 font-black text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>AI Coaching Tips</span>
-        </button>
-      </div>
+      <SectionCard
+        title="Performance and Probation"
+        description="KPI tracking, reviews, and results of employees on probation."
+        action={
+          <button
+            onClick={() => onDraftAiSuggestion('Provide strategic tips to manage low-performing probation employees with sensitivity.')}
+            className="bg-blue-50 hover:bg-blue-100 text-blue-600 font-black text-xs px-3.5 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>AI Coaching Tips</span>
+          </button>
+        }
+        padding="none"
+      >
+        <span />
+      </SectionCard>
 
       {/* Staff cards */}
       <div className="space-y-4">
@@ -100,9 +94,7 @@ export default function OnboardingProbationTab({ onDraftAiSuggestion, showAlert 
           <div key={prob.id} className="bg-white rounded-2xl border border-slate-100 overflow-hidden shadow-xs">
             <div className="p-4 flex flex-col md:flex-row gap-4 justify-between items-stretch bg-white">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center text-xs font-black">
-                  {prob.employee.split(' ').map(n => n[0]).join('')}
-                </div>
+                <UserAvatar name={prob.employee} size="sm" color="blue" />
                 <div>
                   <div className="flex items-center gap-2">
                     <h4 className="text-xs font-black text-slate-900">{prob.employee}</h4>

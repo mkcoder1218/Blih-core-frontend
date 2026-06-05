@@ -36,6 +36,7 @@ export const ONBOARDING_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   contract:    { requires: ["onboarding.manage", "hr.write", "onboarding.self"] },
   progress:    { requires: ["onboarding.read", "onboarding.manage", "onboarding.self"] },
   probation:   { requires: ["onboarding.read", "onboarding.manage", "onboarding.self"] },
+  policy:      { requires: ["onboarding.read", "onboarding.manage", "onboarding.self"] },
   checklists:  { requires: ["onboarding.read", "onboarding.manage", "onboarding.self"] },
 };
 
@@ -104,6 +105,14 @@ export const FINANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   benefits:         { requires: ["finance.read", "finance.manage", "benefits.read"] },
 };
 
+export const PROJECTS_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
+  overview:   { requires: ["project.read", "project.manage"] },
+  all:        { requires: ["project.read", "project.manage"] },
+  mine:       { requires: ["project.read", "project.manage", "project.self"] },
+  "my-tasks": { requires: ["project.read", "project.manage", "project.self"] },
+  board:      { requires: ["project.read", "project.manage", "project.self"] },
+};
+
 // ─── Businesses (Super Admin) ─────────────────────────────────────────────────
 export const BUSINESSES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   overview:     { requires: ["settings.read", "settings.update"], superAdminOnly: true },
@@ -128,6 +137,7 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   talent:      ["performance.read", "performance.manage", "career.self"],
   exit:        ["hr.read", "hr.write", "exit.self"],
   finance:     ["finance.read", "finance.manage", "payroll.read", "expense.submit", "benefits.read"],
+  projects:    ["project.read", "project.manage", "project.self"],
   // Platform-level modules — super admin only. No regular permission key unlocks these.
   businesses:  [],
   permissions: [],

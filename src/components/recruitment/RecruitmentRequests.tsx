@@ -9,13 +9,10 @@ import {
   Clock,
   CheckCircle,
   Briefcase,
-  Search,
-  Check,
-  ChevronDown,
-  X,
-  PlusCircle,
-  Users
 } from 'lucide-react';
+import {
+  StatCard, StatCardGrid, StatusBadge, FilterBar, EmptyState,
+} from '@/components/ui/blih';
 
 interface RecruitmentRequestsProps {
   onSuggestJustification: (jobTitle: string, dept: string) => void;
@@ -48,10 +45,8 @@ export default function RecruitmentRequests({
   // Categorize jobs
   const pendingRequests = jobs.filter((j) => j.status === 'pending' && (!j.approvals || j.approvals.length === 0));
   
-  // Submitted by You (Signed by you): I have approved it, but it might not be fully approved yet (still 'pending' status) or it is fully approved.
   const approvedByMe = jobs.filter((j) => (j.status === 'pending' || j.status === 'approved') && j.approvals?.some(a => a.userId === currentUser?.id));
   
-  // Submitted by Others (Signed by others): Others have approved it, but I haven't yet, and it's still 'pending'.
   const approvedByOthers = jobs.filter((j) => j.status === 'pending' && j.approvals && j.approvals.length > 0 && !j.approvals.some(a => a.userId === currentUser?.id));
 
   const declinedRequests = jobs.filter((j) => {
@@ -63,7 +58,6 @@ export default function RecruitmentRequests({
     return matchesSearch && matchesDept && matchesType && matchesPriority;
   });
 
-  // Calculate stats dynamically based on the current list
   const pendingCount = pendingRequests.length;
   const approvedThisMonth = approvedByMe.length + approvedByOthers.length;
   const totalOpenCount = jobs.filter(j => j.status === 'approved' || j.isPosted).length;
@@ -71,35 +65,11 @@ export default function RecruitmentRequests({
   return (
     <div id="recruitment-requests-view" className="space-y-8">
       {/* Mini top metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Requests</p>
-            <h3 className="text-2xl font-extrabold text-[#111827] mt-1.5 tracking-tight">{pendingCount}</h3>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-            <Clock className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Approved This Month</p>
-            <h3 className="text-2xl font-extrabold text-[#111827] mt-1.5 tracking-tight">{approvedThisMonth}</h3>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-sky-50 flex items-center justify-center text-sky-600">
-            <CheckCircle className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Open Positions</p>
-            <h3 className="text-2xl font-extrabold text-[#111827] mt-1.5 tracking-tight">{totalOpenCount}</h3>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-            <Briefcase className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
+      <StatCardGrid cols={3}>
+        <StatCard label="Pending Requests" value={pendingCount} icon={<Clock className="w-5 h-5" />} tone="blue" />
+        <StatCard label="Approved This Month" value={approvedThisMonth} icon={<CheckCircle className="w-5 h-5" />} tone="cyan" />
+        <StatCard label="Total Open Positions" value={totalOpenCount} icon={<Briefcase className="w-5 h-5" />} tone="violet" />
+      </StatCardGrid>
 
       {/* SECTION 1: Pending Approval Requests */}
       <div>
@@ -109,10 +79,11 @@ export default function RecruitmentRequests({
         </div>
 
         {pendingRequests.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-100 rounded-2xl p-8 text-center bg-slate-50/50">
-            <p className="text-xs font-semibold text-slate-500 mb-1">No pending approval requests</p>
-            <p className="text-[11px] text-slate-400">All submitted job requisitions have been processed.</p>
-          </div>
+          <EmptyState
+            title="No pending approval requests"
+            description="All submitted job requisitions have been processed."
+            compact
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
             {pendingRequests.map((job) => (
@@ -128,19 +99,10 @@ export default function RecruitmentRequests({
                         {job.department}
                       </span>
                     </div>
-
-                    {/* Priority Tag */}
-                    <span
-                      className={`text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border ${
-                        job.priority === 'High'
-                          ? 'bg-rose-50 text-rose-600 border-rose-100'
-                          : job.priority === 'Medium'
-                          ? 'bg-amber-50 text-amber-600 border-amber-100'
-                          : 'bg-slate-50 text-slate-500 border-slate-100'
-                      }`}
-                    >
-                      {job.priority}
-                    </span>
+                    <StatusBadge
+                      label={job.priority}
+                      tone={job.priority === 'High' ? 'rose' : job.priority === 'Medium' ? 'amber' : 'slate'}
+                    />
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 mt-4 text-[11px] text-slate-500 font-semibold border-t border-slate-50 pt-3">
@@ -188,10 +150,11 @@ export default function RecruitmentRequests({
         </div>
 
         {approvedByMe.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-100 rounded-2xl p-8 text-center bg-slate-50/50 mt-4">
-            <p className="text-xs font-semibold text-slate-500 mb-1">No signed jobs pending other signatures</p>
-            <p className="text-[11px] text-slate-400">Signed jobs will populate here while waiting for publishing.</p>
-          </div>
+          <EmptyState
+            title="No signed jobs pending other signatures"
+            description="Signed jobs will populate here while waiting for publishing."
+            compact
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
             {approvedByMe.map((job) => (
@@ -210,10 +173,10 @@ export default function RecruitmentRequests({
                         {job.department}
                       </span>
                     </div>
-
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-emerald-50 text-emerald-600 border-emerald-100">
-                      {job.status === 'approved' ? 'Approved' : 'Signature Saved'}
-                    </span>
+                    <StatusBadge
+                      label={job.status === 'approved' ? 'Approved' : 'Signature Saved'}
+                      tone="emerald"
+                    />
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 mt-4 text-[11px] text-slate-500 font-semibold border-t border-slate-50 pt-3">
@@ -252,10 +215,11 @@ export default function RecruitmentRequests({
         </div>
 
         {approvedByOthers.length === 0 ? (
-          <div className="border-2 border-dashed border-slate-100 rounded-2xl p-8 text-center bg-slate-50/50 mt-4">
-            <p className="text-xs font-semibold text-slate-500 mb-1">No requests pending your signature</p>
-            <p className="text-[11px] text-slate-400">Other board member signs will appear here.</p>
-          </div>
+          <EmptyState
+            title="No requests pending your signature"
+            description="Other board member signs will appear here."
+            compact
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
             {approvedByOthers.map((job) => (
@@ -271,9 +235,7 @@ export default function RecruitmentRequests({
                         {job.department}
                       </span>
                     </div>
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-lg border bg-indigo-50 text-indigo-600 border-indigo-100">
-                      Signature Needed
-                    </span>
+                    <StatusBadge label="Signature Needed" tone="violet" />
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 mt-4 text-[11px] text-slate-500 font-semibold border-t border-slate-50 pt-3">
@@ -314,62 +276,34 @@ export default function RecruitmentRequests({
         </div>
 
         {/* Filter Toolbar */}
-        <div className="bg-slate-50 rounded-2xl border border-slate-100 p-4 space-y-3">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-            {/* Search Input */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search jobs..."
-                className="w-full bg-white border border-slate-200 rounded-xl py-2 pl-9 pr-4 text-xs text-slate-800 focus:outline-none focus:border-blue-500 font-medium"
-              />
-            </div>
-
-            {/* Department Filter */}
-            <select
-              value={selectedDeptFilter}
-              onChange={(e) => setSelectedDeptFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-blue-500"
-            >
-              <option value="All">All Departments</option>
-              {departments.filter(d => d !== 'All').map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-
-            {/* Job Type Filter */}
-            <select
-              value={selectedTypeFilter}
-              onChange={(e) => setSelectedTypeFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-blue-500"
-            >
-              <option value="All">All Job Types</option>
-              {jobTypes.filter(t => t !== 'All').map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
-
-            {/* Priority Filter */}
-            <select
-              value={selectedPriorityFilter}
-              onChange={(e) => setSelectedPriorityFilter(e.target.value)}
-              className="bg-white border border-slate-200 rounded-xl py-2 px-3 text-xs text-slate-700 font-medium cursor-pointer focus:outline-none focus:border-blue-500"
-            >
-              <option value="All">All Priorities</option>
-              {priorities.filter(p => p !== 'All').map((p) => (
-                <option key={p} value={p}>
-                  {p} Priority
-                </option>
-              ))}
-            </select>
-
+        <FilterBar
+          search={searchQuery}
+          onSearchChange={setSearchQuery}
+          searchPlaceholder="Search jobs..."
+          filters={[
+            {
+              value: selectedDeptFilter,
+              onChange: setSelectedDeptFilter,
+              placeholder: 'All Departments',
+              options: departments.map(d => ({ value: d, label: d === 'All' ? 'All Departments' : d })),
+              width: 'w-48',
+            },
+            {
+              value: selectedTypeFilter,
+              onChange: setSelectedTypeFilter,
+              placeholder: 'All Job Types',
+              options: jobTypes.map(t => ({ value: t, label: t === 'All' ? 'All Job Types' : t })),
+              width: 'w-36',
+            },
+            {
+              value: selectedPriorityFilter,
+              onChange: setSelectedPriorityFilter,
+              placeholder: 'All Priorities',
+              options: priorities.map(p => ({ value: p, label: p === 'All' ? 'All Priorities' : `${p} Priority` })),
+              width: 'w-36',
+            },
+          ]}
+          actions={
             <button
               onClick={() => {
                 setSearchQuery('');
@@ -377,18 +311,19 @@ export default function RecruitmentRequests({
                 setSelectedTypeFilter('All');
                 setSelectedPriorityFilter('All');
               }}
-              className="bg-white border border-slate-200 hover:border-slate-300 text-slate-600 font-semibold rounded-xl text-xs py-2 px-3 transition-colors cursor-pointer text-center"
+              className="bg-white border border-slate-200 hover:border-slate-300 text-slate-600 font-semibold rounded-xl text-xs py-2 px-3 transition-colors cursor-pointer"
             >
-              Reset Filters
+              Reset
             </button>
-          </div>
-          <p className="text-[10px] text-slate-400 font-bold">{declinedRequests.length} matching jobs found</p>
-        </div>
+          }
+        />
+        <p className="text-[10px] text-slate-400 font-bold mt-2">{declinedRequests.length} matching jobs found</p>
 
         {declinedRequests.length === 0 ? (
-          <div className="border border-dashed border-slate-200 rounded-2xl p-8 text-center bg-slate-50/20 mt-4">
-            <span className="text-xs text-slate-500">No declined records match active filter selection.</span>
-          </div>
+          <EmptyState
+            title="No declined records match active filter selection."
+            compact
+          />
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
             {declinedRequests.map((job) => (
@@ -407,10 +342,7 @@ export default function RecruitmentRequests({
                         {job.department}
                       </span>
                     </div>
-
-                    <span className="text-[9px] font-bold uppercase tracking-wider px-2.2 py-0.5 rounded bg-black text-white">
-                      Declined
-                    </span>
+                    <StatusBadge status="declined" />
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 mt-4 text-[11px] text-slate-500 font-semibold border-t border-slate-50 pt-3">

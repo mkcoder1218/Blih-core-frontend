@@ -16,6 +16,7 @@ import { api } from "../api/client";
 import { useJobRequests, useApproveJobRequest, usePublishJobRequest } from "../hooks/useJobRequests";
 import { useMe } from "../hooks/useMe";
 import { useQueryClient } from "@tanstack/react-query";
+import { PageHeader } from "@/components/ui/blih";
 
 export default function RecruitmentPage() {
   const params = useParams();
@@ -25,9 +26,9 @@ export default function RecruitmentPage() {
 
   const pendingJobRequests = useJobRequests({ status: "pending" });
   const declinedJobRequests = useJobRequests({ status: "declined" });
-  const approvedByMeJobRequests = useJobRequests({ approvedByMe: true }); // Fetch both pending and approved signed by me
+  const approvedByMeJobRequests = useJobRequests({ approvedByMe: true });
   const approvedByOthersJobRequests = useJobRequests({ status: "pending", approvedByOthers: true });
-  const approvedJobRequests = useJobRequests({ status: "approved" }); // Fully approved, ready to post
+  const approvedJobRequests = useJobRequests({ status: "approved" });
   
   const approveJob = useApproveJobRequest();
   const publishJob = usePublishJobRequest();
@@ -43,7 +44,6 @@ export default function RecruitmentPage() {
   const openCreateModal = async (mode: "job" | "template") => {
     if (mode === "job") {
       try {
-        // Quick check for templates
         const res = await api.get("/api/v1/hr/recruitment/templates", { params: { limit: 1 } });
         const payload: any = res.data;
         const rows = payload?.data?.data ?? payload?.data ?? [];
@@ -51,14 +51,12 @@ export default function RecruitmentPage() {
         if (Array.isArray(rows) && rows.length > 0) {
           setIsTemplateSelectionOpen(true);
         } else {
-          // No templates found, open blank form directly
           setModalMode("job");
           setInitialFormData(null);
           setIsCreateModalOpen(true);
         }
       } catch (err) {
         console.error('Failed to check templates:', err);
-        // Fallback to blank form on error
         setModalMode("job");
         setInitialFormData(null);
         setIsCreateModalOpen(true);
@@ -150,31 +148,37 @@ export default function RecruitmentPage() {
 
   return (
     <div className="space-y-6">
-      {/* Top Header Section */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
-        {/* Careers page link */}
-        {me?.business?.slug && (
-          <a
-            href={`/careers/${me.business.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 px-4 py-2.5 rounded-xl transition-all"
-          >
-            <ExternalLink className="w-3.5 h-3.5" />
-            View Public Careers Page
-          </a>
-        )}
-
-        {tab === "requests" && (
-          <button
-            onClick={() => openCreateModal("job")}
-            className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-2xl text-xs px-6 py-3.5 flex items-center gap-2 shadow-lg shadow-blue-200 transition-all cursor-pointer select-none"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Request a Job</span>
-          </button>
-        )}
-      </div>
+      {/* Page Header */}
+      <PageHeader
+        eyebrow="Recruitment"
+        title="Recruitment Management"
+        description="Manage job requests, postings, candidates, and offers."
+        eyebrowTone="blue"
+        actions={
+          <div className="flex items-center gap-2">
+            {me?.business?.slug && (
+              <a
+                href={`/careers/${me.business.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 px-4 py-2.5 rounded-xl transition-all"
+              >
+                <ExternalLink className="w-3.5 h-3.5" />
+                View Careers Page
+              </a>
+            )}
+            {tab === "requests" && (
+              <button
+                onClick={() => openCreateModal("job")}
+                className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl text-xs px-5 py-2.5 flex items-center gap-2 shadow-md shadow-blue-200 transition-all cursor-pointer select-none"
+              >
+                <Plus className="w-4 h-4 stroke-[3]" />
+                <span>Request a Job</span>
+              </button>
+            )}
+          </div>
+        }
+      />
 
       {/* Tab Content */}
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
@@ -193,7 +197,6 @@ export default function RecruitmentPage() {
               ? "/api/v1/hr/recruitment/templates" 
               : "/api/v1/hr/recruitment/job-openings";
             
-            // Map frontend data to backend structure
             const payload = modalMode === "template" ? {
               name: data.jobTitle || "Untitled Template",
               description: data.businessJustification,
@@ -246,7 +249,6 @@ export default function RecruitmentPage() {
                     hiringManager: data.hiringManager,
                     applicationFields: data.applicantFields,
                     customFields: data.customFields,
-                    // Fix: Add missing fields for public page display
                     requirements: data.requiredSkills || [],
                     qualifications: data.preferredSkills || [],
                     importance: data.businessJustification || "Standard business requirement."

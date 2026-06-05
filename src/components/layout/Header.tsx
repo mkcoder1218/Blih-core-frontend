@@ -64,6 +64,7 @@ export default function Header({
     if (currentModule === 'talent')     mainText = 'Career Management';
     if (currentModule === 'exit')       mainText = 'Exit & Off boarding';
     if (currentModule === 'finance')    mainText = 'Workforce Finance';
+    if (currentModule === 'projects')   mainText = 'Projects';
     return { main: mainText, sub: 'HR Dashboard' };
   };
 

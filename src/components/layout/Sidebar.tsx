@@ -13,6 +13,7 @@ import {
   TALENT_TAB_PERMISSIONS,
   EXIT_TAB_PERMISSIONS,
   FINANCE_TAB_PERMISSIONS,
+  PROJECTS_TAB_PERMISSIONS,
   BUSINESSES_TAB_PERMISSIONS,
   MODULE_PERMISSIONS,
 } from '../../config/tabPermissions';
@@ -29,9 +30,10 @@ import {
   CircleDollarSign,
   Shield,
   Building2,
+  BriefcaseBusiness,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { BusinessesTab, MainModule, RecruitmentTab } from '../../types';
+import { BusinessesTab, MainModule, ProjectsTab, RecruitmentTab } from '../../types';
 
 interface SidebarProps {
   currentModule: MainModule;
@@ -48,8 +50,10 @@ interface SidebarProps {
   setCurrentExitTab: (tab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding') => void;
   currentFinanceTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits';
   setCurrentFinanceTab: (tab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits') => void;
-  currentOnboardingTab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists';
-  setCurrentOnboardingTab: (tab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists') => void;
+  currentProjectsTab?: ProjectsTab;
+  setCurrentProjectsTab?: (tab: ProjectsTab) => void;
+  currentOnboardingTab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy';
+  setCurrentOnboardingTab: (tab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy') => void;
   currentPerformanceTab: 'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form';
   setCurrentPerformanceTab: (tab: 'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form') => void;
   currentBusinessesTab: BusinessesTab;
@@ -78,6 +82,8 @@ export default function Sidebar({
   setCurrentExitTab,
   currentFinanceTab,
   setCurrentFinanceTab,
+  currentProjectsTab = 'overview',
+  setCurrentProjectsTab = () => {},
   currentOnboardingTab,
   setCurrentOnboardingTab,
   currentPerformanceTab,
@@ -135,6 +141,7 @@ export default function Sidebar({
     { id: 'talent',      label: 'Career Management',      icon: GraduationCap,   badge: 0 },
     { id: 'exit',        label: 'Exit & Offboarding',     icon: LogOut,          badge: 0 },
     { id: 'finance',     label: 'Workforce Finance',      icon: CircleDollarSign,badge: 0 },
+    { id: 'projects',    label: 'Projects',               icon: BriefcaseBusiness,badge: 0 },
   ] as const;
 
   const mainModules = ALL_MODULES.filter((m) => {
@@ -162,6 +169,7 @@ export default function Sidebar({
     { id: 'contract',   label: 'Contract',   badge: 0 },
     { id: 'progress',   label: 'Progress',   badge: 0 },
     { id: 'probation',  label: 'Probation',  badge: 0 },
+    { id: 'policy',     label: 'Policies',   badge: 0 },
     { id: 'checklists', label: 'Checklists', badge: 0 },
   ] as const;
 
@@ -215,6 +223,14 @@ export default function Sidebar({
     { id: 'benefits',        label: 'Benefits',         badge: 0 },
   ] as const;
 
+  const ALL_PROJECTS_TABS = [
+    { id: 'overview', label: 'Overview', badge: 0 },
+    { id: 'all', label: 'All Projects', badge: 0 },
+    { id: 'mine', label: 'My Projects', badge: 0 },
+    { id: 'my-tasks', label: 'My Tasks', badge: 0 },
+    { id: 'board', label: 'Task Board', badge: 0 },
+  ] as const;
+
   const ALL_PERFORMANCE_TABS = [
     { id: 'overview',           label: 'Overview',           badge: 4 },
     { id: 'performance_review', label: 'Performance Review', badge: 4 },
@@ -242,6 +258,7 @@ export default function Sidebar({
   const talentTabs        = allowedTabs(ALL_TALENT_TABS,       TALENT_TAB_PERMISSIONS);
   const exitTabs          = allowedTabs(ALL_EXIT_TABS,         EXIT_TAB_PERMISSIONS);
   const financeTabs       = allowedTabs(ALL_FINANCE_TABS,      FINANCE_TAB_PERMISSIONS);
+  const projectsTabs      = allowedTabs(ALL_PROJECTS_TABS,     PROJECTS_TAB_PERMISSIONS);
   const performanceTabs   = allowedTabs(ALL_PERFORMANCE_TABS,  PERFORMANCE_TAB_PERMISSIONS);
   const businessesTabs    = allowedTabs(ALL_BUSINESSES_TABS,   BUSINESSES_TAB_PERMISSIONS);
 
@@ -250,7 +267,7 @@ export default function Sidebar({
     if (
       moduleId === 'recruitment' || moduleId === 'onboarding' || moduleId === 'profiles' ||
       moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' ||
-      moduleId === 'finance' || moduleId === 'performance' || moduleId === 'businesses' ||
+      moduleId === 'finance' || moduleId === 'projects' || moduleId === 'performance' || moduleId === 'businesses' ||
       moduleId === 'permissions'
     ) {
       setIsDetailedView(true);
@@ -405,6 +422,17 @@ export default function Sidebar({
                 </button>
               ))}
 
+              {currentModule === 'projects' && projectsTabs.map((tab) => (
+                <button key={tab.id} onClick={() => {
+                  setCurrentProjectsTab(tab.id);
+                  const path = tab.id === 'overview' ? '/projects' : tab.id === 'all' ? '/projects/all' : tab.id === 'mine' ? '/projects/my-projects' : tab.id === 'my-tasks' ? '/projects/my-tasks' : '/projects/board';
+                  navigate(path);
+                  onMobileClose?.();
+                }} className={tabCls(currentProjectsTab === tab.id)}>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+
               {currentModule === 'performance' && performanceTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentPerformanceTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/performance` : `/${roleSegment}/performance/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentPerformanceTab === tab.id)}>
                   <span>{tab.label}</span>
@@ -425,7 +453,7 @@ export default function Sidebar({
                 </button>
               ))}
 
-              {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','performance','permissions','businesses'].includes(currentModule) && (
+              {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','projects','performance','permissions','businesses'].includes(currentModule) && (
                 <div className="py-2 text-slate-500 font-medium text-xs text-center border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50">
                   <span className="block mb-1">Standard Mode</span>
                   <button onClick={() => handleModuleClick('recruitment')} className="text-blue-600 hover:underline text-[11px] font-semibold">

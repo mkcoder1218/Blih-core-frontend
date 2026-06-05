@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Target, Search, SlidersHorizontal, ChevronDown, ChevronUp, Sparkles, Check, Plus } from 'lucide-react';
+import { Target, ChevronDown, ChevronUp, Sparkles, Check, Plus } from 'lucide-react';
+import { StatCardGrid, StatCard, FilterBar, EmptyState, SectionCard, FormField } from '@/components/ui/blih';
 
 interface KeyResult {
   id: string;
   text: string;
-  progress: number; // 0-100
+  progress: number;
 }
 
 interface OkrItem {
@@ -24,7 +25,6 @@ interface OkrTabProps {
 }
 
 export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps) {
-  // OKRs state
   const [okrs, setOkrs] = useState<OkrItem[]>([
     {
       id: 'okr-1',
@@ -86,12 +86,9 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
     }
   ]);
 
-  // Single expanded ID
   const [expandedId, setExpandedId] = useState<string | null>('okr-1');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedDept, setSelectedDept] = useState('All');
-
-  // New OKR Creator modal State
   const [newOkrOpen, setNewOkrOpen] = useState(false);
   const [newOkrForm, setNewOkrForm] = useState({
     objective: '',
@@ -103,7 +100,6 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
     kr3: 'Draft team guidelines document with standard checklists'
   });
 
-  // Calculate dynamic aggregated Completion
   const getOverallOkrScore = (okr: OkrItem) => {
     const total = okr.keyResults.reduce((acc, kr) => acc + kr.progress, 0);
     return Math.round(total / okr.keyResults.length);
@@ -113,20 +109,15 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
     okrs.map(getOverallOkrScore).reduce((acc, s) => acc + s, 0) / okrs.length
   );
 
-  // Handle live OKR Key Result slide adjusting progress
   const handleKrSlide = (okrId: string, krId: string, newProgress: number) => {
     setOkrs(prev =>
       prev.map(okr => {
         if (okr.id !== okrId) return okr;
-        return {
-          ...okr,
-          keyResults: okr.keyResults.map(kr => (kr.id === krId ? { ...kr, progress: newProgress } : kr))
-        };
+        return { ...okr, keyResults: okr.keyResults.map(kr => (kr.id === krId ? { ...kr, progress: newProgress } : kr)) };
       })
     );
   };
 
-  // Trigger Gemini API to analyze current OKRs elements
   const triggerAiOkrReport = (okr: OkrItem) => {
     const currentScore = getOverallOkrScore(okr);
     const krSummaryLine = okr.keyResults.map(kr => `"${kr.text}" is at ${kr.progress}%`).join(', ');
@@ -162,7 +153,6 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
     showAlert(`Successfully added OKR Objective: ${newOkr.objective}!`, 'success');
   };
 
-  // Filter OKRs
   const filteredOkrs = okrs.filter(okr => {
     const matchesSearch = okr.objective.toLowerCase().includes(searchTerm.toLowerCase()) || okr.owner.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesDept = selectedDept === 'All' || okr.dept === selectedDept;
@@ -171,88 +161,46 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
 
   return (
     <div id="okrs-tab-panel" className="space-y-4">
-      {/* 4 Cards Stats summary header */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">Total OKRs</span>
-            <span className="text-xl font-extrabold text-slate-900 block mt-1">{okrs.length}</span>
-          </div>
-          <div className="w-9 h-9 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
-            <Target className="w-4 h-4 stroke-[2]" />
-          </div>
-        </div>
+      {/* Stats */}
+      <StatCardGrid cols={4}>
+        <StatCard label="Total OKRs" value={okrs.length} icon={<Target className="w-4 h-4 stroke-[2]" />} tone="blue" />
+        <StatCard label="Avg Completion" value={`${overallAvgCompletion}%`} icon={<Sparkles className="w-4 h-4" />} tone="blue" />
+        <StatCard label="On Track" value={okrs.length} icon={<Check className="w-4 h-4 stroke-[3]" />} tone="emerald" />
+        <StatCard label="At Risk" value={0} icon={<Target className="w-4 h-4" />} tone="rose" />
+      </StatCardGrid>
 
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block font-sans">Avg Completion</span>
-            <span className="text-xl font-extrabold text-[#1a56db] block mt-1">{overallAvgCompletion}%</span>
-          </div>
-          <div className="w-9 h-9 bg-blue-50 text-[#1a56db] rounded-lg flex items-center justify-center">
-            <Sparkles className="w-4 h-4" />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">On Track</span>
-            <span className="text-xl font-extrabold text-slate-900 block mt-1">{okrs.length}</span>
-          </div>
-          <div className="w-9 h-9 bg-emerald-50 text-emerald-600 rounded-lg flex items-center justify-center">
-            <Check className="w-4 h-4 stroke-[3]" />
-          </div>
-        </div>
-
-        <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-xs flex items-center justify-between">
-          <div>
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">At Risk</span>
-            <span className="text-xl font-extrabold text-slate-900 block mt-1">0</span>
-          </div>
-          <div className="w-9 h-9 bg-rose-50 text-rose-600 rounded-lg flex items-center justify-center">
-            <Target className="w-4 h-4" />
-          </div>
-        </div>
-      </div>
-
-      {/* Filter OKRs row list */}
-      <div className="bg-white border border-slate-100 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-3xs">
-        <div className="flex flex-1 flex-col sm:flex-row items-center gap-2.5 w-full">
-          <div className="relative w-full sm:max-w-xs">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search objective..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-150 rounded-xl py-2 pl-9 pr-4 text-xs font-semibold text-slate-700 placeholder-slate-450 focus:outline-none focus:ring-1 focus:ring-blue-100 focus:bg-white transition-all"
-            />
-          </div>
-
-          <div className="relative w-full sm:w-auto">
-            <select
-              value={selectedDept}
-              onChange={(e) => setSelectedDept(e.target.value)}
-              className="appearance-none w-full bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl py-2 pl-3.5 pr-8 text-xs font-bold text-slate-600 cursor-pointer focus:outline-none"
+      {/* Filter row */}
+      <SectionCard>
+        <FilterBar
+          search={searchTerm}
+          onSearchChange={setSearchTerm}
+          searchPlaceholder="Search objective..."
+          filters={[
+            {
+              value: selectedDept,
+              onChange: setSelectedDept,
+              placeholder: 'All Departments',
+              options: [
+                { value: 'All', label: 'All Departments' },
+                { value: 'Engineering', label: 'Engineering' },
+                { value: 'Marketing', label: 'Marketing' },
+                { value: 'Analytics', label: 'Analytics' },
+              ],
+            },
+          ]}
+          actions={
+            <button
+              onClick={() => setNewOkrOpen(true)}
+              className="w-full sm:w-auto bg-[#1a56db] hover:bg-blue-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer select-none shadow-xs transition-colors"
             >
-              <option value="All">All Departments</option>
-              <option value="Engineering">Engineering</option>
-              <option value="Marketing">Marketing</option>
-              <option value="Analytics">Analytics</option>
-            </select>
-            <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-          </div>
-        </div>
+              <Plus className="w-4 h-4" />
+              <span>Define OKR Objective</span>
+            </button>
+          }
+        />
+      </SectionCard>
 
-        <button
-          onClick={() => setNewOkrOpen(true)}
-          className="w-full sm:w-auto bg-[#1a56db] hover:bg-blue-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl flex items-center justify-center gap-1.5 cursor-pointer select-none shadow-xs transition-colors"
-        >
-          <Plus className="w-4.5 h-4.5" />
-          <span>Define OKR Objective</span>
-        </button>
-      </div>
-
-      {/* OKRs List column */}
+      {/* OKRs List */}
       <div className="space-y-3.5">
         {filteredOkrs.map((okr) => {
           const isOpen = expandedId === okr.id;
@@ -265,7 +213,6 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
                 isOpen ? 'border-blue-100/80 shadow-xs' : 'border-slate-100 hover:border-slate-250'
               }`}
             >
-              {/* Objective Header Area */}
               <div
                 onClick={() => setExpandedId(isOpen ? null : okr.id)}
                 className="p-4 px-6 flex items-center justify-between gap-4 cursor-pointer select-none"
@@ -276,31 +223,19 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
                   </div>
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide">
-                        {okr.dept}
-                      </span>
-                      <span className="bg-slate-50 border border-slate-150 text-slate-500 text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase">
-                        On Track
-                      </span>
+                      <span className="bg-blue-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase tracking-wide">{okr.dept}</span>
+                      <span className="bg-slate-50 border border-slate-150 text-slate-500 text-[9px] font-bold px-1.5 py-0.5 rounded-md uppercase">On Track</span>
                     </div>
-                    <h4 className="text-xs font-black text-slate-900 mt-1 sm:mt-1.5 tracking-tight truncate">
-                      {okr.objective}
-                    </h4>
-                    <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">
-                      Owner: {okr.owner} • {okr.dateRange}
-                    </p>
+                    <h4 className="text-xs font-black text-slate-900 mt-1 sm:mt-1.5 tracking-tight truncate">{okr.objective}</h4>
+                    <p className="text-[10px] text-slate-400 font-medium leading-none mt-1">Owner: {okr.owner} • {okr.dateRange}</p>
                   </div>
                 </div>
 
-                {/* Score Indicator Column */}
                 <div className="flex items-center gap-5 flex-shrink-0">
                   <div className="text-center">
                     <span className="text-[9px] text-slate-400 uppercase tracking-widest block font-bold leading-none">Overall Score</span>
-                    <span className="text-base font-extrabold text-blue-600 tracking-tight block mt-1">
-                      {currentAvgScore}%
-                    </span>
+                    <span className="text-base font-extrabold text-blue-600 tracking-tight block mt-1">{currentAvgScore}%</span>
                   </div>
-
                   <div className="p-1 px-2.5 rounded-lg border border-slate-100 bg-slate-50 flex items-center gap-1.5 text-[10px] font-extrabold text-slate-600">
                     <span>{isOpen ? 'Less' : 'More'}</span>
                     {isOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -308,32 +243,20 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
                 </div>
               </div>
 
-              {/* Collapsible content section */}
               {isOpen && (
                 <div className="border-t border-slate-100 p-6 pt-5 bg-slate-50/20 grid grid-cols-1 lg:grid-cols-5 gap-6">
-                  {/* Left Column: Key Results & Slides progress state */}
                   <div className="lg:col-span-3 space-y-5">
                     <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Key Results Metrics</h5>
-
                     <div className="space-y-4">
                       {okr.keyResults.map((kr) => (
                         <div key={kr.id} className="space-y-1.5 bg-white p-3 px-4 rounded-xl border border-slate-100 shadow-3xs">
                           <div className="flex justify-between items-start gap-3">
-                            <span className="text-xs font-bold text-slate-700 leading-tight">
-                              {kr.text}
-                            </span>
-                            <span className="text-xs font-extrabold text-blue-600 bg-blue-50/50 px-1.5 py-0.5 rounded select-none">
-                              {kr.progress}%
-                            </span>
+                            <span className="text-xs font-bold text-slate-700 leading-tight">{kr.text}</span>
+                            <span className="text-xs font-extrabold text-blue-600 bg-blue-50/50 px-1.5 py-0.5 rounded select-none">{kr.progress}%</span>
                           </div>
-
-                          {/* Slide input */}
                           <div className="flex items-center gap-3">
                             <input
-                              type="range"
-                              min="0"
-                              max="100"
-                              value={kr.progress}
+                              type="range" min="0" max="100" value={kr.progress}
                               onChange={(e) => handleKrSlide(okr.id, kr.id, Number(e.target.value))}
                               className="flex-1 accent-blue-600 h-1.5 bg-slate-100 rounded-lg cursor-pointer"
                             />
@@ -343,41 +266,31 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
                       ))}
                     </div>
 
-                    {/* AI Objectives alignment summary summary */}
                     <div className="bg-blue-50/15 border border-blue-50 p-4 rounded-2xl mt-4 space-y-3">
                       <div className="flex justify-between items-start">
                         <span className="text-xs font-black text-blue-900 uppercase tracking-tight flex items-center gap-1.5">
                           <Sparkles className="w-4 h-4 text-blue-500 fill-blue-500" />
                           AI Summary
                         </span>
-                        <button
-                          onClick={() => triggerAiOkrReport(okr)}
-                          className="text-[10px] font-extrabold text-blue-600 hover:underline flex items-center gap-1"
-                        >
+                        <button onClick={() => triggerAiOkrReport(okr)} className="text-[10px] font-extrabold text-blue-600 hover:underline flex items-center gap-1">
                           <Sparkles className="w-3 h-3" />
                           <span>Ask Copilot to analyze Objective</span>
                         </button>
                       </div>
-                      <p className="text-xs leading-relaxed text-slate-700 bg-white border border-slate-100 p-3.5 rounded-xl font-semibold">
-                        {okr.aiSummary}
-                      </p>
+                      <p className="text-xs leading-relaxed text-slate-700 bg-white border border-slate-100 p-3.5 rounded-xl font-semibold">{okr.aiSummary}</p>
                     </div>
                   </div>
 
-                  {/* Right Column: Key Impacts Tags list */}
                   <div className="lg:col-span-2 space-y-4">
                     <h5 className="text-[10px] font-black text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
                       <Target className="w-3.5 h-3.5 text-blue-600 stroke-[2.5]" />
                       Key Impacts
                     </h5>
-
                     <div className="flex flex-col gap-2">
                       {okr.keyImpacts.map((ki, i) => (
                         <div key={i} className="flex gap-2.5 bg-white p-3 rounded-xl border border-slate-100 shadow-3xs hover:bg-slate-50/30 transition-colors">
-                          <span className="w-1.5 h-1.5 bg-blue-5 *: bg-blue-600 rounded-full mt-1.5 flex-shrink-0" />
-                          <p className="text-xs text-slate-600 leading-tight font-medium">
-                            {ki}
-                          </p>
+                          <span className="w-1.5 h-1.5 bg-blue-600 rounded-full mt-1.5 flex-shrink-0" />
+                          <p className="text-xs text-slate-600 leading-tight font-medium">{ki}</p>
                         </div>
                       ))}
                     </div>
@@ -389,30 +302,23 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
         })}
       </div>
 
-      {/* Register OKR Modal overlay */}
+      {/* New OKR Modal */}
       {newOkrOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-3xs">
           <div className="absolute inset-0" onClick={() => setNewOkrOpen(false)} />
-
           <div className="bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 relative z-10 w-full max-w-lg space-y-5 animate-fade-in mx-4">
             <div className="flex justify-between items-center pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600">
-                  <Target className="w-4.5 h-4.5" />
+                  <Target className="w-4 h-4" />
                 </div>
                 <h4 className="text-[13px] font-bold text-slate-900">Define Strategic OKR Objective</h4>
               </div>
-              <button
-                onClick={() => setNewOkrOpen(false)}
-                className="text-xs text-slate-400 hover:text-slate-700 font-bold px-2 py-1 bg-slate-50 hover:bg-slate-150 rounded"
-              >
-                ✕
-              </button>
+              <button onClick={() => setNewOkrOpen(false)} className="text-xs text-slate-400 hover:text-slate-700 font-bold px-2 py-1 bg-slate-50 rounded">✕</button>
             </div>
 
             <form onSubmit={handleAddNewOkr} className="space-y-4">
-              <div className="space-y-1">
-                <label className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Objective Designation Title</label>
+              <FormField label="Objective Designation Title" required>
                 <input
                   type="text"
                   required
@@ -421,11 +327,10 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
                   onChange={(e) => setNewOkrForm(prev => ({ ...prev, objective: e.target.value }))}
                   className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none focus:bg-white focus:border-blue-500"
                 />
-              </div>
+              </FormField>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Department Unit</label>
+              <FormRow cols={2}>
+                <FormField label="Department Unit">
                   <select
                     value={newOkrForm.dept}
                     onChange={(e) => setNewOkrForm(prev => ({ ...prev, dept: e.target.value }))}
@@ -436,64 +341,37 @@ export default function OkrsTab({ onDraftAiSuggestion, showAlert }: OkrTabProps)
                     <option value="Design">Design</option>
                     <option value="Analytics">Analytics</option>
                   </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Direct Owner Name</label>
+                </FormField>
+                <FormField label="Direct Owner Name" required>
                   <input
                     type="text"
                     required
                     placeholder="e.g. John Smith"
                     value={newOkrForm.owner}
                     onChange={(e) => setNewOkrForm(prev => ({ ...prev, owner: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none focus:bg-white focus:border-blue-500"
+                    className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none focus:bg-white"
                   />
-                </div>
-              </div>
+                </FormField>
+              </FormRow>
 
-              {/* Key Results Definition */}
-              <div className="space-y-2.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase block tracking-wider">Key Results Targets (Initial 0% progress)</label>
-                
+              <FormField label="Key Results Targets (Initial 0% progress)">
                 <div className="space-y-2">
-                  <input
-                    type="text"
-                    required
-                    value={newOkrForm.kr1}
-                    onChange={(e) => setNewOkrForm(prev => ({ ...prev, kr1: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:bg-white"
-                  />
-                  <input
-                    type="text"
-                    required
-                    value={newOkrForm.kr2}
-                    onChange={(e) => setNewOkrForm(prev => ({ ...prev, kr2: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:bg-white"
-                  />
-                  <input
-                    type="text"
-                    required
-                    value={newOkrForm.kr3}
-                    onChange={(e) => setNewOkrForm(prev => ({ ...prev, kr3: e.target.value }))}
-                    className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:bg-white"
-                  />
+                  {[newOkrForm.kr1, newOkrForm.kr2, newOkrForm.kr3].map((val, i) => (
+                    <input
+                      key={i}
+                      type="text"
+                      required
+                      value={val}
+                      onChange={(e) => setNewOkrForm(prev => ({ ...prev, [`kr${i + 1}`]: e.target.value }))}
+                      className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2.5 text-xs font-semibold focus:outline-none focus:bg-white"
+                    />
+                  ))}
                 </div>
-              </div>
+              </FormField>
 
               <div className="flex justify-end gap-2.5 pt-3">
-                <button
-                  type="button"
-                  onClick={() => setNewOkrOpen(false)}
-                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-bold text-white transition-all cursor-pointer"
-                >
-                  Save Objective
-                </button>
+                <button type="button" onClick={() => setNewOkrOpen(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 cursor-pointer">Cancel</button>
+                <button type="submit" className="px-5 py-2 bg-blue-600 hover:bg-blue-700 rounded-xl text-xs font-bold text-white transition-all cursor-pointer">Save Objective</button>
               </div>
             </form>
           </div>

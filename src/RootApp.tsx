@@ -18,12 +18,19 @@ import InterviewResponsePage from "./pages/InterviewResponsePage";
 import CandidateOnboardingPage from "./pages/CandidateOnboardingPage";
 import MyProfilePage from "./pages/MyProfilePage";
 import BulkEmployeeImportPage from "./pages/BulkEmployeeImportPage";
+import { ProjectDetailsPage, ProjectsPage } from "./features/projects";
 
 // Wrapper to extract :onboardingId param and pass as prop
 function CandidateOnboardingRoute() {
   const { onboardingId } = useParams<{ onboardingId: string }>();
   if (!onboardingId) return <div>Invalid onboarding link.</div>;
   return <CandidateOnboardingPage onboardingId={onboardingId} />;
+}
+
+function ProjectDetailsPageWrapper() {
+  const { projectId } = useParams<{ projectId: string }>();
+  if (!projectId) return <div>Invalid project link.</div>;
+  return <ProjectDetailsPage projectId={projectId} />;
 }
 
 export default function RootApp() {
@@ -51,6 +58,12 @@ export default function RootApp() {
                   <Route path="/unauthorized" element={<UnauthorizedPage />} />
                   <Route path="/" element={<AppShell />}>
                     <Route index element={<HomeRedirect />} />
+                    <Route path="projects" element={<ProjectsPage currentTab="overview" />} />
+                    <Route path="projects/all" element={<ProjectsPage currentTab="all" />} />
+                    <Route path="projects/my-projects" element={<ProjectsPage currentTab="mine" />} />
+                    <Route path="projects/my-tasks" element={<ProjectsPage currentTab="my-tasks" />} />
+                    <Route path="projects/board" element={<ProjectsPage currentTab="board" />} />
+                    <Route path="projects/:projectId" element={<ProjectDetailsPageWrapper />} />
                     <Route path="employees/bulk-import" element={<BulkEmployeeImportPage />} />
                     <Route path="employee/my-profile" element={<MyProfilePage />} />
                     <Route path="employee/recruitment" element={<RecruitmentPage />} />

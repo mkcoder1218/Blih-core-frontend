@@ -1,6 +1,7 @@
 import React from 'react';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
-import { UserPlus, CheckCircle, Clock, Calendar, TrendingUp, CheckSquare } from 'lucide-react';
+import { UserPlus, CheckCircle, CheckSquare, Clock, Calendar, TrendingUp } from 'lucide-react';
+import { StatCard, StatCardGrid } from '@/components/ui/blih';
 
 const lineChartData = [
   { name: 'Jan', count: 125 }, { name: 'Feb', count: 140 }, { name: 'Mar', count: 155 },
@@ -13,21 +14,11 @@ export default function OnboardingOverviewTab() {
   return (
     <div id="tab-overview-pane" className="space-y-6 animate-fade-in font-sans pb-12">
       {/* Top Summary row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {[
-          { label: 'Active Onboarding', value: 12, icon: <UserPlus className="w-5 h-5" /> },
-          { label: 'Completed This Month', value: 28, icon: <CheckCircle className="w-5 h-5" /> },
-          { label: 'On Probation', value: 45, icon: <Clock className="w-5 h-5" /> },
-        ].map(({ label, value, icon }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-center">
-            <div>
-              <p className="text-[11px] font-extrabold text-slate-400 uppercase tracking-wider">{label}</p>
-              <h3 className="text-3xl font-black text-slate-900 mt-2 tracking-tight">{value}</h3>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">{icon}</div>
-          </div>
-        ))}
-      </div>
+      <StatCardGrid cols={3}>
+        <StatCard label="Active Onboarding"    value={12} icon={<UserPlus className="w-5 h-5" />}    tone="blue" />
+        <StatCard label="Completed This Month" value={28} icon={<CheckCircle className="w-5 h-5" />} tone="emerald" />
+        <StatCard label="On Probation"         value={45} icon={<Clock className="w-5 h-5" />}       tone="amber" />
+      </StatCardGrid>
 
       {/* Work Hours Performance */}
       <div className="space-y-3">

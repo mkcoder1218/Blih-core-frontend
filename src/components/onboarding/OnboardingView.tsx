@@ -9,9 +9,10 @@ import OnboardingOverviewTab  from './tabs/OnboardingOverviewTab';
 import OnboardingContractTab  from './tabs/OnboardingContractTab';
 import OnboardingProgressTab  from './tabs/OnboardingProgressTab';
 import OnboardingProbationTab from './tabs/OnboardingProbationTab';
+import OnboardingPolicyTab    from './tabs/OnboardingPolicyTab';
 
 interface OnboardingViewProps {
-  currentTab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists';
+  currentTab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -126,6 +127,10 @@ export default function OnboardingView({ currentTab, onDraftAiSuggestion, showAl
 
       {currentTab === 'probation' && (
         <OnboardingProbationTab onDraftAiSuggestion={onDraftAiSuggestion} showAlert={showAlert} />
+      )}
+
+      {currentTab === 'policy' && (
+        <OnboardingPolicyTab showAlert={showAlert} />
       )}
 
       {currentTab === 'checklists' && (

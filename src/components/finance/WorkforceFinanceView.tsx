@@ -51,6 +51,7 @@ import type { PayrollTemplate, LinkedEmployee, PendingEmployee } from '../../hoo
 import { exportWorkforceFinance } from '../../api/finance';
 import PayrollTemplatePanel from './PayrollTemplatePanel';
 import PayrollLinkPanel from './PayrollLinkPanel';
+import { StatCard, StatCardGrid, TabSwitcher, SectionCard } from '@/components/ui/blih';
 
 interface WorkforceFinanceViewProps {
   currentTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits';
@@ -85,71 +86,32 @@ function SalaryPayrollPanel({
   return (
     <div className="space-y-6 animate-fade-in font-sans">
       {/* Sub-tab switcher */}
-      <div className="flex items-center gap-1 bg-white border border-slate-100 rounded-2xl p-1.5 w-fit shadow-xs">
-        <button
-          onClick={() => setSubTab('salary')}
-          className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-            subTab === 'salary'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          Salary
-        </button>
-        <button
-          onClick={() => setSubTab('payroll')}
-          className={`px-5 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
-            subTab === 'payroll'
-              ? 'bg-blue-600 text-white shadow-xs'
-              : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          }`}
-        >
-          Payroll
-        </button>
-      </div>
+      <TabSwitcher
+        tabs={[
+          { id: 'salary',  label: 'Salary' },
+          { id: 'payroll', label: 'Payroll' },
+        ]}
+        active={subTab}
+        onChange={(id) => setSubTab(id as 'salary' | 'payroll')}
+      />
 
       {/* ── SALARY CONTENT ── */}
       {subTab === 'salary' && (
         <div className="space-y-6">
           {/* Stat Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Salary</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(salary.totals?.avgSalary)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Payroll</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(salary.totals?.totalPayroll, true)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Requests</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{salaryAdjustRequests.length}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><FileText className="w-4 h-4" /></div>
-            </div>
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg Increase</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{pct(salary.totals?.avgIncreasePercent)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
-            </div>
-          </div>
+          <StatCardGrid cols={4}>
+            <StatCard label="Avg Salary"        value={formatMoney(salary.totals?.avgSalary)}             icon={<DollarSign className="w-4 h-4" />} tone="blue" />
+            <StatCard label="Total Payroll"      value={formatMoney(salary.totals?.totalPayroll, true)}    icon={<TrendingUp className="w-4 h-4" />}  tone="blue" />
+            <StatCard label="Pending Requests"   value={salaryAdjustRequests.length}                       icon={<FileText className="w-4 h-4" />}    tone="amber" />
+            <StatCard label="Avg Increase"       value={pct(salary.totals?.avgIncreasePercent)}            icon={<TrendingUp className="w-4 h-4" />}  tone="emerald" />
+          </StatCardGrid>
 
           {/* Salary Adjustment Requests */}
-          <div className="bg-white rounded-2xl border border-blue-500/20 p-5 space-y-4">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <span className="text-blue-600"><DollarSign className="w-4 h-4 stroke-[3]" /></span>
-                <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider">Salary Adjustment Requests</h4>
-              </div>
+          <SectionCard
+            title="Salary Adjustment Requests"
+            icon={<DollarSign className="w-4 h-4 stroke-[3]" />}
+            accent="blue"
+            action={
               <button
                 onClick={() => onDraftAiSuggestion('salary adjustment guidelines')}
                 className="bg-blue-50 hover:bg-blue-100 text-blue-600 font-bold text-xs px-3.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer select-none transition-colors"
@@ -157,7 +119,8 @@ function SalaryPayrollPanel({
                 <Sparkles className="w-3.5 h-3.5" />
                 <span>AI Compensation Guidance</span>
               </button>
-            </div>
+            }
+          >
             <div className="space-y-3">
               {salaryAdjustRequests.length > 0 ? salaryAdjustRequests.map((sar) => (
                 <div key={sar.id} className="bg-slate-50/70 rounded-2xl border border-slate-100 p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -208,7 +171,7 @@ function SalaryPayrollPanel({
                 </div>
               )}
             </div>
-          </div>
+          </SectionCard>
 
           {/* Charts + Dept breakdown */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -652,39 +615,12 @@ export default function WorkforceFinanceView({
       {currentTab === 'budget' && (
         <div className="space-y-6 animate-fade-in">
           {/* Top Info Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Allocated</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(budget.totals?.allocated, true)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Spent</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(budget.totals?.spent, true)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Remaining</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(budget.totals?.remaining, true)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><DollarSign className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Utilization</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{pct(budget.totals?.utilization)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
-            </div>
-          </div>
+          <StatCardGrid cols={4}>
+            <StatCard label="Total Allocated" value={formatMoney(budget.totals?.allocated, true)} icon={<DollarSign className="w-4 h-4" />} tone="blue" />
+            <StatCard label="Total Spent"     value={formatMoney(budget.totals?.spent, true)}     icon={<TrendingUp className="w-4 h-4" />} tone="rose" />
+            <StatCard label="Remaining"       value={formatMoney(budget.totals?.remaining, true)} icon={<DollarSign className="w-4 h-4" />} tone="emerald" />
+            <StatCard label="Utilization"     value={pct(budget.totals?.utilization)}             icon={<TrendingUp className="w-4 h-4" />} tone="amber" />
+          </StatCardGrid>
 
           {/* Budget Management Banner */}
           <div className="flex justify-between items-center bg-white p-5 rounded-2xl border border-slate-100 shadow-xs">
@@ -828,39 +764,12 @@ export default function WorkforceFinanceView({
       {currentTab === 'expense' && (
         <div className="space-y-6 animate-fade-in">
           {/* Top Info Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-5">
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Expense</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(expense.totals?.totalExpense, true)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><Compass className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Approvals</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{expenseAwaiting.length}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><Clock className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unexpected</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{expense.totals?.unexpected ?? 0}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-red-100 text-red-650 flex items-center justify-center"><AlertTriangle className="w-4 h-4" /></div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">This Month</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(expense.totals?.thisMonth, true)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center"><TrendingUp className="w-4 h-4" /></div>
-            </div>
-          </div>
+          <StatCardGrid cols={4}>
+            <StatCard label="Total Expense"     value={formatMoney(expense.totals?.totalExpense, true)} icon={<Compass className="w-4 h-4" />}       tone="blue" />
+            <StatCard label="Pending Approvals" value={expenseAwaiting.length}                          icon={<Clock className="w-4 h-4" />}           tone="amber" />
+            <StatCard label="Unexpected"        value={expense.totals?.unexpected ?? 0}                 icon={<AlertTriangle className="w-4 h-4" />}   tone="rose" />
+            <StatCard label="This Month"        value={formatMoney(expense.totals?.thisMonth, true)}    icon={<TrendingUp className="w-4 h-4" />}      tone="emerald" />
+          </StatCardGrid>
 
           {/* Breakdown / Pie Charts & Line charts split */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -1068,31 +977,11 @@ export default function WorkforceFinanceView({
       {currentTab === 'benefits' && (
         <div className="space-y-6 animate-fade-in font-sans">
           {/* Top Info Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Benefits Value</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(benefits.totals?.totalValue, true)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-50 text-emerald-600 font-bold text-xs flex items-center justify-center">+12%</div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Avg per Employee</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{formatMoney(benefits.totals?.avgPerEmployee)}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 font-bold text-xs flex items-center justify-center">-5%</div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-              <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Enrollments</p>
-                <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{benefits.totals?.activeEnrollments ?? 0}</h3>
-              </div>
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-[#1a56db] flex items-center justify-center"><Percent className="w-4 h-4" /></div>
-            </div>
-          </div>
+          <StatCardGrid cols={3}>
+            <StatCard label="Total Benefits Value" value={formatMoney(benefits.totals?.totalValue, true)} icon={<span className="text-xs font-bold text-emerald-600">+12%</span>} tone="emerald" />
+            <StatCard label="Avg per Employee"     value={formatMoney(benefits.totals?.avgPerEmployee)}   icon={<span className="text-xs font-bold text-rose-600">-5%</span>}    tone="rose" />
+            <StatCard label="Active Enrollments"   value={benefits.totals?.activeEnrollments ?? 0}        icon={<Percent className="w-4 h-4" />}                                  tone="blue" />
+          </StatCardGrid>
 
           {/* Annual Profit Sharing */}
           <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-4">

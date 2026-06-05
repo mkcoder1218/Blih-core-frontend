@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, Plus, Trash2, ChevronRight, ChevronLeft, Rocket, RefreshCw } from 'lucide-react';
+import { X, Copy, Check, Plus, Trash2, ChevronRight, ChevronLeft, Rocket, RefreshCw, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useInitializeOnboarding, useOnboardingByOfferId } from '../../hooks/useCandidateOnboarding';
+import { useActivePolicies } from '../../hooks/usePolicies';
+import { POLICY_TYPE_LABELS, type PolicyType } from '../../api/policies';
 
 const ALL_SECTIONS = [
   { key: 'overview', label: 'Overview & Welcome' },
@@ -29,8 +31,11 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
     { name: 'National ID / Passport', required: true },
     { name: 'Proof of Address', required: true },
   ]);
-  const [requiredPolicies, setRequiredPolicies] = useState<{ title: string; content: string; required: boolean }[]>([]);
+  const [selectedPolicyIds, setSelectedPolicyIds] = useState<Set<string>>(new Set());
   const [resources, setResources] = useState<any[]>([]);
+
+  // Fetch real policies from the backend
+  const { data: backendPolicies, isLoading: loadingPolicies } = useActivePolicies();
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -46,7 +51,13 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
     if (!existingOnboarding) return;
     if (existingOnboarding.sections?.length)        setSelectedSections(existingOnboarding.sections);
     if (existingOnboarding.requiredDocuments?.length) setRequiredDocuments(existingOnboarding.requiredDocuments);
-    if (existingOnboarding.requiredPolicies?.length)  setRequiredPolicies(existingOnboarding.requiredPolicies);
+    if (existingOnboarding.requiredPolicies?.length) {
+      // requiredPolicies on existing onboarding may store { policyId } or { _id } — extract ids
+      const ids = existingOnboarding.requiredPolicies
+        .map((p: any) => p.policyId || p._id || p.id)
+        .filter(Boolean);
+      setSelectedPolicyIds(new Set(ids));
+    }
     if (existingOnboarding.resources?.length)         setResources(existingOnboarding.resources);
     // Pre-set the generated URL so step 4 shows it immediately if they just want to resend
     const url = `${window.location.origin}/career/onboarding/${existingOnboarding.onboardingId}`;
@@ -64,10 +75,13 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
   const updateDocument = (i: number, field: 'name' | 'required', value: any) =>
     setRequiredDocuments(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: value } : d));
 
-  const addPolicy = () => setRequiredPolicies(prev => [...prev, { title: '', content: '', required: true }]);
-  const removePolicy = (i: number) => setRequiredPolicies(prev => prev.filter((_, idx) => idx !== i));
-  const updatePolicy = (i: number, field: 'title' | 'content' | 'required', value: any) =>
-    setRequiredPolicies(prev => prev.map((p, idx) => idx === i ? { ...p, [field]: value } : p));
+  const togglePolicy = (id: string) => {
+    setSelectedPolicyIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const addResource = () => setResources(prev => [...prev, {
     resourceName: '', resourceType: '', quantity: 1, condition: 'New',
@@ -84,7 +98,9 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
         sections: selectedSections,
         resources,
         requiredDocuments: requiredDocuments.filter(d => d.name.trim()),
-        requiredPolicies: requiredPolicies.filter(p => p.title.trim()),
+        requiredPolicies: (backendPolicies ?? [])
+          .filter(p => selectedPolicyIds.has(p._id))
+          .map(p => ({ policyId: p._id, title: p.title, required: p.isRequired })),
       });
       // successResponse wraps as { success, data: { onboarding, onboardingUrl } }
       // axios wraps that as res.data, so mutateAsync returns res.data = { success, data: {...} }
@@ -109,6 +125,7 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
     setStep(1);
     setGeneratedUrl(null);
     setCopied(false);
+    setSelectedPolicyIds(new Set());
     onClose();
   };
 
@@ -209,26 +226,62 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-wider">Policies & Agreements</h3>
-                    <button onClick={addPolicy} className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700">
-                      <Plus className="w-3.5 h-3.5" /> Add Policy
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    {requiredPolicies.map((policy, i) => (
-                      <div key={i} className="border border-slate-200 rounded-xl p-3 space-y-2">
-                        <div className="flex items-center gap-2">
-                          <input value={policy.title} onChange={e => updatePolicy(i, 'title', e.target.value)} placeholder="Policy title" className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-400" />
-                          <button onClick={() => removePolicy(i)} className="p-1.5 text-rose-400 hover:bg-rose-50 rounded-lg transition-colors">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <textarea value={policy.content} onChange={e => updatePolicy(i, 'content', e.target.value)} placeholder="Policy content..." rows={3} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-400 resize-none" />
-                      </div>
-                    ))}
-                    {requiredPolicies.length === 0 && (
-                      <p className="text-[11px] text-slate-400 text-center py-3">No policies added. Click "Add Policy" to include agreements.</p>
+                    {selectedPolicyIds.size > 0 && (
+                      <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                        {selectedPolicyIds.size} selected
+                      </span>
                     )}
                   </div>
+                  {loadingPolicies ? (
+                    <div className="flex items-center gap-2 py-4 text-slate-400">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span className="text-[11px] font-semibold">Loading policies…</span>
+                    </div>
+                  ) : !backendPolicies?.length ? (
+                    <div className="text-center py-4 bg-slate-50 rounded-xl border border-slate-100">
+                      <ShieldCheck className="w-5 h-5 text-slate-300 mx-auto mb-1" />
+                      <p className="text-[11px] text-slate-400 font-semibold">No active policies found.</p>
+                      <p className="text-[10px] text-slate-400 mt-0.5">Publish policies in the Policies module first.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {backendPolicies.map(policy => {
+                        const isChecked = selectedPolicyIds.has(policy._id);
+                        const typeLabel = POLICY_TYPE_LABELS[policy.policyType as PolicyType] ?? policy.policyType;
+                        return (
+                          <label
+                            key={policy._id}
+                            className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                              isChecked ? 'border-blue-300 bg-blue-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => togglePolicy(policy._id)}
+                              className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-[12px] font-bold text-slate-800">{policy.title}</span>
+                                {policy.isRequired && (
+                                  <span className="text-[9px] font-black text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
+                                    Required
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                                  {typeLabel}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-medium">v{policy.version}</span>
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -311,7 +364,7 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
                   <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Email</span><span className="font-bold text-slate-800">{offer?.candidateEmail}</span></div>
                   <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Sections</span><span className="font-bold text-slate-800">{selectedSections.length} selected</span></div>
                   <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Documents</span><span className="font-bold text-slate-800">{requiredDocuments.filter(d => d.name).length} required</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Policies</span><span className="font-bold text-slate-800">{requiredPolicies.filter(p => p.title).length} policies</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Policies</span><span className="font-bold text-slate-800">{selectedPolicyIds.size} policies</span></div>
                   <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Resources</span><span className="font-bold text-slate-800">{resources.length} items</span></div>
                 </div>
                 <p className="text-[12px] text-slate-500 leading-relaxed">

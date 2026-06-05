@@ -6,6 +6,9 @@ import AttendanceFilters, { type AttendanceFiltersValue } from "./AttendanceFilt
 import AttendanceTable from "./AttendanceTable";
 import EmployeeAttendanceDrawer from "./EmployeeAttendanceDrawer";
 import { downloadAttendanceHrExport } from "../../../api/attendanceHr";
+import { PageHeader, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 
 function todayYmd() {
   return new Date().toISOString().slice(0, 10);
@@ -55,49 +58,52 @@ export default function HrAttendanceCheckInsPage() {
     };
   }, [filters]);
 
+  const handleExport = async () => {
+    const res = await downloadAttendanceHrExport(exportParams);
+    const blob = new Blob([res.data], { type: res.headers["content-type"] || "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const filename =
+      (res.headers["content-disposition"] as string | undefined)?.match(/filename=\"?([^\";]+)\"?/i)?.[1] ||
+      `attendance-${exportParams.startDate}-to-${exportParams.endDate}.csv`;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">HR Attendance</div>
-          <div className="text-[18px] font-black text-slate-900 tracking-tight mt-1">Check-ins monitoring</div>
-          <div className="text-[12px] text-slate-600 font-semibold mt-1">Monitor attendance per employee for the selected day.</div>
-        </div>
-        <button
-          onClick={async () => {
-            const res = await downloadAttendanceHrExport(exportParams);
-            const blob = new Blob([res.data], { type: res.headers["content-type"] || "text/csv" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            const filename =
-              (res.headers["content-disposition"] as string | undefined)?.match(/filename=\"?([^\";]+)\"?/i)?.[1] ||
-              `attendance-${exportParams.startDate}-to-${exportParams.endDate}.csv`;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
-          }}
-          className="text-xs font-extrabold bg-slate-900 hover:bg-slate-800 text-white px-4 py-2 rounded-xl cursor-pointer"
-        >
-          Export CSV
-        </button>
-      </div>
+      <PageHeader
+        eyebrow="HR Attendance"
+        title="Check-ins Monitoring"
+        description="Monitor attendance per employee for the selected day."
+        actions={
+          <Button
+            onClick={handleExport}
+            className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-4 h-9 rounded-xl"
+          >
+            <Download className="w-3.5 h-3.5 mr-1.5" />
+            Export CSV
+          </Button>
+        }
+      />
 
-      {summary.isError ? (
-        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">Failed to load summary.</div>
-      ) : null}
+      {summary.isError && (
+        <InfoAlert variant="error" message="Failed to load summary." />
+      )}
       <AttendanceSummaryCards data={summary.data?.data} />
 
       <AttendanceFilters value={filters} onChange={setFilters} />
 
-      {daily.isError ? (
-        <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">Failed to load daily attendance.</div>
-      ) : null}
+      {daily.isError && (
+        <InfoAlert variant="error" message="Failed to load daily attendance." />
+      )}
 
       {daily.isLoading ? (
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 text-[12px] text-slate-600 font-semibold">Loading attendance…</div>
+        <LoadingSpinner label="Loading attendance…" />
       ) : (
         <AttendanceTable rows={rows} timezone={tz} onSelectEmployee={setSelectedEmployeeId} />
       )}

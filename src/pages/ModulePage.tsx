@@ -8,8 +8,9 @@ import CareerManagementView from "../components/career/CareerManagementView";
 import ExitOffboardingView from "../components/offboarding/ExitOffboardingView";
 import PerformanceView from "../components/performance/PerformanceView";
 import EmployeeDetailPage from "../components/people/EmployeeDetailPage";
+import { ProjectDetailsPage, ProjectsPage } from "../features/projects";
 
-const ALLOWED = new Set(["onboarding", "profiles", "attendance", "performance", "talent", "exit", "finance"]);
+const ALLOWED = new Set(["onboarding", "profiles", "attendance", "performance", "talent", "exit", "finance", "projects"]);
 
 export default function ModulePage() {
   const params = useParams();
@@ -17,6 +18,7 @@ export default function ModulePage() {
   const location = useLocation();
   const module = String(params.module || "");
   const tab = String(params.tab || "overview");
+  const projectUuid = module === "projects" && /^[0-9a-fA-F-]{36}$/.test(tab) ? tab : "";
 
   // Employee detail view — triggered when navigating to /*/profiles/employee/:id
   // We pass employee data via router state to avoid a separate API call
@@ -39,6 +41,7 @@ export default function ModulePage() {
   }
 
   if (!ALLOWED.has(module)) return <Navigate to=".." replace />;
+  if (projectUuid) return <ProjectDetailsPage projectId={projectUuid} />;
 
   if (module === "profiles") {
     const rolePrefix = location.pathname.startsWith("/hr-manager") ? "/hr-manager" :
@@ -57,6 +60,7 @@ export default function ModulePage() {
   if (module === "attendance") return <AttendanceView currentAttendanceTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "onboarding") return <OnboardingView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "finance") return <WorkforceFinanceView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+  if (module === "projects") return <ProjectsPage currentTab={(tab === "my-projects" ? "mine" : tab) as any} />;
   if (module === "talent") return <CareerManagementView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "exit") return <ExitOffboardingView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "performance") return <PerformanceView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;

@@ -7,7 +7,7 @@ import Header from "../components/layout/Header";
 import { clearAuthTokens } from "../api/storage";
 import { notifyAuthChanged } from "../api/authState";
 import { setLegacyUser, useLegacyUser } from "../api/legacyUserStore";
-import type { BusinessesTab, RecruitmentTab } from "../types";
+import type { BusinessesTab, ProjectsTab, RecruitmentTab } from "../types";
 
 export default function AppShell() {
   const activeUser = useLegacyUser();
@@ -20,7 +20,8 @@ export default function AppShell() {
   const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
   const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("overview");
   const [currentFinanceTab, setCurrentFinanceTab] = useState<"overview" | "salary_payroll" | "payroll_template" | "budget" | "expense" | "benefits">("overview");
-  const [currentOnboardingTab, setCurrentOnboardingTab] = useState<"overview" | "contract" | "progress" | "probation" | "checklists">("overview");
+  const [currentProjectsTab, setCurrentProjectsTab] = useState<ProjectsTab>("overview");
+  const [currentOnboardingTab, setCurrentOnboardingTab] = useState<"overview" | "contract" | "progress" | "probation" | "checklists" | "policy">("overview");
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<"overview" | "performance_review" | "okrs" | "kpis" | "discipline" | "evaluation_form">("overview");
   const [currentBusinessesTab, setCurrentBusinessesTab] = useState<BusinessesTab>("overview");
   const [isDetailedView, setIsDetailedView] = useState<boolean>(true);
@@ -48,12 +49,18 @@ export default function AppShell() {
     if (p.includes("/talent")) return "talent";
     if (p.includes("/exit")) return "exit";
     if (p.includes("/finance")) return "finance";
+    if (p.includes("/projects")) return "projects";
     if (p.includes("/permissions")) return "permissions";
     return userRole === "Super Admin" ? "businesses" : "recruitment";
   }, [location.pathname, userRole]);
 
   React.useEffect(() => {
     const segments = location.pathname.split("/");
+    if (segments[1] === "projects") {
+      const tab = segments[2] === "all" ? "all" : segments[2] === "my-projects" ? "mine" : segments[2] === "my-tasks" ? "my-tasks" : segments[2] === "board" ? "board" : "overview";
+      setCurrentProjectsTab(tab as ProjectsTab);
+      return;
+    }
     if (segments.length >= 3) {
       const module = segments[2];
       const tab = segments[3] || "overview";
@@ -63,6 +70,7 @@ export default function AppShell() {
       if (module === "talent") setCurrentTalentTab(tab as any);
       if (module === "exit") setCurrentExitTab(tab as any);
       if (module === "finance") setCurrentFinanceTab(tab as any);
+      if (module === "projects") setCurrentProjectsTab(tab as any);
       if (module === "onboarding") setCurrentOnboardingTab(tab as any);
       if (module === "performance") setCurrentPerformanceTab(tab as any);
       if (module === "businesses") setCurrentBusinessesTab(tab as any);
@@ -102,6 +110,8 @@ export default function AppShell() {
         setCurrentExitTab={setCurrentExitTab}
         currentFinanceTab={currentFinanceTab}
         setCurrentFinanceTab={setCurrentFinanceTab}
+        currentProjectsTab={currentProjectsTab}
+        setCurrentProjectsTab={setCurrentProjectsTab}
         currentOnboardingTab={currentOnboardingTab}
         setCurrentOnboardingTab={setCurrentOnboardingTab}
         currentPerformanceTab={currentPerformanceTab}

@@ -180,6 +180,7 @@ export function useScheduleInterview() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["job-applications"] });
+      queryClient.invalidateQueries({ queryKey: ["job-requests"] });
     },
   });
 }

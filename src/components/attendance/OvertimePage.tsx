@@ -4,18 +4,18 @@ import {
   CheckSquare,
   CheckCircle2,
   XCircle,
-  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Plus,
   X,
   RefreshCw,
   Inbox,
-  User,
   Calendar,
-  MessageSquare,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
+import { StatCard, StatCardGrid, PageHeader, StatusBadge, EmptyState, LoadingSpinner, InfoAlert } from "@/components/ui/blih";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import {
   useMyOvertimeRequests,
   useOvertimePending,
@@ -49,12 +49,7 @@ const PIPELINE_STEPS = [
 ];
 
 function StageBadge({ stage }: { stage: string }) {
-  const cfg = STAGE_LABELS[stage] ?? STAGE_LABELS.cancelled;
-  return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border ${cfg.bg} ${cfg.color}`}>
-      {cfg.label}
-    </span>
-  );
+  return <StatusBadge status={stage} />;
 }
 
 function Pipeline({ current }: { current: string }) {
@@ -95,14 +90,14 @@ function OvertimeCard({
   onReject,
   onCancel,
   currentUserId,
-}: {
+}: React.PropsWithoutRef<{
   ot: OvertimeRequest;
   isApprover: boolean;
-  onApprove: (id: string) => void;
+  onApprove: (id: string) => Promise<void> | void;
   onReject: (id: string) => void;
-  onCancel: (id: string) => void;
+  onCancel: (id: string) => Promise<void> | void;
   currentUserId: string;
-}) {
+}>) {
   const isOwn   = ot.employeeUserId === currentUserId;
   const isPending = ot.status === "pending";
   const initials = ot.employee?.fullName?.slice(0, 2).toUpperCase() ?? "??";
@@ -116,9 +111,9 @@ function OvertimeCard({
 
       {/* Employee */}
       <div className="flex items-center gap-2.5">
-        <span className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+        <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-[10px] font-bold flex-shrink-0">
           {initials}
-        </span>
+        </div>
         <div>
           <h4 className="text-[11.5px] font-extrabold text-slate-900 leading-none">
             {ot.employee?.fullName ?? "Employee"}
@@ -280,32 +275,24 @@ function SubmitModal({ onClose, showAlert }: { onClose: () => void; showAlert: (
             </div>
             <div className="space-y-1 col-span-2">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reason</label>
-              <textarea
+              <Textarea
                 required
                 rows={3}
                 value={form.reason}
                 onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
                 placeholder="Describe why overtime is needed..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-blue-500 resize-none"
+                className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold resize-none"
               />
             </div>
           </div>
 
           <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 border border-slate-200 text-slate-600 font-bold text-xs py-2.5 rounded-xl hover:bg-slate-50 transition-colors"
-            >
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1 border-slate-200 text-slate-600 font-bold text-xs h-9 rounded-xl">
               Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={submit.isPending}
-              className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold text-xs py-2.5 rounded-xl transition-colors"
-            >
+            </Button>
+            <Button type="submit" disabled={submit.isPending} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold text-xs h-9 rounded-xl">
               {submit.isPending ? "Submitting…" : "Submit Request"}
-            </button>
+            </Button>
           </div>
         </form>
       </motion.div>
@@ -355,24 +342,20 @@ function RejectModal({
             <p className="text-[11px] text-slate-400">Provide a reason for rejection</p>
           </div>
         </div>
-        <textarea
+        <Textarea
           rows={3}
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="State the rejection reason..."
-          className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none focus:border-red-400 resize-none"
+          className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold resize-none"
         />
         <div className="flex gap-3">
-          <button onClick={onClose} className="flex-1 border border-slate-200 text-slate-600 font-bold text-xs py-2.5 rounded-xl hover:bg-slate-50">
+          <Button variant="outline" onClick={onClose} className="flex-1 border-slate-200 text-slate-600 font-bold text-xs h-9 rounded-xl">
             Cancel
-          </button>
-          <button
-            onClick={handleReject}
-            disabled={reject.isPending}
-            className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white font-bold text-xs py-2.5 rounded-xl"
-          >
+          </Button>
+          <Button onClick={handleReject} disabled={reject.isPending} className="flex-1 bg-red-600 hover:bg-red-700 disabled:bg-slate-300 text-white font-bold text-xs h-9 rounded-xl">
             {reject.isPending ? "Rejecting…" : "Confirm Reject"}
-          </button>
+          </Button>
         </div>
       </motion.div>
     </div>
@@ -442,67 +425,37 @@ export default function OvertimePage({ showAlert }: OvertimePageProps) {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_5px_22px_rgba(0,0,0,0.015)]">
-        <div className="space-y-1">
-          <span className="bg-blue-50 border border-blue-100 text-blue-700 text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">
-            3-Stage Approval Workflow
-          </span>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">Overtime Requests</h1>
-          <p className="text-xs text-slate-400 font-medium">
-            Dept Head → CEO / Admin → Finance
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => activeQuery.refetch()}
-            disabled={activeQuery.isFetching}
-            className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${activeQuery.isFetching ? "animate-spin" : ""}`} />
-          </button>
-          <button
-            onClick={() => setShowSubmit(true)}
-            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition-colors"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            New Overtime Request
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="3-Stage Approval Workflow"
+        title="Overtime Requests"
+        description="Dept Head → CEO / Admin → Finance"
+        actions={
+          <>
+            <Button variant="outline" onClick={() => activeQuery.refetch()} disabled={activeQuery.isFetching} className="p-2 h-9 w-9 rounded-xl bg-slate-100 border-0 hover:bg-slate-200 text-slate-600">
+              <RefreshCw className={`w-4 h-4 ${activeQuery.isFetching ? "animate-spin" : ""}`} />
+            </Button>
+            <Button onClick={() => setShowSubmit(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs px-4 h-9 rounded-xl">
+              <Plus className="w-3.5 h-3.5" /> New Overtime Request
+            </Button>
+          </>
+        }
+      />
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: "Total Requests", val: total,              icon: Calendar,     color: "text-slate-600",  bg: "bg-slate-50" },
-          { label: "Pending",        val: pendingLocalCount,  icon: Clock,        color: "text-amber-600",  bg: "bg-amber-50" },
-          { label: "Approved",       val: approvedCount,      icon: CheckCircle2, color: "text-emerald-600",bg: "bg-emerald-50" },
-          { label: "Total OT Hours", val: minutesToHours(totalMinutes), icon: Clock, color: "text-blue-600", bg: "bg-blue-50" },
-        ].map(({ label, val, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.01)]">
-            <div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</div>
-              <div className="text-xl font-black text-slate-900 mt-0.5">{val}</div>
-            </div>
-            <div className={`p-2 rounded-xl ${bg} ${color}`}>
-              <Icon className="w-4 h-4" />
-            </div>
-          </div>
-        ))}
-      </div>
+      <StatCardGrid cols={4}>
+        <StatCard label="Total Requests" value={total}                       icon={<Calendar className="w-4 h-4" />}     tone="slate" />
+        <StatCard label="Pending"        value={pendingLocalCount}            icon={<Clock className="w-4 h-4" />}        tone="amber" />
+        <StatCard label="Approved"       value={approvedCount}                icon={<CheckCircle2 className="w-4 h-4" />} tone="emerald" />
+        <StatCard label="Total OT Hours" value={minutesToHours(totalMinutes)} icon={<Clock className="w-4 h-4" />}        tone="blue" />
+      </StatCardGrid>
 
       {/* View tabs */}
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl w-fit">
-        <button
-          onClick={() => { setView("my"); setPage(1); }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${view === "my" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-        >
+        <button onClick={() => { setView("my"); setPage(1); }} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${view === "my" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
           My Requests
         </button>
         {isApprover && (
-          <button
-            onClick={() => { setView("inbox"); setPage(1); }}
-            className={`relative px-4 py-2 rounded-lg text-xs font-bold transition-colors ${view === "inbox" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
+          <button onClick={() => { setView("inbox"); setPage(1); }} className={`relative px-4 py-2 rounded-lg text-xs font-bold transition-colors ${view === "inbox" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
             Approval Inbox
             {pendingCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-blue-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
@@ -512,59 +465,34 @@ export default function OvertimePage({ showAlert }: OvertimePageProps) {
           </button>
         )}
         {isHr && (
-          <button
-            onClick={() => { setView("all"); setPage(1); }}
-            className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${view === "all" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-          >
+          <button onClick={() => { setView("all"); setPage(1); }} className={`px-4 py-2 rounded-lg text-xs font-bold transition-colors ${view === "all" ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}>
             All Requests
           </button>
         )}
       </div>
 
-      {/* Stage info for approver inbox */}
+      {/* Stage info */}
       {view === "inbox" && pendingQuery.data?.stage && (
-        <div className="flex items-center gap-2 bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3">
-          <Inbox className="w-4 h-4 text-blue-600" />
-          <span className="text-xs font-bold text-blue-700">
-            Showing requests awaiting your approval at stage:{" "}
-            <span className="capitalize">{(pendingQuery.data.stage as string).replace("_", " ")}</span>
-          </span>
-        </div>
+        <InfoAlert
+          variant="info"
+          icon={<Inbox className="w-3.5 h-3.5" />}
+          message={`Showing requests awaiting your approval at stage: ${(pendingQuery.data.stage as string).replace("_", " ")}`}
+        />
       )}
 
       {/* Cards grid */}
       {activeQuery.isLoading ? (
-        <div className="py-16 text-center">
-          <RefreshCw className="w-8 h-8 text-slate-300 mx-auto animate-spin" />
-          <p className="text-sm text-slate-500 mt-3 font-semibold">Loading overtime requests…</p>
-        </div>
+        <LoadingSpinner label="Loading overtime requests…" />
       ) : rows.length === 0 ? (
-        <div className="py-16 text-center bg-white rounded-3xl border border-slate-100">
-          <CheckSquare className="w-10 h-10 text-slate-300 mx-auto" />
-          <p className="text-sm font-semibold text-slate-500 mt-3">
-            {view === "inbox" ? "No requests awaiting your approval" : "No overtime requests found"}
-          </p>
-          {view === "my" && (
-            <button
-              onClick={() => setShowSubmit(true)}
-              className="mt-3 text-xs text-blue-600 font-bold hover:underline"
-            >
-              Submit your first request
-            </button>
-          )}
-        </div>
+        <EmptyState
+          icon={<CheckSquare />}
+          title={view === "inbox" ? "No requests awaiting your approval" : "No overtime requests found"}
+          action={view === "my" ? <Button variant="outline" onClick={() => setShowSubmit(true)} className="text-xs font-bold">Submit your first request</Button> : undefined}
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {rows.map((ot) => (
-            <OvertimeCard
-              key={ot.id}
-              ot={ot}
-              isApprover={view === "inbox"}
-              onApprove={handleApprove}
-              onReject={setRejectId}
-              onCancel={handleCancel}
-              currentUserId={currentUserId}
-            />
+            <OvertimeCard key={ot.id} ot={ot} isApprover={view === "inbox"} onApprove={handleApprove} onReject={setRejectId} onCancel={handleCancel} currentUserId={currentUserId as string} />
           ))}
         </div>
       )}

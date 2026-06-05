@@ -10,9 +10,10 @@ import {
   fullStackPostAnalytics,
   frequentlyPostedJobs
 } from '../../mockData';
-import { Sparkles, Calendar, TrendingUp, Users, ArrowUpRight } from 'lucide-react';
+import { Sparkles, Calendar, TrendingUp, Users } from 'lucide-react';
 import { useLegacyUser } from '../../api/legacyUserStore';
 import AttendanceShortcutCard from '../attendance/AttendanceShortcutCard';
+import { StatCard, StatCardGrid, SectionCard } from '@/components/ui/blih';
 
 interface RecruitmentOverviewProps {
   onNavigateToTab: (tabId: string) => void;
@@ -74,45 +75,18 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
           <AttendanceShortcutCard />
         </div>
       )}
+
       {/* Metrics Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pending Requests</p>
-            <h3 className="text-3xl font-extrabold text-[#111827] mt-1.5 tracking-tight">45</h3>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-            <Calendar className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Active Recruitments</p>
-            <h3 className="text-3xl font-extrabold text-[#111827] mt-1.5 tracking-tight">28</h3>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-sky-50 flex items-center justify-center text-sky-600">
-            <TrendingUp className="w-5 h-5" />
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex items-center justify-between">
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Total Employees</p>
-            <h3 className="text-3xl font-extrabold text-[#111827] mt-1.5 tracking-tight">12</h3>
-          </div>
-          <div className="w-10 h-10 rounded-full bg-indigo-50 flex items-center justify-center text-indigo-600">
-            <Users className="w-5 h-5" />
-          </div>
-        </div>
-      </div>
+      <StatCardGrid cols={3}>
+        <StatCard label="Pending Requests" value={45} icon={<Calendar className="w-5 h-5" />} tone="blue" />
+        <StatCard label="Active Recruitments" value={28} icon={<TrendingUp className="w-5 h-5" />} tone="cyan" />
+        <StatCard label="Total Employees" value={12} icon={<Users className="w-5 h-5" />} tone="violet" />
+      </StatCardGrid>
 
       {/* Main Graph: Job Application Frequency */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs">
-        <h4 className="text-[13px] font-bold text-slate-800 uppercase tracking-tight mb-4">
-          Job Application Frequency
-        </h4>
-
+      <SectionCard title="Job Application Frequency">
         {/* Dynamic High-Polished SVG Spline Chart */}
-        <div className="relative overflow-x-auto">
+        <div className="relative overflow-x-auto pt-2">
           <div className="min-w-[620px] relative">
             <svg viewBox={`0 0 ${freqWidth} ${freqHeight}`} className="w-full h-auto overflow-visible select-none">
               {/* Grid Lines */}
@@ -120,24 +94,8 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
                 const y = freqHeight - (val / freqMax) * (freqHeight - 40) - 20;
                 return (
                   <g key={val}>
-                    <line
-                      x1="20"
-                      y1={y}
-                      x2={freqWidth - 20}
-                      y2={y}
-                      stroke="#f1f5f9"
-                      strokeWidth="1"
-                      strokeDasharray="4"
-                    />
-                    <text
-                      x="0"
-                      y={y + 4}
-                      fill="#94a3b8"
-                      fontSize="9"
-                      fontWeight="bold"
-                    >
-                      {val}
-                    </text>
+                    <line x1="20" y1={y} x2={freqWidth - 20} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
+                    <text x="0" y={y + 4} fill="#94a3b8" fontSize="9" fontWeight="bold">{val}</text>
                   </g>
                 );
               })}
@@ -162,13 +120,7 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
 
               {/* Main Line spline */}
               {freqPathInfo && (
-                <path
-                  d={freqPathInfo.path}
-                  fill="none"
-                  stroke="#3b82f6"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
+                <path d={freqPathInfo.path} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" />
               )}
 
               {/* Spark Points and Hover States */}
@@ -176,28 +128,18 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
                 freqPathInfo.points.map((pt, idx) => (
                   <g key={idx}>
                     <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="4"
+                      cx={pt.x} cy={pt.y} r="4"
                       className="fill-blue-600 stroke-white cursor-pointer hover:r-5.5 transition-all"
                       strokeWidth="1.5"
                       onMouseEnter={() => setHoveredFreqPoint(idx)}
                       onMouseLeave={() => setHoveredFreqPoint(null)}
                     />
-                    <text
-                      x={pt.x}
-                      y={freqHeight - 4}
-                      fill="#64748b"
-                      fontSize="9"
-                      fontWeight="600"
-                      textAnchor="middle"
-                    >
+                    <text x={pt.x} y={freqHeight - 4} fill="#64748b" fontSize="9" fontWeight="600" textAnchor="middle">
                       {months[idx]}
                     </text>
                   </g>
                 ))}
 
-              {/* Gradients declaration */}
               <defs>
                 <linearGradient id="freqGradientLight" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
@@ -228,27 +170,24 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
             )}
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Middle Grid: Frequently Posted Jobs & Analytics Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Frequently Posted Jobs Column */}
-        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-100 p-6 shadow-xs">
-          <h4 className="text-[13px] font-bold text-slate-800 uppercase tracking-tight mb-5">
-            Frequently Posted Jobs
-          </h4>
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4">
-            {frequentlyPostedJobs.map((job) => (
-              <div key={job.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-between">
-                <p className="text-[10px] font-bold text-slate-500 leading-tight uppercase line-clamp-2">
-                  {job.title}
-                </p>
-                <div className="mt-4 flex items-baseline gap-1">
-                  <span className="text-2xl font-extrabold text-blue-600">{job.count}</span>
+        <div className="lg:col-span-7">
+          <SectionCard title="Frequently Posted Jobs">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4 pt-1">
+              {frequentlyPostedJobs.map((job) => (
+                <div key={job.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-between">
+                  <p className="text-[10px] font-bold text-slate-500 leading-tight uppercase line-clamp-2">{job.title}</p>
+                  <div className="mt-4 flex items-baseline gap-1">
+                    <span className="text-2xl font-extrabold text-blue-600">{job.count}</span>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </SectionCard>
         </div>
 
         {/* Analytics interactive Card selector */}
@@ -258,9 +197,7 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
               <span className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-xs">
                 <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
               </span>
-              <h4 className="text-[13px] font-extrabold text-[#1e40af] tracking-tight">
-                Analytics for Jobs
-              </h4>
+              <h4 className="text-[13px] font-extrabold text-[#1e40af] tracking-tight">Analytics for Jobs</h4>
             </div>
             <p className="text-[11px] text-slate-500 font-semibold mb-6">
               Track posting frequency trends, click rates and performance metrics over the last calendar year.
@@ -282,81 +219,39 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
       </div>
 
       {/* Selected Job Spline Statistics */}
-      <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs">
-        <h4 className="text-[13px] font-bold text-slate-800 uppercase tracking-tight mb-4">
-          {selectedJob} Post Analytics
-        </h4>
-
-        {/* Second SVG Spline Chart */}
-        <div className="relative overflow-x-auto">
+      <SectionCard title={`${selectedJob} Post Analytics`}>
+        <div className="relative overflow-x-auto pt-2">
           <div className="min-w-[620px] relative">
             <svg viewBox={`0 0 ${analyticWidth} ${analyticHeight}`} className="w-full h-auto overflow-visible select-none animate-fade-in">
-              {/* Grid Lines */}
               {[45, 90, 135, 180].map((val) => {
                 const y = analyticHeight - (val / analyticMax) * (analyticHeight - 40) - 20;
                 return (
                   <g key={val}>
-                    <line
-                      x1="20"
-                      y1={y}
-                      x2={analyticWidth - 20}
-                      y2={y}
-                      stroke="#f1f5f9"
-                      strokeWidth="1"
-                      strokeDasharray="4"
-                    />
-                    <text
-                      x="0"
-                      y={y + 4}
-                      fill="#94a3b8"
-                      fontSize="9"
-                      fontWeight="bold"
-                    >
-                      {val}
-                    </text>
+                    <line x1="20" y1={y} x2={analyticWidth - 20} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
+                    <text x="0" y={y + 4} fill="#94a3b8" fontSize="9" fontWeight="bold">{val}</text>
                   </g>
                 );
               })}
-
-              {/* Main Line spline */}
               {analyticPathInfo && (
-                <path
-                  d={analyticPathInfo.path}
-                  fill="none"
-                  stroke="#2563eb"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                />
+                <path d={analyticPathInfo.path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
               )}
-
-              {/* Spark Points */}
               {analyticPathInfo &&
                 analyticPathInfo.points.map((pt, idx) => (
                   <g key={idx}>
                     <circle
-                      cx={pt.x}
-                      cy={pt.y}
-                      r="4.5"
+                      cx={pt.x} cy={pt.y} r="4.5"
                       className="fill-blue-500 stroke-white cursor-pointer hover:r-6.5 transition-all"
                       strokeWidth="1.5"
                       onMouseEnter={() => setHoveredAnalyticPoint(idx)}
                       onMouseLeave={() => setHoveredAnalyticPoint(null)}
                     />
-                    <text
-                      x={pt.x}
-                      y={analyticHeight - 4}
-                      fill="#64748b"
-                      fontSize="9"
-                      fontWeight="600"
-                      textAnchor="middle"
-                    >
+                    <text x={pt.x} y={analyticHeight - 4} fill="#64748b" fontSize="9" fontWeight="600" textAnchor="middle">
                       {months[idx]}
                     </text>
                   </g>
                 ))}
             </svg>
 
-            {/* Custom Tooltip */}
             {hoveredAnalyticPoint !== null && (
               <div
                 className="absolute bg-slate-900 text-white rounded-lg p-2 text-[10px] font-bold shadow-md pointer-events-none transition-all duration-150"
@@ -374,16 +269,13 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
             )}
           </div>
         </div>
-      </div>
+      </SectionCard>
 
       {/* Row of 3 mini high-contrast demographic metric widgets */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Salary Expectations Mini Bar Chart */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex flex-col justify-between">
-          <h5 className="text-[12px] font-bold text-slate-800 uppercase tracking-tight mb-4">
-            Salary Expectations
-          </h5>
-          <div className="h-32 flex items-end justify-between gap-3 px-2">
+        <SectionCard title="Salary Expectations">
+          <div className="h-32 flex items-end justify-between gap-3 px-2 pt-2">
             {[
               { val: 30, pct: '30%', label: '<10k', color: 'bg-blue-400' },
               { val: 60, pct: '45%', label: '10-15k', color: 'bg-blue-600' },
@@ -392,44 +284,26 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
             ].map((sal, index) => (
               <div key={index} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
                 <span className="text-[9px] font-bold text-slate-500">{sal.pct}</span>
-                <div
-                  className={`w-full rounded-md ${sal.color} transition-all duration-500 hover:opacity-90`}
-                  style={{ height: `${sal.val}%` }}
-                />
-                <span className="text-[9px] text-slate-400 font-bold tracking-tight uppercase leading-none mt-1">
-                  {sal.label}
-                </span>
+                <div className={`w-full rounded-md ${sal.color} transition-all duration-500 hover:opacity-90`} style={{ height: `${sal.val}%` }} />
+                <span className="text-[9px] text-slate-400 font-bold tracking-tight uppercase leading-none mt-1">{sal.label}</span>
               </div>
             ))}
           </div>
-        </div>
+        </SectionCard>
 
         {/* Gender Distribution Pie Arc Chart */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex flex-col justify-between">
-          <h5 className="text-[12px] font-bold text-slate-800 uppercase tracking-tight mb-3">
-            Gender Distribution
-          </h5>
+        <SectionCard title="Gender Distribution">
           <div className="flex flex-col items-center justify-center py-2">
-            {/* Custom SVG Arc representation */}
             <div className="relative w-24 h-24 mb-3 flex items-center justify-center">
               <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
                 <circle cx="18" cy="18" r="15.915" fill="none" stroke="#60a5fa" strokeWidth="3" />
-                <circle
-                  cx="18"
-                  cy="18"
-                  r="15.915"
-                  fill="none"
-                  stroke="#2563eb"
-                  strokeWidth="3.2"
-                  strokeDasharray="46 100"
-                />
+                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#2563eb" strokeWidth="3.2" strokeDasharray="46 100" />
               </svg>
               <div className="absolute text-center">
                 <span className="text-xs font-extrabold text-slate-800">46%</span>
                 <span className="text-[8px] font-bold text-slate-400 block uppercase leading-tight">Male</span>
               </div>
             </div>
-            {/* Legend buttons */}
             <div className="flex gap-4">
               <div className="flex items-center gap-1.5">
                 <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
@@ -441,14 +315,11 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
               </div>
             </div>
           </div>
-        </div>
+        </SectionCard>
 
         {/* Experience Distribution columns */}
-        <div className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex flex-col justify-between">
-          <h5 className="text-[12px] font-bold text-slate-800 uppercase tracking-tight mb-4">
-            Experience Distribution
-          </h5>
-          <div className="h-32 flex items-end justify-between gap-3 px-2">
+        <SectionCard title="Experience Distribution">
+          <div className="h-32 flex items-end justify-between gap-3 px-2 pt-2">
             {[
               { val: 15, tag: '12%', label: '0-2', color: 'bg-lime-400' },
               { val: 55, tag: '35%', label: '3-5', color: 'bg-blue-600' },
@@ -457,17 +328,12 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
             ].map((exp, idx) => (
               <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
                 <span className="text-[9px] font-bold text-slate-500">{exp.tag}</span>
-                <div
-                  className={`w-full rounded-md ${exp.color} transition-all duration-500`}
-                  style={{ height: `${exp.val}%` }}
-                />
-                <span className="text-[9px] text-slate-400 font-bold tracking-tight uppercase leading-none mt-1">
-                  {exp.label}
-                </span>
+                <div className={`w-full rounded-md ${exp.color} transition-all duration-500`} style={{ height: `${exp.val}%` }} />
+                <span className="text-[9px] text-slate-400 font-bold tracking-tight uppercase leading-none mt-1">{exp.label}</span>
               </div>
             ))}
           </div>
-        </div>
+        </SectionCard>
       </div>
     </div>
   );

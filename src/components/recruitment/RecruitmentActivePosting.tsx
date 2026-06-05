@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react';
+import type React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  ChevronUp, ChevronDown, Check, Briefcase, Loader2, TrendingUp, Sparkles, X,
+  ChevronUp, ChevronDown, Check, Loader2, TrendingUp, Sparkles, X,
 } from 'lucide-react';
 import {
   useJobApplications, useJobRequests, useScheduleInterview, useAdvanceCandidate, useInterviews, useCloseJob,
 } from '../../hooks/useJobRequests';
 import CandidateDetailModal from './CandidateDetailModal';
 import ScheduleInterviewModal from './ScheduleInterviewModal';
+import { LoadingSpinner, EmptyState, UserAvatar, StatusBadge } from '@/components/ui/blih';
 
 interface Props {
   onDraftAiSuggestion: (prompt: string) => void;
@@ -51,14 +53,13 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
       .filter(j => j.isPosted)
       .map(job => {
         const allApps = (applications || []).filter((a: any) => a.jobOpeningId === job.id);
-        // Only show applicants who are still in "applied" stage AND not yet scheduled for interview
         const pendingApps = allApps.filter(
           (a: any) => !MOVED_STAGES.has(a.stage) && !scheduledAppIds.has(a.id)
         );
         return {
           ...job,
           allApps,
-          apps: pendingApps,           // shown in applicants tab
+          apps: pendingApps,
           applicantsCount: pendingApps.length,
           totalApplicants: allApps.length,
           viewsCount: job.views ?? 0,
@@ -125,25 +126,15 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
   // ── loading / empty ──────────────────────────────────────────────────────────
 
   if (loadingJobs || loadingApps) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 gap-4 font-sans">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
-        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Syncing published vacancies...</span>
-      </div>
-    );
+    return <LoadingSpinner label="Syncing published vacancies..." />;
   }
 
   if (activeJobs.length === 0) {
     return (
-      <div className="bg-white border border-slate-100 rounded-3xl p-16 text-center space-y-4 font-sans">
-        <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto text-slate-200">
-          <Briefcase className="w-8 h-8" />
-        </div>
-        <h3 className="text-lg font-black text-slate-900">No active postings</h3>
-        <p className="text-sm text-slate-400 font-medium max-w-xs mx-auto">
-          Once you publish a job request it will appear here.
-        </p>
-      </div>
+      <EmptyState
+        title="No active postings"
+        description="Once you publish a job request it will appear here."
+      />
     );
   }
 
@@ -173,9 +164,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 flex-wrap min-w-0">
                   <h4 className="text-[14px] sm:text-[15px] font-black text-slate-900 tracking-tight leading-tight">{job.title}</h4>
-                  <span className="px-2 py-0.5 bg-blue-600 text-white text-[9px] font-black rounded uppercase tracking-wide whitespace-nowrap flex-shrink-0">
-                    Active Post
-                  </span>
+                  <StatusBadge label="Active Post" tone="blue" />
                 </div>
                 {/* Close button — always top-right */}
                 <button
@@ -323,9 +312,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
                         </div>
 
                         {job.apps.length === 0 && (
-                          <div className="border border-slate-100 rounded-2xl px-5 py-12 text-center text-[11px] font-bold text-slate-300 uppercase tracking-widest">
-                            No new applicants
-                          </div>
+                          <EmptyState title="No new applicants" compact />
                         )}
 
                         {/* Desktop table — hidden on mobile */}
@@ -362,9 +349,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
                                       className="w-4 h-4 rounded border-slate-300 accent-blue-600 cursor-pointer" />
                                   </div>
                                   <div className="col-span-4 flex items-center gap-3">
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-black text-slate-600 uppercase flex-shrink-0">
-                                      {name[0]}
-                                    </div>
+                                    <UserAvatar name={name} size="sm" />
                                     <div>
                                       <p className="text-[13px] font-black text-slate-900 leading-tight">{name}</p>
                                       <p className="text-[11px] text-slate-400 font-medium">{app.email}</p>
@@ -402,9 +387,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
                                   onClick={() => { setSelectedCandidate(app); setSelectedJob(job); setShowDetailModal(true); }}
                                 >
                                   <div className="flex items-center gap-3 min-w-0">
-                                    <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-[11px] font-black text-slate-600 uppercase flex-shrink-0">
-                                      {name[0]}
-                                    </div>
+                                    <UserAvatar name={name} size="sm" />
                                     <div className="min-w-0">
                                       <p className="text-[13px] font-black text-slate-900 leading-tight truncate">{name}</p>
                                       <p className="text-[11px] text-slate-400 font-medium truncate">{app.email}</p>
@@ -431,15 +414,12 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
 
                     {/* ── Analytics tab ── */}
                     {currentTab === 'analytics' && (
-                      <div className="py-12 text-center">
-                        <div className="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <TrendingUp className="w-7 h-7 text-blue-600" />
-                        </div>
-                        <h4 className="text-sm font-black text-slate-900">Analytics Processing...</h4>
-                        <p className="text-xs text-slate-400 font-medium mt-1">
-                          Real-time view tracking and conversion rates will appear here soon.
-                        </p>
-                      </div>
+                      <EmptyState
+                        icon={<TrendingUp />}
+                        title="Analytics Processing..."
+                        description="Real-time view tracking and conversion rates will appear here soon."
+                        compact
+                      />
                     )}
                   </div>
                 </motion.div>

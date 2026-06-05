@@ -10,7 +10,7 @@
  * base salary → system calculates and links them.
  */
 import { useState } from 'react';
-import { UserPlus, Link2, DollarSign, TrendingUp, X, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
+import { UserPlus, Link2, DollarSign, X, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 import {
   usePayrollDashboard,
   usePayrollTemplates,
@@ -20,6 +20,7 @@ import {
   type LinkedEmployee,
   type PayrollTemplate,
 } from '../../hooks/useWorkforceFinance';
+import { StatCard, StatCardGrid, UserAvatar, EmptyState, InfoAlert } from '@/components/ui/blih';
 
 interface Props {
   showAlert: (msg: string, type?: 'success' | 'info' | 'error') => void;
@@ -213,23 +214,12 @@ export default function PayrollLinkPanel({ showAlert }: Props) {
   return (
     <div className="space-y-6 animate-fade-in font-sans">
       {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-        {[
-          { label: 'Total Employees', value: summary?.totalEmployees ?? 0, sub: null, icon: <UserPlus className="w-4 h-4" />, color: 'bg-slate-50 text-slate-500' },
-          { label: 'Pending Setup', value: summary?.pendingCount ?? 0, sub: 'need assignment', icon: <AlertTriangle className="w-4 h-4" />, color: 'bg-amber-50 text-amber-600' },
-          { label: 'Linked', value: summary?.linkedCount ?? 0, sub: 'with template', icon: <Link2 className="w-4 h-4" />, color: 'bg-emerald-50 text-emerald-600' },
-          { label: 'Total Net Payroll', value: formatMoney(summary?.totalNetPayroll), sub: 'monthly', icon: <DollarSign className="w-4 h-4" />, color: 'bg-blue-50 text-blue-600' },
-        ].map(({ label, value, sub, icon, color }) => (
-          <div key={label} className="bg-white rounded-2xl border border-slate-100 p-5 shadow-xs flex justify-between items-start">
-            <div>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{label}</p>
-              <h3 className="text-xl font-black text-slate-900 mt-1.5 tracking-tight">{value}</h3>
-              {sub && <span className="text-[10px] text-slate-400 font-semibold">{sub}</span>}
-            </div>
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${color}`}>{icon}</div>
-          </div>
-        ))}
-      </div>
+      <StatCardGrid cols={4}>
+        <StatCard label="Total Employees" value={summary?.totalEmployees ?? 0}            icon={<UserPlus className="w-4 h-4" />}      tone="slate" />
+        <StatCard label="Pending Setup"   value={summary?.pendingCount ?? 0}              icon={<AlertTriangle className="w-4 h-4" />} tone="amber" />
+        <StatCard label="Linked"          value={summary?.linkedCount ?? 0}               icon={<Link2 className="w-4 h-4" />}         tone="emerald" />
+        <StatCard label="Total Net Payroll" value={formatMoney(summary?.totalNetPayroll)} icon={<DollarSign className="w-4 h-4" />}   tone="blue" />
+      </StatCardGrid>
 
       {/* ── Pending employees ── */}
       <div className="bg-white rounded-2xl border border-amber-500/20 p-5 space-y-4">
@@ -259,9 +249,7 @@ export default function PayrollLinkPanel({ showAlert }: Props) {
                 className="flex items-center justify-between bg-slate-50/70 hover:bg-amber-50/40 border border-slate-100 hover:border-amber-200 rounded-xl p-3.5 cursor-pointer transition-colors group"
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center font-extrabold text-xs">
-                    {avatar(emp.name)}
-                  </div>
+                  <UserAvatar name={emp.name} size="sm" color="amber" />
                   <div>
                     <h5 className="text-xs font-extrabold text-slate-900">{emp.name}</h5>
                     <span className="text-[10px] text-slate-400 font-semibold">{emp.role} · {emp.department}</span>
@@ -309,9 +297,7 @@ export default function PayrollLinkPanel({ showAlert }: Props) {
                     onClick={() => setExpandedId(isExpanded ? null : emp.id)}
                   >
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-extrabold text-xs">
-                        {avatar(emp.name)}
-                      </div>
+                      <UserAvatar name={emp.name} size="sm" color="blue" />
                       <div>
                         <h5 className="text-xs font-extrabold text-slate-900">{emp.name}</h5>
                         <span className="text-[10px] text-slate-400 font-semibold">{emp.templateName}</span>
