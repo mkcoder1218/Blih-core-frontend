@@ -6,6 +6,16 @@
 
 This contains everything you need to run your app locally.
 
+## Backend connection
+
+Set the backend API URL before starting or building the frontend:
+
+```env
+VITE_API_BASE_URL="http://localhost:4000"
+```
+
+For the deployed Hostinger VPS backend, copy `.env.production.example` to `.env.production` and replace `YOUR_VPS_IP` with the VPS IP or API domain.
+
 View your app in AI Studio: https://ai.studio/apps/dc9792d1-45a0-4773-8cf3-ddc6432ad3f2
 
 ## Run Locally

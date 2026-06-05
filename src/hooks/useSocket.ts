@@ -2,7 +2,7 @@ import { useEffect, useRef, useCallback } from "react";
 import { io, Socket } from "socket.io-client";
 import { useAccessToken } from "../api/authState";
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || "http://localhost:4000";
+const SOCKET_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000";
 
 let globalSocket: Socket | null = null;
 let globalToken: string | null = null;
