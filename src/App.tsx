@@ -54,9 +54,9 @@ export default function App() {
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>('overview');
   const [currentProfilesTab, setCurrentProfilesTab] = useState<'overview' | 'create' | 'organogram' | 'directory' | 'events' | 'archive'>('overview');
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'check-me-in' | 'history' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home'>('overview');
-  const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture'>('overview');
+  const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture' | 'development'>('overview');
   const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms'>('overview');
-  const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits'>('overview');
+  const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits'>('overview');
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy'>('overview');
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form'>('overview');
   const [currentBusinessesTab, setCurrentBusinessesTab] = useState<BusinessesTab>('overview');

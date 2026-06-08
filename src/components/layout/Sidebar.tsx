@@ -44,12 +44,12 @@ interface SidebarProps {
   setCurrentProfilesTab: (tab: any) => void;
   currentAttendanceTab: string;
   setCurrentAttendanceTab: (tab: any) => void;
-  currentTalentTab: 'overview' | 'career' | 'training' | 'culture';
-  setCurrentTalentTab: (tab: 'overview' | 'career' | 'training' | 'culture') => void;
+  currentTalentTab: 'overview' | 'career' | 'training' | 'culture' | 'development';
+  setCurrentTalentTab: (tab: 'overview' | 'career' | 'training' | 'culture' | 'development') => void;
   currentExitTab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding';
   setCurrentExitTab: (tab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding') => void;
-  currentFinanceTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits';
-  setCurrentFinanceTab: (tab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits') => void;
+  currentFinanceTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits';
+  setCurrentFinanceTab: (tab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits') => void;
   currentProjectsTab?: ProjectsTab;
   setCurrentProjectsTab?: (tab: ProjectsTab) => void;
   currentOnboardingTab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy';
@@ -198,10 +198,11 @@ export default function Sidebar({
   ] as const;
 
   const ALL_TALENT_TABS = [
-    { id: 'overview', label: 'Overview',         badge: 4 },
-    { id: 'career',   label: 'Career',           badge: 4 },
-    { id: 'training', label: 'Training & Skills',badge: 3 },
-    { id: 'culture',  label: 'Culture',          badge: 0 },
+    { id: 'overview',     label: 'Overview',          badge: 4 },
+    { id: 'career',       label: 'Career',            badge: 4 },
+    { id: 'training',     label: 'Training & Skills', badge: 3 },
+    { id: 'culture',      label: 'Culture',           badge: 0 },
+    { id: 'development',  label: 'Development',       badge: 0 },
   ] as const;
 
   const ALL_EXIT_TABS = [
@@ -219,7 +220,7 @@ export default function Sidebar({
     { id: 'salary_payroll',  label: 'Salary & Payroll', badge: 7 },
     { id: 'payroll_template', label: 'Pay Templates',   badge: 0 },
     { id: 'budget',          label: 'Budget',           badge: 0 },
-    { id: 'expense',         label: 'Expense',          badge: 0 },
+    { id: 'my_payslip',      label: 'My Payslip',       badge: 0 },
     { id: 'benefits',        label: 'Benefits',         badge: 0 },
   ] as const;
 

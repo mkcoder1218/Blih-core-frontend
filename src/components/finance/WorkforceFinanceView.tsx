@@ -46,15 +46,16 @@ import {
   Compass,
   ArrowRight
 } from 'lucide-react';
-import { useCreateBudgetReallocation, useFinanceApprovalAction, useWorkforceFinance, usePayrollTemplates, useCreatePayrollTemplate, useUpdatePayrollTemplate, useDeletePayrollTemplate, usePreviewPayroll, usePayrollDashboard, useLinkEmployee, useUnlinkEmployee } from '../../hooks/useWorkforceFinance';
+import { useCreateBudgetReallocation, useFinanceApprovalAction, useWorkforceFinance, useMyFinanceData, usePayrollTemplates, useCreatePayrollTemplate, useUpdatePayrollTemplate, useDeletePayrollTemplate, usePreviewPayroll, usePayrollDashboard, useLinkEmployee, useUnlinkEmployee } from '../../hooks/useWorkforceFinance';
 import type { PayrollTemplate, LinkedEmployee, PendingEmployee } from '../../hooks/useWorkforceFinance';
 import { exportWorkforceFinance } from '../../api/finance';
 import PayrollTemplatePanel from './PayrollTemplatePanel';
 import PayrollLinkPanel from './PayrollLinkPanel';
-import { StatCard, StatCardGrid, TabSwitcher, SectionCard } from '@/components/ui/blih';
+import { StatCard, StatCardGrid, TabSwitcher, SectionCard, InfoAlert } from '@/components/ui/blih';
+import { useMyPermissions } from '../../hooks/usePermissions';
 
 interface WorkforceFinanceViewProps {
-  currentTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'benefits';
+  currentTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -339,6 +340,24 @@ export default function WorkforceFinanceView({
   const { data = {}, isLoading, isError, error } = useWorkforceFinance({ tab: currentTab, q: searchQuery, department: deptFilter });
   const approvalAction = useFinanceApprovalAction();
   const createReallocation = useCreateBudgetReallocation();
+
+  // ── Permission gate ──────────────────────────────────────────────────────────
+  const { hasAny } = useMyPermissions();
+  const canManageFinance = hasAny('finance.read', 'finance.manage', 'payroll.read', 'payroll.run', 'budget.read');
+  const hasMineOnly = !canManageFinance && hasAny('finance.mine', 'expense.submit', 'benefits.read');
+
+  // Protected tabs — block finance.mine-only users from seeing org-wide data
+  const MANAGER_ONLY_TABS = ['overview', 'salary_payroll', 'payroll_template', 'budget'];
+  if (hasMineOnly && MANAGER_ONLY_TABS.includes(currentTab)) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <InfoAlert
+          variant="warning"
+          message="You don't have permission to view organisation-wide finance data. Use the Expense or Benefits tabs to manage your own records."
+        />
+      </div>
+    );
+  }
 
   const formatMoney = (value: number = 0, compact = false) =>
     new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', notation: compact ? 'compact' : 'standard', maximumFractionDigits: compact ? 1 : 0 }).format(Number(value || 0));
@@ -1225,6 +1244,138 @@ export default function WorkforceFinanceView({
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MY PAYSLIP — self-service view for finance.mine users */}
+      {currentTab === 'my_payslip' && (
+        <MyPayslipPanel formatMoney={formatMoney} formatDate={formatDate} />
+      )}
+    </div>
+  );
+}
+
+// ─── My Payslip Panel ─────────────────────────────────────────────────────────
+function MyPayslipPanel({
+  formatMoney,
+  formatDate,
+}: {
+  formatMoney: (v?: number, compact?: boolean) => string;
+  formatDate: (v?: string | null) => string;
+}) {
+  const { data, isLoading, isError } = useMyFinanceData();
+  const payrollRecords: any[] = data?.payrollRecords ?? [];
+  const enrollments: any[] = data?.enrollments ?? [];
+
+  const latest = payrollRecords[0];
+
+  if (isLoading) {
+    return <div className="bg-white rounded-2xl border border-slate-100 p-8 text-center text-xs font-bold text-slate-400">Loading your payslip…</div>;
+  }
+  if (isError) {
+    return <InfoAlert variant="error" message="Unable to load your payslip. Please try again later." />;
+  }
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-black text-slate-900 tracking-tight">My Payslip</h2>
+          <p className="text-xs text-slate-400 font-medium mt-0.5">Your personal salary and benefit information</p>
+        </div>
+      </div>
+
+      {/* Latest payroll record */}
+      {latest ? (
+        <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+            <div>
+              <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Latest Pay Period</h3>
+              <p className="text-sm font-black text-slate-900 mt-0.5">
+                {latest.periodStart ? formatDate(latest.periodStart) : '—'} → {latest.periodEnd ? formatDate(latest.periodEnd) : '—'}
+              </p>
+            </div>
+            <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase ${latest.status === 'paid' ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}`}>
+              {latest.status ?? 'pending'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { label: 'Base Salary',    value: formatMoney(latest.baseSalary),  color: 'text-slate-900' },
+              { label: 'Gross Pay',      value: formatMoney(latest.grossPay),    color: 'text-blue-600' },
+              { label: 'Tax Deducted',   value: formatMoney(latest.tax),         color: 'text-rose-500' },
+              { label: 'Net Pay',        value: formatMoney(latest.netPay),      color: 'text-emerald-600' },
+            ].map(item => (
+              <div key={item.label} className="bg-slate-50 rounded-xl p-4 border border-slate-100 text-center">
+                <span className="text-[9px] text-slate-400 font-bold uppercase tracking-wider block">{item.label}</span>
+                <p className={`text-base font-black mt-1 ${item.color}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {/* Deduction breakdown */}
+          <div className="bg-slate-50/50 rounded-xl border border-slate-100 p-4 space-y-2.5">
+            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Deduction Breakdown</h4>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs font-semibold">
+              {[
+                { label: 'Pension',   value: latest.pension },
+                { label: 'Overtime',  value: latest.overtime },
+                { label: 'Bonus',     value: latest.bonus },
+                { label: 'Commission',value: latest.commission },
+              ].filter(d => d.value != null).map(d => (
+                <div key={d.label} className="flex justify-between bg-white p-2.5 rounded-lg border border-slate-100">
+                  <span className="text-slate-400">{d.label}</span>
+                  <span className="text-slate-800 font-bold">{formatMoney(d.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-dashed border-slate-200 p-12 text-center">
+          <DollarSign className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+          <p className="text-xs font-bold text-slate-400">No payroll records found yet.</p>
+          <p className="text-[11px] text-slate-400 mt-1">Your payslip will appear here once payroll is processed.</p>
+        </div>
+      )}
+
+      {/* All payroll history */}
+      {payrollRecords.length > 1 && (
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-3">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Payroll History</h4>
+          <div className="space-y-2">
+            {payrollRecords.slice(1).map((rec: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs font-semibold">
+                <div>
+                  <span className="text-slate-700 font-bold">{formatDate(rec.periodStart)} → {formatDate(rec.periodEnd)}</span>
+                  <span className={`ml-2 text-[10px] px-1.5 py-0.5 rounded font-bold uppercase ${rec.status === 'paid' ? 'text-emerald-600 bg-emerald-50' : 'text-amber-600 bg-amber-50'}`}>{rec.status}</span>
+                </div>
+                <span className="text-blue-600 font-black">{formatMoney(rec.netPay)} net</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Active benefit enrollments */}
+      {enrollments.length > 0 && (
+        <div className="bg-white rounded-2xl border border-slate-100 p-5 space-y-3">
+          <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">My Active Benefits</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {enrollments.map((enr: any, i: number) => (
+              <div key={i} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl border border-slate-100 text-xs font-semibold">
+                <div>
+                  <p className="font-bold text-slate-800">{enr.benefit?.name ?? 'Benefit'}</p>
+                  <p className="text-[10px] text-slate-400 uppercase font-bold mt-0.5">{enr.benefit?.category ?? '—'}</p>
+                </div>
+                <div className="text-right">
+                  <p className="font-black text-blue-600">{formatMoney(enr.value)}</p>
+                  <span className={`text-[9px] font-bold uppercase ${enr.status === 'active' ? 'text-emerald-600' : 'text-slate-400'}`}>{enr.status}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}

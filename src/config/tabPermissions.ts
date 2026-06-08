@@ -47,7 +47,7 @@ export const PROFILES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   bulk_create:  { requires: ["hr.write"] },
   organogram:   { requires: ["profiles.read", "hr.read"] },
   directory:    { requires: ["profiles.read", "hr.read"] },
-  events:       { requires: ["profiles.read", "hr.read"] },
+  events:       { requires: ["profiles.read", "hr.read", "profiles.self"] },
   archive:      { requires: ["hr.write"] },
 };
 
@@ -78,10 +78,11 @@ export const PERFORMANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 
 // ─── Career Management (Talent) ──────────────────────────────────────────────
 export const TALENT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
-  overview: { requires: ["performance.read", "performance.manage", "career.self"] },
-  career:   { requires: ["performance.manage", "career.self"] },
-  training: { requires: ["performance.read", "performance.manage", "career.self"] },
-  culture:  { requires: ["profiles.read", "hr.read", "career.self"] },
+  overview:     { requires: ["performance.read", "performance.manage", "career.self"] },
+  career:       { requires: ["performance.manage", "career.self"] },
+  training:     { requires: ["performance.read", "performance.manage", "career.self"] },
+  culture:      { requires: ["profiles.read", "hr.read", "career.self"] },
+  development:  { requires: ["career.self", "performance.read", "performance.manage"] },
 };
 
 // ─── Exit & Offboarding ──────────────────────────────────────────────────────
@@ -97,12 +98,15 @@ export const EXIT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 
 // ─── Workforce Finance ───────────────────────────────────────────────────────
 export const FINANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
+  // Manager-only tabs — require explicit finance or payroll management access
   overview:         { requires: ["finance.read", "finance.manage"] },
-  salary_payroll:   { requires: ["finance.read", "finance.manage", "payroll.read", "payroll.run"] },
-  payroll_template: { requires: ["finance.manage", "payroll.run"] },
-  budget:           { requires: ["finance.read", "finance.manage", "budget.read"] },
-  expense:          { requires: ["finance.manage", "expense.submit"] },
-  benefits:         { requires: ["finance.read", "finance.manage", "benefits.read"] },
+  salary_payroll:   { requires: ["finance.read", "finance.manage"] },
+  payroll_template: { requires: ["finance.manage"] },
+  budget:           { requires: ["finance.read", "finance.manage"] },
+  // Self-service tab — employees see only their own payslip / salary info
+  my_payslip:       { requires: ["finance.mine"] },
+  // Benefits — self-service (no company-expense access for finance.mine)
+  benefits:         { requires: ["finance.read", "finance.manage", "benefits.read", "finance.mine"] },
 };
 
 export const PROJECTS_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
@@ -136,7 +140,7 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   performance: ["performance.read", "performance.manage", "performance.self"],
   talent:      ["performance.read", "performance.manage", "career.self"],
   exit:        ["hr.read", "hr.write", "exit.self"],
-  finance:     ["finance.read", "finance.manage", "payroll.read", "expense.submit", "benefits.read"],
+  finance:     ["finance.read", "finance.manage", "finance.mine"],
   projects:    ["project.read", "project.manage", "project.self"],
   // Platform-level modules — super admin only. No regular permission key unlocks these.
   businesses:  [],

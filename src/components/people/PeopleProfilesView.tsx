@@ -22,6 +22,7 @@ import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
 import CreateEmployeeModal from './CreateEmployeeModal';
 import BulkEmployeeImportPage from '../../pages/BulkEmployeeImportPage';
 import { StatCard, StatCardGrid, UserAvatar } from '@/components/ui/blih';
+import EventsTab from './EventsTab';
 
 interface OrgNode {
   id: string;
@@ -97,7 +98,7 @@ function getBounds(nodes: PositionedNode[]) {
 }
 
 // ─── Single node card ─────────────────────────────────────────────────────────
-function OrgCard({ pn, onSelect }: { pn: PositionedNode; onSelect: (n: OrgNode) => void }) {
+function OrgCard({ pn, onSelect }: { pn: PositionedNode; onSelect: (n: OrgNode) => void; key?: React.Key }) {
   const { node, x, y } = pn;
   const initials = node.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   const hasChildren = node.children.length > 0;
@@ -258,13 +259,16 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
         </svg>
 
         {/* Node cards */}
-        {allNodes.map((pn, i) => (
-          <OrgCard
-            key={pn.node.id || i}
-            pn={{ ...pn, x: pn.x + offsetX, y: pn.y + offsetY }}
-            onSelect={onSelect}
-          />
-        ))}
+        {allNodes.map((pn, i) => {
+          const nodeKey = String(pn.node.id || i);
+          return (
+            <OrgCard
+              key={nodeKey}
+              pn={{ ...pn, x: pn.x + offsetX, y: pn.y + offsetY }}
+              onSelect={onSelect}
+            />
+          );
+        })}
       </div>
 
       {/* Zoom controls */}
@@ -920,7 +924,7 @@ export default function PeopleProfilesView({
           </motion.div>
         )}
 
-        {/* --- 5. EVENTS SCREEN (IMAGE 5) --- */}
+        {/* --- 5. EVENTS SCREEN --- */}
         {currentProfilesTab === 'events' && (
           <motion.div
             key="events"
@@ -929,137 +933,7 @@ export default function PeopleProfilesView({
             exit={{ opacity: 0, y: -10 }}
             className="space-y-6"
           >
-            <div className="flex justify-between items-start flex-wrap gap-4">
-              <div>
-                <h4 className="text-sm font-bold text-slate-950 tracking-tight">Upcoming Events</h4>
-                <p className="text-[11px] text-slate-500 font-medium">Company celebrations and holidays.</p>
-              </div>
-
-              {/* Top Right category selectors */}
-              <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl shadow-inner text-xs font-bold">
-                <button
-                  onClick={() => setActiveEventCategory('birthdays')}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${activeEventCategory === 'birthdays'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'
-                    }`}
-                >
-                  Birthdays
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveEventCategory('anniversaries');
-                    showAlert('Showing employee Work Anniversaries timeline', 'info');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${activeEventCategory === 'anniversaries'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                >
-                  Work Anniversaries
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveEventCategory('promotions');
-                    showAlert('Showing upcoming employee promotions info', 'info');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${activeEventCategory === 'promotions'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                >
-                  Promoted
-                </button>
-                <button
-                  onClick={() => {
-                    setActiveEventCategory('holidays');
-                    showAlert('Showing registered national company holidays', 'info');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg cursor-pointer select-none transition-all ${activeEventCategory === 'holidays'
-                      ? 'bg-blue-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                >
-                  Holidays
-                </button>
-              </div>
-            </div>
-
-            {/* Side-by-Side Horizontal Cards Grid matching Image 5 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-
-              {/* Card 1: Birthdays (Active Category Default) */}
-              <div
-                onClick={() => showAlert('Celebrate Jessica Parker Birth Year Milestone', 'info')}
-                className="bg-white rounded-3xl border border-slate-100 p-5 flex flex-col items-center justify-between text-center overflow-hidden h-[340px] cursor-pointer group shadow-2xs hover:shadow-xs hover:border-blue-200 transition-all"
-              >
-                {/* 3D-styled custom circular character design frame */}
-                <div className="relative w-36 h-36 bg-gradient-to-tr from-sky-400 to-blue-600 rounded-2xl flex items-center justify-center text-white mt-1 shadow-inner overflow-hidden">
-                  <span className="text-4xl">🧑🏽‍💻</span>
-                  {/* Confetti overlay background simulation */}
-                  <div className="absolute inset-0 bg-radial-gradient from-transparent to-black/10 mix-blend-overlay opacity-50" />
-                  <div className="absolute bottom-2 left-0 right-0 bg-black/20 backdrop-blur-xs py-1 text-[10px] uppercase tracking-wider font-extrabold text-blue-100">Jessica Parker</div>
-                </div>
-
-                <div className="pt-2 space-y-1">
-                  <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-widest">Happy Birthday Wish</span>
-                  <span className="text-sm font-black text-slate-800 block">Jan 22nd</span>
-                </div>
-              </div>
-
-              {/* Card 2: National Victory Date Celebration */}
-              <div
-                onClick={() => showAlert('National Holiday: Adwa Victory Day celebration', 'info')}
-                className="bg-white rounded-3xl border border-slate-100 p-5 flex flex-col items-center justify-between text-center overflow-hidden h-[340px] cursor-pointer hover:border-blue-200 shadow-2xs transition-all"
-              >
-                {/* Clean large Calendar style widget */}
-                <div className="w-36 h-36 bg-slate-50 border border-slate-100 rounded-2xl flex flex-col justify-between py-4 text-center mt-1">
-                  <span className="text-xs uppercase tracking-widest font-black text-rose-500 font-sans block">February</span>
-                  <span className="text-5xl font-extrabold text-slate-800 block tracking-tighter">28</span>
-                  <span className="text-[9px] text-slate-400 font-bold uppercase">Ethiopia</span>
-                </div>
-
-                <div className="pt-2 space-y-1">
-                  <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-widest">Adwa Victory Day</span>
-                  <span className="text-sm font-black text-slate-800 block">Feb 28th</span>
-                </div>
-              </div>
-
-              {/* Card 3: Promoted Card */}
-              <div
-                onClick={() => showAlert('Review promotion plans details with Team leads', 'info')}
-                className="bg-white rounded-3xl border border-slate-100 p-5 flex flex-col items-center justify-between text-center overflow-hidden h-[340px] cursor-pointer hover:border-blue-200 shadow-2xs transition-all animate-pulse-slow"
-              >
-                {/* 3D alternative style avatar card */}
-                <div className="relative w-36 h-36 bg-gradient-to-tr from-amber-400 to-orange-500 rounded-2xl flex items-center justify-center text-white mt-1 overflow-hidden shadow-inner">
-                  <span className="text-4xl">👨🏼‍💼</span>
-                  <div className="absolute bottom-2 left-0 right-0 bg-black/20 backdrop-blur-xs py-1 text-[10px] uppercase tracking-wider font-extrabold text-orange-150">Jessica Parker</div>
-                </div>
-
-                <div className="pt-2 space-y-1">
-                  <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-widest">To Be Promoted</span>
-                  <span className="text-sm font-black text-slate-800 block">Jan 22nd</span>
-                </div>
-              </div>
-
-              {/* Card 4: Work Anniversary Card */}
-              <div
-                onClick={() => showAlert('Celebrate work tenure of team contributor', 'info')}
-                className="bg-white rounded-3xl border border-slate-100 p-5 flex flex-col items-center justify-between text-center overflow-hidden h-[340px] cursor-pointer hover:border-blue-200 shadow-2xs transition-all"
-              >
-                {/* 3D Dark Avatar alternative */}
-                <div className="relative w-36 h-36 bg-gradient-to-tr from-purple-400 via-pink-500 to-rose-500 rounded-2xl flex items-center justify-center text-white mt-1 overflow-hidden shadow-inner">
-                  <span className="text-4xl">👩🏾‍💻</span>
-                  <div className="absolute bottom-2 left-0 right-0 bg-black/20 backdrop-blur-xs py-1 text-[10px] uppercase tracking-wider font-extrabold text-purple-100">Jessica Parker</div>
-                </div>
-
-                <div className="pt-2 space-y-1">
-                  <span className="text-[10px] text-slate-400 block font-bold uppercase tracking-widest">1 Year Anniversary</span>
-                  <span className="text-sm font-black text-slate-800 block">Jan 22nd</span>
-                </div>
-              </div>
-
-            </div>
+            <EventsTab showAlert={showAlert} />
           </motion.div>
         )}
 

@@ -76,15 +76,15 @@ export function ConfirmDialog({
   className,
 }: ConfirmDialogProps) {
   const config = variantConfig[variant];
-  const Icon = config.icon;
+  const Icon = config?.icon;
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
       <DialogContent className={cn('max-w-sm rounded-2xl p-5 space-y-4', className)}>
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className={cn('p-2 rounded-xl flex-shrink-0', config.iconBg)}>
-              <Icon className={cn('w-4 h-4', config.iconColor)} />
+            <div className={cn('p-2 rounded-xl flex-shrink-0', config?.iconBg)}>
+              <Icon className={cn('w-4 h-4', config?.iconColor)} />
             </div>
             <div>
               <DialogTitle className="text-sm font-black text-slate-900">{title}</DialogTitle>
@@ -112,7 +112,7 @@ export function ConfirmDialog({
             disabled={loading}
             className={cn(
               'flex-1 font-bold text-xs h-9 rounded-xl disabled:opacity-50',
-              config.btnClass
+              config?.btnClass
             )}
           >
             {loading ? 'Please wait…' : confirmLabel}

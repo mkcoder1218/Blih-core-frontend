@@ -24,6 +24,19 @@ export function useWorkforceFinance(params?: Record<string, unknown>) {
   });
 }
 
+// ── Self-scoped: my own payslip, payroll records, benefit enrollments ──────────
+export function useMyFinanceData() {
+  return useQuery({
+    queryKey: ["my-finance-data"],
+    queryFn: async () => {
+      const { api } = await import("../api/client");
+      const res = await api.get("/api/v1/finance/workforce/me");
+      return res.data?.data ?? { expenses: [], payrollRecords: [], enrollments: [] };
+    },
+    staleTime: 30_000,
+  });
+}
+
 export function useFinanceApprovalAction() {
   const queryClient = useQueryClient();
   return useMutation({
