@@ -44,6 +44,8 @@ import AttendanceSettingsForm from './attendance/AttendanceSettingsForm';
 import type { BusinessAttendanceSettings } from '../../api/types';
 import type { BusinessAttendanceSettingsDraft } from './attendance/attendanceSettings.types';
 import { validateAttendanceSettings } from './attendance/attendanceSettings.schema';
+import HolidayImportPanel from '../people/HolidayImportPanel';
+import PublicRegistrationConfigPanel from './PublicRegistrationConfigPanel';
 
 type ViewBusiness = ApiBusiness & {
   legalName: string;
@@ -356,6 +358,34 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
   if (currentTab === 'sector_focus') return <SectorFocusTab showAlert={showAlert} />;
   if (currentTab === 'audit_logs') return <AuditLogsTab showAlert={showAlert} />;
   if (currentTab === 'notifications') return <NotificationsTab showAlert={showAlert} />;
+  if (currentTab === 'integrations') return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">
+            Integrations
+          </span>
+        </div>
+        <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">External Integrations</h1>
+        <p className="text-xs text-slate-500 font-medium mt-1">Configure third-party API connections used across the platform.</p>
+      </div>
+      <HolidayImportPanel showAlert={showAlert} />
+    </div>
+  );
+  if (currentTab === 'security') return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">
+            Security & Access
+          </span>
+        </div>
+        <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">Security Configuration</h1>
+        <p className="text-xs text-slate-500 font-medium mt-1">Manage authentication, registration windows, and access controls.</p>
+      </div>
+      <PublicRegistrationConfigPanel showAlert={showAlert} />
+    </div>
+  );
 
   return (
     <div className="space-y-6">

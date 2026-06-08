@@ -16,6 +16,7 @@ import PublicCareersPage from "./pages/careers/PublicCareersPage";
 import PublicJobApplicationPage from "./pages/careers/PublicJobApplicationPage";
 import InterviewResponsePage from "./pages/InterviewResponsePage";
 import CandidateOnboardingPage from "./pages/CandidateOnboardingPage";
+import PublicRegisterPage from "./pages/PublicRegisterPage";
 import MyProfilePage from "./pages/MyProfilePage";
 import BulkEmployeeImportPage from "./pages/BulkEmployeeImportPage";
 import { ProjectDetailsPage, ProjectsPage } from "./features/projects";
@@ -44,6 +45,7 @@ export default function RootApp() {
         <Route path="/careers/:businessSlug/apply/:jobId" element={<PublicJobApplicationPage />} />
         <Route path="/interview/respond" element={<InterviewResponsePage />} />
         <Route path="/career/onboarding/:onboardingId" element={<CandidateOnboardingRoute />} />
+        <Route path="/register/:businessSlug" element={<PublicRegisterPage />} />
         
         {/* Auth Required Routes */}
         <Route

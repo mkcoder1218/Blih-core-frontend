@@ -11,10 +11,10 @@ export function useHREvents(params?: { type?: string; from?: string; to?: string
   });
 }
 
-export function useUpcomingEvents(days = 90) {
+export function useUpcomingEvents(days = 365) {
   const today = new Date().toISOString().slice(0, 10);
-  const to    = new Date(Date.now() + days * 86400_000).toISOString().slice(0, 10);
-  return useHREvents({ from: today, to, size: 100 });
+  const to    = new Date(new Date().getFullYear() + 1, 11, 31).toISOString().slice(0, 10);
+  return useHREvents({ from: today, to, size: 200 });
 }
 
 export function useCreateHREvent() {

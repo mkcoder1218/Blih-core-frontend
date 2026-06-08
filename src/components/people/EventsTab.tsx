@@ -58,30 +58,64 @@ function daysUntil(dateStr: string) {
 // ── Upcoming Events sub-tab ────────────────────────────────────────────────────
 function UpcomingEventsPanel({ showAlert }: { showAlert: (m: string, t?: 'success' | 'info' | 'error') => void }) {
   const [activeFilter, setActiveFilter] = useState<string>('all');
-  const { data, isLoading } = useUpcomingEvents(180);
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
+  const { data, isLoading } = useUpcomingEvents(365);
 
   const allEvents = data?.rows ?? [];
-  const filtered  = activeFilter === 'all'
-    ? allEvents
-    : allEvents.filter(e => e.eventType === activeFilter);
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const filtered  = (activeFilter === 'all' ? allEvents : allEvents.filter(e => e.eventType === activeFilter))
+    .filter(e => new Date(e.eventDate + 'T12:00:00') >= today);
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-start flex-wrap gap-4">
+    <div className="space-y-5">
+      {/* Header row: title + filters + view toggle */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h4 className="text-sm font-bold text-slate-950 tracking-tight">Upcoming Events</h4>
           <p className="text-[11px] text-slate-500 font-medium">Company celebrations and holidays.</p>
         </div>
-        {/* Category pills */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          {CATEGORY_FILTERS.map(f => (
-            <button key={f.id} onClick={() => setActiveFilter(f.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer select-none transition-all ${
-                activeFilter === f.id ? 'bg-blue-600 text-white shadow-xs' : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
-              }`}>
-              {f.label}
+
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Category pills */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {CATEGORY_FILTERS.map(f => (
+              <button key={f.id} onClick={() => setActiveFilter(f.id)}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-bold cursor-pointer select-none transition-all ${
+                  activeFilter === f.id
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200'
+                }`}>
+                {f.label}
+              </button>
+            ))}
+          </div>
+
+          {/* View toggle */}
+          <div className="flex items-center bg-slate-100 rounded-lg p-0.5 gap-0.5 flex-shrink-0">
+            <button
+              onClick={() => setViewMode('grid')}
+              title="Grid view"
+              className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                viewMode === 'grid' ? 'bg-white shadow-xs text-blue-600' : 'text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
             </button>
-          ))}
+            <button
+              onClick={() => setViewMode('list')}
+              title="List view"
+              className={`p-1.5 rounded-md transition-all cursor-pointer ${
+                viewMode === 'list' ? 'bg-white shadow-xs text-blue-600' : 'text-slate-400 hover:text-slate-700'
+              }`}
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -89,20 +123,20 @@ function UpcomingEventsPanel({ showAlert }: { showAlert: (m: string, t?: 'succes
         <LoadingSpinner label="Loading events…" />
       ) : filtered.length === 0 ? (
         <EmptyState icon={<Calendar />} title="No upcoming events" description="Events will appear here once added by HR." />
-      ) : (
+      ) : viewMode === 'grid' ? (
+        /* ── GRID VIEW ── */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {filtered.map(ev => {
             const cfg  = EVENT_TYPE_CONFIG[ev.eventType] ?? EVENT_TYPE_CONFIG.other;
             const days = daysUntil(ev.eventDate);
             const name = ev.employee?.fullName ?? ev.title;
-            const initials = name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
+            const initials = name.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
 
             return (
               <div key={ev.id}
                 onClick={() => showAlert(`${cfg.label}: ${ev.title}`, 'info')}
                 className="bg-white rounded-3xl border border-slate-100 p-5 flex flex-col items-center justify-between text-center overflow-hidden h-[340px] cursor-pointer shadow-2xs hover:shadow-xs hover:border-blue-200 transition-all"
               >
-                {/* Avatar / calendar card */}
                 <div className={`relative w-36 h-36 bg-gradient-to-tr ${cfg.gradient} rounded-2xl flex items-center justify-center text-white mt-1 shadow-inner overflow-hidden`}>
                   {ev.emoji ? (
                     <span className="text-4xl">{ev.emoji}</span>
@@ -131,10 +165,74 @@ function UpcomingEventsPanel({ showAlert }: { showAlert: (m: string, t?: 'succes
                     {cfg.label}
                     {days === 0 && <span className="ml-1 text-emerald-600">· Today!</span>}
                     {days === 1 && <span className="ml-1 text-blue-600">· Tomorrow</span>}
-                    {days > 1  && <span className="ml-1 text-slate-300">· in {days}d</span>}
+                    {days > 1  && days <= 14 && <span className="ml-1 text-amber-500">· in {days}d</span>}
                   </span>
                   <span className="text-sm font-black text-slate-800 block">{fmtDate(ev.eventDate)}</span>
                   {ev.description && <p className="text-[10px] text-slate-400 line-clamp-2 mt-0.5">{ev.description}</p>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* ── LIST VIEW ── */
+        <div className="space-y-2">
+          {filtered.map(ev => {
+            const cfg  = EVENT_TYPE_CONFIG[ev.eventType] ?? EVENT_TYPE_CONFIG.other;
+            const days = daysUntil(ev.eventDate);
+
+            return (
+              <div key={ev.id}
+                onClick={() => showAlert(`${cfg.label}: ${ev.title}`, 'info')}
+                className="bg-white border border-slate-100 rounded-xl p-4 flex items-center gap-4 hover:border-blue-200 hover:shadow-xs transition-all cursor-pointer"
+              >
+                {/* Colored icon */}
+                <div className={`w-11 h-11 rounded-xl bg-gradient-to-tr ${cfg.gradient} flex items-center justify-center text-white flex-shrink-0 text-xl shadow-inner`}>
+                  {ev.emoji || cfg.emoji}
+                </div>
+
+                {/* Date block */}
+                <div className="flex-shrink-0 text-center w-14">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase leading-none">
+                    {new Date(ev.eventDate + 'T12:00:00').toLocaleString('en-US', { month: 'short' })}
+                  </p>
+                  <p className="text-2xl font-black text-slate-900 leading-tight">
+                    {new Date(ev.eventDate + 'T12:00:00').getDate()}
+                  </p>
+                </div>
+
+                {/* Separator */}
+                <div className="w-px h-10 bg-slate-100 flex-shrink-0" />
+
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-xs font-black text-slate-900 truncate">{ev.title}</p>
+                    <span className="text-[9px] bg-slate-100 text-slate-600 font-bold px-1.5 py-0.5 rounded uppercase flex-shrink-0">{cfg.label}</span>
+                    {ev.isRecurring && <span className="text-[9px] bg-blue-50 text-blue-600 font-bold px-1.5 py-0.5 rounded flex-shrink-0">Annual</span>}
+                  </div>
+                  {ev.description && (
+                    <p className="text-[10px] text-slate-400 mt-0.5 line-clamp-1">{ev.description}</p>
+                  )}
+                  {ev.employee && (
+                    <p className="text-[10px] text-slate-400 mt-0.5 font-semibold">{ev.employee.fullName}</p>
+                  )}
+                </div>
+
+                {/* Days badge */}
+                <div className="flex-shrink-0 text-right">
+                  {days === 0 && (
+                    <span className="text-[10px] bg-emerald-50 text-emerald-600 font-black px-2 py-1 rounded-lg">Today!</span>
+                  )}
+                  {days === 1 && (
+                    <span className="text-[10px] bg-blue-50 text-blue-600 font-black px-2 py-1 rounded-lg">Tomorrow</span>
+                  )}
+                  {days > 1 && days <= 14 && (
+                    <span className="text-[10px] bg-amber-50 text-amber-600 font-black px-2 py-1 rounded-lg">in {days}d</span>
+                  )}
+                  {days > 14 && (
+                    <span className="text-[10px] text-slate-300 font-bold">{fmtDate(ev.eventDate)}</span>
+                  )}
                 </div>
               </div>
             );
