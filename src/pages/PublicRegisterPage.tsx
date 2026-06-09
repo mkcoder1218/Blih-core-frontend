@@ -226,95 +226,101 @@ function SearchableCreate({
   selectedLabel: string;
   error?: string;
 }) {
-  const [query,    setQuery]    = useState('');
   const [open,     setOpen]     = useState(false);
+  const [query,    setQuery]    = useState('');
   const [creating, setCreating] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const filtered  = items.filter(i => i.label.toLowerCase().includes(query.toLowerCase()));
-  const showCreate = query.trim() && !filtered.some(i => i.label.toLowerCase() === query.trim().toLowerCase());
+  const filtered   = items.filter(i => i.label.toLowerCase().includes(query.toLowerCase()));
+  const exactMatch = filtered.some(i => i.label.toLowerCase() === query.trim().toLowerCase());
+  const showCreate = query.trim().length > 0 && !exactMatch;
 
   const handleCreate = async () => {
-    if (!query.trim()) return;
+    if (!query.trim() || creating) return;
     setCreating(true);
     try {
       const item = await onCreate(query.trim());
-      onSelect(item); setQuery(''); setOpen(false);
-    } finally { setCreating(false); }
+      onSelect(item);
+      setQuery('');
+      setOpen(false);
+    } finally {
+      setCreating(false);
+    }
   };
 
   return (
-    <div ref={ref} className="relative">
-      <div
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
         className={cn(
-          'flex h-10 items-center gap-1 rounded-lg border bg-white/50 px-3 text-xs transition-all cursor-text shadow-sm',
-          error ? 'border-destructive' : 'border-slate-200/60',
-          'focus-within:border-ring focus-within:ring-2 focus-within:ring-ring/10 focus-within:bg-white',
+          'flex h-11 w-full items-center justify-between rounded-xl border bg-transparent px-4 text-sm transition-colors outline-none',
+          error ? 'border-destructive' : 'border-input',
+          'focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50',
         )}
-        onClick={() => setOpen(true)}
       >
-        <Inp
-          value={open ? query : (selectedId ? selectedLabel : '')}
-          onChange={e => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => { setOpen(true); setQuery(''); }}
-          placeholder={placeholder}
-          className="flex-1 bg-transparent border-none shadow-none focus:ring-0 px-0 h-full"
-        />
-        {selectedId && !open && (
-          <button
-            type="button"
-            onClick={e => { e.stopPropagation(); onSelect(null); setQuery(''); }}
-            className="text-muted-foreground hover:text-foreground p-0.5 rounded-full hover:bg-slate-100 transition-colors"
-          >
-            <Plus className="rotate-45 w-3 h-3" />
-          </button>
-        )}
-        <ChevronsUpDown className="h-3.5 w-3.5 text-muted-foreground shrink-0 ml-1" />
-      </div>
-
-      {open && (
-        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border border-border rounded-lg shadow-md max-h-48 overflow-y-auto">
-          {loading ? (
-            <p className="px-3 py-2.5 text-xs text-muted-foreground">Loading…</p>
-          ) : filtered.length === 0 && !showCreate ? (
-            <p className="px-3 py-2.5 text-xs text-muted-foreground">No results found</p>
-          ) : (
-            <>
-              {filtered.map(item => (
-                <Btn
-                  key={item.id} type="button"
-                  onClick={() => { onSelect(item); setQuery(''); setOpen(false); }}
-                  className={cn(
-                    'w-full text-left px-3 py-2 text-xs font-medium cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors flex items-center justify-between',
-                    item.id === selectedId && 'text-blue-600',
-                  )}
-                >
-                  {item.label}
-                  {item.id === selectedId && <Check className="h-3 w-3" />}
-                </Btn>
-              ))}
-              {showCreate && (
-                <Btn
-                  type="button" onClick={handleCreate} disabled={creating}
-                  className="w-full text-left px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-accent border-t border-border flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  <Plus className="h-3 w-3" />
-                  {creating ? 'Creating…' : `Create "${query.trim()}"`}
-                </Btn>
-              )}
-            </>
+        <span className={selectedId ? 'text-foreground' : 'text-muted-foreground'}>
+          {selectedId ? selectedLabel : placeholder}
+        </span>
+        <div className="flex items-center gap-1.5 ml-2 shrink-0">
+          {selectedId && (
+            <button
+              type="button"
+              onClick={e => { e.stopPropagation(); onSelect(null); setQuery(''); }}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <Plus className="rotate-45 w-3.5 h-3.5" />
+            </button>
           )}
+          <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
         </div>
-      )}
-    </div>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--anchor-width,280px)] p-0" align="start">
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search…"
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList>
+            {loading ? (
+              <CommandEmpty>
+                <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+              </CommandEmpty>
+            ) : (
+              <>
+                {filtered.length === 0 && !showCreate && (
+                  <CommandEmpty>No results found.</CommandEmpty>
+                )}
+                <CommandGroup>
+                  {filtered.map(item => (
+                    <CommandItem
+                      key={item.id}
+                      value={item.label}
+                      onSelect={() => { onSelect(item); setQuery(''); setOpen(false); }}
+                      data-checked={selectedId === item.id}
+                    >
+                      {item.label}
+                      {selectedId === item.id && <Check className="ml-auto h-4 w-4 text-blue-600" />}
+                    </CommandItem>
+                  ))}
+                  {showCreate && (
+                    <CommandItem
+                      value={`__create__${query}`}
+                      onSelect={handleCreate}
+                      disabled={creating}
+                      className="text-blue-600 font-semibold"
+                    >
+                      {creating
+                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Creating…</>
+                        : <><Plus className="w-3.5 h-3.5 mr-1.5" />Create "{query.trim()}"</>
+                      }
+                    </CommandItem>
+                  )}
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -806,6 +812,7 @@ export default function PublicRegisterPage() {
                     />
                   </Field>
 
+                  <Field label="National ID (Fayda) — Front & Back" required error={fieldErrors.nationalId}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {(['front', 'back'] as const).map(side => {
                       const file    = side === 'front' ? idFront         : idBack;
@@ -817,7 +824,8 @@ export default function PublicRegisterPage() {
                             whileHover={{ scale: 1.01 }}
                             whileTap={{ scale: 0.99 }}
                             className={cn(
-                              'border border-dashed rounded-xl p-2 text-center cursor-pointer transition-all h-20 flex flex-col items-center justify-center relative overflow-hidden',
+                              'border border-dashed rounded-xl text-center cursor-pointer transition-all flex flex-col items-center justify-center relative overflow-hidden',
+                              'min-h-[140px]',
                               hasErr  ? 'border-red-300 bg-red-50/50'
                                       : file ? 'border-emerald-500 bg-emerald-50/30'
                                               : 'border-slate-200 bg-slate-50/50 hover:border-blue-400 hover:bg-blue-50/50',
@@ -832,15 +840,21 @@ export default function PublicRegisterPage() {
                             />
                             {preview ? (
                               <>
-                                <img src={preview} alt={`ID ${side}`} className="absolute inset-0 w-full h-full object-cover" />
-                                <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <img
+                                  src={preview}
+                                  alt={`ID ${side}`}
+                                  className="w-full h-full object-contain p-1 rounded-xl"
+                                  style={{ maxHeight: '200px' }}
+                                />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
                                   <UploadCloud className="w-5 h-5 text-white" />
                                 </div>
                               </>
                             ) : (
-                              <div className="space-y-1">
-                                <p className="text-[10px] font-bold text-slate-800 uppercase tracking-tight">{side} ID side</p>
-                                <p className="text-[8px] text-slate-400">JPG, PNG</p>
+                              <div className="space-y-1.5 py-4 px-2">
+                                <div className="text-2xl">{side === 'front' ? '🪪' : '🔄'}</div>
+                                <p className="text-[10px] font-bold text-slate-600 capitalize">{side} side</p>
+                                <p className="text-[9px] text-slate-400">JPG, PNG, WebP</p>
                               </div>
                             )}
                           </motion.div>
@@ -858,6 +872,7 @@ export default function PublicRegisterPage() {
                       );
                     })}
                   </div>
+                  </Field>
 
                   <Field label="Home Address" icon={MapPin}>
                     <Inp value={form.address} onChange={e => set('address')(e.target.value)} placeholder="House #, Street" />
