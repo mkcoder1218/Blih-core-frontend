@@ -5,9 +5,9 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  CheckCircle, XCircle, Eye, RefreshCw, Clock, AlertTriangle,
-  ChevronLeft, ChevronRight, User, Briefcase, MapPin, CreditCard,
-  HeartPulse, Search, Filter, ChevronDown, FileImage, ZoomIn,
+  CheckCircle, XCircle, Eye, RefreshCw, AlertTriangle,
+  ChevronLeft, ChevronRight, User, Briefcase, MapPin,
+  HeartPulse, FileImage, ZoomIn, Landmark,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -16,11 +16,10 @@ import {
   type PendingRegistrant,
 } from '../../api/pendingRegistrations';
 import {
-  PageHeader, StatusBadge, UserAvatar, DataTable, SectionCard,
-  ConfirmDialog, FilterBar, InfoAlert, LoadingSpinner, EmptyState,
+  PageHeader, StatusBadge, UserAvatar, DataTable,
+  ConfirmDialog, FilterBar,
 } from '@/components/ui/blih';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
@@ -35,7 +34,7 @@ const fmtAge = (dob: string | null) => {
 };
 
 // Backend base URL for serving uploaded files
-const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+const API_BASE = import.meta.env.VITE_API_Prod_URL || 'http://localhost:4000';
 
 // ── ID Doc image viewer ───────────────────────────────────────────────────────
 function IdDocImage({ url, label }: { url: string; label: string }) {
@@ -293,6 +292,31 @@ function RegistrantDrawer({
           <DetailRow label="Department"       value={registrant.department?.name} />
           <DetailRow label="Position"         value={registrant.position?.title} />
         </DetailSection>
+
+        {/* Emergency Contact */}
+        {(registrant.emergencyName || registrant.emergencyPhone || registrant.emergencyRelationship) && (
+          <DetailSection title="Emergency Contact" icon={HeartPulse}>
+            <DetailRow label="Name"         value={registrant.emergencyName} />
+            <DetailRow label="Relationship" value={registrant.emergencyRelationship} />
+            <DetailRow label="Phone"        value={registrant.emergencyPhone} />
+          </DetailSection>
+        )}
+
+        {/* Bank Information */}
+        {(registrant.bankName || registrant.bankAccount) && (
+          <DetailSection title="Bank Information" icon={Landmark}>
+            <DetailRow label="Bank Name"       value={registrant.bankName} />
+            <DetailRow label="Account Number"  value={registrant.bankAccount} />
+          </DetailSection>
+        )}
+
+        {/* Fallback when both emergency and bank are missing */}
+        {!registrant.emergencyName && !registrant.emergencyPhone && !registrant.bankName && !registrant.bankAccount && detail && (
+          <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5">
+            <AlertTriangle className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+            <p className="text-[11px] font-semibold text-slate-500">No emergency contact or bank details provided.</p>
+          </div>
+        )}
 
         {/* National ID documents */}
         {(frontUrl || backUrl) && (

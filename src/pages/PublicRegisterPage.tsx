@@ -597,6 +597,11 @@ export default function PublicRegisterPage() {
       if (!form.requestedRoleKey) e.requestedRoleKey = 'Select a role';
       if (!form.employmentType)   e.employmentType   = 'Select employment type';
     }
+    if (s === 4) {
+      if (form.bankAccount && !form.bankAccount.trim().startsWith('013')) {
+        e.bankAccount = 'Awash Bank account numbers must start with 013';
+      }
+    }
     setFieldErrors(e);
     return Object.keys(e).length === 0;
   };
@@ -643,7 +648,7 @@ export default function PublicRegisterPage() {
       if (form.emergencyName)         fd.append('emergencyName',         form.emergencyName.trim());
       if (form.emergencyPhone)        fd.append('emergencyPhone',        form.emergencyPhone.trim());
       if (form.emergencyRelationship) fd.append('emergencyRelationship', form.emergencyRelationship.trim());
-      if (form.bankName)              fd.append('bankName',              form.bankName.trim());
+      if (form.bankName)              fd.append('bankName',              'Awash Bank');
       if (form.bankAccount)           fd.append('bankAccount',           form.bankAccount.trim());
       if (idFront)                    fd.append('idDocumentFront',       idFront,  idFront.name);
       if (idBack)                     fd.append('idDocumentBack',        idBack,   idBack.name);
@@ -1293,12 +1298,23 @@ export default function PublicRegisterPage() {
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <Field label="Bank" icon={Building2}>
-                          <Inp value={form.bankName} onChange={e => set('bankName')(e.target.value)} placeholder="e.g. CBE" />
+                          <div className="flex h-10 items-center rounded-lg border border-slate-200/60 bg-slate-100 px-3 text-xs font-semibold text-slate-700 select-none cursor-not-allowed gap-2 shadow-sm">
+                            <Landmark className="w-3.5 h-3.5 text-blue-600 shrink-0" />
+                            Awash Bank
+                          </div>
                         </Field>
-                        <Field label="Acc #" icon={CreditCard}>
-                          <Inp value={form.bankAccount} onChange={e => set('bankAccount')(e.target.value)} placeholder="Acc #" />
+                        <Field label="Acc #" icon={CreditCard} error={fieldErrors.bankAccount}>
+                          <Inp
+                            value={form.bankAccount}
+                            onChange={e => set('bankAccount')(e.target.value)}
+                            placeholder="013XXXXXXXXX"
+                            aria-invalid={!!fieldErrors.bankAccount}
+                          />
                         </Field>
                       </div>
+                      <p className="mt-1.5 text-[9px] text-slate-400 font-medium ml-0.5">
+                        Account numbers must start with <span className="font-bold text-blue-600">013</span>
+                      </p>
                     </div>
                   </div>
                 </>

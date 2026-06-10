@@ -24,6 +24,11 @@ export interface PendingRegistrant {
     country: string | null;
     zipCode: string | null;
   };
+  emergencyName: string | null;
+  emergencyPhone: string | null;
+  emergencyRelationship: string | null;
+  bankName: string | null;
+  bankAccount: string | null;
 }
 
 export interface PendingListResponse {
