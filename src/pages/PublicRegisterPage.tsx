@@ -176,10 +176,18 @@ function Combobox({
   placeholder: string;
   error?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open,  setOpen]  = useState(false);
+  const [query, setQuery] = useState('');
   const selected = options.find(o => o.value === value);
+
+  const filtered = useMemo(() => {
+    if (!query.trim()) return options;
+    const q = query.toLowerCase();
+    return options.filter(o => o.label.toLowerCase().includes(q));
+  }, [options, query]);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={v => { setOpen(v); if (!v) setQuery(''); }}>
       <PopoverTrigger
         className={cn(
           'flex h-10 w-full items-center justify-between rounded-lg border bg-white/50 px-3 py-1 text-xs transition-all outline-none shadow-sm',
@@ -192,24 +200,31 @@ function Combobox({
         </span>
         <ChevronsUpDown className="ml-2 h-3.5 w-3.5 shrink-0 text-muted-foreground transition-transform duration-200" style={{ transform: open ? 'rotate(180deg)' : 'none' }} />
       </PopoverTrigger>
-      <PopoverContent className="w-[var(--anchor-width,260px)] p-0" align="start">
-        <Command>
-          <CommandInput placeholder={`Search…`} />
-          <CommandList>
-            <CommandEmpty>No results found.</CommandEmpty>
-            <CommandGroup>
-              {options.map(o => (
-                <CommandItem
-                  key={o.value}
-                  value={o.label}
-                  onSelect={() => { onChange(o.value); setOpen(false); }}
-                  data-checked={value === o.value}
-                >
-                  {o.label}
-                  {value === o.value && <Check className="ml-auto h-4 w-4 text-blue-600" />}
-                </CommandItem>
-              ))}
-            </CommandGroup>
+      <PopoverContent className="w-72 p-0" align="start" sideOffset={4}>
+        <Command shouldFilter={false}>
+          <CommandInput
+            placeholder="Search…"
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList className="max-h-52">
+            {filtered.length === 0
+              ? <CommandEmpty>No results found.</CommandEmpty>
+              : (
+                <CommandGroup>
+                  {filtered.map(o => (
+                    <CommandItem
+                      key={o.value}
+                      value={o.value}
+                      onSelect={() => { onChange(o.value); setOpen(false); setQuery(''); }}
+                    >
+                      {o.label}
+                      {value === o.value && <Check className="ml-auto h-4 w-4 text-blue-600" />}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )
+            }
           </CommandList>
         </Command>
       </PopoverContent>
@@ -412,15 +427,19 @@ export default function PublicRegisterPage() {
   const [countryCode, setCountryCode] = useState('');
   const [stateCode,   setStateCode]   = useState('');
 
-  const allCountries = Country.getAllCountries().map(c => ({ value: c.isoCode, label: c.name }));
-  const stateOptions = countryCode
-    ? State.getStatesOfCountry(countryCode).map(s => ({ value: s.isoCode, label: s.name }))
-    : [];
-  const cityOptions = countryCode && stateCode
-    ? City.getCitiesOfState(countryCode, stateCode).map(c => ({ value: c.name, label: c.name }))
-    : countryCode
-    ? (City.getCitiesOfCountry(countryCode) ?? []).map(c => ({ value: c.name, label: c.name }))
-    : [];
+  const allCountries = useMemo(
+    () => Country.getAllCountries().map(c => ({ value: c.isoCode, label: c.name })),
+    [],
+  );
+  const stateOptions = useMemo(
+    () => countryCode ? State.getStatesOfCountry(countryCode).map(s => ({ value: s.isoCode, label: s.name })) : [],
+    [countryCode],
+  );
+  const cityOptions = useMemo(() => {
+    if (countryCode && stateCode) return City.getCitiesOfState(countryCode, stateCode).map(c => ({ value: c.name, label: c.name }));
+    if (countryCode) return (City.getCitiesOfCountry(countryCode) ?? []).map(c => ({ value: c.name, label: c.name }));
+    return [];
+  }, [countryCode, stateCode]);
 
   // Department + position
   const [departments,  setDepartments]  = useState<SearchableItem[]>([]);
