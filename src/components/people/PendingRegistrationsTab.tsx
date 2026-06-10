@@ -35,7 +35,7 @@ const fmtAge = (dob: string | null) => {
 };
 
 // Backend base URL for serving uploaded files
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
 // ── ID Doc image viewer ───────────────────────────────────────────────────────
 function IdDocImage({ url, label }: { url: string; label: string }) {
