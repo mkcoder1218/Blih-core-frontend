@@ -229,6 +229,18 @@ function RegistrantDrawer({
   const frontUrl = empMeta.idDocumentFrontUrl ?? empMeta.idDocumentUrl ?? null;
   const backUrl  = empMeta.idDocumentBackUrl  ?? null;
 
+  // Emergency contact — from EmployeeRecord
+  const ec = detail?.EmployeeRecord?.emergencyContact ?? null;
+  const emergencyName = ec ? [ec.firstName, ec.lastName].filter(Boolean).join(' ') : null;
+  const emergencyPhone = ec?.phone ?? null;
+  const emergencyRelationship = ec?.relationship ?? null;
+
+  // Bank details — from metadata.bankDetails array
+  const bankDetails = empMeta.bankDetails ?? [];
+  const primaryBank = bankDetails[0] ?? null;
+  const bankName    = primaryBank?.bankName ?? null;
+  const bankAccount = primaryBank?.accountNumber ?? null;
+
   return (
     <motion.div
       initial={{ x: '100%', opacity: 0 }}
@@ -294,24 +306,24 @@ function RegistrantDrawer({
         </DetailSection>
 
         {/* Emergency Contact */}
-        {(registrant.emergencyName || registrant.emergencyPhone || registrant.emergencyRelationship) && (
+        {(emergencyName || emergencyPhone || emergencyRelationship) && (
           <DetailSection title="Emergency Contact" icon={HeartPulse}>
-            <DetailRow label="Name"         value={registrant.emergencyName} />
-            <DetailRow label="Relationship" value={registrant.emergencyRelationship} />
-            <DetailRow label="Phone"        value={registrant.emergencyPhone} />
+            <DetailRow label="Name"         value={emergencyName} />
+            <DetailRow label="Relationship" value={emergencyRelationship} />
+            <DetailRow label="Phone"        value={emergencyPhone} />
           </DetailSection>
         )}
 
         {/* Bank Information */}
-        {(registrant.bankName || registrant.bankAccount) && (
+        {(bankName || bankAccount) && (
           <DetailSection title="Bank Information" icon={Landmark}>
-            <DetailRow label="Bank Name"       value={registrant.bankName} />
-            <DetailRow label="Account Number"  value={registrant.bankAccount} />
+            <DetailRow label="Bank Name"       value={bankName} />
+            <DetailRow label="Account Number"  value={bankAccount} />
           </DetailSection>
         )}
 
-        {/* Fallback when both emergency and bank are missing */}
-        {!registrant.emergencyName && !registrant.emergencyPhone && !registrant.bankName && !registrant.bankAccount && detail && (
+        {/* Fallback when both emergency and bank are missing — only show once detail has loaded */}
+        {detail && !emergencyName && !emergencyPhone && !bankName && !bankAccount && (
           <div className="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2.5">
             <AlertTriangle className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
             <p className="text-[11px] font-semibold text-slate-500">No emergency contact or bank details provided.</p>
@@ -501,45 +513,48 @@ export default function PendingRegistrationsTab({ showAlert }: { showAlert: (msg
             ? 'No pending registrations — all caught up!'
             : 'No rejected applications found.'
         }
-        renderRow={(row) => (
+        renderRow={(row) => {
+          const r = row as PendingRegistrant;
+          return (
           <tr
-            key={row.id}
+            key={r.id}
             className="border-b border-slate-100 hover:bg-slate-50/60 cursor-pointer transition-colors"
-            onClick={() => openDrawer(row)}
+            onClick={() => openDrawer(r)}
           >
             <td className="px-4 py-3">
               <div className="flex items-center gap-2.5">
-                <UserAvatar name={row.fullName} size="sm" />
+                <UserAvatar name={r.fullName} size="sm" />
                 <div>
-                  <p className="text-xs font-bold text-slate-900 leading-none">{row.fullName}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{row.email}</p>
+                  <p className="text-xs font-bold text-slate-900 leading-none">{r.fullName}</p>
+                  <p className="text-[10px] text-slate-400 mt-0.5">{r.email}</p>
                 </div>
               </div>
             </td>
             <td className="px-4 py-3">
               <span className="text-[11px] font-semibold text-slate-600">
-                {row.requestedRoleKey?.replace(/_/g, ' ') || '—'}
+                {r.requestedRoleKey?.replace(/_/g, ' ') || '—'}
               </span>
             </td>
             <td className="px-4 py-3">
-              <span className="text-[11px] text-slate-500">{row.department?.name || '—'}</span>
+              <span className="text-[11px] text-slate-500">{r.department?.name || '—'}</span>
             </td>
             <td className="px-4 py-3">
-              <span className="text-[11px] text-slate-500">{fmt(row.createdAt)}</span>
+              <span className="text-[11px] text-slate-500">{fmt(r.createdAt)}</span>
             </td>
             <td className="px-4 py-3">
-              <StatusBadge status={row.status} />
+              <StatusBadge status={r.status} />
             </td>
             <td className="px-4 py-3 text-right">
               <button
-                onClick={e => { e.stopPropagation(); openDrawer(row); }}
+                onClick={e => { e.stopPropagation(); openDrawer(r); }}
                 className="w-7 h-7 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-100 hover:border-blue-200 flex items-center justify-center transition-colors ml-auto"
               >
                 <Eye className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500" />
               </button>
             </td>
           </tr>
-        )}
+          );
+        }}
       />
 
       {/* Pagination */}
