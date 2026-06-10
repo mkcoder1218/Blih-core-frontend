@@ -52,7 +52,7 @@ export default function App() {
     return 'recruitment';
   });
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>('overview');
-  const [currentProfilesTab, setCurrentProfilesTab] = useState<'overview' | 'create' | 'organogram' | 'directory' | 'events' | 'archive'>('overview');
+  const [currentProfilesTab, setCurrentProfilesTab] = useState<'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'events' | 'archive' | 'pending_registrations'>('overview');
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'check-me-in' | 'history' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home'>('overview');
   const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture' | 'development'>('overview');
   const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms'>('overview');

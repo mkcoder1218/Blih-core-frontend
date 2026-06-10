@@ -12,7 +12,7 @@ import {
   ChangeEvent, useRef, useCallback,
 } from 'react';
 import React from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Eye, EyeOff, UserPlus, Clock, CheckCircle, AlertCircle,
   Loader2, ArrowRight, ArrowLeft, User, Briefcase, Shield,
@@ -43,11 +43,9 @@ const Inp = ({ className, ...p }: React.ComponentProps<typeof Input>) => (
   <Input className={cn('h-10 rounded-lg px-3 text-xs bg-white/50 border-slate-200/60 focus:bg-white transition-all shadow-sm', className)} {...p} />
 );
 const Btn = ({ className, children, ...p }: React.ComponentProps<typeof Button>) => (
-  <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
-    <Button className={cn('h-10 rounded-lg text-xs font-semibold px-4 shadow-sm transition-all', className)} {...p}>
-      {children}
-    </Button>
-  </motion.div>
+  <Button className={cn('h-10 rounded-lg text-xs font-semibold px-4 shadow-sm transition-all active:scale-[0.98]', className)} {...p}>
+    {children}
+  </Button>
 );
 const Sel = ({ className, ...p }: React.ComponentProps<typeof SelectTrigger>) => (
   <SelectTrigger className={cn('h-10 rounded-lg px-3 text-xs w-full bg-white/50 border-slate-200/60 focus:bg-white transition-all shadow-sm', className)} {...p} />
@@ -85,13 +83,7 @@ const EMPTY: FormData = {
   bankName: '', bankAccount: '',
 };
 
-const ROLES = [
-  { key: 'EMPLOYEE',        label: 'Employee' },
-  { key: 'DEPARTMENT_HEAD', label: 'Department Head' },
-  { key: 'HR_MANAGER',      label: 'HR Manager' },
-  { key: 'FINANCE_MANAGER', label: 'Finance Manager' },
-  { key: 'CEO',             label: 'CEO / Executive' },
-];
+const ROLES: { key: string; label: string }[] = []; // loaded from API per-business
 const EMPLOYMENT_TYPES = [
   { value: 'full_time', label: 'Full Time' },
   { value: 'part_time', label: 'Part Time' },
@@ -378,6 +370,15 @@ function ClosedScreen({ title, message }: { title: string; message: string }) {
 export default function PublicRegisterPage() {
   const { businessSlug } = useParams<{ businessSlug: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const resubmitToken = searchParams.get('resubmit') || null;
+
+  // ── Resubmit prefill loading ──
+  const [prefillLoading, setPrefillLoading] = useState(false);
+  const [prefillError,   setPrefillError]   = useState('');
+  const [rejectionReason, setRejectionReason] = useState('');
+  // resubmitToken → when present we show "updating" flow instead of fresh registration
+  const isResubmit = !!resubmitToken;
 
   const [config,        setConfig]        = useState<RegConfig | null>(null);
   const [configLoading, setConfigLoading] = useState(true);
@@ -389,7 +390,7 @@ export default function PublicRegisterPage() {
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<keyof FormData, string>>>({});
   const [submitting,  setSubmitting]  = useState(false);
   const [serverError, setServerError] = useState('');
-  const [result,      setResult]      = useState<{ autoApproved: boolean } | null>(null);
+  const [result,      setResult]      = useState<{ autoApproved: boolean; resubmitted?: boolean } | null>(null);
 
   const set = (k: keyof FormData) => (v: string) => setForm(p => ({ ...p, [k]: v }));
 
@@ -415,6 +416,41 @@ export default function PublicRegisterPage() {
   const [selectedDept, setSelectedDept] = useState<SearchableItem | null>(null);
   const [selectedPos,  setSelectedPos]  = useState<SearchableItem | null>(null);
 
+  // Roles — fetched from backend (excludes BUSINESS_ADMIN, PLATFORM_SUPER_ADMIN)
+  const [roles,        setRoles]        = useState<{ key: string; label: string }[]>([]);
+  const [rolesLoading, setRolesLoading] = useState(false);
+
+  const loadRoles = useCallback(async () => {
+    if (!businessSlug) return;
+    setRolesLoading(true);
+    try {
+      const res = await api.get(`/api/v1/auth/public-register/${businessSlug}/roles`);
+      const fetched: { key: string; label: string }[] = res.data?.data?.roles ?? [];
+      const finalRoles = fetched.length > 0 ? fetched : [
+        { key: 'EMPLOYEE',        label: 'Employee' },
+        { key: 'DEPARTMENT_HEAD', label: 'Department Head' },
+        { key: 'HR_MANAGER',      label: 'HR Manager' },
+        { key: 'FINANCE_MANAGER', label: 'Finance Manager' },
+        { key: 'CEO',             label: 'CEO / Executive' },
+      ];
+      setRoles(finalRoles);
+      // Reset selection if current value isn't in the returned list
+      setForm(prev => {
+        const valid = finalRoles.some(r => r.key === prev.requestedRoleKey);
+        return valid ? prev : { ...prev, requestedRoleKey: finalRoles[0]?.key ?? '' };
+      });
+    } catch {
+      // fallback to sensible defaults if endpoint fails
+      setRoles([
+        { key: 'EMPLOYEE',        label: 'Employee' },
+        { key: 'DEPARTMENT_HEAD', label: 'Department Head' },
+        { key: 'HR_MANAGER',      label: 'HR Manager' },
+        { key: 'FINANCE_MANAGER', label: 'Finance Manager' },
+        { key: 'CEO',             label: 'CEO / Executive' },
+      ]);
+    } finally { setRolesLoading(false); }
+  }, [businessSlug]);
+
   const loadDepartments = useCallback(async () => {
     if (!businessSlug) return;
     setDeptLoading(true);
@@ -434,14 +470,19 @@ export default function PublicRegisterPage() {
   }, [businessSlug]);
 
   useEffect(() => {
-    if (step === 3) { loadDepartments(); loadPositions(); }
-  }, [step, loadDepartments, loadPositions]);
+    if (step === 3) { loadRoles(); loadDepartments(); loadPositions(); }
+  }, [step, loadRoles, loadDepartments, loadPositions]);
 
   // Fayda (National ID) — front & back
-  const [idFront,        setIdFront]        = useState<File | null>(null);
-  const [idFrontPreview, setIdFrontPreview] = useState<string | null>(null);
-  const [idBack,         setIdBack]         = useState<File | null>(null);
-  const [idBackPreview,  setIdBackPreview]  = useState<string | null>(null);
+  const [idFront,            setIdFront]            = useState<File | null>(null);
+  const [idFrontPreview,     setIdFrontPreview]     = useState<string | null>(null);
+  const [idBack,             setIdBack]             = useState<File | null>(null);
+  const [idBackPreview,      setIdBackPreview]      = useState<string | null>(null);
+  // Existing uploaded URLs (resubmit mode — shown as previews until replaced)
+  const [existingFrontUrl,   setExistingFrontUrl]   = useState<string | null>(null);
+  const [existingBackUrl,    setExistingBackUrl]    = useState<string | null>(null);
+
+  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
   const handleIdSideChange = (side: 'front' | 'back', e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -465,19 +506,92 @@ export default function PublicRegisterPage() {
       .finally(() => setConfigLoading(false));
   }, [businessSlug]);
 
+  // ── Resubmit: load pre-filled data ────────────────────────────────────────
+  useEffect(() => {
+    if (!resubmitToken || !businessSlug) return;
+    setPrefillLoading(true);
+    api.get(`/api/v1/auth/public-register/${businessSlug}/resubmit/${resubmitToken}`)
+      .then(r => {
+        const d = r.data?.data ?? r.data;
+        const pf = d.prefill ?? {};
+        setForm(prev => ({
+          ...prev,
+          fullName:              pf.fullName              || prev.fullName,
+          email:                 pf.email                 || prev.email,
+          phone:                 pf.phone                 || prev.phone,
+          // Personal
+          dateOfBirth:           pf.dateOfBirth           || prev.dateOfBirth,
+          gender:                pf.gender                || prev.gender,
+          maritalStatus:         pf.maritalStatus         || prev.maritalStatus,
+          nationality:           pf.nationality           || prev.nationality,
+          address:               pf.address               || prev.address,
+          city:                  pf.city                  || prev.city,
+          country:               pf.country               || prev.country,
+          zipCode:               pf.zipCode               || prev.zipCode,
+          // Work
+          requestedRoleKey:      pf.requestedRoleKey      || prev.requestedRoleKey,
+          employmentType:        pf.employmentType        || prev.employmentType,
+          hireDate:              pf.hireDate              || prev.hireDate,
+          departmentId:          pf.departmentId          || prev.departmentId,
+          positionId:            pf.positionId            || prev.positionId,
+          // Emergency
+          emergencyName:         pf.emergencyName         || prev.emergencyName,
+          emergencyPhone:        pf.emergencyPhone        || prev.emergencyPhone,
+          emergencyRelationship: pf.emergencyRelationship || prev.emergencyRelationship,
+          // Bank
+          bankName:              pf.bankName              || prev.bankName,
+          bankAccount:           pf.bankAccount           || prev.bankAccount,
+        }));
+
+        if (d.rejectionReason) setRejectionReason(d.rejectionReason);
+
+        // Pre-select department and position in the SearchableCreate dropdowns
+        if (pf.departmentId && pf.departmentName) {
+          setSelectedDept({ id: pf.departmentId, label: pf.departmentName });
+        }
+        if (pf.positionId && pf.positionTitle) {
+          setSelectedPos({ id: pf.positionId, label: pf.positionTitle });
+        }
+
+        // Pre-fill existing ID doc previews
+        if (pf.idDocumentFrontUrl) {
+          const url = pf.idDocumentFrontUrl.startsWith('http') ? pf.idDocumentFrontUrl : `${API_BASE}${pf.idDocumentFrontUrl}`;
+          setExistingFrontUrl(url);
+          setIdFrontPreview(url);
+        }
+        if (pf.idDocumentBackUrl) {
+          const url = pf.idDocumentBackUrl.startsWith('http') ? pf.idDocumentBackUrl : `${API_BASE}${pf.idDocumentBackUrl}`;
+          setExistingBackUrl(url);
+          setIdBackPreview(url);
+        }
+      })
+      .catch(() => setPrefillError('Could not load your previous application data. You may need to fill the form again.'))
+      .finally(() => setPrefillLoading(false));
+  }, [resubmitToken, businessSlug]);
+
   // ── Validation ─────────────────────────────────────────────────────────────
   const validate = (s: number): boolean => {
     const e: Partial<Record<keyof FormData, string>> = {};
     if (s === 1) {
       if (!form.fullName.trim() || form.fullName.length < 2) e.fullName = 'Full name required (min 2 chars)';
-      if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Valid email required';
-      if (!form.password || form.password.length < 8) e.password = 'Minimum 8 characters';
-      if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
+      if (!isResubmit) {
+        // Password only required for fresh registration
+        if (!form.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Valid email required';
+        if (!form.password || form.password.length < 8) e.password = 'Minimum 8 characters';
+        if (form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
+      } else {
+        // In resubmit mode password is optional — validate only if they filled it in
+        if (form.password && form.password.length < 8) e.password = 'Minimum 8 characters';
+        if (form.password && form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match';
+      }
     }
     if (s === 2) {
       if (!form.phone.trim()) e.phone = 'Phone number required';
       if (!form.dateOfBirth)  e.dateOfBirth = 'Date of birth required';
-      if (!idFront || !idBack) e.nationalId = 'Upload both sides of your National ID';
+      // In resubmit mode, existing uploaded images count — only require if neither exists
+      const hasFront = !!idFront || !!existingFrontUrl;
+      const hasBack  = !!idBack  || !!existingBackUrl;
+      if (!hasFront || !hasBack) e.nationalId = 'Upload both sides of your National ID';
     }
     if (s === 3) {
       if (!form.requestedRoleKey) e.requestedRoleKey = 'Select a role';
@@ -498,8 +612,20 @@ export default function PublicRegisterPage() {
       const fd = new FormData();
       fd.append('businessSlug', businessSlug!);
       fd.append('fullName',     form.fullName.trim());
-      fd.append('email',        form.email.trim().toLowerCase());
-      fd.append('password',     form.password);
+
+      // Resubmit flow: use PUT to resubmit endpoint, password only sent if changed
+      if (!isResubmit) {
+        fd.append('email',    form.email.trim().toLowerCase());
+        fd.append('password', form.password);
+      } else {
+        // In resubmit, email can be updated
+        fd.append('email', form.email.trim().toLowerCase());
+        // Only send password if the user actually typed a new one
+        if (form.password && form.password.length >= 8) {
+          fd.append('password', form.password);
+        }
+      }
+
       if (form.phone)                 fd.append('phone',                 form.phone.trim());
       if (form.dateOfBirth)           fd.append('dateOfBirth',           form.dateOfBirth);
       if (form.gender)                fd.append('gender',                form.gender);
@@ -522,24 +648,31 @@ export default function PublicRegisterPage() {
       if (idFront)                    fd.append('idDocumentFront',       idFront,  idFront.name);
       if (idBack)                     fd.append('idDocumentBack',        idBack,   idBack.name);
 
-      const res = await api.post('/api/v1/auth/public-register', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      const res = isResubmit
+        ? await api.post(`/api/v1/auth/public-register/resubmit/${resubmitToken}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+        : await api.post('/api/v1/auth/public-register', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+
       const data = res.data?.data ?? res.data;
+
+      if (isResubmit) {
+        setResult({ autoApproved: false, resubmitted: true });
+        return;
+      }
+
       setResult(data);
       if (data.autoApproved && data.accessToken) {
         localStorage.setItem('blih_access_token', data.accessToken);
         setTimeout(() => navigate('/'), 1500);
       }
     } catch (err: any) {
-      setServerError(err?.response?.data?.error ?? err?.response?.data?.message ?? 'Registration failed. Please try again.');
+      setServerError(err?.response?.data?.error ?? err?.response?.data?.message ?? (isResubmit ? 'Resubmission failed. Please try again.' : 'Registration failed. Please try again.'));
     } finally {
       setSubmitting(false);
     }
   };
 
   // ── Gates ──────────────────────────────────────────────────────────────────
-  if (configLoading) return (
+  if (configLoading || prefillLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100">
       <Loader2 className="w-7 h-7 text-blue-600 animate-spin" />
     </div>
@@ -576,14 +709,16 @@ export default function PublicRegisterPage() {
           />
         </div>
         <h2 className="text-2xl font-black text-slate-900 tracking-tight leading-tight mb-3">
-          {result.autoApproved ? 'Account Activated!' : 'Application Sent!'}
+          {result.resubmitted ? 'Application Updated!' : result.autoApproved ? 'Account Activated!' : 'Application Sent!'}
         </h2>
         <p className="text-slate-500 leading-relaxed mb-8">
-          {result.autoApproved
+          {result.resubmitted
+            ? 'Your updated application has been submitted for HR review. You will be notified by email once a decision is made.'
+            : result.autoApproved
             ? 'Your employee account is ready. We are taking you to your dashboard now.'
             : 'Your application is being reviewed by HR. We will notify you as soon as it is approved.'}
         </p>
-        {!result.autoApproved && (
+        {(!result.autoApproved || result.resubmitted) && (
           <Btn onClick={() => navigate('/')} className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-xl shadow-blue-600/20 py-6">
             Go to Login
           </Btn>
@@ -617,7 +752,7 @@ export default function PublicRegisterPage() {
             <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none">
               {config.businessName}
             </h1>
-            <p className="text-[11px] font-medium text-slate-500">Self-Registration Portal</p>
+            <p className="text-[11px] font-medium text-slate-500">{isResubmit ? 'Update Your Application' : 'Self-Registration Portal'}</p>
           </div>
           {config.openUntil && new Date(config.openUntil).getTime() > Date.now() && (
             <div className="flex justify-center scale-90">
@@ -677,6 +812,32 @@ export default function PublicRegisterPage() {
           layout
           className="bg-white/90 backdrop-blur-md rounded-3xl border border-white/60 shadow-xl p-6 md:p-8 relative"
         >
+          {/* Resubmit context: rejection reason banner */}
+          {isResubmit && rejectionReason && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex items-start gap-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl px-4 py-3 mb-4"
+            >
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5 text-amber-500" />
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 mb-0.5">HR Feedback</p>
+                <p className="text-xs font-medium leading-snug">{rejectionReason}</p>
+              </div>
+            </motion.div>
+          )}
+
+          {prefillError && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="flex items-start gap-2 bg-amber-50 border border-amber-100 text-amber-700 rounded-xl px-4 py-2.5 mb-4"
+            >
+              <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+              <p className="text-xs font-semibold leading-tight">{prefillError}</p>
+            </motion.div>
+          )}
+
           {serverError && (
             <motion.div 
               initial={{ opacity: 0, scale: 0.98 }}
@@ -716,7 +877,7 @@ export default function PublicRegisterPage() {
                     />
                   </Field>
 
-                  <Field label="Work Email" required error={fieldErrors.email} icon={Globe}>
+                  <Field label="Work Email" required={!isResubmit} error={fieldErrors.email} icon={Globe}>
                     <Inp
                       type="email" value={form.email} onChange={e => set('email')(e.target.value)}
                       placeholder="your@company.com"
@@ -724,32 +885,76 @@ export default function PublicRegisterPage() {
                     />
                   </Field>
 
-                  <Field label="Password" required error={fieldErrors.password} icon={Shield}>
-                    <div className="relative">
-                      <Inp
-                        type={showPass ? 'text' : 'password'}
-                        value={form.password} onChange={e => set('password')(e.target.value)}
-                        placeholder="Min. 8 characters"
-                        aria-invalid={!!fieldErrors.password}
-                        className="pr-12"
-                      />
-                      <button
-                        type="button" onClick={() => setShowPass(v => !v)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1.5 transition-colors"
-                      >
-                        {showPass ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
-                      </button>
-                    </div>
-                  </Field>
+                  {!isResubmit && (
+                    <>
+                      <Field label="Password" required error={fieldErrors.password} icon={Shield}>
+                        <div className="relative">
+                          <Inp
+                            type={showPass ? 'text' : 'password'}
+                            value={form.password} onChange={e => set('password')(e.target.value)}
+                            placeholder="Min. 8 characters"
+                            aria-invalid={!!fieldErrors.password}
+                            className="pr-12"
+                          />
+                          <button
+                            type="button" onClick={() => setShowPass(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1.5 transition-colors"
+                          >
+                            {showPass ? <EyeOff className="w-4.5 h-4.5" /> : <Eye className="w-4.5 h-4.5" />}
+                          </button>
+                        </div>
+                      </Field>
 
-                  <Field label="Confirm Password" required error={fieldErrors.confirmPassword} icon={CheckCircle}>
-                    <Inp
-                      type="password" value={form.confirmPassword}
-                      onChange={e => set('confirmPassword')(e.target.value)}
-                      placeholder="Re-enter password"
-                      aria-invalid={!!fieldErrors.confirmPassword}
-                    />
-                  </Field>
+                      <Field label="Confirm Password" required error={fieldErrors.confirmPassword} icon={CheckCircle}>
+                        <Inp
+                          type="password" value={form.confirmPassword}
+                          onChange={e => set('confirmPassword')(e.target.value)}
+                          placeholder="Re-enter password"
+                          aria-invalid={!!fieldErrors.confirmPassword}
+                        />
+                      </Field>
+                    </>
+                  )}
+
+                  {isResubmit && (
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 text-[11px] text-blue-700 font-semibold">
+                        <CheckCircle className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
+                        Leave the password fields blank to keep your existing password.
+                      </div>
+
+                      <Field label="New Password (optional)" error={fieldErrors.password} icon={Shield}>
+                        <div className="relative">
+                          <Inp
+                            type={showPass ? 'text' : 'password'}
+                            value={form.password}
+                            onChange={e => set('password')(e.target.value)}
+                            placeholder="Leave blank to keep current password"
+                            aria-invalid={!!fieldErrors.password}
+                            className="pr-12"
+                          />
+                          <button
+                            type="button" onClick={() => setShowPass(v => !v)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1.5 transition-colors"
+                          >
+                            {showPass ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </Field>
+
+                      {form.password && (
+                        <Field label="Confirm New Password" error={fieldErrors.confirmPassword} icon={CheckCircle}>
+                          <Inp
+                            type="password"
+                            value={form.confirmPassword}
+                            onChange={e => set('confirmPassword')(e.target.value)}
+                            placeholder="Re-enter new password"
+                            aria-invalid={!!fieldErrors.confirmPassword}
+                          />
+                        </Field>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -812,12 +1017,14 @@ export default function PublicRegisterPage() {
                     />
                   </Field>
 
-                  <Field label="National ID (Fayda) — Front & Back" required error={fieldErrors.nationalId}>
+                  <Field label="National ID (Fayda) — Front & Back" required={!isResubmit} error={fieldErrors.nationalId}>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {(['front', 'back'] as const).map(side => {
-                      const file    = side === 'front' ? idFront         : idBack;
-                      const preview = side === 'front' ? idFrontPreview  : idBackPreview;
-                      const hasErr  = !!fieldErrors.nationalId && !file;
+                      const file      = side === 'front' ? idFront        : idBack;
+                      const preview   = side === 'front' ? idFrontPreview : idBackPreview;
+                      const existing  = side === 'front' ? existingFrontUrl : existingBackUrl;
+                      const isExisting = preview === existing && !!existing && !file;
+                      const hasErr    = !!fieldErrors.nationalId && !preview;
                       return (
                         <div key={side}>
                           <motion.div
@@ -826,9 +1033,9 @@ export default function PublicRegisterPage() {
                             className={cn(
                               'border border-dashed rounded-xl text-center cursor-pointer transition-all flex flex-col items-center justify-center relative overflow-hidden',
                               'min-h-[140px]',
-                              hasErr  ? 'border-red-300 bg-red-50/50'
-                                      : file ? 'border-emerald-500 bg-emerald-50/30'
-                                              : 'border-slate-200 bg-slate-50/50 hover:border-blue-400 hover:bg-blue-50/50',
+                              hasErr      ? 'border-red-300 bg-red-50/50'
+                              : preview   ? (isExisting ? 'border-blue-400 bg-blue-50/20' : 'border-emerald-500 bg-emerald-50/30')
+                                          : 'border-slate-200 bg-slate-50/50 hover:border-blue-400 hover:bg-blue-50/50',
                             )}
                             onClick={() => document.getElementById(`idDoc-${side}`)?.click()}
                           >
@@ -846,6 +1053,11 @@ export default function PublicRegisterPage() {
                                   className="w-full h-full object-contain p-1 rounded-xl"
                                   style={{ maxHeight: '200px' }}
                                 />
+                                {isExisting && (
+                                  <div className="absolute top-1.5 left-1.5 bg-blue-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider">
+                                    On file
+                                  </div>
+                                )}
                                 <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center rounded-xl">
                                   <UploadCloud className="w-5 h-5 text-white" />
                                 </div>
@@ -858,15 +1070,23 @@ export default function PublicRegisterPage() {
                               </div>
                             )}
                           </motion.div>
-                          {file && (
+                          {(file || (isExisting && isResubmit)) && (
                             <button
                               type="button"
                               onClick={() => {
-                                if (side === 'front') { setIdFront(null); setIdFrontPreview(null); }
-                                else                  { setIdBack(null);  setIdBackPreview(null); }
+                                if (side === 'front') {
+                                  setIdFront(null);
+                                  // In resubmit mode, fall back to existing URL preview rather than clearing entirely
+                                  setIdFrontPreview(isResubmit && existing ? existing : null);
+                                } else {
+                                  setIdBack(null);
+                                  setIdBackPreview(isResubmit && existing ? existing : null);
+                                }
                               }}
                               className="mt-1 text-[8px] text-red-500 hover:text-red-700 font-bold ml-1 uppercase tracking-tighter"
-                            >Remove</button>
+                            >
+                              {file ? 'Remove new' : 'Keep existing'}
+                            </button>
                           )}
                         </div>
                       );
@@ -933,14 +1153,20 @@ export default function PublicRegisterPage() {
                   </div>
 
                   <Field label="Requested Role" required error={fieldErrors.requestedRoleKey} icon={User}>
-                    <Select value={form.requestedRoleKey} onValueChange={set('requestedRoleKey')}>
+                    <Select value={form.requestedRoleKey} onValueChange={set('requestedRoleKey')} disabled={rolesLoading}>
                       <Sel className="w-full">
-                        <SelectValue placeholder="Select" />
+                        <SelectValue placeholder={rolesLoading ? 'Loading roles…' : 'Select'} />
                       </Sel>
                       <SelectContent>
-                        {ROLES.map(r => (
-                          <SelectItem key={r.key} value={r.key} className="text-xs">{r.label}</SelectItem>
-                        ))}
+                        {rolesLoading ? (
+                          <div className="flex items-center justify-center py-3">
+                            <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                          </div>
+                        ) : (
+                          roles.map(r => (
+                            <SelectItem key={r.key} value={r.key} className="text-xs">{r.label}</SelectItem>
+                          ))
+                        )}
                       </SelectContent>
                     </Select>
                   </Field>

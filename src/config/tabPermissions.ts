@@ -42,13 +42,14 @@ export const ONBOARDING_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 
 // ─── People Profiles ─────────────────────────────────────────────────────────
 export const PROFILES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
-  overview:     { requires: ["hr.read", "hr.write"] },
-  create:       { requires: ["hr.write"] },
-  bulk_create:  { requires: ["hr.write"] },
-  organogram:   { requires: ["profiles.read", "hr.read"] },
-  directory:    { requires: ["profiles.read", "hr.read"] },
-  events:       { requires: ["profiles.read", "hr.read", "profiles.self"] },
-  archive:      { requires: ["hr.write"] },
+  overview:              { requires: ["hr.read", "hr.write"] },
+  create:                { requires: ["hr.write"] },
+  bulk_create:           { requires: ["hr.write"] },
+  organogram:            { requires: ["profiles.read", "hr.read"] },
+  directory:             { requires: ["profiles.read", "hr.read"] },
+  events:                { requires: ["profiles.read", "hr.read", "profiles.self"] },
+  archive:               { requires: ["hr.write"] },
+  pending_registrations: { requires: ["hr.read", "hr.write"] },
 };
 
 // ─── Attendance & Leave ──────────────────────────────────────────────────────

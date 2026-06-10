@@ -23,6 +23,7 @@ import CreateEmployeeModal from './CreateEmployeeModal';
 import BulkEmployeeImportPage from '../../pages/BulkEmployeeImportPage';
 import { StatCard, StatCardGrid, UserAvatar } from '@/components/ui/blih';
 import EventsTab from './EventsTab';
+import PendingRegistrationsTab from './PendingRegistrationsTab';
 
 interface OrgNode {
   id: string;
@@ -294,7 +295,7 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 }
 
 interface PeopleProfilesViewProps {
-  currentProfilesTab: 'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'events' | 'archive';
+  currentProfilesTab: 'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'events' | 'archive' | 'pending_registrations';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
   onViewProfile?: (employee: any) => void;
@@ -1207,6 +1208,11 @@ export default function PeopleProfilesView({
         )}
 
       </AnimatePresence>
+
+      {/* ── Pending Registrations Tab ── */}
+      {currentProfilesTab === 'pending_registrations' && (
+        <PendingRegistrationsTab showAlert={showAlert} />
+      )}
 
       <CreateEmployeeModal
         isOpen={updateEmployeeModalOpen}
