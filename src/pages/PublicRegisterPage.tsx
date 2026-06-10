@@ -9,7 +9,7 @@
  */
 import {
   useState, useEffect, FormEvent, ReactNode,
-  ChangeEvent, useRef, useCallback,
+  ChangeEvent, useRef, useCallback, useMemo,
 } from 'react';
 import React from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
@@ -82,6 +82,20 @@ const EMPTY: FormData = {
   emergencyName: '', emergencyPhone: '', emergencyRelationship: '',
   bankName: '', bankAccount: '',
 };
+
+// ── Draft persistence ──────────────────────────────────────────────────────────
+interface DraftState {
+  form: FormData;
+  step: number;
+  countryCode: string;
+  stateCode: string;
+  selectedDept: { id: string; label: string } | null;
+  selectedPos:  { id: string; label: string } | null;
+}
+
+function draftKey(slug: string, token: string | null) {
+  return `blih_register_draft__${slug}${token ? `__${token}` : ''}`;
+}
 
 const ROLES: { key: string; label: string }[] = []; // loaded from API per-business
 const EMPLOYMENT_TYPES = [
@@ -416,6 +430,66 @@ export default function PublicRegisterPage() {
   const [selectedDept, setSelectedDept] = useState<SearchableItem | null>(null);
   const [selectedPos,  setSelectedPos]  = useState<SearchableItem | null>(null);
 
+  // ── Draft persistence ────────────────────────────────────────────────────────
+  const DRAFT_KEY = useMemo(() => draftKey(businessSlug ?? 'unknown', resubmitToken), [businessSlug, resubmitToken]);
+  const [draftSavedAt,  setDraftSavedAt]  = useState<Date | null>(null);
+  const [hasDraftBanner, setHasDraftBanner] = useState(false);
+  const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Restore draft on mount (only before config/prefill loads, so we don't stomp server data)
+  const draftRestoredRef = useRef(false);
+  useEffect(() => {
+    if (draftRestoredRef.current) return;
+    draftRestoredRef.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const saved: DraftState = JSON.parse(raw);
+      // Don't restore passwords for security
+      const { password: _pw, confirmPassword: _cpw, ...safeForm } = saved.form;
+      setForm(prev => ({ ...prev, ...safeForm, password: '', confirmPassword: '' }));
+      setStep(saved.step ?? 1);
+      if (saved.countryCode) setCountryCode(saved.countryCode);
+      if (saved.stateCode)   setStateCode(saved.stateCode);
+      if (saved.selectedDept) setSelectedDept(saved.selectedDept);
+      if (saved.selectedPos)  setSelectedPos(saved.selectedPos);
+      setHasDraftBanner(true);
+    } catch {
+      // corrupt draft — ignore
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [DRAFT_KEY]);
+
+  // Debounced save on every form / step / location / department / position change
+  useEffect(() => {
+    if (result) return; // don't save after success
+    if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current);
+    draftSaveTimer.current = setTimeout(() => {
+      try {
+        const draft: DraftState = {
+          form:         { ...form, password: '', confirmPassword: '' }, // never persist passwords
+          step,
+          countryCode,
+          stateCode,
+          selectedDept,
+          selectedPos,
+        };
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+        setDraftSavedAt(new Date());
+      } catch {
+        // storage full or unavailable — silent fail
+      }
+    }, 800);
+    return () => { if (draftSaveTimer.current) clearTimeout(draftSaveTimer.current); };
+  }, [form, step, countryCode, stateCode, selectedDept, selectedPos, DRAFT_KEY, result]);
+
+  const clearDraft = useCallback(() => {
+    localStorage.removeItem(DRAFT_KEY);
+    setDraftSavedAt(null);
+    setHasDraftBanner(false);
+  }, [DRAFT_KEY]);
+  // ─────────────────────────────────────────────────────────────────────────────
+
   // Roles — fetched from backend (excludes BUSINESS_ADMIN, PLATFORM_SUPER_ADMIN)
   const [roles,        setRoles]        = useState<{ key: string; label: string }[]>([]);
   const [rolesLoading, setRolesLoading] = useState(false);
@@ -661,10 +735,12 @@ export default function PublicRegisterPage() {
 
       if (isResubmit) {
         setResult({ autoApproved: false, resubmitted: true });
+        clearDraft();
         return;
       }
 
       setResult(data);
+      clearDraft();
       if (data.autoApproved && data.accessToken) {
         localStorage.setItem('blih_access_token', data.accessToken);
         setTimeout(() => navigate('/'), 1500);
@@ -817,6 +893,36 @@ export default function PublicRegisterPage() {
           layout
           className="bg-white/90 backdrop-blur-md rounded-3xl border border-white/60 shadow-xl p-6 md:p-8 relative"
         >
+          {/* Draft restored banner */}
+          {hasDraftBanner && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              className="flex items-center justify-between gap-2 bg-blue-50 border border-blue-100 text-blue-700 rounded-xl px-3 py-2.5 mb-4"
+            >
+              <div className="flex items-center gap-2">
+                <CheckCircle className="w-3.5 h-3.5 flex-shrink-0 text-blue-500" />
+                <p className="text-[10px] font-semibold leading-tight">Draft restored — you can pick up where you left off.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  clearDraft();
+                  setForm({ ...EMPTY });
+                  setStep(1);
+                  setCountryCode('');
+                  setStateCode('');
+                  setSelectedDept(null);
+                  setSelectedPos(null);
+                }}
+                className="text-[9px] font-black uppercase tracking-wider text-blue-500 hover:text-blue-700 transition-colors whitespace-nowrap shrink-0 border border-blue-200 rounded-lg px-2 py-1"
+              >
+                Clear
+              </button>
+            </motion.div>
+          )}
+
           {/* Resubmit context: rejection reason banner */}
           {isResubmit && rejectionReason && (
             <motion.div
@@ -1336,6 +1442,22 @@ export default function PublicRegisterPage() {
                   </Btn>
                 )}
                 
+                {/* Draft saved indicator */}
+                {draftSavedAt && (
+                  <AnimatePresence>
+                    <motion.span
+                      key={draftSavedAt.getTime()}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="flex items-center gap-1 text-[9px] font-bold text-slate-400 select-none"
+                    >
+                      <CheckCircle className="w-3 h-3 text-emerald-400" />
+                      Draft saved
+                    </motion.span>
+                  </AnimatePresence>
+                )}
+
                 <div className="flex-1" />
 
                 <Btn 
