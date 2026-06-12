@@ -60,7 +60,7 @@ interface SidebarProps {
   setCurrentBusinessesTab: (tab: BusinessesTab) => void;
   isDetailedView: boolean;
   setIsDetailedView: (val: boolean) => void;
-  user?: { name: string; email: string; role: string } | null;
+  user?: { name: string; email: string; role: string; departmentName?: string | null } | null;
   onLogout?: () => void;
   onProfileClick?: () => void;
   mobileOpen?: boolean;
@@ -301,6 +301,8 @@ export default function Sidebar({
       </span>
     ) : null;
 
+  const portalTitle = user?.departmentName ? `${user.departmentName} Portal` : `${user?.role || 'Employee'} Portal`;
+
   // ─── State 1: Detailed two-column sidebar ───────────────────────────────────
   if (isDetailedView) {
     return (
@@ -366,14 +368,14 @@ export default function Sidebar({
           <div>
             <div className="mb-6 px-2">
               <h2 className="text-sm font-semibold text-slate-900 tracking-tight">
-                {currentModule === 'recruitment' ? 'Recruitment & Hiring'
+                {currentModule === 'recruitment' ? portalTitle
                   : currentModule === 'profiles' ? 'People & Profiles'
                   : currentModule === 'attendance' ? 'Attendance'
                   : currentModule === 'talent' ? 'Career Management'
                   : currentModule === 'exit' ? 'Exit & Offboarding'
                   : mainModules.find((m: any) => m.id === currentModule)?.label}
               </h2>
-              <span className="text-[11px] font-medium text-blue-600 block leading-tight">HR Dashboard</span>
+              <span className="text-[11px] font-medium text-blue-600 block leading-tight">{user?.role || 'Dashboard'}</span>
             </div>
 
             <div className="flex flex-col gap-1">

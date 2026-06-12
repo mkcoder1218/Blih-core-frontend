@@ -211,6 +211,7 @@ export default function RootApp() {
 function SyncLegacyUser() {
   const me = useMe();
   const u = me.data?.data?.user;
+  const profile = (me.data as any)?.data?.profile;
   const roles: string[] = (me.data as any)?.data?.roles || [];
 
   React.useEffect(() => {
@@ -221,9 +222,10 @@ function SyncLegacyUser() {
       name: u.fullName,
       email: u.email,
       role: u.isPlatformSuperAdmin ? "Super Admin" : isHrManager ? "HR Manager" : isBusinessAdmin ? "Business Admin" : "Employee",
+      departmentName: profile?.department?.name || null,
     };
     setLegacyUser(legacy);
-  }, [u?.id, roles.join(",")]);
+  }, [u?.id, roles.join(","), profile?.department?.name]);
 
   return null;
 }

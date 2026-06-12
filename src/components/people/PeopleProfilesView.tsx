@@ -27,6 +27,8 @@ import PendingRegistrationsTab from './PendingRegistrationsTab';
 
 interface OrgNode {
   id: string;
+  userId?: string;
+  type?: 'admin' | 'department' | 'employee';
   name: string;
   title: string;
   department: string;
@@ -103,32 +105,47 @@ function OrgCard({ pn, onSelect }: { pn: PositionedNode; onSelect: (n: OrgNode) 
   const { node, x, y } = pn;
   const initials = node.name.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2);
   const hasChildren = node.children.length > 0;
+  const isDepartment = node.type === 'department';
 
   return (
     <div
-      onClick={() => onSelect(node)}
+      onClick={() => !isDepartment && onSelect(node)}
       style={{
         position: 'absolute',
-        left: x - NODE_W / 2,
+        left: x - (isDepartment ? 190 : NODE_W) / 2,
         top: y,
-        width: NODE_W,
+        width: isDepartment ? 190 : NODE_W,
         height: NODE_H,
       }}
-      className={`cursor-pointer group select-none`}
+      className={`${isDepartment ? 'cursor-default' : 'cursor-pointer'} group select-none`}
     >
-      <div className={`w-full h-full bg-white rounded-xl border-2 ${hasChildren ? 'border-blue-500' : 'border-slate-200'} shadow-sm hover:shadow-md hover:border-blue-400 transition-all flex flex-col items-center justify-center px-2 py-2 relative`}>
-        {node.department && (
+      <div className={`w-full h-full rounded-xl border-2 shadow-sm transition-all flex flex-col items-center justify-center px-2 py-2 relative ${
+        isDepartment
+          ? 'bg-blue-50 border-blue-500'
+          : `${hasChildren ? 'border-blue-500' : 'border-slate-200'} bg-white hover:shadow-md hover:border-blue-400`
+      }`}>
+        {!isDepartment && node.department && (
           <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[7px] font-black uppercase tracking-widest bg-blue-600 text-white px-2 py-0.5 rounded-full whitespace-nowrap">
             {node.department}
           </span>
         )}
-        <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-[10px] mb-1 flex-shrink-0">
-          {node.avatar
-            ? <img src={node.avatar} className="w-full h-full rounded-full object-cover" alt={initials} />
-            : initials}
-        </div>
-        <p className="text-[10px] font-black text-slate-900 truncate w-full text-center leading-tight">{node.name}</p>
-        <p className="text-[8px] text-slate-400 font-semibold truncate w-full text-center mt-0.5">{node.title}</p>
+        {isDepartment ? (
+          <>
+            <Briefcase className="w-5 h-5 text-blue-600 mb-1.5" />
+            <p className="text-[11px] font-black text-blue-950 truncate w-full text-center leading-tight uppercase tracking-wide">{node.name}</p>
+            <p className="text-[8px] text-blue-500 font-black truncate w-full text-center mt-1 uppercase tracking-widest">{node.title}</p>
+          </>
+        ) : (
+          <>
+            <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-black text-[10px] mb-1 flex-shrink-0">
+              {node.avatar
+                ? <img src={node.avatar} className="w-full h-full rounded-full object-cover" alt={initials} />
+                : initials}
+            </div>
+            <p className="text-[10px] font-black text-slate-900 truncate w-full text-center leading-tight">{node.name}</p>
+            <p className="text-[8px] text-slate-400 font-semibold truncate w-full text-center mt-0.5">{node.title}</p>
+          </>
+        )}
       </div>
     </div>
   );
@@ -620,7 +637,7 @@ export default function PeopleProfilesView({
               ) : (
                 <OrgChartCanvas
                   roots={orgData}
-                  onSelect={(n) => showAlert(`${n.name} · ${n.title}`, 'info')}
+                  onSelect={(n) => onViewProfile?.(n)}
                 />
               )}
             </div>

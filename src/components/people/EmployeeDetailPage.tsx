@@ -10,6 +10,7 @@ type SideTab = "profile" | "attendance" | "performance" | "leave";
 interface EmployeeDetailPageProps {
   user?: { name: string; email: string; role: string };
   onBack: () => void;
+  onEdit?: () => void;
   readOnly?: boolean;
   targetUserId?: string;
 }
@@ -63,7 +64,7 @@ function initials(name: string) {
     .slice(0, 2);
 }
 
-export default function EmployeeDetailPage({ user, onBack, readOnly = false, targetUserId }: EmployeeDetailPageProps) {
+export default function EmployeeDetailPage({ user, onBack, onEdit, readOnly = false, targetUserId }: EmployeeDetailPageProps) {
   const [activeSideTab, setActiveSideTab] = useState<SideTab>("profile");
   const [activeProfileTab, setActiveProfileTab] = useState<ProfileTab>("personal");
   const [attendancePage, setAttendancePage] = useState(1);
@@ -240,10 +241,10 @@ export default function EmployeeDetailPage({ user, onBack, readOnly = false, tar
             </div>
           </div>
 
-          {!readOnly && !targetUserId && (
-            <button onClick={() => setEditing(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors">
+          {!readOnly && (
+            <button onClick={() => targetUserId ? onEdit?.() : setEditing(true)} className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-colors">
               <Pencil className="w-3.5 h-3.5" />
-              Edit Profile
+              {targetUserId ? "Update Record" : "Edit Profile"}
             </button>
           )}
         </div>
