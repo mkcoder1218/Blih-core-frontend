@@ -107,6 +107,9 @@ export function useSubmitExitRequest() {
       reason?: string;
       letterHtml: string;
       noticePeriodDays: number;
+      templateId?: string;
+      templateSnapshot?: any;
+      formValues?: Record<string, any>;
     }) => api.post("/api/v1/hr/exit/resign", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
@@ -186,12 +189,50 @@ export function useDeleteExitForm() {
 export function useUpdateExitStatus() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, status }: { id: string; status: string }) =>
-      api.patch(`/api/v1/hr/exit/${id}/status`, { status }),
+    mutationFn: ({ id, status, data }: { id: string; status: string; data?: any }) =>
+      api.patch(`/api/v1/hr/exit/${id}/status`, { status, ...(data || {}) }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
       queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
       queryClient.invalidateQueries({ queryKey: ["exit-request"] });
+    },
+  });
+}
+
+export function useApproveExitRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: { effectiveDate?: string; approvalNote?: string } }) =>
+      api.post(`/api/v1/hr/exit/${id}/approve`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
+      queryClient.invalidateQueries({ queryKey: ["exit-analytics"] });
+    },
+  });
+}
+
+export function useRejectExitRequest() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, rejectionReason }: { id: string; rejectionReason: string }) =>
+      api.post(`/api/v1/hr/exit/${id}/reject`, { rejectionReason }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
+      queryClient.invalidateQueries({ queryKey: ["exit-analytics"] });
+    },
+  });
+}
+
+export function useDisableExitAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/hr/exit/${id}/disable-account`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
+      queryClient.invalidateQueries({ queryKey: ["exit-analytics"] });
     },
   });
 }

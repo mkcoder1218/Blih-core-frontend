@@ -55,7 +55,7 @@ export default function App() {
   const [currentProfilesTab, setCurrentProfilesTab] = useState<'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'events' | 'archive' | 'pending_registrations'>('overview');
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'check-me-in' | 'history' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home'>('overview');
   const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture' | 'development'>('overview');
-  const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms'>('overview');
+  const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding'>('offboarding');
   const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits'>('overview');
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy'>('overview');
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form'>('overview');
@@ -335,7 +335,7 @@ export default function App() {
                       if (mod === 'profiles') setCurrentProfilesTab('overview');
                       if (mod === 'attendance') setCurrentAttendanceTab('overview');
                       if (mod === 'talent') setCurrentTalentTab('overview');
-                      if (mod === 'exit') setCurrentExitTab('overview');
+                      if (mod === 'exit') setCurrentExitTab('offboarding');
                       if (mod === 'finance') setCurrentFinanceTab('overview');
                       if (mod === 'performance') setCurrentPerformanceTab('overview');
                       if (mod === 'businesses') setCurrentBusinessesTab('overview');

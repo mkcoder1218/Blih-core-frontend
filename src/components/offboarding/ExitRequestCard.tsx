@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle, Eye, FileSignature, Loader2 } from 'lucide-react';
+import { CalendarPlus, CheckCircle, Eye, FileSignature, Loader2, XCircle } from 'lucide-react';
 import ExitStatusBadge from './ExitStatusBadge';
 
 interface Props {
@@ -8,7 +8,7 @@ interface Props {
   expanded: boolean;
   updating: boolean;
   onToggle: () => void;
-  onUpdateStatus: (id: string, status: string) => void;
+  onUpdateStatus: (id: string, status: string, data?: any) => void;
 }
 
 export default function ExitRequestCard({ request, expanded, updating, onToggle, onUpdateStatus }: Props) {
@@ -20,6 +20,7 @@ export default function ExitRequestCard({ request, expanded, updating, onToggle,
   const role = profile?.position?.title || '-';
   const letter = request.clearanceData?.letterHtml;
   const noticeDays = request.clearanceData?.noticePeriodDays || 30;
+  const templateName = request.clearanceData?.templateSnapshot?.name;
   const lastDay = request.effectiveDate
     ? new Date(request.effectiveDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
     : '-';
@@ -67,10 +68,29 @@ export default function ExitRequestCard({ request, expanded, updating, onToggle,
             </button>
           )}
 
+          {request.rejectionReason && (
+            <div className="bg-rose-50 border border-rose-100 rounded-xl p-3 text-xs font-semibold text-rose-700">
+              Rejection reason: {request.rejectionReason}
+            </div>
+          )}
+          {(request.reviewer || request.reviewedAt || request.approvalNote) && (
+            <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 text-[11px] text-slate-500 space-y-1">
+              <div><span className="font-black text-slate-600">Reviewer:</span> {request.reviewer?.fullName || request.reviewer?.email || '-'}</div>
+              <div><span className="font-black text-slate-600">Reviewed:</span> {request.reviewedAt ? new Date(request.reviewedAt).toLocaleString() : '-'}</div>
+              {request.approvalNote && <div><span className="font-black text-slate-600">Note:</span> {request.approvalNote}</div>}
+              {templateName && <div><span className="font-black text-slate-600">Template:</span> {templateName}</div>}
+            </div>
+          )}
+
           {request.status === 'pending' ? (
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => onUpdateStatus(request.id, 'in_progress')}
+                onClick={() => {
+                  const effectiveDate = window.prompt('Confirm last working date (YYYY-MM-DD)', request.effectiveDate ? String(request.effectiveDate).slice(0, 10) : '');
+                  if (!effectiveDate) return;
+                  const approvalNote = window.prompt('Approval note (optional)', '') || '';
+                  onUpdateStatus(request.id, 'in_progress', { effectiveDate, approvalNote });
+                }}
                 disabled={updating}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[11px] font-black py-2 rounded-xl transition-colors flex items-center justify-center gap-1.5"
               >
@@ -78,17 +98,32 @@ export default function ExitRequestCard({ request, expanded, updating, onToggle,
                 Approve & Respond
               </button>
               <button
-                onClick={() => onUpdateStatus(request.id, 'cancelled')}
+                onClick={() => {
+                  const rejectionReason = window.prompt('Enter mandatory rejection reason');
+                  if (!rejectionReason?.trim()) return;
+                  onUpdateStatus(request.id, 'rejected', { rejectionReason });
+                }}
                 disabled={updating}
-                className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-black py-2 rounded-xl transition-colors disabled:opacity-50"
+                className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-black py-2 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                Request Revision
+                <XCircle className="w-3.5 h-3.5" /> Reject
+              </button>
+              <button
+                onClick={() => {
+                  const interviewDate = window.prompt('Interview date (YYYY-MM-DD)');
+                  if (!interviewDate) return;
+                  onUpdateStatus(request.id, 'interview_scheduled', { interviewDate });
+                }}
+                disabled={updating}
+                className="flex-1 bg-amber-50 hover:bg-amber-100 border border-amber-100 text-amber-700 text-[11px] font-black py-2 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <CalendarPlus className="w-3.5 h-3.5" /> Schedule
               </button>
             </div>
           ) : (
             <div className="flex gap-2 pt-1">
               <button disabled className="flex-1 bg-slate-100 text-slate-400 text-[11px] font-black py-2 rounded-xl cursor-not-allowed">
-                {request.status === 'in_progress' ? 'Approved & Responded' : request.status === 'cancelled' ? 'Revision Requested' : 'Completed'}
+                {request.status === 'in_progress' ? 'Approved & Responded' : request.status === 'rejected' ? 'Rejected' : request.status === 'interview_scheduled' ? 'Interview Scheduled' : request.status === 'account_disabled' ? 'Account Disabled' : request.status === 'cancelled' ? 'Revision Requested' : 'Completed'}
               </button>
             </div>
           )}

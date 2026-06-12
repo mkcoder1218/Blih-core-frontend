@@ -1,5 +1,5 @@
 import React from 'react';
-import { useExitRequests, useUpdateExitStatus } from '../../../hooks/useHrRecords';
+import { useCreateExitInterview, useExitRequests, useUpdateExitStatus } from '../../../hooks/useHrRecords';
 import ExitAdminList from '../ExitAdminList';
 
 interface Props {
@@ -9,11 +9,16 @@ interface Props {
 export default function ResignationsTab({ showAlert }: Props) {
   const { data: requests = [], isLoading, isError, error, refetch } = useExitRequests();
   const updateStatus = useUpdateExitStatus();
+  const createInterview = useCreateExitInterview();
 
-  const handleUpdateStatus = async (id: string, status: string) => {
+  const handleUpdateStatus = async (id: string, status: string, data?: any) => {
     try {
-      await updateStatus.mutateAsync({ id, status });
-      showAlert(status === 'in_progress' ? 'Resignation approved successfully!' : 'Revision requested.', 'success');
+      if (status === 'interview_scheduled') {
+        await createInterview.mutateAsync({ exitProcessId: id, data: { interviewDate: data?.interviewDate, title: 'Exit Interview', interviewType: 'in-person' } });
+      } else {
+        await updateStatus.mutateAsync({ id, status, data });
+      }
+      showAlert(status === 'in_progress' ? 'Resignation approved successfully!' : status === 'rejected' ? 'Request rejected.' : 'Interview scheduled.', 'success');
     } catch (e: any) {
       showAlert(e.response?.data?.error || e.response?.data?.message || 'Failed to update status', 'error');
     }

@@ -89,12 +89,12 @@ export const TALENT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 // ─── Exit & Offboarding ──────────────────────────────────────────────────────
 export const EXIT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   overview:     { requires: ["hr.read", "hr.write"] },
-  offboarding:  { requires: ["hr.read", "hr.write"] },
-  resign:       { requires: ["hr.write", "exit.self"] },
+  offboarding:  { requires: ["hr.read", "hr.write", "exit.self"] },
+  resign:       { requires: ["hr.write"] },
   interviews:   { requires: ["hr.read", "hr.write"] },
-  documents:    { requires: ["hr.write", "exit.self"] },
-  clearance:    { requires: ["hr.write", "exit.self"] },
-  forms:        { requires: ["hr.read", "hr.write", "exit.self"] },
+  documents:    { requires: ["hr.write"] },
+  clearance:    { requires: ["hr.write"] },
+  forms:        { requires: ["hr.read", "hr.write"] },
 };
 
 // ─── Workforce Finance ───────────────────────────────────────────────────────

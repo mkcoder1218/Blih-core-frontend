@@ -17,7 +17,7 @@ export default function ModulePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const module = String(params.module || "");
-  const tab = String(params.tab || "overview");
+  const tab = String(params.tab || (module === "exit" ? "offboarding" : "overview"));
   const projectUuid = module === "projects" && /^[0-9a-fA-F-]{36}$/.test(tab) ? tab : "";
 
   // Employee detail view — triggered when navigating to /*/profiles/employee/:id

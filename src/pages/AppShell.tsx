@@ -18,7 +18,7 @@ export default function AppShell() {
     "overview" | "check-in" | "check-me-in" | "history" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "memo-log" | "work-from-home"
   >("overview");
   const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
-  const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("overview");
+  const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("offboarding");
   const [currentFinanceTab, setCurrentFinanceTab] = useState<"overview" | "salary_payroll" | "payroll_template" | "budget" | "expense" | "benefits">("overview");
   const [currentProjectsTab, setCurrentProjectsTab] = useState<ProjectsTab>("overview");
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<"overview" | "contract" | "progress" | "probation" | "checklists" | "policy">("overview");

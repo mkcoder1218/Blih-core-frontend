@@ -133,8 +133,8 @@ export default function Sidebar({
   const ALL_MODULES = [
     { id: 'businesses',  label: 'Businesses',             icon: Building2,       badge: 0 },
     { id: 'permissions', label: 'Roles & Permissions',    icon: Shield,          badge: 0 },
-    { id: 'recruitment', label: 'Recruitment & Hiring',   icon: UserPlus,        badge: 4 },
-    { id: 'onboarding',  label: 'Onboarding & Probation', icon: UserCheck,       badge: 3 },
+    { id: 'recruitment', label: 'Recruitment & Hiring',   icon: UserPlus,        badge: 0 },
+    { id: 'onboarding',  label: 'Onboarding & Probation', icon: UserCheck,       badge: 0 },
     { id: 'profiles',    label: 'People Profiles',        icon: Users,           badge: 0 },
     { id: 'attendance',  label: 'Attendance & Leave',     icon: Calendar,        badge: 0 },
     { id: 'performance', label: 'Performance',            icon: TrendingUp,      badge: 0 },
@@ -153,9 +153,9 @@ export default function Sidebar({
   // ── All possible tabs — filtered at render time via allowedTabs() ─────────
 
   const ALL_RECRUITMENT_TABS = [
-    { id: 'overview',            label: 'Overview',            badge: 4 },
-    { id: 'requests',            label: 'Requests',            badge: 4 },
-    { id: 'ready_to_post',       label: 'Ready to Post',       badge: 2 },
+    { id: 'overview',            label: 'Overview',            badge: 0 },
+    { id: 'requests',            label: 'Requests',            badge: 0 },
+    { id: 'ready_to_post',       label: 'Ready to Post',       badge: 0 },
     { id: 'active_posting',      label: 'Active Posting',      badge: 0 },
     { id: 'ongoing_recruitment', label: 'Ongoing Recruitment', badge: 0 },
     { id: 'my_interviews',       label: 'My Interviews',       badge: 0 },
@@ -199,26 +199,25 @@ export default function Sidebar({
   ] as const;
 
   const ALL_TALENT_TABS = [
-    { id: 'overview',     label: 'Overview',          badge: 4 },
-    { id: 'career',       label: 'Career',            badge: 4 },
-    { id: 'training',     label: 'Training & Skills', badge: 3 },
+    { id: 'overview',     label: 'Overview',          badge: 0 },
+    { id: 'career',       label: 'Career',            badge: 0 },
+    { id: 'training',     label: 'Training & Skills', badge: 0 },
     { id: 'culture',      label: 'Culture',           badge: 0 },
     { id: 'development',  label: 'Development',       badge: 0 },
   ] as const;
 
   const ALL_EXIT_TABS = [
-    { id: 'overview',    label: 'Overview',             badge: 1 },
-    { id: 'offboarding', label: 'Offboarding Requests', badge: 0 },
-    { id: 'resign',      label: 'Resign',               badge: 2 },
-    { id: 'interviews',  label: 'Interviews',           badge: 2 },
-    { id: 'documents',   label: 'Documents',            badge: 0 },
-    { id: 'clearance',   label: 'Clearance Checklist',  badge: 0 },
-    { id: 'forms',       label: 'Related Forms',        badge: 0 },
+    { id: 'offboarding', label: 'My Offboarding',       badge: 0 },
+    { id: 'resign',      label: 'Resignation Requests', badge: 0 },
+    { id: 'interviews',  label: 'Exit Interviews',      badge: 0 },
+    { id: 'forms',       label: 'Template Creation',    badge: 0 },
+    { id: 'documents',   label: 'Process Documents',    badge: 0 },
+    { id: 'clearance',   label: 'Process Execution',    badge: 0 },
   ] as const;
 
   const ALL_FINANCE_TABS = [
-    { id: 'overview',        label: 'Overview',         badge: 4 },
-    { id: 'salary_payroll',  label: 'Salary & Payroll', badge: 7 },
+    { id: 'overview',        label: 'Overview',         badge: 0 },
+    { id: 'salary_payroll',  label: 'Salary & Payroll', badge: 0 },
     { id: 'payroll_template', label: 'Pay Templates',   badge: 0 },
     { id: 'budget',          label: 'Budget',           badge: 0 },
     { id: 'my_payslip',      label: 'My Payslip',       badge: 0 },
@@ -234,9 +233,9 @@ export default function Sidebar({
   ] as const;
 
   const ALL_PERFORMANCE_TABS = [
-    { id: 'overview',           label: 'Overview',           badge: 4 },
-    { id: 'performance_review', label: 'Performance Review', badge: 4 },
-    { id: 'okrs',               label: 'OKRs',               badge: 3 },
+    { id: 'overview',           label: 'Overview',           badge: 0 },
+    { id: 'performance_review', label: 'Performance Review', badge: 0 },
+    { id: 'okrs',               label: 'OKRs',               badge: 0 },
     { id: 'kpis',               label: 'KPIs',               badge: 0 },
     { id: 'discipline',         label: 'Discipline',         badge: 0 },
     { id: 'evaluation_form',    label: 'Evaluation Form',    badge: 0 },
@@ -405,7 +404,7 @@ export default function Sidebar({
               ))}
 
               {currentModule === 'exit' && exitTabs.map((tab) => (
-                <button key={tab.id} onClick={() => { setCurrentExitTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/exit` : `/${roleSegment}/exit/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentExitTab === tab.id)}>
+                <button key={tab.id} onClick={() => { setCurrentExitTab(tab.id); navigate(tab.id === 'offboarding' ? `/${roleSegment}/exit` : `/${roleSegment}/exit/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentExitTab === tab.id)}>
                   <span>{tab.label}</span>
                   <Badge count={tab.badge} />
                 </button>

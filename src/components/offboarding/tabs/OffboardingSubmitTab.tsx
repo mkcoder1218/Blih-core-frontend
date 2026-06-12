@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { AlertCircle, AlignLeft, Bold, CheckCircle, Italic, List, Loader2, Send } from 'lucide-react';
 import { useMe } from '../../../hooks/useMe';
-import { useExitRequests, useExitTimeline, useMyExitRequest, useSubmitExitRequest, useUpdateExitStatus } from '../../../hooks/useHrRecords';
+import { useCreateExitInterview, useExitForms, useExitRequests, useExitTimeline, useMyExitRequest, useSubmitExitRequest, useUpdateExitStatus } from '../../../hooks/useHrRecords';
 import ExitAdminList from '../ExitAdminList';
 import ExitStatusBadge from '../ExitStatusBadge';
 import ExitTimeline from '../ExitTimeline';
@@ -72,18 +72,23 @@ function formatDate(value?: string) {
 export default function OffboardingSubmitTab({ showAlert }: Props) {
   const { data: meRes } = useMe();
   const me = meRes?.data;
-  const isAdmin = me?.roles?.some((r: any) => ['BUSINESS_ADMIN', 'HR_MANAGER'].includes(r.key)) ?? false;
+  const isAdmin = Boolean(me?.permissions?.includes('hr.write') || me?.roles?.some((r: any) => ['BUSINESS_ADMIN', 'HR_MANAGER'].includes(typeof r === 'string' ? r : r.key)));
 
   const { data: requests = [], isLoading: loadingList, isError: isListError, error: listError, refetch } = useExitRequests({ enabled: isAdmin });
   const { data: myRequest, isLoading: loadingMine, isError: isMineError, error: mineError } = useMyExitRequest();
   const { data: myTimeline = [], isLoading: loadingMyTimeline } = useExitTimeline(myRequest?.id);
   const submitExit = useSubmitExitRequest();
   const updateStatus = useUpdateExitStatus();
+  const createInterview = useCreateExitInterview();
+  const { data: exitForms = [] } = useExitForms();
 
   const [letterHtml, setLetterHtml] = useState('');
   const [reason, setReason] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('');
   const [noticePeriodDays, setNoticePeriodDays] = useState('30');
+  const activeTemplates = exitForms.filter((form: any) => form.status === 'active');
+  const [templateId, setTemplateId] = useState('');
+  const selectedTemplate = activeTemplates.find((form: any) => form.id === templateId) || activeTemplates.find((form: any) => form.key === 'employee_resignation');
 
   const canEdit = !myRequest || myRequest.status === 'cancelled';
 
@@ -93,6 +98,7 @@ export default function OffboardingSubmitTab({ showAlert }: Props) {
       setReason(myRequest.reason || '');
       setEffectiveDate(myRequest.effectiveDate ? String(myRequest.effectiveDate).slice(0, 10) : '');
       setNoticePeriodDays(String(myRequest.clearanceData?.noticePeriodDays || 30));
+      setTemplateId(myRequest.clearanceData?.templateId || '');
     }
   }, [myRequest]);
 
@@ -107,6 +113,15 @@ export default function OffboardingSubmitTab({ showAlert }: Props) {
         reason,
         letterHtml,
         noticePeriodDays: Number(noticePeriodDays),
+        templateId: selectedTemplate?.id,
+        templateSnapshot: selectedTemplate ? {
+          id: selectedTemplate.id,
+          key: selectedTemplate.key,
+          name: selectedTemplate.name,
+          description: selectedTemplate.description,
+          settings: selectedTemplate.settings,
+        } : null,
+        formValues: { reason, effectiveDate, noticePeriodDays: Number(noticePeriodDays) },
       });
       showAlert(myRequest?.status === 'cancelled' ? 'Offboarding request resubmitted. HR has been notified.' : 'Offboarding request submitted. HR has been notified.', 'success');
     } catch (e: any) {
@@ -114,10 +129,14 @@ export default function OffboardingSubmitTab({ showAlert }: Props) {
     }
   };
 
-  const handleUpdateStatus = async (id: string, status: string) => {
+  const handleUpdateStatus = async (id: string, status: string, data?: any) => {
     try {
-      await updateStatus.mutateAsync({ id, status });
-      showAlert(status === 'in_progress' ? 'Request approved' : 'Revision requested', 'success');
+      if (status === 'interview_scheduled') {
+        await createInterview.mutateAsync({ exitProcessId: id, data: { interviewDate: data?.interviewDate, title: 'Exit Interview', interviewType: 'in-person' } });
+      } else {
+        await updateStatus.mutateAsync({ id, status, data });
+      }
+      showAlert(status === 'in_progress' ? 'Request approved' : status === 'rejected' ? 'Request rejected' : 'Interview scheduled', 'success');
     } catch (e: any) {
       showAlert(e.response?.data?.error || e.response?.data?.message || 'Failed to update status', 'error');
     }
@@ -163,7 +182,7 @@ export default function OffboardingSubmitTab({ showAlert }: Props) {
         <div className="bg-white rounded-2xl border border-slate-100 p-6 shadow-sm space-y-5">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-black text-slate-900">Offboarding Request Tracking</h3>
+          <h3 className="text-sm font-black text-slate-900">Offboarding Request Tracking</h3>
               <p className="text-[11px] text-slate-400 font-medium mt-0.5">Your request is with HR.</p>
             </div>
             <ExitStatusBadge status={myRequest.status} />
@@ -183,6 +202,10 @@ export default function OffboardingSubmitTab({ showAlert }: Props) {
                 ? 'HR has received your request and will review it shortly.'
                 : myRequest.status === 'in_progress'
                 ? 'HR has approved your request and will continue the offboarding process.'
+                : myRequest.status === 'interview_scheduled'
+                ? 'HR has scheduled an exit interview. Check your interview details in the timeline and interview section.'
+                : myRequest.status === 'rejected'
+                ? `Your request was rejected. Reason: ${myRequest.rejectionReason || 'No reason provided.'}`
                 : myRequest.status === 'completed'
                 ? 'Your offboarding process has been completed.'
                 : 'HR has requested revisions.'}
@@ -218,6 +241,20 @@ export default function OffboardingSubmitTab({ showAlert }: Props) {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <div>
+          <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">Offboarding Request Template</label>
+          <select
+            value={templateId || selectedTemplate?.id || ''}
+            onChange={(e) => setTemplateId(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-400"
+          >
+            {activeTemplates.length === 0 ? <option value="">Standard Resignation Request</option> : activeTemplates.map((template: any) => (
+              <option key={template.id} value={template.id}>{template.name}</option>
+            ))}
+          </select>
+          <p className="text-[10px] text-slate-400 font-medium mt-1.5">{selectedTemplate?.description || 'Use the standard resignation request format.'}</p>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider block mb-1.5">

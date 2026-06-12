@@ -49,7 +49,8 @@ export default function ExitOffboardingView({
 }: ExitOffboardingViewProps) {
   const { data: meRes } = useMe();
   const me = meRes?.data;
-  const isHrWriter = me?.permissions?.includes('hr.write') || me?.roles?.some((r: any) => ['BUSINESS_ADMIN', 'HR_MANAGER'].includes(r.key));
+  const isHrWriter = me?.permissions?.includes('hr.write') || me?.roles?.some((r: any) => ['BUSINESS_ADMIN', 'HR_MANAGER'].includes(typeof r === 'string' ? r : r.key));
+  const activeTab = isHrWriter ? currentTab : 'offboarding';
   const { data: exitRequests = [], isLoading: loadingExitRequests } = useExitRequests({ enabled: Boolean(isHrWriter) });
   const { data: myExitRequest, isLoading: loadingMyExitRequest } = useMyExitRequest();
   const [selectedExitProcessId, setSelectedExitProcessId] = useState<string | null>(null);
@@ -195,7 +196,7 @@ export default function ExitOffboardingView({
     <div className="space-y-8 font-sans">
 
       {/* ── 1. OVERVIEW ─────────────────────────────────────────────────────── */}
-      {currentTab === 'overview' && (
+      {activeTab === 'overview' && (
         <div className="space-y-8">
           <StatCardGrid cols={4}>
             <StatCard label="Active Resignations"  value={loadingExitAnalytics ? '-' : String(exitAnalytics.activeResignations || 0)} icon={<Mail className="w-5 h-5" />}        tone="blue"    trend={`${warnings.length} notifications`}  trendPositive={false} />
@@ -295,13 +296,13 @@ export default function ExitOffboardingView({
       )}
 
       {/* ── 2. RESIGN (live API) ─────────────────────────────────────────────── */}
-      {currentTab === 'resign' && <ResignationsTab showAlert={showAlert} />}
+      {activeTab === 'resign' && <ResignationsTab showAlert={showAlert} />}
 
       {/* ── 7. OFFBOARDING SUBMIT (live API) ────────────────────────────────── */}
-      {currentTab === 'offboarding' && <OffboardingSubmitTab showAlert={showAlert} />}
+      {activeTab === 'offboarding' && <OffboardingSubmitTab showAlert={showAlert} />}
 
       {/* ── 3. INTERVIEWS ───────────────────────────────────────────────────── */}
-      {currentTab === 'interviews' && (
+      {activeTab === 'interviews' && (
         <div className="space-y-8 animate-fadeIn">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
@@ -408,7 +409,7 @@ export default function ExitOffboardingView({
       )}
 
       {/* ── 4. DOCUMENTS ────────────────────────────────────────────────────── */}
-      {currentTab === 'documents' && (
+      {activeTab === 'documents' && (
         <div className="space-y-8 animate-fadeIn">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[{ label: 'Total Employees', value: activeExitProcessId ? '1' : '0', icon: <FileText className="w-5 h-5" /> }, { label: 'Fully Cleared', value: documentPercent === 100 && exitDocuments.length ? '1' : '0', icon: <CheckCircle className="w-5 h-5" /> }, { label: 'In Progress', value: documentPercent > 0 && documentPercent < 100 ? '1' : '0', icon: <AlertCircle className="w-5 h-5" /> }].map(s => (
@@ -504,7 +505,7 @@ export default function ExitOffboardingView({
       )}
 
       {/* ── 5. CLEARANCE ────────────────────────────────────────────────────── */}
-      {currentTab === 'clearance' && (
+      {activeTab === 'clearance' && (
         <div className="space-y-8 animate-fadeIn">
           {(() => {
             const steps = (clearanceProcess?.clearanceSteps || []).slice().sort((a: any, b: any) => a.sortOrder - b.sortOrder);
@@ -688,7 +689,7 @@ export default function ExitOffboardingView({
       )}
 
       {/* ── 6. FORMS ────────────────────────────────────────────────────────── */}
-      {currentTab === 'forms' && (
+      {activeTab === 'forms' && (
         <div className="space-y-8 animate-fadeIn">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[{ label: 'Exit Interview Form', value: String(exitForms.filter((f: any) => f.key?.includes('interview')).length) }, { label: 'Resignation Templates', value: String(exitForms.filter((f: any) => f.key?.includes('resignation')).length) }, { label: 'Satisfaction Surveys', value: String(exitForms.filter((f: any) => f.key?.includes('feedback')).length) }, { label: 'Letter Templates', value: String(exitForms.filter((f: any) => f.key?.includes('letter')).length) }].map(s => (

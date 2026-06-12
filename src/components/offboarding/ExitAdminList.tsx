@@ -9,7 +9,7 @@ interface Props {
   errorMessage?: string;
   isUpdating: boolean;
   onRefresh: () => void;
-  onUpdateStatus: (id: string, status: string) => void;
+  onUpdateStatus: (id: string, status: string, data?: any) => void;
 }
 
 export default function ExitAdminList({
