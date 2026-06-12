@@ -302,6 +302,8 @@ export default function Sidebar({
     ) : null;
 
   const portalTitle = user?.departmentName ? `${user.departmentName} Portal` : `${user?.role || 'Employee'} Portal`;
+  const defaultModule = user?.role === 'Employee' ? 'attendance' : 'recruitment';
+  const defaultPath = user?.role === 'Employee' ? `/${roleSegment}/attendance/check-me-in` : `/${roleSegment}/recruitment`;
 
   // ─── State 1: Detailed two-column sidebar ───────────────────────────────────
   if (isDetailedView) {
@@ -317,8 +319,8 @@ export default function Sidebar({
             <button
               onClick={() => {
                 setIsDetailedView(false);
-                setCurrentModule('recruitment');
-                navigate(`/${roleSegment}/recruitment`);
+                setCurrentModule(defaultModule as MainModule);
+                navigate(defaultPath);
                 onMobileClose?.();
               }}
               className="p-2.5 rounded-xl hover:bg-white/10 transition-colors cursor-pointer"
@@ -459,8 +461,8 @@ export default function Sidebar({
               {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','projects','performance','permissions','businesses'].includes(currentModule) && (
                 <div className="py-2 text-slate-500 font-medium text-xs text-center border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50">
                   <span className="block mb-1">Standard Mode</span>
-                  <button onClick={() => handleModuleClick('recruitment')} className="text-blue-600 hover:underline text-[11px] font-semibold">
-                    Return to Recruitment Pipeline
+                  <button onClick={() => { setCurrentModule(defaultModule as MainModule); navigate(defaultPath); onMobileClose?.(); }} className="text-blue-600 hover:underline text-[11px] font-semibold">
+                    Return to Portal Home
                   </button>
                 </div>
               )}

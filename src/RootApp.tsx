@@ -68,8 +68,8 @@ export default function RootApp() {
                     <Route path="projects/:projectId" element={<ProjectDetailsPageWrapper />} />
                     <Route path="employees/bulk-import" element={<BulkEmployeeImportPage />} />
                     <Route path="employee/my-profile" element={<MyProfilePage />} />
-                    <Route path="employee/recruitment" element={<RecruitmentPage />} />
-                    <Route path="employee/recruitment/:tab" element={<RecruitmentPage />} />
+                    <Route path="employee/recruitment" element={<Navigate to="/employee/attendance/check-me-in" replace />} />
+                    <Route path="employee/recruitment/:tab" element={<Navigate to="/employee/attendance/check-me-in" replace />} />
                     <Route path="employee/:module" element={<ModulePage />} />
                     <Route path="employee/:module/:tab" element={<ModulePage />} />
                     <Route
@@ -192,7 +192,7 @@ export default function RootApp() {
                         </RoleGuard>
                       }
                     />
-                    <Route path="employee" element={<Navigate to="/employee/recruitment" replace />} />
+                    <Route path="employee" element={<Navigate to="/employee/attendance/check-me-in" replace />} />
                     <Route path="hr-manager" element={<Navigate to="/hr-manager/recruitment" replace />} />
                     <Route path="business-admin" element={<Navigate to="/business-admin/recruitment" replace />} />
                     <Route path="super-admin" element={<Navigate to="/super-admin/businesses" replace />} />
@@ -236,5 +236,5 @@ function HomeRedirect() {
   const roles: string[] = (me.data as any)?.data?.roles || [];
   const isBusinessAdmin = roles.includes("BUSINESS_ADMIN");
   const isHrManager = roles.includes("HR_MANAGER");
-  return <Navigate to={isSuper ? "/super-admin/businesses" : isBusinessAdmin ? "/business-admin/recruitment" : isHrManager ? "/hr-manager/recruitment" : "/employee/recruitment"} replace />;
+  return <Navigate to={isSuper ? "/super-admin/businesses" : isBusinessAdmin ? "/business-admin/recruitment" : isHrManager ? "/hr-manager/recruitment" : "/employee/attendance/check-me-in"} replace />;
 }

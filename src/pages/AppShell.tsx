@@ -51,7 +51,7 @@ export default function AppShell() {
     if (p.includes("/finance")) return "finance";
     if (p.includes("/projects")) return "projects";
     if (p.includes("/permissions")) return "permissions";
-    return userRole === "Super Admin" ? "businesses" : "recruitment";
+    return userRole === "Super Admin" ? "businesses" : userRole === "Employee" ? "attendance" : "recruitment";
   }, [location.pathname, userRole]);
 
   React.useEffect(() => {

@@ -19,14 +19,14 @@ export type TabPermissionEntry = {
 
 // ─── Recruitment & Hiring ────────────────────────────────────────────────────
 export const RECRUITMENT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
-  overview:             { requires: ["job.read", "job.manage"] },
-  requests:             { requires: ["job.read", "job.manage"] },
+  overview:             { requires: ["job.manage", "job.post", "applicant.manage"] },
+  requests:             { requires: ["job.manage", "job.post"] },
   ready_to_post:        { requires: ["job.manage", "job.post"] },
-  active_posting:       { requires: ["job.read", "job.manage"] },
+  active_posting:       { requires: ["job.manage", "job.post", "applicant.manage"] },
   ongoing_recruitment:  { requires: ["job.manage", "applicant.manage"] },
   my_interviews:        { requires: ["interview.schedule", "interview.feedback"] },
   offers:               { requires: ["offer.create", "offer.approve"] },
-  closed_posts:         { requires: ["job.read", "job.archive", "job.manage"] },
+  closed_posts:         { requires: ["job.archive", "job.manage"] },
   applicant_forms:      { requires: ["job_template.read", "job_template.manage"] },
 };
 
@@ -134,9 +134,9 @@ export const BUSINESSES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 // Use an empty array `[]` to make a module super-admin-only (isSuperAdmin
 // bypass in useMyPermissions will still grant it; regular users get nothing).
 export const MODULE_PERMISSIONS: Record<string, string[]> = {
-  recruitment: ["job.read", "job.manage", "applicant.read", "interview.schedule"],
+  recruitment: ["job.manage", "job.post", "applicant.manage", "interview.schedule", "interview.feedback", "offer.create", "offer.approve", "job_template.manage"],
   onboarding:  ["onboarding.read", "onboarding.manage", "onboarding.self"],
-  profiles:    ["hr.read", "hr.write", "profiles.read"],
+  profiles:    ["hr.read", "hr.write", "profiles.read", "profiles.self"],
   attendance:  ["attendance.read", "attendance.manage", "attendance.self", "leave.read"],
   performance: ["performance.read", "performance.manage", "performance.self"],
   talent:      ["performance.read", "performance.manage", "career.self"],
