@@ -7,11 +7,13 @@ export function ProjectsToolbar({
   status,
   onSearch,
   onStatus,
+  canCreateProject = false,
 }: {
   search: string;
   status: string;
   onSearch: (value: string) => void;
   onStatus: (value: string) => void;
+  canCreateProject?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 md:flex-row md:items-center md:justify-between">
@@ -25,7 +27,7 @@ export function ProjectsToolbar({
           {PROJECT_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
         </select>
       </div>
-      <CreateProjectModal />
+      {canCreateProject && <CreateProjectModal />}
     </div>
   );
 }

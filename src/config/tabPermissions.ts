@@ -114,8 +114,8 @@ export const PROJECTS_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   overview:   { requires: ["project.read", "project.manage"] },
   all:        { requires: ["project.read", "project.manage"] },
   mine:       { requires: ["project.read", "project.manage", "project.self"] },
-  "my-tasks": { requires: ["project.read", "project.manage", "project.self"] },
-  board:      { requires: ["project.read", "project.manage", "project.self"] },
+  "my-tasks": { requires: ["project.read", "project.manage", "project.self", "project.task"] },
+  board:      { requires: ["project.read", "project.manage", "project.self", "project.task"] },
 };
 
 // ─── Businesses (Super Admin) ─────────────────────────────────────────────────
@@ -142,7 +142,7 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   talent:      ["performance.read", "performance.manage", "career.self"],
   exit:        ["hr.read", "hr.write", "exit.self"],
   finance:     ["finance.read", "finance.manage", "finance.mine"],
-  projects:    ["project.read", "project.manage", "project.self"],
+  projects:    ["project.read", "project.manage", "project.self", "project.task"],
   // Platform-level modules — super admin only. No regular permission key unlocks these.
   businesses:  [],
   permissions: [],

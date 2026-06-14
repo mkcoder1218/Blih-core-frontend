@@ -34,7 +34,10 @@ export default function ProjectsPage({ currentTab }: { currentTab: ProjectsTab }
   const boardTasks = useAllVisibleProjectTasks(projects.data?.rows ?? [], currentTab === "board");
   const moveTask = useMoveProjectTaskStatus();
 
-  if (!perms.isLoading && !perms.hasAny("project.read", "project.manage", "project.self")) {
+  const canCreateProject = perms.hasAny("project.create", "project.manage");
+  const canMoveTasks = perms.hasAny("project.task", "project.manage");
+
+  if (!perms.isLoading && !perms.hasAny("project.read", "project.manage", "project.self", "project.task")) {
     return <main className="h-full overflow-y-auto bg-[#f8fafc] p-8"><EmptyState title="Projects unavailable" description="Your role does not currently include project access." /></main>;
   }
   if (projects.isLoading || myTasks.isLoading || (currentTab === "board" && boardTasks.isLoading)) return <PageLoadingSpinner label="Loading projects" />;
@@ -79,7 +82,7 @@ export default function ProjectsPage({ currentTab }: { currentTab: ProjectsTab }
         </div>
 
         {(currentTab === "overview" || currentTab === "all" || currentTab === "mine") && (
-          <ProjectsToolbar search={search} status={status} onSearch={(v) => { setSearch(v); setPage(1); }} onStatus={(v) => { setStatus(v); setPage(1); }} />
+          <ProjectsToolbar search={search} status={status} canCreateProject={canCreateProject} onSearch={(v) => { setSearch(v); setPage(1); }} onStatus={(v) => { setStatus(v); setPage(1); }} />
         )}
 
         {(currentTab === "overview" || currentTab === "all" || currentTab === "mine") && (
@@ -124,11 +127,11 @@ export default function ProjectsPage({ currentTab }: { currentTab: ProjectsTab }
                 <div className="overflow-x-auto pb-2">
                   <TaskBoard
                     tasks={taskRows}
-                    canMove={perms.hasAny("project.manage")}
+                    canMove={canMoveTasks}
                     onMove={(task, nextStatus) => moveTask.mutate({ projectId: task.projectId, taskId: task.id, status: nextStatus })}
                   />
                 </div>
-                {!perms.hasAny("project.manage") && <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">You can view your workflow board, but moving tasks requires project management permission.</div>}
+                {!canMoveTasks && <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">You can view your workflow board, but moving tasks requires task permission.</div>}
               </>
             ) : <EmptyState title="No tasks assigned" description="Your assigned project tasks will appear here." />}
           </>
@@ -167,12 +170,12 @@ export default function ProjectsPage({ currentTab }: { currentTab: ProjectsTab }
               {taskRows.length ? (
                 <TaskBoard
                   tasks={taskRows}
-                  canMove={perms.hasAny("project.manage")}
+                  canMove={canMoveTasks}
                   onMove={(task, nextStatus) => moveTask.mutate({ projectId: task.projectId, taskId: task.id, status: nextStatus })}
                 />
               ) : <EmptyState title="No board tasks" description="Project tasks that match the current filters will appear here." />}
             </div>
-            {!perms.hasAny("project.manage") && <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">You can view the board, but task movement requires project management permission.</div>}
+            {!canMoveTasks && <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">You can view the board, but task movement requires task permission.</div>}
           </>
         )}
       </div>

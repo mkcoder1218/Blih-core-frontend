@@ -57,7 +57,10 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
   const updateWorkflowForm = useUpdateProjectWorkflowForm(projectId);
   const changeWorkflowStatus = useChangeProjectWorkflowFormStatus(projectId);
 
-  if (!perms.isLoading && !perms.hasAny("project.read", "project.manage", "project.self")) {
+  const canManageProjects = perms.hasAny("project.manage");
+  const canWorkTasks = perms.hasAny("project.task", "project.manage");
+
+  if (!perms.isLoading && !perms.hasAny("project.read", "project.manage", "project.self", "project.task")) {
     return <main className="h-full overflow-y-auto bg-[#f8fafc] p-8"><EmptyState title="Project unavailable" description="Your role does not currently include project access." /></main>;
   }
   if (project.isLoading) return <PageLoadingSpinner label="Loading project" />;
@@ -92,10 +95,12 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
               <p className="mt-1 text-sm font-medium text-slate-500">{p.code || "No code"} · {p.startDate || "No start"} - {p.endDate || "No end"}</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <select value={p.status} onChange={(e) => changeStatus.mutate({ id: projectId, status: e.target.value })} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-semibold">
-                {PROJECT_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
-              </select>
-              {perms.hasAny("project.manage") && <Button variant="outline" onClick={() => archiveProject.mutate(projectId)}><Archive className="h-4 w-4" /> Archive</Button>}
+              {canManageProjects && (
+                <select value={p.status} onChange={(e) => changeStatus.mutate({ id: projectId, status: e.target.value })} className="h-9 rounded-lg border border-slate-200 px-3 text-sm font-semibold">
+                  {PROJECT_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
+                </select>
+              )}
+              {canManageProjects && <Button variant="outline" onClick={() => archiveProject.mutate(projectId)}><Archive className="h-4 w-4" /> Archive</Button>}
             </div>
           </div>
 
@@ -144,9 +149,9 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                 <h2 className="text-sm font-black text-slate-900">Tasks</h2>
                 <p className="text-xs font-medium text-slate-500">Create and track work for this project.</p>
               </div>
-              {perms.hasAny("project.manage") && <CreateTaskModal projectId={projectId} />}
+              {canWorkTasks && <CreateTaskModal projectId={projectId} />}
             </div>
-            {tasks.isLoading ? <PageLoadingSpinner label="Loading tasks" /> : <ProjectTaskBoard projectId={projectId} tasks={taskRows} canMove={perms.hasAny("project.manage")} />}
+            {tasks.isLoading ? <PageLoadingSpinner label="Loading tasks" /> : <ProjectTaskBoard projectId={projectId} tasks={taskRows} canMove={canWorkTasks} />}
           </section>
         )}
 
@@ -157,7 +162,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                 <span className="mb-1 block text-xs font-bold text-slate-600">Add member</span>
                 <EmployeeSelect value={memberEmployeeId} onChange={setMemberEmployeeId} placeholder="Select team member" />
               </label>
-              {perms.hasAny("project.manage") && <Button disabled={!memberEmployeeId || addMember.isPending} onClick={() => addMember.mutate({ employeeId: memberEmployeeId, role: "MEMBER" } as any)}>Add Member</Button>}
+              {canManageProjects && <Button disabled={!memberEmployeeId || addMember.isPending} onClick={() => addMember.mutate({ employeeId: memberEmployeeId, role: "MEMBER" } as any)}>Add Member</Button>}
             </div>
             <div className="divide-y divide-slate-100">
               {memberRows.map((m: any) => (
@@ -179,7 +184,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
               forms={workflowForms.data ?? []}
               catalog={workflowCatalog.data ?? []}
               tasks={taskRows}
-              canManage={perms.hasAny("project.manage")}
+              canManage={canManageProjects}
               isLoading={workflowForms.isLoading || workflowCatalog.isLoading}
               onCreate={(payload) => createWorkflowForm.mutate(payload)}
               onUpdate={(formId, data) => updateWorkflowForm.mutate({ formId, data })}
@@ -190,7 +195,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
 
         {tab === "activity" && <EmptyState title="No activity yet" description="Project activity will appear here when tasks, comments, and team changes are recorded." />}
 
-        {tab === "settings" && (perms.hasAny("project.manage") ? (
+        {tab === "settings" && (canManageProjects ? (
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="grid gap-4 md:grid-cols-2">
               <label><span className="mb-1 block text-xs font-bold text-slate-600">Name</span><input defaultValue={p.title} onChange={(e) => setSettings((s: any) => ({ ...s, title: e.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
