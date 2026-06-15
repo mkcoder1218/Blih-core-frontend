@@ -62,7 +62,9 @@ export default function HrLateReasonsPage() {
         {q.isError && <InfoAlert variant="error" message="Failed to load reasons." />}
         <div className="divide-y divide-slate-100">
           {reasons.map((r: any) => (
-            <ReasonRow key={r.id} r={r} canManage={canManage} onSave={async (data) => update.mutateAsync({ reasonId: r.id, data })} onDeactivate={async () => deactivate.mutateAsync(r.id)} />
+            <div key={r.id}>
+              <ReasonRow r={r} canManage={canManage} onSave={async (data) => update.mutateAsync({ reasonId: r.id, data })} onDeactivate={async () => deactivate.mutateAsync(r.id)} />
+            </div>
           ))}
         </div>
       </SectionCard>

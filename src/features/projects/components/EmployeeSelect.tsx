@@ -4,9 +4,10 @@ type Props = {
   value?: string;
   onChange: (employeeId: string) => void;
   placeholder?: string;
+  disabled?: boolean;
 };
 
-export function EmployeeSelect({ value, onChange, placeholder = "Select employee" }: Props) {
+export function EmployeeSelect({ value, onChange, placeholder = "Select employee", disabled = false }: Props) {
   const { data, isLoading } = useEmployees({ limit: 100, offset: 0 });
   const employees = data?.employees ?? [];
 
@@ -14,7 +15,8 @@ export function EmployeeSelect({ value, onChange, placeholder = "Select employee
     <select
       value={value || ""}
       onChange={(e) => onChange(e.target.value)}
-      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500"
+      disabled={disabled}
+      className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-50"
     >
       <option value="">{isLoading ? "Loading employees..." : placeholder}</option>
       {employees.map((employee: any) => (

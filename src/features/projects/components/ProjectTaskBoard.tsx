@@ -5,6 +5,7 @@ import { TASK_STATUSES } from "../schemas";
 import { useChangeProjectTaskStatus } from "../hooks";
 import type { ProjectTask } from "../types";
 import { TaskBoard } from "./TaskBoard";
+import { TaskDetailsModal } from "./TaskDetailsModal";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
@@ -22,6 +23,7 @@ export function ProjectTaskBoard({
   const [priority, setPriority] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
+  const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
   const changeTaskStatus = useChangeProjectTaskStatus(projectId);
 
   const assignees = useMemo(() => {
@@ -119,6 +121,7 @@ export function ProjectTaskBoard({
             tasks={filteredTasks}
             canMove={canMove}
             onMove={(task, nextStatus) => changeTaskStatus.mutate({ taskId: task.id, status: nextStatus })}
+            onOpen={setSelectedTask}
           />
         </div>
       ) : (
@@ -130,6 +133,16 @@ export function ProjectTaskBoard({
           You can view this board, but moving tasks requires project management permission.
         </div>
       )}
+
+      <TaskDetailsModal
+        projectId={projectId}
+        task={selectedTask}
+        open={Boolean(selectedTask)}
+        canEdit={canMove}
+        onOpenChange={(open) => {
+          if (!open) setSelectedTask(null);
+        }}
+      />
     </div>
   );
 }

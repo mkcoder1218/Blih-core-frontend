@@ -85,6 +85,11 @@ export async function createProjectTask(projectId: string, data: Partial<Project
   return res.data.data;
 }
 
+export async function updateProjectTask(projectId: string, taskId: string, data: Partial<ProjectTask>) {
+  const res = await api.patch<ApiEnvelope<ProjectTask>>(`/api/v1/projects/${projectId}/tasks/${taskId}`, data);
+  return res.data.data;
+}
+
 export async function changeTaskStatus(projectId: string, taskId: string, status: string) {
   const res = await api.patch<ApiEnvelope<ProjectTask>>(`/api/v1/projects/${projectId}/tasks/${taskId}/status`, { status });
   return res.data.data;

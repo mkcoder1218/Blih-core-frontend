@@ -17,6 +17,7 @@ import {
   listProjectWorkflowForms,
   listProjects,
   updateProject,
+  updateProjectTask,
   updateProjectWorkflowForm,
 } from "./api";
 import { projectKeys } from "./queryKeys";
@@ -124,6 +125,19 @@ export function useChangeProjectTaskStatus(projectId: string) {
       ctx?.taskKeys?.forEach(([key, data]: any) => qc.setQueryData(key, data));
     },
     onSettled: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.taskLists(projectId) });
+      qc.invalidateQueries({ queryKey: projectKeys.myTaskLists() });
+      qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      qc.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+  });
+}
+
+export function useUpdateProjectTask(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: any }) => updateProjectTask(projectId, taskId, data),
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: projectKeys.taskLists(projectId) });
       qc.invalidateQueries({ queryKey: projectKeys.myTaskLists() });
       qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });

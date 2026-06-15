@@ -22,15 +22,26 @@ function getInitials(name: string) {
 function TaskCard({
   task,
   canMove,
+  onOpen,
 }: {
   task: ProjectTask;
   canMove: boolean;
+  onOpen?: (task: ProjectTask) => void;
 }) {
   return (
     <article
       draggable={canMove}
       onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
-      className={`rounded-lg border border-slate-200 bg-white p-3 shadow-sm ${canMove ? "cursor-grab active:cursor-grabbing" : ""}`}
+      onClick={() => onOpen?.(task)}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && onOpen) {
+          e.preventDefault();
+          onOpen(task);
+        }
+      }}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      className={`rounded-lg border border-slate-200 bg-white p-3 shadow-sm outline-none transition hover:border-blue-200 hover:shadow-md focus:border-blue-400 focus:ring-2 focus:ring-blue-100 ${canMove ? "cursor-grab active:cursor-grabbing" : onOpen ? "cursor-pointer" : ""}`}
     >
       <div className="text-xs font-bold text-slate-900">{task.title}</div>
       <div className="mt-1 text-[11px] text-slate-500">{task.project?.title || task.code || "Task"}</div>
@@ -57,12 +68,14 @@ function TaskColumn({
   allTasks,
   canMove,
   onMove,
+  onOpen,
 }: {
   status: ProjectTaskStatus;
   tasks: ProjectTask[];
   allTasks: ProjectTask[];
   canMove: boolean;
   onMove?: (task: ProjectTask, status: string) => void;
+  onOpen?: (task: ProjectTask) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -100,7 +113,7 @@ function TaskColumn({
                   className="absolute left-0 top-0 w-full pb-2"
                   style={{ transform: `translateY(${virtualItem.start}px)` }}
                 >
-                  <TaskCard task={task} canMove={canMove} />
+                  <TaskCard task={task} canMove={canMove} onOpen={onOpen} />
                 </div>
               );
             })}
@@ -119,10 +132,12 @@ export function TaskBoard({
   tasks,
   canMove = false,
   onMove,
+  onOpen,
 }: {
   tasks: ProjectTask[];
   canMove?: boolean;
   onMove?: (task: ProjectTask, status: string) => void;
+  onOpen?: (task: ProjectTask) => void;
 }) {
   return (
     <div className="grid min-w-[960px] grid-cols-6 gap-3">
@@ -136,6 +151,7 @@ export function TaskBoard({
               allTasks={tasks}
               canMove={canMove}
               onMove={onMove}
+              onOpen={onOpen}
             />
           </section>
         );

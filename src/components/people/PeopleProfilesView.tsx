@@ -752,7 +752,8 @@ export default function PeopleProfilesView({
                 <table className="w-full text-left font-sans text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 tracking-wider uppercase">
-                      <th className="py-3 px-4">Name & Position</th>
+                      <th className="py-3 px-4">Name</th>
+                      <th className="py-3 px-4">Position</th>
                       <th className="py-3 px-4">Department</th>
                       <th className="py-3 px-4">Job Type</th>
                       <th className="py-3 px-4">Address</th>
@@ -763,7 +764,7 @@ export default function PeopleProfilesView({
                   <tbody className="divide-y divide-slate-100 font-medium">
                     {loadingEmployees ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center">
+                        <td colSpan={7} className="py-12 text-center">
                           <div className="flex flex-col items-center gap-2">
                              <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
                              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fetching Roster...</span>
@@ -772,7 +773,7 @@ export default function PeopleProfilesView({
                       </tr>
                     ) : employees.length === 0 ? (
                       <tr>
-                        <td colSpan={6} className="py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                        <td colSpan={7} className="py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                           No employees found.
                         </td>
                       </tr>
@@ -780,6 +781,14 @@ export default function PeopleProfilesView({
                       employees.map((emp, idx) => {
                         const isActive = selectedDirectoryRow === idx;
                         const initials = emp.user?.fullName?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??';
+                        const positionTitle =
+                          emp.position?.title ||
+                          emp.Position?.title ||
+                          emp.user?.EmployeeRecord?.position?.title ||
+                          emp.user?.EmployeeRecords?.[0]?.position?.title ||
+                          emp.metadata?.positionTitle ||
+                          emp.metadata?.positionName ||
+                          'Position not set';
                         return (
                           <tr
                             key={emp.id}
@@ -789,15 +798,22 @@ export default function PeopleProfilesView({
                                 : 'hover:bg-slate-50/30'
                               } ${activeActionsMenu === emp.id ? 'z-50' : 'z-0'}`}
                           >
-                            {/* Name & Position Column */}
+                            {/* Name Column */}
                             <td className="py-3.5 px-4 flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-white/20">
                                 {initials}
                               </div>
                               <div>
                                 <span className="font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">{emp.user?.fullName}</span>
-                                <span className="text-[10.5px] text-slate-400 block mt-0.5">{emp.position?.title || 'Staff'}</span>
+                                <span className="text-[10.5px] text-slate-400 block mt-0.5">{emp.employeeCode || emp.user?.email}</span>
                               </div>
+                            </td>
+
+                            {/* Position Column */}
+                            <td className="py-3 px-4">
+                              <span className="inline-flex max-w-[180px] items-center rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10.5px] font-bold text-blue-700">
+                                <span className="truncate">{positionTitle}</span>
+                              </span>
                             </td>
   
                             {/* Department Column */}
