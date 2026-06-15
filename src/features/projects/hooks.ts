@@ -33,7 +33,7 @@ export function useProject(id?: string) {
 export function useProjectTasks(projectId?: string, params?: Record<string, unknown>) {
   return useQuery({
     queryKey: projectKeys.tasks(projectId || "", params),
-    queryFn: () => listProjectTasks(projectId!, params),
+    queryFn: () => listAllProjectTasks(projectId!, params),
     enabled: Boolean(projectId),
     staleTime: 20_000,
   });
