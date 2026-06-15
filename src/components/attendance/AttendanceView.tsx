@@ -7,6 +7,7 @@ import React, { useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { useLegacyUser } from '../../api/legacyUserStore';
 import { useAttendanceHrReport } from '../../hooks/useAttendanceHrReport';
+import { useMyPermissions } from '../../hooks/usePermissions';
 
 import EmployeeAttendancePage from './EmployeeAttendancePage';
 import HrAttendanceCheckInsPage from './hr/HrAttendanceCheckInsPage';
@@ -34,8 +35,10 @@ export default function AttendanceView({
   showAlert,
 }: AttendanceViewProps) {
   const legacyUser = useLegacyUser();
+  const perms = useMyPermissions();
   const role = legacyUser?.role || 'Employee';
   const isHr = role === 'HR Manager' || role === 'Business Admin' || role === 'Super Admin';
+  const canViewLateReasons = perms.hasAny('attendance.late_reason.read', 'attendance.manage');
 
   // --- Shared date/format helpers ---
   const todayYmd = new Date().toISOString().slice(0, 10);
@@ -195,7 +198,7 @@ export default function AttendanceView({
   if (currentAttendanceTab === 'late-reasons') {
     return (
       <div className="h-full flex flex-col space-y-6">
-        {isHr ? <HrLateReasonsPage /> : <div className="text-xs text-slate-600">Not authorized.</div>}
+        {canViewLateReasons ? <HrLateReasonsPage /> : <div className="text-xs text-slate-600">Not authorized.</div>}
       </div>
     );
   }

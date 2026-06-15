@@ -50,9 +50,34 @@ export async function listProjectTasks(projectId: string, params?: Record<string
   return unwrapPage<ProjectTask>(res);
 }
 
+async function listAllPages<T>(fetchPage: (page: number) => Promise<Paginated<T>>) {
+  const firstPage = await fetchPage(1);
+  if (firstPage.totalPages <= 1) return firstPage;
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: firstPage.totalPages - 1 }, (_, index) => fetchPage(index + 2))
+  );
+  const rows = [firstPage, ...remainingPages].flatMap((page) => page.rows);
+
+  return {
+    ...firstPage,
+    rows,
+    page: 1,
+    size: rows.length,
+  };
+}
+
+export async function listAllProjectTasks(projectId: string, params?: Record<string, unknown>) {
+  return listAllPages<ProjectTask>((page) => listProjectTasks(projectId, { ...params, page, size: 100 }));
+}
+
 export async function listMyTasks(params?: Record<string, unknown>) {
   const res = await api.get("/api/v1/projects/my-tasks", { params });
   return unwrapPage<ProjectTask>(res);
+}
+
+export async function listAllMyTasks(params?: Record<string, unknown>) {
+  return listAllPages<ProjectTask>((page) => listMyTasks({ ...params, page, size: 100 }));
 }
 
 export async function createProjectTask(projectId: string, data: Partial<ProjectTask>) {

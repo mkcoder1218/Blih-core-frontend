@@ -10,7 +10,8 @@ import {
   createProjectWorkflowForm,
   getProjectWorkflowCatalog,
   getProject,
-  listMyTasks,
+  listAllMyTasks,
+  listAllProjectTasks,
   listProjectMembers,
   listProjectTasks,
   listProjectWorkflowForms,
@@ -39,14 +40,14 @@ export function useProjectTasks(projectId?: string, params?: Record<string, unkn
 }
 
 export function useMyProjectTasks(params?: Record<string, unknown>) {
-  return useQuery({ queryKey: projectKeys.myTasks(params), queryFn: () => listMyTasks(params), staleTime: 20_000 });
+  return useQuery({ queryKey: projectKeys.myTasks(params), queryFn: () => listAllMyTasks(params), staleTime: 20_000 });
 }
 
 export function useAllVisibleProjectTasks(projects: Project[] = [], enabled = true) {
   const queries = useQueries({
     queries: projects.map((project) => ({
-      queryKey: projectKeys.tasks(project.id, { board: true, size: 100 }),
-      queryFn: () => listProjectTasks(project.id, { page: 1, size: 100 }),
+      queryKey: projectKeys.tasks(project.id, { board: true }),
+      queryFn: () => listAllProjectTasks(project.id),
       enabled,
       staleTime: 20_000,
     })),
@@ -54,6 +55,7 @@ export function useAllVisibleProjectTasks(projects: Project[] = [], enabled = tr
 
   return {
     rows: queries.flatMap((query) => query.data?.rows ?? []),
+    total: queries.reduce((sum, query) => sum + (query.data?.total ?? 0), 0),
     isLoading: queries.some((query) => query.isLoading),
     isError: queries.some((query) => query.isError),
   };

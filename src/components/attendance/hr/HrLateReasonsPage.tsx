@@ -1,13 +1,16 @@
 import React from "react";
 import { useCreateHrLateReason, useDeactivateHrLateReason, useHrLateReasons, useUpdateHrLateReason } from "../../../hooks/useHrLateReasons";
+import { useMyPermissions } from "../../../hooks/usePermissions";
 import { PageHeader, SectionCard, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
 import { Button } from "@/components/ui/button";
 
 export default function HrLateReasonsPage() {
+  const perms = useMyPermissions();
   const q = useHrLateReasons();
   const create = useCreateHrLateReason();
   const update = useUpdateHrLateReason();
   const deactivate = useDeactivateHrLateReason();
+  const canManage = perms.hasAny("attendance.manage");
 
   const reasons = q.data?.data?.reasons || [];
 
@@ -24,7 +27,7 @@ export default function HrLateReasonsPage() {
         description="Manage reusable categories employees select when checking in late."
       />
 
-      <SectionCard title="Create Reason">
+      {canManage && <SectionCard title="Create Reason">
         {formError && <InfoAlert variant="error" message={formError} className="mb-3" />}
         <div className="space-y-3">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -52,14 +55,14 @@ export default function HrLateReasonsPage() {
             {create.isPending ? "Creating…" : "Create"}
           </Button>
         </div>
-      </SectionCard>
+      </SectionCard>}
 
       <SectionCard title="Reasons" description={`${reasons.length} total`}>
         {q.isLoading && <LoadingSpinner label="Loading…" />}
         {q.isError && <InfoAlert variant="error" message="Failed to load reasons." />}
         <div className="divide-y divide-slate-100">
           {reasons.map((r: any) => (
-            <ReasonRow key={r.id} r={r} onSave={async (data) => update.mutateAsync({ reasonId: r.id, data })} onDeactivate={async () => deactivate.mutateAsync(r.id)} />
+            <ReasonRow key={r.id} r={r} canManage={canManage} onSave={async (data) => update.mutateAsync({ reasonId: r.id, data })} onDeactivate={async () => deactivate.mutateAsync(r.id)} />
           ))}
         </div>
       </SectionCard>
@@ -69,10 +72,12 @@ export default function HrLateReasonsPage() {
 
 function ReasonRow({
   r,
+  canManage,
   onSave,
   onDeactivate,
 }: {
   r: any;
+  canManage: boolean;
   onSave: (data: any) => Promise<any>;
   onDeactivate: () => Promise<any>;
 }) {
@@ -117,7 +122,7 @@ function ReasonRow({
           )}
         </div>
 
-        <div className="flex gap-2">
+        {canManage && <div className="flex gap-2">
           {editing ? (
             <>
               <button
@@ -158,9 +163,8 @@ function ReasonRow({
               ) : null}
             </>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );
 }
-
