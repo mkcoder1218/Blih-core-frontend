@@ -96,3 +96,17 @@ export function useRejectAttendanceRequest() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance-requests"] }),
   });
 }
+
+export function useSyncApprovedAttendanceCorrections() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: { date?: string; employeeUserId?: string } = {}) => {
+      const res = await api.post("/api/v1/attendance-requests/sync-approved-corrections", payload);
+      return res.data.data as { scanned: number; created: number; updated: number };
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["attendance-requests"] });
+      qc.invalidateQueries({ queryKey: ["attendanceHr"] });
+    },
+  });
+}
