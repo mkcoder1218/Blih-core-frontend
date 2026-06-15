@@ -20,7 +20,7 @@ function todayYmd() {
 export default function HrAttendanceCheckInsPage() {
   const perms = useMyPermissions();
   const canRequestCorrection = perms.hasAny("attendance.checkin_correction.request", "attendance.manage");
-  const canSyncCorrections = perms.hasAny("attendance.manage", "attendance.checkin_correction.approve");
+  const canSyncCorrections = perms.hasAny("attendance.read", "attendance.manage", "attendance.checkin_correction.request", "attendance.checkin_correction.approve");
   const submitCorrection = useSubmitAttendanceRequest();
   const syncCorrections = useSyncApprovedAttendanceCorrections();
   const today = todayYmd();
@@ -41,6 +41,7 @@ export default function HrAttendanceCheckInsPage() {
   const [correctionType, setCorrectionType] = React.useState("CHECK_IN");
   const [correctionTime, setCorrectionTime] = React.useState("09:00");
   const [correctionReason, setCorrectionReason] = React.useState("");
+  const [syncingEmployeeId, setSyncingEmployeeId] = React.useState<string | null>(null);
 
   const summary = useAttendanceHrSummary({ date: filters.date, departmentId: filters.departmentId || undefined });
   const daily = useAttendanceHrDaily({
@@ -87,8 +88,23 @@ export default function HrAttendanceCheckInsPage() {
   };
 
   const handleSyncNow = async () => {
-    await syncCorrections.mutateAsync({ date: filters.date });
-    await Promise.all([daily.refetch(), summary.refetch()]);
+    setSyncingEmployeeId("all");
+    try {
+      await syncCorrections.mutateAsync({ date: filters.date });
+      await Promise.all([daily.refetch(), summary.refetch()]);
+    } finally {
+      setSyncingEmployeeId(null);
+    }
+  };
+
+  const handleSyncEmployee = async (row: AttendanceHrDailyRow) => {
+    setSyncingEmployeeId(row.employeeId);
+    try {
+      await syncCorrections.mutateAsync({ date: filters.date, employeeUserId: row.employeeId });
+      await Promise.all([daily.refetch(), summary.refetch()]);
+    } finally {
+      setSyncingEmployeeId(null);
+    }
   };
 
   const handleSubmitCorrection = async () => {
@@ -119,8 +135,8 @@ export default function HrAttendanceCheckInsPage() {
                 disabled={syncCorrections.isPending}
                 className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 h-9 rounded-xl disabled:bg-slate-200 disabled:text-slate-400"
               >
-                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncCorrections.isPending ? "animate-spin" : ""}`} />
-                {syncCorrections.isPending ? "Syncing..." : "Sync now"}
+                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncingEmployeeId === "all" ? "animate-spin" : ""}`} />
+                {syncingEmployeeId === "all" ? "Syncing..." : "Sync all"}
               </Button>
             )}
             <Button
@@ -160,6 +176,8 @@ export default function HrAttendanceCheckInsPage() {
           timezone={tz}
           onSelectEmployee={setSelectedEmployeeId}
           onRequestCorrection={canRequestCorrection ? setCorrectionRow : undefined}
+          onSyncEmployee={canSyncCorrections ? handleSyncEmployee : undefined}
+          syncingEmployeeId={syncingEmployeeId}
         />
       )}
 
