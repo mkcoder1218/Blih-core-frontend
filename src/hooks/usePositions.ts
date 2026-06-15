@@ -37,3 +37,20 @@ export function useUpdatePosition() {
     },
   });
 }
+
+export function useDeletePosition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, replacementPositionId, employeeReassignments }: { id: string; replacementPositionId?: string; employeeReassignments?: Array<{ employeeRecordId: string; positionId: string }> }) => {
+      const res = await api.delete<ApiEnvelope<any>>(`/api/v1/positions/${id}`, {
+        data: { ...(replacementPositionId ? { replacementPositionId } : {}), ...(employeeReassignments ? { employeeReassignments } : {}) },
+      });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["positions"] });
+      queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+      queryClient.invalidateQueries({ queryKey: ["organogram"] });
+    },
+  });
+}

@@ -16,6 +16,11 @@ export async function createMyAttendanceEvent(payload: AttendanceMeCreateEventRe
   return res.data;
 }
 
+export async function revertMyLastAttendanceEvent() {
+  const res = await api.post<ApiEnvelope<AttendanceMeTodayResponse>>("/api/v1/attendance/me/events/revert-last");
+  return res.data;
+}
+
 export async function getMyAttendanceHistory(params?: { page?: number; size?: number }) {
   const res = await api.get<ApiEnvelope<AttendanceMeHistoryResponse>>("/api/v1/attendance/me/history", { params });
   return res.data;

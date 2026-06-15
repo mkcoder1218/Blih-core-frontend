@@ -11,9 +11,11 @@ import {
   LogOut,
   UtensilsCrossed,
   AlertTriangle,
+  Undo2,
 } from "lucide-react";
 import { useMyAttendanceToday } from "../../hooks/useMyAttendanceToday";
 import { useCreateMyAttendanceEvent } from "../../hooks/useCreateMyAttendanceEvent";
+import { useRevertMyAttendanceEvent } from "../../hooks/useRevertMyAttendanceEvent";
 import type { AttendanceEventType, BusinessAttendanceSettings } from "../../api/types";
 import LateCheckInModal from "./LateCheckInModal";
 
@@ -37,6 +39,7 @@ type Coords = { latitude: number; longitude: number } | null;
 export default function EmployeeAttendancePage() {
   const today = useMyAttendanceToday();
   const createEvent = useCreateMyAttendanceEvent();
+  const revertEvent = useRevertMyAttendanceEvent();
 
   // ── Data from backend ──────────────────────────────────────────────────
   const data = today.data?.data as any;
@@ -204,6 +207,7 @@ export default function EmployeeAttendancePage() {
   const [lateModalOpen, setLateModalOpen] = React.useState(false);
   const [lateByMinutes, setLateByMinutes] = React.useState(0);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
+  const [confirmRevertOpen, setConfirmRevertOpen] = React.useState(false);
 
   // Compute how many minutes late a check-in right now would be, using the
   // same logic as the backend (defaultStartTime + lateGracePeriodMinutes vs current local time).
@@ -249,6 +253,17 @@ export default function EmployeeAttendancePage() {
       setSubmitError(
         e?.response?.data?.message || e?.message || "Failed to record event"
       );
+    }
+  };
+
+  const handleRevertLast = async () => {
+    setSubmitError(null);
+    try {
+      await revertEvent.mutateAsync();
+      setConfirmRevertOpen(false);
+    } catch (e: any) {
+      setSubmitError(e?.response?.data?.message || e?.message || "Failed to revert last action");
+      setConfirmRevertOpen(false);
     }
   };
 
@@ -529,13 +544,25 @@ export default function EmployeeAttendancePage() {
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Today</div>
             <div className="text-[14px] font-extrabold text-slate-900 mt-1">Attendance timeline</div>
           </div>
-          <button
-            onClick={() => today.refetch()}
-            disabled={today.isFetching}
-            className="text-xs font-bold bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 text-slate-700 px-3 py-2 rounded-xl"
-          >
-            {today.isFetching ? "Refreshing…" : "Refresh"}
-          </button>
+          <div className="flex items-center gap-2">
+            {timeline.length > 0 ? (
+              <button
+                onClick={() => setConfirmRevertOpen(true)}
+                disabled={revertEvent.isPending || createEvent.isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-black text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+                Revert last
+              </button>
+            ) : null}
+            <button
+              onClick={() => today.refetch()}
+              disabled={today.isFetching}
+              className="text-xs font-bold bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 text-slate-700 px-3 py-2 rounded-xl"
+            >
+              {today.isFetching ? "Refreshing…" : "Refresh"}
+            </button>
+          </div>
         </div>
 
         {today.isError ? (
@@ -585,6 +612,32 @@ export default function EmployeeAttendancePage() {
           )}
         </div>
       </div>
+
+      {confirmRevertOpen ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white border border-slate-200 shadow-xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-black text-slate-950">Revert last action?</h3>
+              <p className="text-[11px] font-semibold text-slate-500 mt-1">
+                This removes your latest attendance event today. Use it only if you clicked accidentally.
+              </p>
+            </div>
+            <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 text-xs font-bold text-slate-700">
+              Last action: {timeline[timeline.length - 1]?.label || "Attendance action"}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setConfirmRevertOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-black text-slate-600">Cancel</button>
+              <button
+                onClick={handleRevertLast}
+                disabled={revertEvent.isPending}
+                className="rounded-xl bg-amber-600 px-4 py-2 text-xs font-black text-white disabled:opacity-50"
+              >
+                {revertEvent.isPending ? "Reverting..." : "Revert"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

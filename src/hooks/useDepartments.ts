@@ -37,3 +37,20 @@ export function useUpdateDepartment() {
     },
   });
 }
+
+export function useDeleteDepartment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, replacementDepartmentId, employeeReassignments }: { id: string; replacementDepartmentId?: string; employeeReassignments?: Array<{ employeeRecordId: string; departmentId: string }> }) => {
+      const res = await api.delete<ApiEnvelope<any>>(`/api/v1/departments/${id}`, {
+        data: { ...(replacementDepartmentId ? { replacementDepartmentId } : {}), ...(employeeReassignments ? { employeeReassignments } : {}) },
+      });
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+      queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+      queryClient.invalidateQueries({ queryKey: ["organogram"] });
+    },
+  });
+}
