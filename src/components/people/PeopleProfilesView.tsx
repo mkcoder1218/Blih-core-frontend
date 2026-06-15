@@ -25,6 +25,7 @@ import { StatCard, StatCardGrid, UserAvatar } from '@/components/ui/blih';
 import EventsTab from './EventsTab';
 import PendingRegistrationsTab from './PendingRegistrationsTab';
 import DepartmentsPositionsTab from './DepartmentsPositionsTab';
+import EmployeeDevicesTab from './EmployeeDevicesTab';
 
 interface OrgNode {
   id: string;
@@ -313,7 +314,7 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 }
 
 interface PeopleProfilesViewProps {
-  currentProfilesTab: 'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'organization' | 'events' | 'archive' | 'pending_registrations';
+  currentProfilesTab: 'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
   onViewProfile?: (employee: any) => void;
@@ -967,6 +968,17 @@ export default function PeopleProfilesView({
             exit={{ opacity: 0, y: -10 }}
           >
             <DepartmentsPositionsTab showAlert={showAlert} />
+          </motion.div>
+        )}
+
+        {currentProfilesTab === 'devices' && (
+          <motion.div
+            key="devices"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            <EmployeeDevicesTab showAlert={showAlert} />
           </motion.div>
         )}
 

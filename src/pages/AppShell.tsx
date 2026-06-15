@@ -13,7 +13,7 @@ export default function AppShell() {
   const activeUser = useLegacyUser();
   const location = useLocation();
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>("overview");
-  const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "bulk_create" | "organogram" | "directory" | "organization" | "events" | "archive">("overview");
+  const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "bulk_create" | "organogram" | "directory" | "organization" | "devices" | "events" | "archive" | "pending_registrations">("overview");
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<
     "overview" | "check-in" | "check-me-in" | "history" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "memo-log" | "work-from-home"
   >("overview");

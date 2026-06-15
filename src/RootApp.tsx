@@ -2,6 +2,7 @@ import React from "react";
 import { useAccessToken } from "./api/authState";
 import AuthGuard from "./components/AuthGuard";
 import RequiredFullNameModal from "./components/RequiredFullNameModal";
+import RequiredDeviceRegistrationModal from "./components/RequiredDeviceRegistrationModal";
 import LoginPage from "./pages/LoginPage";
 import { useMe } from "./hooks/useMe";
 import { setLegacyUser } from "./api/legacyUserStore";
@@ -58,6 +59,7 @@ export default function RootApp() {
               <AuthGuard>
                 <SyncLegacyUser />
                 <RequiredFullNameModal />
+                <RequiredDeviceRegistrationModal />
                 <Routes>
                   <Route path="/unauthorized" element={<UnauthorizedPage />} />
                   <Route path="/" element={<AppShell />}>
