@@ -49,6 +49,7 @@ export default function EmployeeAttendancePage() {
   const disabledReason: string | null = data?.disabledReason || null;
   const calculation: any = data?.calculation;
   const lunch: any = data?.lunch;
+  const serverNowUtc: string | undefined = data?.serverNowUtc;
 
   const tz = settings?.timezone || "UTC";
   const currentStatus: string = calculation?.currentStatus || "NOT_STARTED";
@@ -66,6 +67,13 @@ export default function EmployeeAttendancePage() {
     const id = setInterval(() => setNowTs(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
+  const serverClockOffsetMs = React.useMemo(() => {
+    if (!serverNowUtc) return 0;
+    const serverTs = new Date(serverNowUtc).getTime();
+    if (Number.isNaN(serverTs)) return 0;
+    return serverTs - Date.now();
+  }, [serverNowUtc]);
+  const serverNowDate = React.useMemo(() => new Date(nowTs + serverClockOffsetMs), [nowTs, serverClockOffsetMs]);
 
   // ── Live worked-time ticker ────────────────────────────────────────────
   // Backend is authoritative. Between 30-second refetches we locally
@@ -175,7 +183,7 @@ export default function EmployeeAttendancePage() {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false,
-      }).formatToParts(new Date(nowTs));
+      }).formatToParts(serverNowDate);
       const get = (k: string) => Number(parts.find((p) => p.type === k)?.value ?? 0);
       const nowMins = get("hour") * 60 + get("minute");
       const toMins = (hhmm: string) =>
@@ -187,7 +195,7 @@ export default function EmployeeAttendancePage() {
     } catch {
       return null;
     }
-  }, [nowTs, tz, lunch]);
+  }, [serverNowDate, tz, lunch]);
 
   // ── Base disabled reason (applies to all buttons unless overridden) ────
   const baseDisabledReason: string | null = (() => {
@@ -223,14 +231,14 @@ export default function EmployeeAttendancePage() {
         hour: "2-digit",
         minute: "2-digit",
         hour12: false,
-      }).formatToParts(new Date());
+      }).formatToParts(serverNowDate);
       const get = (k: string) => Number(parts.find((p) => p.type === k)?.value ?? 0);
       const nowM = get("hour") * 60 + get("minute");
       return Math.max(0, nowM - expectedM);
     } catch {
       return 0;
     }
-  }, [settings, tz]);
+  }, [settings, tz, serverNowDate]);
 
   const handleAction = async (type: AttendanceEventType) => {
     if (!coords) return;
@@ -275,14 +283,14 @@ export default function EmployeeAttendancePage() {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-  }).format(new Date(nowTs));
+  }).format(serverNowDate);
   const dateDisplay = new Intl.DateTimeFormat(undefined, {
     timeZone: tz,
     weekday: "long",
     year: "numeric",
     month: "short",
     day: "2-digit",
-  }).format(new Date(nowTs));
+  }).format(serverNowDate);
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (

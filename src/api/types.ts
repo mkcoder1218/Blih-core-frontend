@@ -88,6 +88,7 @@ export type AttendanceMeTimelineItem = {
 };
 
 export type AttendanceMeTodayResponse = {
+  serverNowUtc?: string;
   settings: BusinessAttendanceSettings | null;
   disabledReason: string | null;
   timeline: AttendanceMeTimelineItem[];
