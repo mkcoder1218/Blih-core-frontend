@@ -7,6 +7,7 @@ import { useOutletContext } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { User, Department, Position } from '../../../api/types';
 import { CreateDepartmentModal, CreatePositionModal } from '../../people/OrgModals';
+import { useMyPermissions } from '../../../hooks/usePermissions';
 import {
   Select,
   SelectContent,
@@ -27,6 +28,9 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
   const { data: allEmployeesData, isLoading: employeesLoading } = useUsers();
   const queryClient = useQueryClient();
   const { showAlert } = useOutletContext<{ showAlert: (msg: string, type?: 'success' | 'info' | 'error') => void }>();
+  const perms = useMyPermissions();
+  const canCreateDepartment = perms.hasAny('department.create');
+  const canCreatePosition = perms.hasAny('position.create');
 
   const [isCreateDeptOpen, setIsCreateDeptOpen] = useState(false);
   const [isCreatePosOpen, setIsCreatePosOpen] = useState(false);
@@ -38,23 +42,27 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-fade-in-up">
-      <CreateDepartmentModal
-        isOpen={isCreateDeptOpen}
-        onClose={() => setIsCreateDeptOpen(false)}
-        showAlert={showAlert}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['departments'] });
-        }}
-      />
-      <CreatePositionModal
-        isOpen={isCreatePosOpen}
-        onClose={() => setIsCreatePosOpen(false)}
-        showAlert={showAlert}
-        initialDeptId={selectedDeptId}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['positions'] });
-        }}
-      />
+      {canCreateDepartment && (
+        <CreateDepartmentModal
+          isOpen={isCreateDeptOpen}
+          onClose={() => setIsCreateDeptOpen(false)}
+          showAlert={showAlert}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['departments'] });
+          }}
+        />
+      )}
+      {canCreatePosition && (
+        <CreatePositionModal
+          isOpen={isCreatePosOpen}
+          onClose={() => setIsCreatePosOpen(false)}
+          showAlert={showAlert}
+          initialDeptId={selectedDeptId}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['positions'] });
+          }}
+        />
+      )}
       {/* Left Column: Form Fields */}
       <div className="lg:col-span-8 space-y-6">
         {/* BASICS */}
@@ -79,13 +87,15 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
             <div className="space-y-2">
               <div className="flex items-center justify-between px-1">
                 <label className="text-[11px] font-bold text-slate-600">Department</label>
-                <button 
-                  type="button"
-                  onClick={() => setIsCreateDeptOpen(true)}
-                  className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1"
-                >
-                  Add department
-                </button>
+                {canCreateDepartment && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreateDeptOpen(true)}
+                    className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    Add department
+                  </button>
+                )}
               </div>
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"
@@ -105,13 +115,15 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
             <div className="space-y-2">
               <div className="flex items-center justify-between px-1">
                 <label className="text-[11px] font-bold text-slate-600">Position</label>
-                <button 
-                  type="button"
-                  onClick={() => setIsCreatePosOpen(true)}
-                  className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1"
-                >
-                  Add position
-                </button>
+                {canCreatePosition && (
+                  <button
+                    type="button"
+                    onClick={() => setIsCreatePosOpen(true)}
+                    className="text-[11px] font-bold text-blue-600 hover:underline flex items-center gap-1"
+                  >
+                    Add position
+                  </button>
+                )}
               </div>
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"

@@ -179,6 +179,7 @@ export default function Sidebar({
     { id: 'bulk_create',            label: 'Bulk Create',           badge: 0 },
     { id: 'organogram',             label: 'Organogram',            badge: 0 },
     { id: 'directory',              label: 'Directory',             badge: 0 },
+    { id: 'organization',           label: 'Departments & Positions', badge: 0 },
     { id: 'events',                 label: 'Events',                badge: 0 },
     { id: 'archive',                label: 'Archive',               badge: 0 },
     { id: 'pending_registrations',  label: 'Pending Registrations', badge: 0 },

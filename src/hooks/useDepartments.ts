@@ -24,3 +24,16 @@ export function useCreateDepartment() {
     },
   });
 }
+
+export function useUpdateDepartment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...req }: CreateDepartmentRequest & { id: string }) => {
+      const res = await api.patch<ApiEnvelope<any>>(`/api/v1/departments/${id}`, req);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["departments"] });
+    },
+  });
+}

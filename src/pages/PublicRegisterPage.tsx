@@ -233,15 +233,14 @@ function Combobox({
 }
 
 // Searchable combobox with inline "Create new" — for department & position
-interface SearchableItem { id: string; label: string }
+interface SearchableItem { id: string; label: string; departmentId?: string | null }
 
-function SearchableCreate({
-  placeholder, items, loading, onCreate, onSelect, selectedId, selectedLabel, error,
+function SearchableSelect({
+  placeholder, items, loading, onSelect, selectedId, selectedLabel, error,
 }: {
   placeholder: string;
   items: SearchableItem[];
   loading: boolean;
-  onCreate: (name: string) => Promise<SearchableItem>;
   onSelect: (item: SearchableItem | null) => void;
   selectedId: string;
   selectedLabel: string;
@@ -249,24 +248,8 @@ function SearchableCreate({
 }) {
   const [open,     setOpen]     = useState(false);
   const [query,    setQuery]    = useState('');
-  const [creating, setCreating] = useState(false);
 
   const filtered   = items.filter(i => i.label.toLowerCase().includes(query.toLowerCase()));
-  const exactMatch = filtered.some(i => i.label.toLowerCase() === query.trim().toLowerCase());
-  const showCreate = query.trim().length > 0 && !exactMatch;
-
-  const handleCreate = async () => {
-    if (!query.trim() || creating) return;
-    setCreating(true);
-    try {
-      const item = await onCreate(query.trim());
-      onSelect(item);
-      setQuery('');
-      setOpen(false);
-    } finally {
-      setCreating(false);
-    }
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -307,7 +290,7 @@ function SearchableCreate({
               </CommandEmpty>
             ) : (
               <>
-                {filtered.length === 0 && !showCreate && (
+                {filtered.length === 0 && (
                   <CommandEmpty>No results found.</CommandEmpty>
                 )}
                 <CommandGroup>
@@ -322,19 +305,6 @@ function SearchableCreate({
                       {selectedId === item.id && <Check className="ml-auto h-4 w-4 text-blue-600" />}
                     </CommandItem>
                   ))}
-                  {showCreate && (
-                    <CommandItem
-                      value={`__create__${query}`}
-                      onSelect={handleCreate}
-                      disabled={creating}
-                      className="text-blue-600 font-semibold"
-                    >
-                      {creating
-                        ? <><Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />Creating…</>
-                        : <><Plus className="w-3.5 h-3.5 mr-1.5" />Create "{query.trim()}"</>
-                      }
-                    </CommandItem>
-                  )}
                 </CommandGroup>
               </>
             )}
@@ -558,7 +528,7 @@ export default function PublicRegisterPage() {
     setPosLoading(true);
     try {
       const res = await api.get(`/api/v1/auth/public-register/${businessSlug}/positions`);
-      setPositions((res.data?.data?.positions ?? []).map((p: any) => ({ id: p.id, label: p.title })));
+      setPositions((res.data?.data?.positions ?? []).map((p: any) => ({ id: p.id, label: p.title, departmentId: p.departmentId })));
     } catch {} finally { setPosLoading(false); }
   }, [businessSlug]);
 
@@ -638,7 +608,7 @@ export default function PublicRegisterPage() {
 
         if (d.rejectionReason) setRejectionReason(d.rejectionReason);
 
-        // Pre-select department and position in the SearchableCreate dropdowns
+        // Pre-select department and position in the searchable dropdowns
         if (pf.departmentId && pf.departmentName) {
           setSelectedDept({ id: pf.departmentId, label: pf.departmentName });
         }
@@ -1303,7 +1273,7 @@ export default function PublicRegisterPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Department" icon={Building2}>
-                      <SearchableCreate
+                      <SearchableSelect
                         placeholder="Search…"
                         items={departments}
                         loading={deptLoading}
@@ -1312,38 +1282,22 @@ export default function PublicRegisterPage() {
                         onSelect={item => {
                           setSelectedDept(item);
                           set('departmentId')(item?.id ?? '');
-                        }}
-                        onCreate={async name => {
-                          const res = await api.post(`/api/v1/auth/public-register/${businessSlug}/departments`, { name });
-                          const d   = res.data?.data?.department;
-                          const item = { id: d.id, label: d.name };
-                          setDepartments(prev => [...prev, item]);
-                          set('departmentId')(d.id);
-                          return item;
+                          setSelectedPos(null);
+                          set('positionId')('');
                         }}
                       />
                     </Field>
 
                     <Field label="Position" icon={Briefcase}>
-                      <SearchableCreate
+                      <SearchableSelect
                         placeholder="Search…"
-                        items={positions}
+                        items={selectedDept ? positions.filter((p: any) => !p.departmentId || p.departmentId === selectedDept.id) : positions}
                         loading={posLoading}
                         selectedId={selectedPos?.id ?? ''}
                         selectedLabel={selectedPos?.label ?? ''}
                         onSelect={item => {
                           setSelectedPos(item);
                           set('positionId')(item?.id ?? '');
-                        }}
-                        onCreate={async title => {
-                          const res = await api.post(`/api/v1/auth/public-register/${businessSlug}/positions`, {
-                            title, departmentId: selectedDept?.id || undefined,
-                          });
-                          const p    = res.data?.data?.position;
-                          const item = { id: p.id, label: p.title };
-                          setPositions(prev => [...prev, item]);
-                          set('positionId')(p.id);
-                          return item;
                         }}
                       />
                     </Field>

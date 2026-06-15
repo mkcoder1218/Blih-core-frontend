@@ -47,6 +47,7 @@ export const PROFILES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   bulk_create:           { requires: ["hr.write"] },
   organogram:            { requires: ["profiles.read", "hr.read"] },
   directory:             { requires: ["profiles.read", "hr.read"] },
+  organization:          { requires: ["department.create", "department.update", "position.create", "position.update"] },
   events:                { requires: ["profiles.read", "hr.read", "profiles.self"] },
   archive:               { requires: ["hr.write"] },
   pending_registrations: { requires: ["hr.read", "hr.write"] },
@@ -136,7 +137,7 @@ export const BUSINESSES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 export const MODULE_PERMISSIONS: Record<string, string[]> = {
   recruitment: ["job.manage", "job.post", "applicant.manage", "interview.schedule", "interview.feedback", "offer.create", "offer.approve", "job_template.manage"],
   onboarding:  ["onboarding.read", "onboarding.manage", "onboarding.self"],
-  profiles:    ["hr.read", "hr.write", "profiles.read", "profiles.self"],
+  profiles:    ["hr.read", "hr.write", "profiles.read", "profiles.self", "department.create", "department.update", "position.create", "position.update"],
   attendance:  ["attendance.read", "attendance.manage", "attendance.self", "attendance.late_reason.read", "attendance.checkin_correction.request", "attendance.checkin_correction.approve", "leave.read"],
   performance: ["performance.read", "performance.manage", "performance.self"],
   talent:      ["performance.read", "performance.manage", "career.self"],

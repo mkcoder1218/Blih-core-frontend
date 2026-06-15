@@ -24,3 +24,16 @@ export function useCreatePosition() {
     },
   });
 }
+
+export function useUpdatePosition() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, ...req }: CreatePositionRequest & { id: string }) => {
+      const res = await api.patch<ApiEnvelope<any>>(`/api/v1/positions/${id}`, req);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["positions"] });
+    },
+  });
+}

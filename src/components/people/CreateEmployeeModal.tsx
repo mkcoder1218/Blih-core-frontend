@@ -16,6 +16,7 @@ import OfferLetterTemplateModal from "../offer-letters/OfferLetterTemplateModal"
 import { CreateDepartmentModal, CreatePositionModal } from "./OrgModals";
 import { UserSearchSelect } from "./UserSearchSelect";
 import { PlusCircle } from "lucide-react";
+import { useMyPermissions } from "../../hooks/usePermissions";
 import {
   DEFAULT_EMPLOYMENT_STATUS,
   DEFAULT_EMPLOYMENT_TYPE,
@@ -50,6 +51,9 @@ export default function CreateEmployeeModal({
   mode = "create",
   targetUserId,
 }: CreateEmployeeModalProps) {
+  const perms = useMyPermissions();
+  const canCreateDepartment = perms.hasAny("department.create");
+  const canCreatePosition = perms.hasAny("position.create");
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [draftId, setDraftId] = useState<string | null>(initialDraftId || null);
@@ -829,22 +833,28 @@ export default function CreateEmployeeModal({
                     <h3 className="text-sm font-bold text-slate-900">
                       Employment Details
                     </h3>
-                    <div className="flex gap-4">
-                      <button
-                        type="button"
-                        onClick={() => setShowCreateDept(true)}
-                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                      >
-                        <PlusCircle className="w-3 h-3" /> Create Department
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setShowCreatePos(true)}
-                        className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-                      >
-                        <PlusCircle className="w-3 h-3" /> Create Position
-                      </button>
-                    </div>
+                    {(canCreateDepartment || canCreatePosition) && (
+                      <div className="flex gap-4">
+                        {canCreateDepartment && (
+                          <button
+                            type="button"
+                            onClick={() => setShowCreateDept(true)}
+                            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <PlusCircle className="w-3 h-3" /> Create Department
+                          </button>
+                        )}
+                        {canCreatePosition && (
+                          <button
+                            type="button"
+                            onClick={() => setShowCreatePos(true)}
+                            className="text-[10px] font-bold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+                          >
+                            <PlusCircle className="w-3 h-3" /> Create Position
+                          </button>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   <div className="grid grid-cols-2 gap-5">
@@ -1411,7 +1421,7 @@ export default function CreateEmployeeModal({
         />
       )}
 
-      {showCreateDept && (
+      {canCreateDepartment && showCreateDept && (
         <CreateDepartmentModal
           isOpen={showCreateDept}
           onClose={() => setShowCreateDept(false)}
@@ -1423,7 +1433,7 @@ export default function CreateEmployeeModal({
         />
       )}
 
-      {showCreatePos && (
+      {canCreatePosition && showCreatePos && (
         <CreatePositionModal
           isOpen={showCreatePos}
           onClose={() => setShowCreatePos(false)}
