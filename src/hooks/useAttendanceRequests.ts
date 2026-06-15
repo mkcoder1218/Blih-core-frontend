@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 
-export type AttendanceRequestType = "work_from_home" | "memo_log";
+export type AttendanceRequestType = "work_from_home" | "memo_log" | "check_in_correction";
 export type AttendanceRequestStatus = "pending" | "approved" | "rejected";
 
 export interface AttendanceRequest {
@@ -52,6 +52,26 @@ export function useAttendanceRequests(params: {
       return res.data as AttendanceRequestPage;
     },
     staleTime: 20_000,
+  });
+}
+
+export function useSubmitAttendanceRequest() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      requestType: AttendanceRequestType;
+      employeeUserId?: string;
+      category?: string;
+      title: string;
+      reason: string;
+      fromAt?: string;
+      toAt?: string;
+      durationMinutes?: number;
+    }) => {
+      const res = await api.post("/api/v1/attendance-requests", payload);
+      return res.data.attendanceRequest as AttendanceRequest;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance-requests"] }),
   });
 }
 

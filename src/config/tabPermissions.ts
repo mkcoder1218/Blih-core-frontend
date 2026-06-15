@@ -59,7 +59,7 @@ export const ATTENDANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   "check-me-in":  { requires: ["attendance.self"] },             // self check-in
   history:        { requires: ["attendance.self", "attendance.read"] },
   "late-reasons": { requires: ["attendance.late_reason.read", "attendance.manage"] },
-  requests:       { requires: ["attendance.self", "leave.read", "leave.approve"] },
+  requests:       { requires: ["attendance.self", "leave.read", "leave.approve", "attendance.checkin_correction.approve"] },
   timesheet:      { requires: ["attendance.read", "attendance.manage"] },
   leaves:         { requires: ["leave.read", "leave.approve", "attendance.self"] },
   overtime:       { requires: ["leave.read", "leave.approve", "attendance.self"] },
@@ -137,7 +137,7 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   recruitment: ["job.manage", "job.post", "applicant.manage", "interview.schedule", "interview.feedback", "offer.create", "offer.approve", "job_template.manage"],
   onboarding:  ["onboarding.read", "onboarding.manage", "onboarding.self"],
   profiles:    ["hr.read", "hr.write", "profiles.read", "profiles.self"],
-  attendance:  ["attendance.read", "attendance.manage", "attendance.self", "attendance.late_reason.read", "leave.read"],
+  attendance:  ["attendance.read", "attendance.manage", "attendance.self", "attendance.late_reason.read", "attendance.checkin_correction.request", "attendance.checkin_correction.approve", "leave.read"],
   performance: ["performance.read", "performance.manage", "performance.self"],
   talent:      ["performance.read", "performance.manage", "career.self"],
   exit:        ["hr.read", "hr.write", "exit.self"],

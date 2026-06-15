@@ -1,6 +1,7 @@
 import React from "react";
 import type { AttendanceHrDailyRow } from "../../../api/types";
 import { DataTable, UserAvatar, StatusBadge } from "@/components/ui/blih";
+import { Button } from "@/components/ui/button";
 
 const COLUMNS = [
   "Employee",
@@ -12,16 +13,19 @@ const COLUMNS = [
   "Total Worked",
   "Break",
   "Status",
+  "Actions",
 ];
 
 export default function AttendanceTable({
   rows,
   timezone,
   onSelectEmployee,
+  onRequestCorrection,
 }: {
   rows: AttendanceHrDailyRow[];
   timezone: string;
   onSelectEmployee: (employeeId: string) => void;
+  onRequestCorrection?: (row: AttendanceHrDailyRow) => void;
 }) {
   return (
     <DataTable
@@ -66,6 +70,21 @@ export default function AttendanceTable({
           </td>
           <td className="px-4 py-3">
             <StatusBadge status={r.status} />
+          </td>
+          <td className="px-4 py-3">
+            {onRequestCorrection && (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 rounded-xl text-[11px] font-extrabold"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onRequestCorrection(r);
+                }}
+              >
+                Request edit
+              </Button>
+            )}
           </td>
         </tr>
       )}

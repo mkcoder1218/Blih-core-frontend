@@ -1,6 +1,9 @@
 import React from "react";
 import { useAttendanceHrDaily } from "../../../hooks/useAttendanceHrDaily";
 import { useAttendanceHrSummary } from "../../../hooks/useAttendanceHrSummary";
+import { useMyPermissions } from "../../../hooks/usePermissions";
+import { useSubmitAttendanceRequest } from "../../../hooks/useAttendanceRequests";
+import type { AttendanceHrDailyRow } from "../../../api/types";
 import AttendanceSummaryCards from "./AttendanceSummaryCards";
 import AttendanceFilters, { type AttendanceFiltersValue } from "./AttendanceFilters";
 import AttendanceTable from "./AttendanceTable";
@@ -15,6 +18,9 @@ function todayYmd() {
 }
 
 export default function HrAttendanceCheckInsPage() {
+  const perms = useMyPermissions();
+  const canRequestCorrection = perms.hasAny("attendance.checkin_correction.request", "attendance.manage");
+  const submitCorrection = useSubmitAttendanceRequest();
   const today = todayYmd();
   const [filters, setFilters] = React.useState<AttendanceFiltersValue>({
     date: today,
@@ -29,6 +35,10 @@ export default function HrAttendanceCheckInsPage() {
   });
 
   const [selectedEmployeeId, setSelectedEmployeeId] = React.useState<string | null>(null);
+  const [correctionRow, setCorrectionRow] = React.useState<AttendanceHrDailyRow | null>(null);
+  const [correctionType, setCorrectionType] = React.useState("CHECK_IN");
+  const [correctionTime, setCorrectionTime] = React.useState("09:00");
+  const [correctionReason, setCorrectionReason] = React.useState("");
 
   const summary = useAttendanceHrSummary({ date: filters.date, departmentId: filters.departmentId || undefined });
   const daily = useAttendanceHrDaily({
@@ -74,6 +84,20 @@ export default function HrAttendanceCheckInsPage() {
     URL.revokeObjectURL(url);
   };
 
+  const handleSubmitCorrection = async () => {
+    if (!correctionRow) return;
+    await submitCorrection.mutateAsync({
+      requestType: "check_in_correction",
+      employeeUserId: correctionRow.employeeId,
+      category: correctionType,
+      title: `Manual ${correctionType.replace(/_/g, " ").toLowerCase()} correction`,
+      reason: correctionReason,
+      fromAt: `${filters.date}T${correctionTime}:00`,
+    });
+    setCorrectionRow(null);
+    setCorrectionReason("");
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -105,7 +129,12 @@ export default function HrAttendanceCheckInsPage() {
       {daily.isLoading ? (
         <LoadingSpinner label="Loading attendance…" />
       ) : (
-        <AttendanceTable rows={rows} timezone={tz} onSelectEmployee={setSelectedEmployeeId} />
+        <AttendanceTable
+          rows={rows}
+          timezone={tz}
+          onSelectEmployee={setSelectedEmployeeId}
+          onRequestCorrection={canRequestCorrection ? setCorrectionRow : undefined}
+        />
       )}
 
       <EmployeeAttendanceDrawer
@@ -114,6 +143,44 @@ export default function HrAttendanceCheckInsPage() {
         date={filters.date}
         onClose={() => setSelectedEmployeeId(null)}
       />
+
+      {correctionRow && (
+        <div className="fixed inset-0 z-50 bg-slate-950/40 flex items-center justify-center p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white border border-slate-200 shadow-xl p-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-black text-slate-950">Request check-in correction</h3>
+              <p className="text-[11px] font-semibold text-slate-500 mt-1">
+                This will wait for Business Admin approval before changing {correctionRow.employeeName}'s attendance.
+              </p>
+            </div>
+            <div className="space-y-3">
+              <label className="block">
+                <span className="text-[11px] font-black uppercase text-slate-400">Correction type</span>
+                <select value={correctionType} onChange={(e) => setCorrectionType(e.target.value)} className="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3 text-xs font-bold">
+                  <option value="CHECK_IN">Check in</option>
+                  <option value="LUNCH_OUT">Lunch out</option>
+                  <option value="LUNCH_IN">Lunch in</option>
+                  <option value="CHECK_OUT">Check out</option>
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-black uppercase text-slate-400">Time</span>
+                <input type="time" value={correctionTime} onChange={(e) => setCorrectionTime(e.target.value)} className="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3 text-xs font-bold" />
+              </label>
+              <label className="block">
+                <span className="text-[11px] font-black uppercase text-slate-400">Reason</span>
+                <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} required rows={4} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold" placeholder="Explain why this manual correction is needed." />
+              </label>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" className="rounded-xl" onClick={() => setCorrectionRow(null)}>Cancel</Button>
+              <Button type="button" disabled={!correctionReason.trim() || submitCorrection.isPending} className="rounded-xl bg-blue-600 hover:bg-blue-700" onClick={handleSubmitCorrection}>
+                Submit for approval
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
