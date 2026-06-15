@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { getDeviceKey, getDeviceLabel, getDeviceUserAgent, getLegacyDeviceKey } from "../lib/deviceIdentity";
+import { getDeviceKey, getDeviceLabel, getDeviceSignature, getDeviceUserAgent, getLegacyDeviceKey } from "../lib/deviceIdentity";
 import { useMyDevices, useRegisterMyDevice } from "../hooks/useDevices";
 import { useMe } from "../hooks/useMe";
 
@@ -26,6 +26,7 @@ export default function RequiredDeviceRegistrationModal() {
       label,
       userAgent: getDeviceUserAgent(),
       legacyDeviceKey: getLegacyDeviceKey() || undefined,
+      deviceSignature: getDeviceSignature(),
     });
   };
 
@@ -45,7 +46,7 @@ export default function RequiredDeviceRegistrationModal() {
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              disabled={isPending}
+              disabled={register.isPending}
               className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 disabled:bg-slate-50"
               autoFocus
             />
@@ -74,10 +75,10 @@ export default function RequiredDeviceRegistrationModal() {
           <button
             type="button"
             onClick={submit}
-            disabled={register.isPending || isPending}
+            disabled={register.isPending}
             className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-bold text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400"
           >
-            {register.isPending ? "Registering..." : isRejected ? "Register Again" : "Register Device"}
+            {register.isPending ? "Registering..." : isPending ? "Check Again" : isRejected ? "Register Again" : "Register Device"}
           </button>
         </div>
       </div>

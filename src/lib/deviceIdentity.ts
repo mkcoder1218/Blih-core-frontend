@@ -9,7 +9,7 @@ function hashDeviceSource(value: string) {
   return `device-${(hash >>> 0).toString(36)}`;
 }
 
-function getDeviceSource() {
+export function getDeviceSignature() {
   if (typeof window === "undefined" || typeof navigator === "undefined") return "unknown-device";
 
   const screenInfo = window.screen
@@ -22,18 +22,12 @@ function getDeviceSource() {
     : "unknown-screen";
 
   const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown-timezone";
-  const language = (navigator.languages || [navigator.language || ""]).slice(0, 2).join(",");
-  const hardwareConcurrency = String(navigator.hardwareConcurrency || "");
-  const deviceMemory = String((navigator as any).deviceMemory || "");
   const maxTouchPoints = String(navigator.maxTouchPoints || 0);
 
   return [
     navigator.platform || "unknown-platform",
     screenInfo,
     timezone,
-    language,
-    hardwareConcurrency,
-    deviceMemory,
     maxTouchPoints,
   ].join("|");
 }
@@ -42,7 +36,7 @@ export function getDeviceKey() {
   if (typeof window === "undefined") return "";
 
   const existing = window.localStorage.getItem(LEGACY_DEVICE_KEY_STORAGE) || "";
-  const key = hashDeviceSource(getDeviceSource());
+  const key = hashDeviceSource(getDeviceSignature());
   if (existing && existing !== key) legacyDeviceKeyForRegistration = existing;
   window.localStorage.setItem(LEGACY_DEVICE_KEY_STORAGE, key);
   return key;
