@@ -21,15 +21,11 @@ export default function AttendanceTable({
   timezone,
   onSelectEmployee,
   onRequestCorrection,
-  onSyncEmployee,
-  syncingEmployeeId,
 }: {
   rows: AttendanceHrDailyRow[];
   timezone: string;
   onSelectEmployee: (employeeId: string) => void;
   onRequestCorrection?: (row: AttendanceHrDailyRow) => void;
-  onSyncEmployee?: (row: AttendanceHrDailyRow) => void;
-  syncingEmployeeId?: string | null;
 }) {
   return (
     <DataTable
@@ -77,20 +73,6 @@ export default function AttendanceTable({
           </td>
           <td className="px-4 py-3">
             <div className="flex flex-wrap gap-2">
-              {onSyncEmployee && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={syncingEmployeeId === r.employeeId}
-                  className="h-8 rounded-xl text-[11px] font-extrabold"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onSyncEmployee(r);
-                  }}
-                >
-                  {syncingEmployeeId === r.employeeId ? "Syncing..." : "Sync"}
-                </Button>
-              )}
               {onRequestCorrection && (
                 <Button
                   type="button"

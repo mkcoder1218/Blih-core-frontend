@@ -2,7 +2,7 @@ import React from "react";
 import { useAttendanceHrDaily } from "../../../hooks/useAttendanceHrDaily";
 import { useAttendanceHrSummary } from "../../../hooks/useAttendanceHrSummary";
 import { useMyPermissions } from "../../../hooks/usePermissions";
-import { useSubmitAttendanceRequest, useSyncApprovedAttendanceCorrections } from "../../../hooks/useAttendanceRequests";
+import { useSubmitAttendanceRequest } from "../../../hooks/useAttendanceRequests";
 import type { AttendanceHrDailyRow } from "../../../api/types";
 import AttendanceSummaryCards from "./AttendanceSummaryCards";
 import AttendanceFilters, { type AttendanceFiltersValue } from "./AttendanceFilters";
@@ -11,7 +11,7 @@ import EmployeeAttendanceDrawer from "./EmployeeAttendanceDrawer";
 import { downloadAttendanceHrExport } from "../../../api/attendanceHr";
 import { PageHeader, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
 import { Button } from "@/components/ui/button";
-import { Download, RefreshCw } from "lucide-react";
+import { Download } from "lucide-react";
 
 function todayYmd() {
   return new Date().toISOString().slice(0, 10);
@@ -20,9 +20,7 @@ function todayYmd() {
 export default function HrAttendanceCheckInsPage() {
   const perms = useMyPermissions();
   const canRequestCorrection = perms.hasAny("attendance.checkin_correction.request", "attendance.manage");
-  const canSyncCorrections = perms.hasAny("attendance.read", "attendance.manage", "attendance.checkin_correction.request", "attendance.checkin_correction.approve");
   const submitCorrection = useSubmitAttendanceRequest();
-  const syncCorrections = useSyncApprovedAttendanceCorrections();
   const today = todayYmd();
   const [filters, setFilters] = React.useState<AttendanceFiltersValue>({
     date: today,
@@ -41,7 +39,6 @@ export default function HrAttendanceCheckInsPage() {
   const [correctionType, setCorrectionType] = React.useState("CHECK_IN");
   const [correctionTime, setCorrectionTime] = React.useState("09:00");
   const [correctionReason, setCorrectionReason] = React.useState("");
-  const [syncingEmployeeId, setSyncingEmployeeId] = React.useState<string | null>(null);
 
   const summary = useAttendanceHrSummary({ date: filters.date, departmentId: filters.departmentId || undefined });
   const daily = useAttendanceHrDaily({
@@ -87,26 +84,6 @@ export default function HrAttendanceCheckInsPage() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSyncNow = async () => {
-    setSyncingEmployeeId("all");
-    try {
-      await syncCorrections.mutateAsync({ date: filters.date });
-      await Promise.all([daily.refetch(), summary.refetch()]);
-    } finally {
-      setSyncingEmployeeId(null);
-    }
-  };
-
-  const handleSyncEmployee = async (row: AttendanceHrDailyRow) => {
-    setSyncingEmployeeId(row.employeeId);
-    try {
-      await syncCorrections.mutateAsync({ date: filters.date, employeeUserId: row.employeeId });
-      await Promise.all([daily.refetch(), summary.refetch()]);
-    } finally {
-      setSyncingEmployeeId(null);
-    }
-  };
-
   const handleSubmitCorrection = async () => {
     if (!correctionRow) return;
     await submitCorrection.mutateAsync({
@@ -129,16 +106,6 @@ export default function HrAttendanceCheckInsPage() {
         description="Monitor attendance per employee for the selected day."
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {canSyncCorrections && (
-              <Button
-                onClick={handleSyncNow}
-                disabled={syncCorrections.isPending}
-                className="bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs px-4 h-9 rounded-xl disabled:bg-slate-200 disabled:text-slate-400"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 mr-1.5 ${syncingEmployeeId === "all" ? "animate-spin" : ""}`} />
-                {syncingEmployeeId === "all" ? "Syncing..." : "Sync all"}
-              </Button>
-            )}
             <Button
               onClick={handleExport}
               className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-4 h-9 rounded-xl"
@@ -149,13 +116,6 @@ export default function HrAttendanceCheckInsPage() {
           </div>
         }
       />
-
-      {syncCorrections.isSuccess && (
-        <InfoAlert
-          variant="success"
-          message={`Synced approved corrections. Updated ${syncCorrections.data.updated}, created ${syncCorrections.data.created}.`}
-        />
-      )}
 
       {summary.isError && (
         <InfoAlert variant="error" message="Failed to load summary." />
@@ -176,8 +136,6 @@ export default function HrAttendanceCheckInsPage() {
           timezone={tz}
           onSelectEmployee={setSelectedEmployeeId}
           onRequestCorrection={canRequestCorrection ? setCorrectionRow : undefined}
-          onSyncEmployee={canSyncCorrections ? handleSyncEmployee : undefined}
-          syncingEmployeeId={syncingEmployeeId}
         />
       )}
 
