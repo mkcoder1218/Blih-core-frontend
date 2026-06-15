@@ -1,37 +1,68 @@
-const DEVICE_KEY_STORAGE = "blih_trusted_device_key";
+const LEGACY_DEVICE_KEY_STORAGE = "blih_trusted_device_key";
+let legacyDeviceKeyForRegistration = "";
+
+function hashDeviceSource(value: string) {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash * 33) ^ value.charCodeAt(i);
+  }
+  return `device-${(hash >>> 0).toString(36)}`;
+}
+
+function getDeviceSource() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") return "unknown-device";
+
+  const screenInfo = window.screen
+    ? [
+        window.screen.width,
+        window.screen.height,
+        window.screen.colorDepth,
+        window.screen.pixelDepth,
+      ].join("x")
+    : "unknown-screen";
+
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown-timezone";
+  const language = (navigator.languages || [navigator.language || ""]).slice(0, 2).join(",");
+  const hardwareConcurrency = String(navigator.hardwareConcurrency || "");
+  const deviceMemory = String((navigator as any).deviceMemory || "");
+  const maxTouchPoints = String(navigator.maxTouchPoints || 0);
+
+  return [
+    navigator.platform || "unknown-platform",
+    screenInfo,
+    timezone,
+    language,
+    hardwareConcurrency,
+    deviceMemory,
+    maxTouchPoints,
+  ].join("|");
+}
 
 export function getDeviceKey() {
   if (typeof window === "undefined") return "";
 
-  const existing = window.localStorage.getItem(DEVICE_KEY_STORAGE);
-  if (existing) return existing;
-
-  const key =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? crypto.randomUUID()
-      : `device-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-  window.localStorage.setItem(DEVICE_KEY_STORAGE, key);
+  const existing = window.localStorage.getItem(LEGACY_DEVICE_KEY_STORAGE) || "";
+  const key = hashDeviceSource(getDeviceSource());
+  if (existing && existing !== key) legacyDeviceKeyForRegistration = existing;
+  window.localStorage.setItem(LEGACY_DEVICE_KEY_STORAGE, key);
   return key;
+}
+
+export function getLegacyDeviceKey() {
+  return legacyDeviceKeyForRegistration;
 }
 
 export function getDeviceLabel() {
   if (typeof navigator === "undefined") return "My device";
 
   const platform = navigator.platform || "Device";
-  const ua = navigator.userAgent || "";
-  const browser =
-    ua.includes("Edg/")
-      ? "Edge"
-      : ua.includes("Chrome/")
-        ? "Chrome"
-        : ua.includes("Firefox/")
-          ? "Firefox"
-          : ua.includes("Safari/")
-            ? "Safari"
-            : "Browser";
+  if (platform.toLowerCase().includes("win")) return "Windows device";
+  if (platform.toLowerCase().includes("mac")) return "Mac device";
+  if (platform.toLowerCase().includes("linux")) return "Linux device";
+  if (/iphone|ipad|ipod/i.test(platform)) return "iOS device";
+  if (/android/i.test(navigator.userAgent || "")) return "Android device";
 
-  return `${platform} ${browser}`;
+  return platform;
 }
 
 export function getDeviceUserAgent() {

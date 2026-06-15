@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { getDeviceKey, getDeviceLabel, getDeviceUserAgent } from "../lib/deviceIdentity";
+import { getDeviceKey, getDeviceLabel, getDeviceUserAgent, getLegacyDeviceKey } from "../lib/deviceIdentity";
 import { useMyDevices, useRegisterMyDevice } from "../hooks/useDevices";
 import { useMe } from "../hooks/useMe";
 
@@ -25,6 +25,7 @@ export default function RequiredDeviceRegistrationModal() {
       deviceKey,
       label,
       userAgent: getDeviceUserAgent(),
+      legacyDeviceKey: getLegacyDeviceKey() || undefined,
     });
   };
 

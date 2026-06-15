@@ -26,7 +26,7 @@ export async function getMyDevices() {
   return res.data.data;
 }
 
-export async function registerMyDevice(payload: { deviceKey: string; label: string; userAgent?: string }) {
+export async function registerMyDevice(payload: { deviceKey: string; label: string; userAgent?: string; legacyDeviceKey?: string }) {
   const res = await api.post<ApiEnvelope<{ device: TrustedDevice; requiresApproval: boolean }>>(
     "/api/v1/devices/me/register",
     payload
