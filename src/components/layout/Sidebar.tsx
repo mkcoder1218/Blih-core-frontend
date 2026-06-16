@@ -177,7 +177,6 @@ export default function Sidebar({
   ] as const;
 
   const ALL_PROFILES_TABS = [
-    { id: 'overview',               label: 'Overview',              badge: 0 },
     { id: 'create',                 label: 'Create',                badge: 0 },
     { id: 'bulk_create',            label: 'Bulk Create',           badge: 0 },
     { id: 'organogram',             label: 'Organogram',            badge: 0 },
@@ -279,6 +278,7 @@ export default function Sidebar({
     ) {
       setIsDetailedView(true);
       if (moduleId === 'businesses') setCurrentBusinessesTab('overview');
+      if (moduleId === 'profiles') setCurrentProfilesTab('directory');
     } else {
       setIsDetailedView(false);
     }
@@ -395,7 +395,7 @@ export default function Sidebar({
               ))}
 
               {currentModule === 'profiles' && profilesTabs.map((tab) => (
-                <button key={tab.id} onClick={() => { setCurrentProfilesTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/profiles` : `/${roleSegment}/profiles/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentProfilesTab === tab.id)}>
+                <button key={tab.id} onClick={() => { setCurrentProfilesTab(tab.id); navigate(`/${roleSegment}/profiles/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentProfilesTab === tab.id)}>
                   <span>{tab.label}</span>
                 </button>
               ))}

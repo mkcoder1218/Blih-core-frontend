@@ -19,7 +19,7 @@ export default function ModulePage() {
   const location = useLocation();
   const [updateEmployeeUserId, setUpdateEmployeeUserId] = React.useState<string | null>(null);
   const module = String(params.module || "");
-  const tab = String(params.tab || (module === "exit" ? "offboarding" : "overview"));
+  const tab = String(params.tab || (module === "exit" ? "offboarding" : module === "profiles" ? "directory" : "overview"));
   const projectUuid = module === "projects" && /^[0-9a-fA-F-]{36}$/.test(tab) ? tab : "";
 
   // Employee detail view — triggered when navigating to /*/profiles/employee/:id
@@ -59,6 +59,7 @@ export default function ModulePage() {
   if (module === "profiles") {
     const rolePrefix = location.pathname.startsWith("/hr-manager") ? "/hr-manager" :
                        location.pathname.startsWith("/business-admin") ? "/business-admin" : "/employee";
+    if (tab === "overview") return <Navigate to={`${rolePrefix}/profiles/directory`} replace />;
     return (
       <PeopleProfilesView
         currentProfilesTab={tab as any}

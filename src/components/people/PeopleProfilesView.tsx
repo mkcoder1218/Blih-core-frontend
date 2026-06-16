@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useOrganogram, useEmployees, useDeleteEmployee } from '../../hooks/useHrRecords';
 import {
-  Users, CheckSquare, Calendar, Clock, TrendingUp, Plus, Search, Sparkles, Trash2, Copy, ChevronRight,
+  Users, Calendar, Plus, Search, Sparkles, Trash2, Copy, ChevronRight,
   ChevronLeft,
   Download,
   Award,
@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
 import CreateEmployeeModal from './CreateEmployeeModal';
 import BulkEmployeeImportPage from '../../pages/BulkEmployeeImportPage';
-import { StatCard, StatCardGrid, UserAvatar, ConfirmDialog } from '@/components/ui/blih';
+import { UserAvatar, ConfirmDialog } from '@/components/ui/blih';
 import EventsTab from './EventsTab';
 import PendingRegistrationsTab from './PendingRegistrationsTab';
 import DepartmentsPositionsTab from './DepartmentsPositionsTab';
@@ -314,7 +314,7 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 }
 
 interface PeopleProfilesViewProps {
-  currentProfilesTab: 'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations';
+  currentProfilesTab: 'create' | 'bulk_create' | 'organogram' | 'directory' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
   onViewProfile?: (employee: any) => void;
@@ -377,206 +377,9 @@ export default function PeopleProfilesView({
       showAlert(e.message || "Failed to delete record", "error");
     }
   };
-
-
-
-
-  // Job Application Frequency Data points for matching graph curves
-  const monthlyChartData = [
-    { month: 'Jan', value: 130 },
-    { month: 'Feb', value: 140 },
-    { month: 'Mar', value: 160 },
-    { month: 'Apr', value: 100 },
-    { month: 'May', value: 150 },
-    { month: 'Jun', value: 140 },
-    { month: 'Jul', value: 175 },
-    { month: 'Aug', value: 115 },
-    { month: 'Sep', value: 145 },
-    { month: 'Oct', value: 155 },
-    { month: 'Nov', value: 140 },
-    { month: 'Dec', value: 105 },
-  ];
-
   return (
     <div className="h-full flex flex-col space-y-6">
       <AnimatePresence mode="wait">
-
-        {/* --- 1. OVERVIEW SCREEN (IMAGE 1) --- */}
-        {currentProfilesTab === 'overview' && (
-          <motion.div
-            key="overview"
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            className="space-y-6"
-          >
-            {/* Top row of three large key indicators */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
-                <div>
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Active Onboarding</span>
-                  <span className="text-3xl font-black text-slate-900 mt-2 block tracking-tight">12</span>
-                </div>
-                <div className="w-12 h-12 bg-blue-50/70 border border-blue-100/30 rounded-full flex items-center justify-center text-blue-600">
-                  <Users className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
-                <div>
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Completed This Month</span>
-                  <span className="text-3xl font-black text-slate-900 mt-2 block tracking-tight">28</span>
-                </div>
-                <div className="w-12 h-12 bg-emerald-50/70 border border-emerald-100/30 rounded-full flex items-center justify-center text-emerald-600">
-                  <CheckSquare className="w-5 h-5" />
-                </div>
-              </div>
-
-              <div className="bg-white rounded-2xl border border-slate-100 p-6 flex justify-between items-center shadow-xs">
-                <div>
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">On Probation</span>
-                  <span className="text-3xl font-black text-slate-900 mt-2 block tracking-tight">45</span>
-                </div>
-                <div className="w-12 h-12 bg-blue-50/70 border border-blue-100/30 rounded-full flex items-center justify-center text-blue-600">
-                  <Clock className="w-5 h-5" />
-                </div>
-              </div>
-            </div>
-
-            {/* Work Hours Performance Card Container */}
-            <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Work Hours Performance</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-
-                {/* 1. Daily Card */}
-                <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between h-[150px]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-800">Daily</span>
-                    <Clock className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <span className="text-3xl font-black text-blue-600 tracking-tight block">8.5h</span>
-                    <span className="text-[10px] text-slate-400 block font-medium mt-0.5">Target: 8h</span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                      <span>Performance</span>
-                      <span className="text-blue-600">106%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-blue-600 h-full rounded-full" style={{ width: '100%' }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Monthly Card */}
-                <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between h-[150px]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-800">Monthly</span>
-                    <Calendar className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <span className="text-3xl font-black text-blue-600 tracking-tight block">168h</span>
-                    <span className="text-[10px] text-slate-400 block font-medium mt-0.5">Target: 160h</span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                      <span>Performance</span>
-                      <span className="text-blue-600">105%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-blue-600 h-full rounded-full" style={{ width: '100%' }} />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Annually Card */}
-                <div className="bg-slate-50 border border-slate-100/50 rounded-2xl p-5 relative overflow-hidden flex flex-col justify-between h-[150px]">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-800">Annually</span>
-                    <TrendingUp className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <div>
-                    <span className="text-3xl font-black text-blue-600 tracking-tight block">2016h</span>
-                    <span className="text-[10px] text-slate-400 block font-medium mt-0.5">Target: 1920h</span>
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between text-[10px] font-bold text-slate-500">
-                      <span>Performance</span>
-                      <span className="text-blue-600">105%</span>
-                    </div>
-                    <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                      <div className="bg-blue-600 h-full rounded-full" style={{ width: '100%' }} />
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-            {/* Job Application Frequency Graph Block */}
-            <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
-              <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Job Application Frequency</h3>
-
-              <div className="relative pt-2 h-[260px] w-full">
-                {/* Visual SVG Line Graph mimicking perfect bezier dots connectors */}
-                <svg className="w-full h-full" viewBox="0 0 1000 240" preserveAspectRatio="none">
-                  {/* Grid Lines */}
-                  <line x1="50" y1="20" x2="980" y2="20" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
-                  <line x1="50" y1="65" x2="980" y2="65" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
-                  <line x1="50" y1="110" x2="980" y2="110" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
-                  <line x1="50" y1="155" x2="980" y2="155" stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
-                  <line x1="50" y1="200" x2="980" y2="200" stroke="#f1f5f9" strokeWidth="1" />
-
-                  {/* Y Axis text labels */}
-                  <text x="35" y="24" className="text-[10px] font-medium fill-slate-400" textAnchor="end">180</text>
-                  <text x="35" y="69" className="text-[10px] font-medium fill-slate-400" textAnchor="end">135</text>
-                  <text x="35" y="114" className="text-[10px] font-medium fill-slate-400" textAnchor="end">90</text>
-                  <text x="35" y="159" className="text-[10px] font-medium fill-slate-400" textAnchor="end">45</text>
-                  <text x="35" y="204" className="text-[10px] font-medium fill-slate-400" textAnchor="end">0</text>
-
-                  {/* Chart Line Path */}
-                  <path
-                    d="M 50,130 C 90,120 120,110 160,115 C 200,120 240,90 280,100 C 320,110 360,145 400,150 C 440,155 480,115 520,110 C 560,105 600,120 640,115 C 680,110 720,80 760,95 C 800,110 840,135 880,115 C 920,95 950,120 980,135"
-                    fill="none"
-                    stroke="#2563eb"
-                    strokeWidth="2.5"
-                    strokeLinecap="round"
-                  />
-
-                  {/* Bezier Markers / Dots */}
-                  <circle cx="50" cy="130" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="160" cy="115" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="280" cy="100" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="400" cy="150" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="520" cy="110" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="640" cy="115" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="760" cy="95" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="880" cy="115" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-                  <circle cx="980" cy="135" r="4.5" fill="#2563eb" stroke="#ffffff" strokeWidth="1.5" />
-
-                  {/* X Axis vertical ticks & labels */}
-                  {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map((mon, index) => {
-                    const xCoord = 50 + (index * 84.5);
-                    return (
-                      <g key={mon}>
-                        <line x1={xCoord} y1="200" x2={xCoord} y2="204" stroke="#cbd5e1" strokeWidth="1" />
-                        <text x={xCoord} y="222" className="text-[10.5px] font-bold fill-slate-400" textAnchor="middle">{mon}</text>
-                      </g>
-                    );
-                  })}
-                </svg>
-              </div>
-            </div>
-
-            {/* Bottom Row Checklist Trackers */}
-            <StatCardGrid cols={3}>
-              <StatCard label="Total Checklists" value={3}  icon={<CheckSquare className="w-5 h-5" />} tone="blue" />
-              <StatCard label="Total Items"      value={37} icon={<CheckSquare className="w-5 h-5" />} tone="blue" />
-              <StatCard label="Times Used"       value={28} icon={<Calendar className="w-5 h-5" />}    tone="emerald" />
-            </StatCardGrid>
-          </motion.div>
-        )}
 
         {/* --- 2. CREATE SCREEN (IMAGE 2) --- */}
         {currentProfilesTab === 'create' && (

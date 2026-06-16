@@ -52,7 +52,7 @@ export default function App() {
     return 'recruitment';
   });
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>('overview');
-  const [currentProfilesTab, setCurrentProfilesTab] = useState<'overview' | 'create' | 'bulk_create' | 'organogram' | 'directory' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations'>('overview');
+  const [currentProfilesTab, setCurrentProfilesTab] = useState<'create' | 'bulk_create' | 'organogram' | 'directory' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations'>('directory');
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'check-me-in' | 'history' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home'>('overview');
   const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture' | 'development'>('overview');
   const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding'>('offboarding');
@@ -332,7 +332,7 @@ export default function App() {
                       setIsDetailedView(true);
                       if (mod === 'recruitment') setCurrentRecruitmentTab('overview');
                       if (mod === 'onboarding') setCurrentOnboardingTab('overview');
-                      if (mod === 'profiles') setCurrentProfilesTab('overview');
+                      if (mod === 'profiles') setCurrentProfilesTab('directory');
                       if (mod === 'attendance') setCurrentAttendanceTab('overview');
                       if (mod === 'talent') setCurrentTalentTab('overview');
                       if (mod === 'exit') setCurrentExitTab('offboarding');
