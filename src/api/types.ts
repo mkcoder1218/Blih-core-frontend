@@ -93,6 +93,13 @@ export type AttendanceMeTodayResponse = {
   disabledReason: string | null;
   timeline: AttendanceMeTimelineItem[];
   nextAllowed: AttendanceEventType[];
+  cooldown?: {
+    action: AttendanceEventType;
+    active: boolean;
+    startedAtUtc: string;
+    untilUtc: string;
+    remainingMinutes: number;
+  } | null;
   calculation?: any;
   lunch?: {
     lunchBreakEnabled: boolean;

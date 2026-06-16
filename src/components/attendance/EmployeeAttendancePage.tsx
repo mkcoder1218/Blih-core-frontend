@@ -49,6 +49,7 @@ export default function EmployeeAttendancePage() {
   const disabledReason: string | null = data?.disabledReason || null;
   const calculation: any = data?.calculation;
   const lunch: any = data?.lunch;
+  const cooldown: any = data?.cooldown || null;
   const serverNowUtc: string | undefined = data?.serverNowUtc;
 
   const tz = settings?.timezone || "UTC";
@@ -59,7 +60,7 @@ export default function EmployeeAttendancePage() {
 
   // Day is complete when nextAllowed is empty, there is no disabled reason,
   // and at least one event has been recorded today.
-  const isDayComplete = nextAllowed.length === 0 && !disabledReason && timeline.length > 0;
+  const isDayComplete = nextAllowed.length === 0 && !disabledReason && !cooldown?.active && timeline.length > 0;
 
   // ── Live clock (seconds) ───────────────────────────────────────────────
   const [nowTs, setNowTs] = React.useState(Date.now());
@@ -291,6 +292,15 @@ export default function EmployeeAttendancePage() {
     month: "short",
     day: "2-digit",
   }).format(serverNowDate);
+  const cooldownAvailableAt = cooldown?.untilUtc
+    ? new Intl.DateTimeFormat(undefined, {
+        timeZone: tz,
+        hour: "2-digit",
+        minute: "2-digit",
+      }).format(new Date(cooldown.untilUtc))
+    : null;
+  const cooldownActionLabel =
+    cooldown?.action === "LUNCH_IN" ? "Return from lunch" : "Check in";
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -442,6 +452,30 @@ export default function EmployeeAttendancePage() {
                   <div className="text-sm font-extrabold text-slate-900">Unavailable</div>
                   <div className="text-[11px] text-slate-500 font-semibold mt-1">{disabledReason}</div>
                 </div>
+              </div>
+
+            ) : cooldown?.active ? (
+              <div className="flex-1 flex flex-col justify-center gap-3">
+                <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
+                  <Clock3 className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="min-w-0">
+                    <div className="text-sm font-extrabold text-slate-900">
+                      1 hour break required
+                    </div>
+                    <div className="text-[11px] text-amber-800 font-semibold mt-1 leading-relaxed">
+                      {cooldownActionLabel} will be available
+                      {cooldownAvailableAt ? ` at ${cooldownAvailableAt}` : " after the break"}
+                      {cooldown?.remainingMinutes ? ` (${cooldown.remainingMinutes} min remaining).` : "."}
+                    </div>
+                  </div>
+                </div>
+                <button
+                  disabled
+                  className="w-full rounded-2xl py-3 px-4 text-xs font-extrabold tracking-wide flex items-center justify-center gap-2 bg-slate-100 text-slate-400 cursor-not-allowed"
+                >
+                  <Clock3 className="w-4 h-4" />
+                  {cooldownActionLabel}
+                </button>
               </div>
 
             ) : (
