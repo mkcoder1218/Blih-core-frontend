@@ -110,8 +110,12 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
   }, [casePage, totalCasePages]);
 
   const handleUpdateStatus = async (id: string, status: 'under_review' | 'closed') => {
-    await updateCase.mutateAsync({ id, status });
-    setActiveCaseModal(null);
+    const updatedCase = await updateCase.mutateAsync({ id, status });
+    if (status === 'closed') {
+      setActiveCaseModal(null);
+    } else {
+      setActiveCaseModal((current) => current && current.id === id ? { ...current, ...updatedCase, status } : current);
+    }
     showAlert(`Case status updated to ${STATUS_LABEL[status]}.`, 'success');
   };
 
