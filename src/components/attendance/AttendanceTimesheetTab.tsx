@@ -98,7 +98,7 @@ export default function AttendanceTimesheetTab({
           { value: deptFilter,      onChange: setDeptFilter,      placeholder: 'All departments', options: [{ value: 'All', label: 'All departments' }] },
           { value: statusFilter,    onChange: setStatusFilter,    placeholder: 'Status', options: [
             { value: 'All', label: 'Status' }, { value: 'COMPLETED', label: 'Completed' },
-            { value: 'IN_PROGRESS', label: 'In progress' }, { value: 'ON_BREAK', label: 'On lunch' }, { value: 'MISSED', label: 'Missed' },
+            { value: 'IN_PROGRESS', label: 'In progress' }, { value: 'ON_BREAK', label: 'On lunch' }, { value: 'REMOTE', label: 'Remote' }, { value: 'MISSED', label: 'Missed' },
           ]},
           { value: timesheetRange,  onChange: setTimesheetRange,  placeholder: 'Range', options: [
             { value: 'Daily', label: 'Daily' }, { value: 'Weekly', label: 'Weekly' }, { value: 'Monthly', label: 'Monthly' },

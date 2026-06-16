@@ -27,6 +27,7 @@ export const DEFAULT_STATUS_MAP: StatusMap = {
   COMPLETED:              { label: 'Completed',      tone: 'emerald' },
   IN_PROGRESS:            { label: 'In Progress',    tone: 'blue' },
   ON_BREAK:               { label: 'On Break',       tone: 'amber' },
+  REMOTE:                 { label: 'Remote',         tone: 'cyan' },
   LATE:                   { label: 'Late',           tone: 'rose' },
   MISSED:                 { label: 'Missed',         tone: 'slate' },
   NOT_STARTED:            { label: 'Not Started',    tone: 'slate' },

@@ -50,6 +50,7 @@ export default function EmployeeAttendanceHistoryPage() {
               <option value="COMPLETED">Completed</option>
               <option value="IN_PROGRESS">In Progress</option>
               <option value="ON_BREAK">On Break</option>
+              <option value="REMOTE">Remote</option>
               <option value="LATE">Late</option>
               <option value="MISSED">Missed</option>
               <option value="NOT_STARTED">Not Started</option>

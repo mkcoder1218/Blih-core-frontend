@@ -78,6 +78,7 @@ export default function AttendanceCheckInTab({ avgMonthHours, avgWeekHours, tota
               { value: 'COMPLETED', label: 'Completed' },
               { value: 'IN_PROGRESS', label: 'In progress' },
               { value: 'ON_BREAK', label: 'On lunch' },
+              { value: 'REMOTE', label: 'Remote' },
               { value: 'MISSED', label: 'Missed' },
             ],
           },
