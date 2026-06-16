@@ -3,6 +3,7 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Download, FileSpreadsheet, Filter, RefreshCw, Trash2, Upload } from "lucide-react";
 import { useBulkImportEmployees, useValidateBulkEmployees } from "../hooks/useBulkEmployees";
 import type { BulkEmployeeAction, BulkEmployeeRow, BulkEmployeeValidationResult, BulkEmployeeValidationStatus, BulkEmployeeWriteResponse } from "../api/bulkEmployees";
+import { ConfirmDialog } from "@/components/ui/blih";
 
 const CSV_COLUMNS = [
   "employeeCode","firstName","lastName","email","phone","roleKeys","departmentName","positionName","managerEmail","branch","employmentType","employmentStatus","hireDate","probationEndDate","contractStartDate","contractEndDate","monthlySalary","salaryCurrency","dateOfBirth","city","countryOfBirth","additionalPhone","additionalNotes","emergencyFirstName","emergencyLastName","emergencyPhone","emergencyEmail","emergencyCity","emergencyCountry","bankName","bankAccountNumber"
@@ -188,6 +189,7 @@ export default function BulkEmployeeImportPage() {
   const [previewRows, setPreviewRows] = useState<PreviewRow[]>([]);
   const [statusFilter, setStatusFilter] = useState<"ALL" | BulkEmployeeValidationStatus>("ALL");
   const [writeResult, setWriteResult] = useState<BulkEmployeeWriteResponse | null>(null);
+  const [importConfirmOpen, setImportConfirmOpen] = useState(false);
 
   const visibleRows = previewRows.filter((row) => !row.removed && (statusFilter === "ALL" || row.status === statusFilter));
   const blockers = previewRows.filter((row) => !row.removed && (row.status === "INVALID" || row.status === "CONFLICT"));
@@ -269,10 +271,7 @@ export default function BulkEmployeeImportPage() {
     setPreviewRows((rows) => rows.map((row) => row.rowNumber === rowNumber ? { ...row, removed: true } : row));
   };
 
-  const submit = async () => {
-    if (!canSubmit) return;
-    const updateCount = previewRows.filter((row) => !row.removed && row.action === "UPDATE").length;
-    if (!window.confirm(updateCount ? `Apply import and update ${updateCount} reviewed employee record(s)?` : "Create selected employees?")) return;
+  const applyImport = async () => {
     const rows = previewRows.filter((row) => !row.removed && row.status !== "INVALID" && row.status !== "CONFLICT").map((row) => ({
       ...(row.normalizedRow || sourceRows.find((source) => source.rowNumber === row.rowNumber)!),
       action: row.action,
@@ -281,7 +280,13 @@ export default function BulkEmployeeImportPage() {
     }));
     const result = await importMutation.mutateAsync(rows);
     setWriteResult(result);
+    setImportConfirmOpen(false);
     showAlert?.("Bulk import completed.", result.failed || result.conflicts ? "info" : "success");
+  };
+
+  const submit = async () => {
+    if (!canSubmit) return;
+    setImportConfirmOpen(true);
   };
 
   const downloadTemplate = () => {
@@ -507,6 +512,18 @@ export default function BulkEmployeeImportPage() {
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={importConfirmOpen}
+        onClose={() => setImportConfirmOpen(false)}
+        onConfirm={applyImport}
+        title="Apply Employee Import"
+        description={previewRows.filter((row) => !row.removed && row.action === "UPDATE").length
+          ? `Apply import and update ${previewRows.filter((row) => !row.removed && row.action === "UPDATE").length} reviewed employee record(s)?`
+          : "Create selected employees?"}
+        confirmLabel="Apply Import"
+        variant="primary"
+        loading={importMutation.isPending}
+      />
     </div>
   );
 }

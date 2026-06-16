@@ -6,6 +6,7 @@ import { useCreateSectorFocus } from "../../hooks/useCreateSectorFocus";
 import { useUpdateSectorFocus } from "../../hooks/useUpdateSectorFocus";
 import { useDeleteSectorFocus } from "../../hooks/useDeleteSectorFocus";
 import type { SectorFocus } from "../../api/types";
+import { ConfirmDialog } from "@/components/ui/blih";
 
 export default function SectorFocusTab({ showAlert }: { showAlert: (msg: string, type?: "success" | "info" | "error") => void }) {
   const q = useSectorFocuses();
@@ -21,6 +22,7 @@ export default function SectorFocusTab({ showAlert }: { showAlert: (msg: string,
   const [key, setKey] = useState("");
   const [description, setDescription] = useState("");
   const [status, setStatus] = useState<"active" | "inactive">("active");
+  const [deleteTarget, setDeleteTarget] = useState<SectorFocus | null>(null);
 
   const sorted = useMemo(() => [...items].sort((a, b) => (a.name || "").localeCompare(b.name || "")), [items]);
 
@@ -70,9 +72,9 @@ export default function SectorFocusTab({ showAlert }: { showAlert: (msg: string,
     "";
 
   const onDelete = async (sf: SectorFocus) => {
-    if (!confirm(`Delete sector focus "${sf.name}"?`)) return;
     try {
       await del.mutateAsync(sf.id);
+      setDeleteTarget(null);
       showAlert("Sector focus deleted.", "success");
     } catch (e: any) {
       showAlert(e?.response?.data?.message || e?.message || "Delete failed", "error");
@@ -125,7 +127,7 @@ export default function SectorFocusTab({ showAlert }: { showAlert: (msg: string,
                         <button onClick={() => openEdit(sf)} className="p-1 px-2.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg transition-colors cursor-pointer" title="Edit">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => onDelete(sf)} className="p-1 px-2.5 hover:bg-rose-50 text-slate-500 hover:text-rose-700 rounded-lg transition-colors cursor-pointer" title="Delete">
+                        <button onClick={() => setDeleteTarget(sf)} className="p-1 px-2.5 hover:bg-rose-50 text-slate-500 hover:text-rose-700 rounded-lg transition-colors cursor-pointer" title="Delete">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -187,6 +189,16 @@ export default function SectorFocusTab({ showAlert }: { showAlert: (msg: string,
           </div>
         )}
       </AnimatePresence>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && onDelete(deleteTarget)}
+        title="Delete Sector Focus"
+        description={deleteTarget ? `Delete sector focus "${deleteTarget.name}"?` : undefined}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={del.isPending}
+      />
     </div>
   );
 }

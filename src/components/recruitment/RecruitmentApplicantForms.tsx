@@ -18,6 +18,7 @@ import {
   HelpCircle
 } from 'lucide-react';
 import { api } from '../../api/client';
+import { ConfirmDialog } from '@/components/ui/blih';
 
 interface ApplicantFormsProps {
   onDraftAiSuggestion: (context: string) => void;
@@ -33,6 +34,8 @@ export default function RecruitmentApplicantForms({
   // Forms state
   const [forms, setForms] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [deletingFormId, setDeletingFormId] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null);
 
   React.useEffect(() => {
     const fetchForms = async () => {
@@ -113,9 +116,21 @@ export default function RecruitmentApplicantForms({
     showAlert(`Duplicated "${title}" successfully`, 'success');
   };
 
-  const handleDeleteForm = (id: string, title: string) => {
-    setForms(prev => prev.filter(f => f.id !== id));
-    showAlert(`Form "${title}" deleted`, 'info');
+  const handleDeleteForm = async (id: string, title: string) => {
+    if (deletingFormId) return;
+
+    setDeletingFormId(id);
+    try {
+      await api.delete(`/api/v1/hr/recruitment/templates/${id}`);
+      setForms(prev => prev.filter(f => f.id !== id));
+      setDeleteTarget(null);
+      showAlert(`Form "${title}" deleted`, 'success');
+    } catch (err) {
+      console.error('Failed to delete form:', err);
+      showAlert(`Could not delete "${title}". Please try again.`, 'error');
+    } finally {
+      setDeletingFormId(null);
+    }
   };
 
   const triggerCreateWithAi = () => {
@@ -219,11 +234,12 @@ export default function RecruitmentApplicantForms({
                   <Copy className="w-3.5 h-3.5" />
                 </button>
                 <button 
-                  onClick={() => handleDeleteForm(frm.id, frm.title)}
+                  onClick={() => setDeleteTarget({ id: frm.id, title: frm.title })}
+                  disabled={deletingFormId === frm.id}
                   title="Delete Form"
-                  className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-600 border border-slate-100 flex items-center justify-center cursor-pointer transition-all"
+                  className="w-8 h-8 rounded-lg bg-slate-50 hover:bg-rose-50 text-slate-450 hover:text-rose-600 border border-slate-100 flex items-center justify-center cursor-pointer transition-all disabled:opacity-50 disabled:cursor-wait"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className={`w-3.5 h-3.5 ${deletingFormId === frm.id ? 'animate-pulse' : ''}`} />
                 </button>
               </div>
 
@@ -357,6 +373,17 @@ export default function RecruitmentApplicantForms({
           </form>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDeleteForm(deleteTarget.id, deleteTarget.title)}
+        title="Delete Form"
+        description={deleteTarget ? `Delete "${deleteTarget.title}"? This cannot be undone.` : undefined}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={!!deletingFormId}
+      />
 
     </div>
   );

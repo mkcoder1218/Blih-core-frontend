@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { AlertOctagon, ShieldAlert, BadgeAlert, Plus, Sparkles, RefreshCw, Activity } from 'lucide-react';
-import { UserAvatar, StatusBadge, SectionCard, FormField, FormRow, LoadingSpinner, EmptyState, InfoAlert } from '@/components/ui/blih';
+import { UserAvatar, StatusBadge, SectionCard, FormField, FormRow, LoadingSpinner, EmptyState, InfoAlert, ConfirmDialog } from '@/components/ui/blih';
 import { useDisciplinaryCases, useCreateDisciplinaryCase, useUpdateDisciplinaryCase } from '../../hooks/useDisciplinary';
 import type { DisciplinaryCase } from '../../api/disciplinary';
 import { api } from '../../api/client';
@@ -39,6 +40,7 @@ function severityScore(c: DisciplinaryCase): string {
 }
 
 export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: DisciplineTabProps) {
+  const queryClient = useQueryClient();
   const { data, isLoading } = useDisciplinaryCases({ size: 100 });
   const createCase   = useCreateDisciplinaryCase();
   const updateCase   = useUpdateDisciplinaryCase();
@@ -48,8 +50,10 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
   const [activeCaseModal, setActiveCaseModal] = useState<DisciplinaryCase | null>(null);
   const [logIncidentOpen, setLogIncidentOpen] = useState(false);
   const [analysisRunning, setAnalysisRunning] = useState(false);
+  const [analysisResetting, setAnalysisResetting] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<any | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [resetAnalysisOpen, setResetAnalysisOpen] = useState(false);
   const [analysisConfig, setAnalysisConfig] = useState({ windowDays: 30, lateThreshold: 3, dryRun: false });
   const [incidentForm, setIncidentForm] = useState({
     employeeUserId: '',
@@ -95,6 +99,21 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
       showAlert(err?.response?.data?.error ?? 'Analysis failed.', 'error');
     } finally {
       setAnalysisRunning(false);
+    }
+  };
+
+  const handleResetAnalysis = async () => {
+    setAnalysisResetting(true);
+    try {
+      const res = await api.delete('/api/v1/hr/disciplinary/analyze-attendance');
+      setAnalysisResult(null);
+      setResetAnalysisOpen(false);
+      await queryClient.invalidateQueries({ queryKey: ['disciplinary-cases'] });
+      showAlert(res.data?.message ?? 'Attendance analysis reset.', 'success');
+    } catch (err: any) {
+      showAlert(err?.response?.data?.error ?? 'Failed to reset attendance analysis.', 'error');
+    } finally {
+      setAnalysisResetting(false);
     }
   };
 
@@ -201,6 +220,14 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
           >
             <Activity className="w-4 h-4 shrink-0" />
             <span>Run Attendance Analysis</span>
+          </button>
+          <button
+            onClick={() => setResetAnalysisOpen(true)}
+            disabled={analysisResetting || cases.length === 0}
+            className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-black py-2 px-3.5 rounded-xl flex items-center gap-1 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`w-4 h-4 shrink-0 ${analysisResetting ? 'animate-spin' : ''}`} />
+            <span>Reset Analysis</span>
           </button>
         </div>
       </div>
@@ -519,6 +546,16 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
           </div>
         </div>
       )}
+      <ConfirmDialog
+        open={resetAnalysisOpen}
+        onClose={() => setResetAnalysisOpen(false)}
+        onConfirm={handleResetAnalysis}
+        title="Reset Attendance Analysis"
+        description="This removes only auto-generated attendance discipline cases. Manually documented incidents will stay on record."
+        confirmLabel="Reset Analysis"
+        variant="destructive"
+        loading={analysisResetting}
+      />
     </div>
   );
 }

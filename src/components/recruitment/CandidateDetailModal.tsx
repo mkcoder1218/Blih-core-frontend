@@ -15,6 +15,7 @@ import {
   Link as LinkIcon,
   Loader2,
 } from "lucide-react";
+import { useAlert } from "../../contexts/AlertContext";
 
 interface CandidateDetailModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export default function CandidateDetailModal({
   onReject,
 }: CandidateDetailModalProps) {
   const [loadingAction, setLoadingAction] = React.useState<string | null>(null);
+  const { showAlert } = useAlert();
 
   if (!isOpen || !candidate) return null;
 
@@ -138,7 +140,7 @@ export default function CandidateDetailModal({
       window.open(url, "_blank");
     } catch (e: any) {
       console.error("[handleView] failed:", e);
-      alert(`Could not load file: ${e?.message ?? "Unknown error"}`);
+      showAlert(`Could not load file: ${e?.message ?? "Unknown error"}`, "error");
     } finally {
       setLoadingAction(null);
     }
@@ -160,7 +162,7 @@ export default function CandidateDetailModal({
       document.body.removeChild(a);
     } catch (e: any) {
       console.error("[handleDownload] failed:", e);
-      alert(`Could not download file: ${e?.message ?? "Unknown error"}`);
+      showAlert(`Could not download file: ${e?.message ?? "Unknown error"}`, "error");
     } finally {
       setLoadingAction(null);
     }

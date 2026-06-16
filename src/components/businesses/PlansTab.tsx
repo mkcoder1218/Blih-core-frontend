@@ -6,6 +6,7 @@ import { useCreatePlan } from "../../hooks/useCreatePlan";
 import { useUpdatePlan } from "../../hooks/useUpdatePlan";
 import { useDeletePlan } from "../../hooks/useDeletePlan";
 import type { Plan } from "../../api/types";
+import { ConfirmDialog } from "@/components/ui/blih";
 
 export default function PlansTab({ showAlert }: { showAlert: (msg: string, type?: "success" | "info" | "error") => void }) {
   const plansQuery = usePlans();
@@ -22,6 +23,7 @@ export default function PlansTab({ showAlert }: { showAlert: (msg: string, type?
   const [priceMonthly, setPriceMonthly] = useState<number>(0);
   const [userLimit, setUserLimit] = useState<number | "">( "");
   const [status, setStatus] = useState<"active" | "inactive">("active");
+  const [deleteTarget, setDeleteTarget] = useState<Plan | null>(null);
 
   const sorted = useMemo(() => {
     return [...plans].sort((a, b) => (a.name || "").localeCompare(b.name || ""));
@@ -71,9 +73,9 @@ export default function PlansTab({ showAlert }: { showAlert: (msg: string, type?
   };
 
   const onDelete = async (p: Plan) => {
-    if (!confirm(`Delete plan "${p.name}"?`)) return;
     try {
       await deletePlan.mutateAsync(p.id);
+      setDeleteTarget(null);
       showAlert("Plan deleted.", "success");
     } catch (e: any) {
       showAlert(e?.response?.data?.message || e?.message || "Delete failed", "error");
@@ -128,7 +130,7 @@ export default function PlansTab({ showAlert }: { showAlert: (msg: string, type?
                         <button onClick={() => openEdit(p)} className="p-1 px-2.5 hover:bg-slate-100 text-slate-500 hover:text-slate-800 rounded-lg transition-colors cursor-pointer" title="Edit">
                           <Pencil className="w-3.5 h-3.5" />
                         </button>
-                        <button onClick={() => onDelete(p)} className="p-1 px-2.5 hover:bg-rose-50 text-slate-500 hover:text-rose-700 rounded-lg transition-colors cursor-pointer" title="Delete">
+                        <button onClick={() => setDeleteTarget(p)} className="p-1 px-2.5 hover:bg-rose-50 text-slate-500 hover:text-rose-700 rounded-lg transition-colors cursor-pointer" title="Delete">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
@@ -192,6 +194,16 @@ export default function PlansTab({ showAlert }: { showAlert: (msg: string, type?
           </div>
         )}
       </AnimatePresence>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && onDelete(deleteTarget)}
+        title="Delete Plan"
+        description={deleteTarget ? `Delete plan "${deleteTarget.name}"?` : undefined}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deletePlan.isPending}
+      />
     </div>
   );
 }

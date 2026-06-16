@@ -3,338 +3,405 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
-  jobApplicationFrequencyData,
-  marketingManagerPostAnalytics,
-  fullStackPostAnalytics,
-  frequentlyPostedJobs
-} from '../../mockData';
-import { Sparkles, Calendar, TrendingUp, Users } from 'lucide-react';
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Label,
+  Line,
+  LineChart,
+  Pie,
+  PieChart,
+  XAxis,
+  YAxis,
+} from 'recharts';
+import { motion } from 'motion/react';
+import { Calendar, TrendingUp, Users, BriefcaseBusiness } from 'lucide-react';
 import { useLegacyUser } from '../../api/legacyUserStore';
+import { useEmployees } from '../../hooks/useHrRecords';
+import { useInterviews, useJobApplications, useJobRequests } from '../../hooks/useJobRequests';
 import AttendanceShortcutCard from '../attendance/AttendanceShortcutCard';
 import { StatCard, StatCardGrid, SectionCard } from '@/components/ui/blih';
+import {
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 
 interface RecruitmentOverviewProps {
   onNavigateToTab: (tabId: string) => void;
 }
 
-export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOverviewProps) {
-  const [selectedJob, setSelectedJob] = useState<'Marketing Manager' | 'Full-stack Developer'>('Marketing Manager');
-  const [hoveredFreqPoint, setHoveredFreqPoint] = useState<number | null>(null);
-  const [hoveredAnalyticPoint, setHoveredAnalyticPoint] = useState<number | null>(null);
+const monthLabels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const funnelStages = new Set(['shortlisted', 'interview', 'waitlisted', 'offer', 'hired']);
+const offerStages = new Set(['offer', 'hired']);
+const activePostingStatuses = new Set(['open', 'active', 'published']);
+
+const lineChartConfig = {
+  applications: { label: 'Applications', color: '#2563eb' },
+  interviews: { label: 'Interviews', color: '#06b6d4' },
+  hires: { label: 'Hires', color: '#84cc16' },
+} satisfies ChartConfig;
+
+const jobChartConfig = {
+  applications: { label: 'Applications', color: '#2563eb' },
+  shortlisted: { label: 'Shortlisted', color: '#22c55e' },
+  offers: { label: 'Offers', color: '#f59e0b' },
+} satisfies ChartConfig;
+
+const salaryChartConfig = {
+  employees: { label: 'Employees', color: '#2563eb' },
+} satisfies ChartConfig;
+
+const experienceChartConfig = {
+  employees: { label: 'Employees', color: '#2563eb' },
+} satisfies ChartConfig;
+
+const genderChartConfig = {
+  male: { label: 'Male', color: '#2563eb' },
+  female: { label: 'Female', color: '#60a5fa' },
+} satisfies ChartConfig;
+
+const cardMotion = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.35, ease: 'easeOut' },
+};
+
+function getRecordDate(record: any) {
+  const raw = record?.createdAt || record?.submittedAt || record?.appliedAt || record?.requestedDate || record?.updatedAt;
+  const date = raw ? new Date(raw) : null;
+  return date && !Number.isNaN(date.getTime()) ? date : null;
+}
+
+function getJobTitle(record: any, jobById: Map<string, any>) {
+  const directTitle = record?.job?.title || record?.jobRequest?.title || record?.jobOpening?.title || record?.jobTitle || record?.title;
+  if (directTitle) return directTitle;
+
+  const jobId = record?.jobId || record?.jobRequestId || record?.jobOpeningId || record?.job?.id || record?.jobRequest?.id || record?.jobOpening?.id;
+  return jobId ? jobById.get(jobId)?.title : undefined;
+}
+
+function getEmployeeSalary(employee: any) {
+  const value = employee?.salary || employee?.baseSalary || employee?.compensation?.salary || employee?.profile?.salary;
+  const numeric = Number(String(value ?? '').replace(/[^\d.]/g, ''));
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function getEmployeeExperience(employee: any) {
+  return employee?.experience || employee?.experienceLevel || employee?.profile?.experience || employee?.metadata?.experience;
+}
+
+function getEmployeeGender(employee: any) {
+  return employee?.gender || employee?.profile?.gender || employee?.metadata?.gender;
+}
+
+export default function RecruitmentOverview({ onNavigateToTab: _onNavigateToTab }: RecruitmentOverviewProps) {
+  const [selectedJob, setSelectedJob] = useState<string>('');
   const legacyUser = useLegacyUser();
   const isEmployee = legacyUser?.role === 'Employee';
+  const jobRequestsQuery = useJobRequests({ includePublished: true });
+  const applicationsQuery = useJobApplications();
+  const interviewsQuery = useInterviews();
+  const employeesQuery = useEmployees({ limit: 500, offset: 0 });
 
-  // Convert points to smooth SVG path
-  const getCurvePath = (data: { count: number }[], height: number, width: number, maxVal: number) => {
-    if (data.length === 0) return '';
-    const points = data.map((item, index) => {
-      const x = (index / (data.length - 1)) * (width - 40) + 20;
-      // Flip Y axis
-      const y = height - (item.count / maxVal) * (height - 40) - 20;
-      return { x, y };
+  const jobRequests = jobRequestsQuery.data?.rows ?? [];
+  const applications = applicationsQuery.data ?? [];
+  const interviews = interviewsQuery.data ?? [];
+  const employees = employeesQuery.data?.employees ?? [];
+
+  const jobById = useMemo(() => new Map(jobRequests.map((job: any) => [job.id, job])), [jobRequests]);
+
+  const applicationTrendData = useMemo(() => {
+    const rows = monthLabels.map((month) => ({ month, applications: 0, interviews: 0, hires: 0 }));
+
+    applications.forEach((application: any) => {
+      const date = getRecordDate(application);
+      if (!date) return;
+      rows[date.getMonth()].applications += 1;
+      if (application.stage === 'hired') rows[date.getMonth()].hires += 1;
     });
 
-    let path = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 0; i < points.length - 1; i++) {
-      const p0 = points[i];
-      const p1 = points[i + 1];
-      const cpX1 = p0.x + (p1.x - p0.x) / 3;
-      const cpY1 = p0.y;
-      const cpX2 = p0.x + (2 * (p1.x - p0.x)) / 3;
-      const cpY2 = p1.y;
-      path += ` C ${cpX1} ${cpY1}, ${cpX2} ${cpY2}, ${p1.x} ${p1.y}`;
-    }
-    return { path, points };
-  };
+    interviews.forEach((interview: any) => {
+      const date = getRecordDate(interview) || (interview?.interviewAt ? new Date(interview.interviewAt) : null);
+      if (!date || Number.isNaN(date.getTime())) return;
+      rows[date.getMonth()].interviews += 1;
+    });
 
-  // 1. Job Application Frequency charts
-  const freqHeight = 160;
-  const freqWidth = 600;
-  const freqMax = 180;
-  const freqPathInfo = getCurvePath(jobApplicationFrequencyData, freqHeight, freqWidth, freqMax);
+    return rows;
+  }, [applications, interviews]);
 
-  // Secondary density curve representing layered details below
-  const layerData = jobApplicationFrequencyData.map(v => ({ count: v.count * 0.4 }));
-  const layerPathInfo = getCurvePath(layerData, freqHeight, freqWidth, freqMax);
+  const frequentlyPostedJobs = useMemo(() => {
+    const counts = new Map<string, number>();
+    jobRequests.forEach((job: any) => {
+      if (!job.title) return;
+      counts.set(job.title, (counts.get(job.title) ?? 0) + 1);
+    });
 
-  // 2. Selected Job Post Analytics (Marketing Manager or Full Stack)
-  const currentPostData = selectedJob === 'Marketing Manager' ? marketingManagerPostAnalytics : fullStackPostAnalytics;
-  const analyticHeight = 160;
-  const analyticWidth = 600;
-  const analyticMax = 180;
-  const analyticPathInfo = getCurvePath(currentPostData, analyticHeight, analyticWidth, analyticMax);
+    return [...counts.entries()]
+      .map(([title, count]) => ({ id: title, title, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 4);
+  }, [jobRequests]);
 
-  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const jobAnalyticsData = useMemo(() => {
+    const titles = new Set<string>();
+    jobRequests.forEach((job: any) => job.title && titles.add(job.title));
+    applications.forEach((application: any) => {
+      const title = getJobTitle(application, jobById);
+      if (title) titles.add(title);
+    });
+
+    const analytics = [...titles].reduce<Record<string, { month: string; applications: number; shortlisted: number; offers: number }[]>>((acc, title) => {
+      acc[title] = monthLabels.map((month) => ({ month, applications: 0, shortlisted: 0, offers: 0 }));
+      return acc;
+    }, {});
+
+    applications.forEach((application: any) => {
+      const title = getJobTitle(application, jobById);
+      const date = getRecordDate(application);
+      if (!title || !date || !analytics[title]) return;
+
+      const row = analytics[title][date.getMonth()];
+      row.applications += 1;
+      if (funnelStages.has(application.stage)) row.shortlisted += 1;
+      if (offerStages.has(application.stage)) row.offers += 1;
+    });
+
+    return analytics;
+  }, [applications, jobById, jobRequests]);
+
+  const jobOptions = Object.keys(jobAnalyticsData);
+  const activeSelectedJob = selectedJob || jobOptions[0] || 'No job data';
+
+  const pendingRequests = jobRequests.filter((job: any) => job.status === 'pending').length;
+  const activeRecruitments = jobRequests.filter((job: any) => activePostingStatuses.has(job.postingStatus) || job.isPosted).length;
+
+  const salaryData = useMemo(() => {
+    const buckets = [
+      { range: '<10k', min: 0, max: 9999, fill: '#60a5fa' },
+      { range: '10-15k', min: 10000, max: 15000, fill: '#2563eb' },
+      { range: '15-20k', min: 15001, max: 20000, fill: '#84cc16' },
+      { range: '>20k', min: 20001, max: Infinity, fill: '#facc15' },
+    ];
+
+    return buckets.map((bucket) => ({
+      range: bucket.range,
+      employees: employees.filter((employee: any) => {
+        const actualSalary = getEmployeeSalary(employee);
+        if (actualSalary === null) return false;
+        return actualSalary >= bucket.min && actualSalary <= bucket.max;
+      }).length,
+      fill: bucket.fill,
+    }));
+  }, [employees]);
+
+  const experienceData = useMemo(() => {
+    const ranges = ['0-2 yr', '3-5 yr', '5-10 yr', '10+ yr'];
+    const colors = ['#84cc16', '#2563eb', '#facc15', '#60a5fa'];
+
+    return ranges.map((range, index) => ({
+      range: range.replace(' yr', ''),
+      employees: employees.filter((employee: any) => getEmployeeExperience(employee) === range).length,
+      fill: colors[index],
+    }));
+  }, [employees]);
+
+  const genderData = useMemo(() => {
+    const male = employees.filter((employee: any) => `${getEmployeeGender(employee)}`.toLowerCase() === 'male').length;
+    const female = employees.filter((employee: any) => `${getEmployeeGender(employee)}`.toLowerCase() === 'female').length;
+
+    return [
+      { gender: 'male', employees: male, fill: 'var(--color-male)' },
+      { gender: 'female', employees: female, fill: 'var(--color-female)' },
+    ];
+  }, [employees]);
+
+  const totalEmployees = employeesQuery.data?.total ?? employees.length;
+  const selectedJobData = jobAnalyticsData[activeSelectedJob] ?? monthLabels.map((month) => ({ month, applications: 0, shortlisted: 0, offers: 0 }));
 
   return (
-    <div id="recruitment-overview-view" className="space-y-6">
+    <motion.div
+      id="recruitment-overview-view"
+      className="space-y-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.25 }}
+    >
       {isEmployee && (
         <div className="max-w-xl">
           <AttendanceShortcutCard />
         </div>
       )}
 
-      {/* Metrics Row */}
       <StatCardGrid cols={3}>
-        <StatCard label="Pending Requests" value={45} icon={<Calendar className="w-5 h-5" />} tone="blue" />
-        <StatCard label="Active Recruitments" value={28} icon={<TrendingUp className="w-5 h-5" />} tone="cyan" />
-        <StatCard label="Total Employees" value={12} icon={<Users className="w-5 h-5" />} tone="violet" />
+        <StatCard label="Pending Requests" value={pendingRequests} icon={<Calendar className="w-5 h-5" />} tone="blue" />
+        <StatCard label="Active Recruitments" value={activeRecruitments} icon={<TrendingUp className="w-5 h-5" />} tone="cyan" />
+        <StatCard label="Total Employees" value={totalEmployees} icon={<Users className="w-5 h-5" />} tone="violet" />
       </StatCardGrid>
 
-      {/* Main Graph: Job Application Frequency */}
-      <SectionCard title="Job Application Frequency">
-        {/* Dynamic High-Polished SVG Spline Chart */}
-        <div className="relative overflow-x-auto pt-2">
-          <div className="min-w-[620px] relative">
-            <svg viewBox={`0 0 ${freqWidth} ${freqHeight}`} className="w-full h-auto overflow-visible select-none">
-              {/* Grid Lines */}
-              {[45, 90, 135, 180].map((val) => {
-                const y = freqHeight - (val / freqMax) * (freqHeight - 40) - 20;
-                return (
-                  <g key={val}>
-                    <line x1="20" y1={y} x2={freqWidth - 20} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
-                    <text x="0" y={y + 4} fill="#94a3b8" fontSize="9" fontWeight="bold">{val}</text>
-                  </g>
-                );
-              })}
-
-              {/* Density Shadow Filled Area */}
-              {layerPathInfo && (
-                <path
-                  d={`${layerPathInfo.path} L ${freqWidth - 20} ${freqHeight - 20} L 20 ${freqHeight - 20} Z`}
-                  fill="url(#freqGradientBlue)"
-                  className="opacity-40"
-                />
-              )}
-
-              {/* Main Area under the line */}
-              {freqPathInfo && (
-                <path
-                  d={`${freqPathInfo.path} L ${freqWidth - 20} ${freqHeight - 20} L 20 ${freqHeight - 20} Z`}
-                  fill="url(#freqGradientLight)"
-                  className="opacity-25"
-                />
-              )}
-
-              {/* Main Line spline */}
-              {freqPathInfo && (
-                <path d={freqPathInfo.path} fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" />
-              )}
-
-              {/* Spark Points and Hover States */}
-              {freqPathInfo &&
-                freqPathInfo.points.map((pt, idx) => (
-                  <g key={idx}>
-                    <circle
-                      cx={pt.x} cy={pt.y} r="4"
-                      className="fill-blue-600 stroke-white cursor-pointer hover:r-5.5 transition-all"
-                      strokeWidth="1.5"
-                      onMouseEnter={() => setHoveredFreqPoint(idx)}
-                      onMouseLeave={() => setHoveredFreqPoint(null)}
-                    />
-                    <text x={pt.x} y={freqHeight - 4} fill="#64748b" fontSize="9" fontWeight="600" textAnchor="middle">
-                      {months[idx]}
-                    </text>
-                  </g>
-                ))}
-
+      <motion.div {...cardMotion}>
+        <SectionCard title="Application Pipeline Trend">
+          <ChartContainer config={lineChartConfig} className="h-[290px] w-full">
+            <AreaChart data={applicationTrendData} margin={{ top: 16, right: 18, left: -16, bottom: 6 }}>
               <defs>
-                <linearGradient id="freqGradientLight" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#3b82f6" stopOpacity="0.4" />
-                  <stop offset="100%" stopColor="#3b82f6" stopOpacity="0" />
-                </linearGradient>
-                <linearGradient id="freqGradientBlue" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#1e40af" stopOpacity="0.15" />
-                  <stop offset="100%" stopColor="#1e40af" stopOpacity="0" />
+                <linearGradient id="applicationsFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="var(--color-applications)" stopOpacity={0.22} />
+                  <stop offset="95%" stopColor="var(--color-applications)" stopOpacity={0.02} />
                 </linearGradient>
               </defs>
-            </svg>
+              <CartesianGrid vertical={false} strokeDasharray="4 6" />
+              <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={12} />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} width={34} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Area type="monotone" dataKey="applications" stroke="var(--color-applications)" fill="url(#applicationsFill)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="interviews" stroke="var(--color-interviews)" strokeWidth={2.5} dot={{ r: 3.5 }} />
+              <Line type="monotone" dataKey="hires" stroke="var(--color-hires)" strokeWidth={2.5} dot={{ r: 3.5 }} />
+            </AreaChart>
+          </ChartContainer>
+        </SectionCard>
+      </motion.div>
 
-            {/* Custom Tooltip */}
-            {hoveredFreqPoint !== null && (
-              <div
-                className="absolute bg-slate-900 text-white rounded-lg p-2 text-[10px] font-bold shadow-lg pointer-events-none transition-all duration-150 border border-slate-800"
-                style={{
-                  left: `${(hoveredFreqPoint / (jobApplicationFrequencyData.length - 1)) * 94 + 3}%`,
-                  bottom: '60px',
-                  transform: 'translateX(-50%)',
-                }}
-              >
-                <span className="block text-[#93c5fd] uppercase text-[8px] tracking-wider mb-0.5">
-                  {months[hoveredFreqPoint]} applications
-                </span>
-                <span className="text-sm font-extrabold">{jobApplicationFrequencyData[hoveredFreqPoint].count}</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Middle Grid: Frequently Posted Jobs & Analytics Controls */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Frequently Posted Jobs Column */}
-        <div className="lg:col-span-7">
+        <motion.div className="lg:col-span-7" {...cardMotion} transition={{ duration: 0.35, delay: 0.05 }}>
           <SectionCard title="Frequently Posted Jobs">
             <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-4 pt-1">
               {frequentlyPostedJobs.map((job) => (
-                <div key={job.id} className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-between">
+                <button
+                  key={job.id}
+                  onClick={() => job.title in jobAnalyticsData && setSelectedJob(job.title)}
+                  className="bg-slate-50 rounded-xl p-4 border border-slate-100 flex flex-col justify-between text-left hover:border-blue-200 hover:bg-blue-50/50 transition-colors"
+                >
                   <p className="text-[10px] font-bold text-slate-500 leading-tight uppercase line-clamp-2">{job.title}</p>
                   <div className="mt-4 flex items-baseline gap-1">
                     <span className="text-2xl font-extrabold text-blue-600">{job.count}</span>
+                    <span className="text-[10px] font-bold text-slate-400">posts</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </SectionCard>
-        </div>
+        </motion.div>
 
-        {/* Analytics interactive Card selector */}
-        <div className="lg:col-span-5 bg-[#f0f5ff] rounded-2xl border border-blue-100 p-6 shadow-sm flex flex-col justify-between">
+        <motion.div
+          className="lg:col-span-5 bg-blue-50 rounded-2xl border border-blue-100 p-6 shadow-sm flex flex-col justify-between"
+          {...cardMotion}
+          transition={{ duration: 0.35, delay: 0.1 }}
+        >
           <div>
             <div className="flex items-center gap-2 mb-4">
               <span className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center text-white shadow-xs">
-                <Sparkles className="w-4 h-4 text-amber-300 fill-amber-300" />
+                <BriefcaseBusiness className="w-4 h-4" />
               </span>
-              <h4 className="text-[13px] font-extrabold text-[#1e40af] tracking-tight">Analytics for Jobs</h4>
+              <h4 className="text-[13px] font-extrabold text-blue-800 tracking-tight">Job Performance Analytics</h4>
             </div>
             <p className="text-[11px] text-slate-500 font-semibold mb-6">
-              Track posting frequency trends, click rates and performance metrics over the last calendar year.
+              Review applications, shortlist volume, and offers by role for the current hiring year.
             </p>
           </div>
 
           <div className="space-y-1.5 focus-within:text-blue-600">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Choose job</label>
             <select
-              value={selectedJob}
-              onChange={(e) => setSelectedJob(e.target.value as any)}
+              value={activeSelectedJob === 'No job data' ? '' : activeSelectedJob}
+              onChange={(e) => setSelectedJob(e.target.value)}
               className="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all shadow-xs cursor-pointer"
             >
-              <option value="Marketing Manager">Marketing Manager</option>
-              <option value="Full-stack Developer">Full-stack Developer</option>
+              {Object.keys(jobAnalyticsData).map((job) => (
+                <option key={job} value={job}>{job}</option>
+              ))}
             </select>
           </div>
-        </div>
+        </motion.div>
       </div>
 
-      {/* Selected Job Spline Statistics */}
-      <SectionCard title={`${selectedJob} Post Analytics`}>
-        <div className="relative overflow-x-auto pt-2">
-          <div className="min-w-[620px] relative">
-            <svg viewBox={`0 0 ${analyticWidth} ${analyticHeight}`} className="w-full h-auto overflow-visible select-none animate-fade-in">
-              {[45, 90, 135, 180].map((val) => {
-                const y = analyticHeight - (val / analyticMax) * (analyticHeight - 40) - 20;
-                return (
-                  <g key={val}>
-                    <line x1="20" y1={y} x2={analyticWidth - 20} y2={y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="4" />
-                    <text x="0" y={y + 4} fill="#94a3b8" fontSize="9" fontWeight="bold">{val}</text>
-                  </g>
-                );
-              })}
-              {analyticPathInfo && (
-                <path d={analyticPathInfo.path} fill="none" stroke="#2563eb" strokeWidth="2.5" strokeLinecap="round" />
-              )}
-              {analyticPathInfo &&
-                analyticPathInfo.points.map((pt, idx) => (
-                  <g key={idx}>
-                    <circle
-                      cx={pt.x} cy={pt.y} r="4.5"
-                      className="fill-blue-500 stroke-white cursor-pointer hover:r-6.5 transition-all"
-                      strokeWidth="1.5"
-                      onMouseEnter={() => setHoveredAnalyticPoint(idx)}
-                      onMouseLeave={() => setHoveredAnalyticPoint(null)}
-                    />
-                    <text x={pt.x} y={analyticHeight - 4} fill="#64748b" fontSize="9" fontWeight="600" textAnchor="middle">
-                      {months[idx]}
-                    </text>
-                  </g>
-                ))}
-            </svg>
+      <motion.div {...cardMotion} transition={{ duration: 0.35, delay: 0.15 }}>
+        <SectionCard title={`${activeSelectedJob} Hiring Funnel`}>
+          <ChartContainer config={jobChartConfig} className="h-[300px] w-full">
+            <LineChart data={selectedJobData} margin={{ top: 16, right: 18, left: -16, bottom: 6 }}>
+              <CartesianGrid vertical={false} strokeDasharray="4 6" />
+              <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={12} />
+              <YAxis tickLine={false} axisLine={false} tickMargin={8} width={34} />
+              <ChartTooltip content={<ChartTooltipContent />} />
+              <ChartLegend content={<ChartLegendContent />} />
+              <Line type="monotone" dataKey="applications" stroke="var(--color-applications)" strokeWidth={3} dot={{ r: 4 }} activeDot={{ r: 6 }} />
+              <Line type="monotone" dataKey="shortlisted" stroke="var(--color-shortlisted)" strokeWidth={2.5} dot={{ r: 3.5 }} />
+              <Line type="monotone" dataKey="offers" stroke="var(--color-offers)" strokeWidth={2.5} dot={{ r: 3.5 }} />
+            </LineChart>
+          </ChartContainer>
+        </SectionCard>
+      </motion.div>
 
-            {hoveredAnalyticPoint !== null && (
-              <div
-                className="absolute bg-slate-900 text-white rounded-lg p-2 text-[10px] font-bold shadow-md pointer-events-none transition-all duration-150"
-                style={{
-                  left: `${(hoveredAnalyticPoint / (currentPostData.length - 1)) * 94 + 3}%`,
-                  bottom: '60px',
-                  transform: 'translateX(-50%)',
-                }}
-              >
-                <span className="block text-slate-400 text-[8px] uppercase tracking-wider">
-                  Post analytics {months[hoveredAnalyticPoint]}
-                </span>
-                <span className="text-sm font-extrabold">{currentPostData[hoveredAnalyticPoint].count} Posts</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </SectionCard>
-
-      {/* Row of 3 mini high-contrast demographic metric widgets */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {/* Salary Expectations Mini Bar Chart */}
-        <SectionCard title="Salary Expectations">
-          <div className="h-32 flex items-end justify-between gap-3 px-2 pt-2">
-            {[
-              { val: 30, pct: '30%', label: '<10k', color: 'bg-blue-400' },
-              { val: 60, pct: '45%', label: '10-15k', color: 'bg-blue-600' },
-              { val: 50, pct: '40%', label: '15-20k', color: 'bg-lime-400' },
-              { val: 18, pct: '15%', label: '>20k', color: 'bg-yellow-400' },
-            ].map((sal, index) => (
-              <div key={index} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                <span className="text-[9px] font-bold text-slate-500">{sal.pct}</span>
-                <div className={`w-full rounded-md ${sal.color} transition-all duration-500 hover:opacity-90`} style={{ height: `${sal.val}%` }} />
-                <span className="text-[9px] text-slate-400 font-bold tracking-tight uppercase leading-none mt-1">{sal.label}</span>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        <motion.div {...cardMotion} transition={{ duration: 0.35, delay: 0.2 }}>
+          <SectionCard title="Salary Distribution">
+            <ChartContainer config={salaryChartConfig} className="h-[180px] w-full">
+              <BarChart data={salaryData} margin={{ top: 12, right: 8, left: -24, bottom: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="range" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="employees" radius={[7, 7, 0, 0]}>
+                  {salaryData.map((entry) => <Cell key={entry.range} fill={entry.fill} />)}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          </SectionCard>
+        </motion.div>
 
-        {/* Gender Distribution Pie Arc Chart */}
-        <SectionCard title="Gender Distribution">
-          <div className="flex flex-col items-center justify-center py-2">
-            <div className="relative w-24 h-24 mb-3 flex items-center justify-center">
-              <svg viewBox="0 0 36 36" className="w-full h-full transform -rotate-90">
-                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#60a5fa" strokeWidth="3" />
-                <circle cx="18" cy="18" r="15.915" fill="none" stroke="#2563eb" strokeWidth="3.2" strokeDasharray="46 100" />
-              </svg>
-              <div className="absolute text-center">
-                <span className="text-xs font-extrabold text-slate-800">46%</span>
-                <span className="text-[8px] font-bold text-slate-400 block uppercase leading-tight">Male</span>
-              </div>
-            </div>
-            <div className="flex gap-4">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#2563eb]" />
-                <span className="text-[10px] text-slate-500 font-semibold">Male: 46%</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-[#60a5fa]" />
-                <span className="text-[10px] text-slate-500 font-semibold">Female: 54%</span>
-              </div>
-            </div>
-          </div>
-        </SectionCard>
+        <motion.div {...cardMotion} transition={{ duration: 0.35, delay: 0.25 }}>
+          <SectionCard title="Gender Distribution">
+            <ChartContainer config={genderChartConfig} className="mx-auto h-[180px] w-full">
+              <PieChart>
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Pie data={genderData} dataKey="employees" nameKey="gender" innerRadius={48} outerRadius={70} strokeWidth={4}>
+                  <Label
+                    content={({ viewBox }) => {
+                      if (viewBox && 'cx' in viewBox && 'cy' in viewBox) {
+                        return (
+                          <text x={viewBox.cx} y={viewBox.cy} textAnchor="middle" dominantBaseline="middle">
+                            <tspan x={viewBox.cx} y={viewBox.cy} className="fill-slate-900 text-xl font-extrabold">
+                              {totalEmployees}
+                            </tspan>
+                            <tspan x={viewBox.cx} y={(viewBox.cy || 0) + 18} className="fill-slate-400 text-[10px] font-bold uppercase">
+                              Employees
+                            </tspan>
+                          </text>
+                        );
+                      }
+                    }}
+                  />
+                </Pie>
+                <ChartLegend content={<ChartLegendContent />} />
+              </PieChart>
+            </ChartContainer>
+          </SectionCard>
+        </motion.div>
 
-        {/* Experience Distribution columns */}
-        <SectionCard title="Experience Distribution">
-          <div className="h-32 flex items-end justify-between gap-3 px-2 pt-2">
-            {[
-              { val: 15, tag: '12%', label: '0-2', color: 'bg-lime-400' },
-              { val: 55, tag: '35%', label: '3-5', color: 'bg-blue-600' },
-              { val: 70, tag: '45%', label: '5-10', color: 'bg-yellow-400' },
-              { val: 30, tag: '20%', label: '10+', color: 'bg-[#60a5fa]' },
-            ].map((exp, idx) => (
-              <div key={idx} className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end">
-                <span className="text-[9px] font-bold text-slate-500">{exp.tag}</span>
-                <div className={`w-full rounded-md ${exp.color} transition-all duration-500`} style={{ height: `${exp.val}%` }} />
-                <span className="text-[9px] text-slate-400 font-bold tracking-tight uppercase leading-none mt-1">{exp.label}</span>
-              </div>
-            ))}
-          </div>
-        </SectionCard>
+        <motion.div {...cardMotion} transition={{ duration: 0.35, delay: 0.3 }}>
+          <SectionCard title="Experience Distribution">
+            <ChartContainer config={experienceChartConfig} className="h-[180px] w-full">
+              <BarChart data={experienceData} margin={{ top: 12, right: 8, left: -24, bottom: 0 }}>
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="range" tickLine={false} axisLine={false} tickMargin={8} fontSize={11} />
+                <YAxis allowDecimals={false} tickLine={false} axisLine={false} width={28} />
+                <ChartTooltip content={<ChartTooltipContent />} />
+                <Bar dataKey="employees" radius={[7, 7, 0, 0]}>
+                  {experienceData.map((entry) => <Cell key={entry.range} fill={entry.fill} />)}
+                </Bar>
+              </BarChart>
+            </ChartContainer>
+          </SectionCard>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { FileText, Plus, Search, ChevronDown, Check, Columns, FolderPlus, Trash2 } from 'lucide-react';
+import { ConfirmDialog } from '@/components/ui/blih';
 
 interface FormTemplate {
   id: string;
@@ -60,6 +61,7 @@ export default function EvaluationFormTab({ showAlert }: EvaluationFormTabProps)
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [builderOpen, setBuilderOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   // Builder form inputs
   const [builderForm, setBuilderForm] = useState({
@@ -125,10 +127,9 @@ export default function EvaluationFormTab({ showAlert }: EvaluationFormTabProps)
   };
 
   const handleDeleteTemplate = (id: string, name: string) => {
-    if (confirm(`Are you sure you want to delete form structure "${name}"?`)) {
-      setTemplates(prev => prev.filter(t => t.id !== id));
-      showAlert("Form template deleted from listing.", "info");
-    }
+    setTemplates(prev => prev.filter(t => t.id !== id));
+    setDeleteTarget(null);
+    showAlert("Form template deleted from listing.", "info");
   };
 
   // Filter forms
@@ -252,7 +253,7 @@ export default function EvaluationFormTab({ showAlert }: EvaluationFormTabProps)
                   Download schema
                 </button>
                 <button
-                  onClick={() => handleDeleteTemplate(t.id, t.title)}
+                  onClick={() => setDeleteTarget({ id: t.id, name: t.title })}
                   className="p-1 px-1.5 border border-rose-100 rounded-lg text-rose-500 hover:bg-rose-50 hover:border-rose-200 transition-all cursor-pointer"
                   title="Remove template"
                 >
@@ -394,6 +395,16 @@ export default function EvaluationFormTab({ showAlert }: EvaluationFormTabProps)
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDeleteTemplate(deleteTarget.id, deleteTarget.name)}
+        title="Delete Form Template"
+        description={deleteTarget ? `Delete form structure "${deleteTarget.name}"?` : undefined}
+        confirmLabel="Delete"
+        variant="destructive"
+      />
     </div>
   );
 }

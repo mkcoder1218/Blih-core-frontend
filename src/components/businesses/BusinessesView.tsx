@@ -46,6 +46,7 @@ import type { BusinessAttendanceSettingsDraft } from './attendance/attendanceSet
 import { validateAttendanceSettings } from './attendance/attendanceSettings.schema';
 import HolidayImportPanel from '../people/HolidayImportPanel';
 import PublicRegistrationConfigPanel from './PublicRegistrationConfigPanel';
+import { ConfirmDialog } from '@/components/ui/blih';
 
 type ViewBusiness = ApiBusiness & {
   legalName: string;
@@ -107,6 +108,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [adminBusiness, setAdminBusiness] = useState<ViewBusiness | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const createAdmin = useCreateBusinessAdmin(adminBusiness?.id || 'missing');
 
   // Form states
@@ -231,13 +233,12 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
   const handleDelete = async (id: string, name: string) => {
     if (!isPlatformSuperAdmin) return;
-    if (confirm(`âš ï¸ PERMANENT DELETION WARNING\n\nYou are about to permanently delete "${name}" and ALL associated data including:\nâ€¢ All users and their accounts\nâ€¢ All roles and permissions\nâ€¢ All HR records, employees, onboarding data\nâ€¢ All recruitment, interviews, job openings\nâ€¢ All finance, CRM, projects, and other module data\nâ€¢ All files, notifications, and audit logs\n\nThis action is IRREVERSIBLE and cannot be undone.\n\nType OK to confirm permanent deletion.`)) {
-      try {
-        await deleteBiz.mutateAsync(id);
-        showAlert(`Business "${name}" and all associated data permanently deleted.`, 'success');
-      } catch (e: any) {
-        showAlert(getMutationError(e) || 'Failed to delete business', 'error');
-      }
+    try {
+      await deleteBiz.mutateAsync(id);
+      setDeleteTarget(null);
+      showAlert(`Business "${name}" and all associated data permanently deleted.`, 'success');
+    } catch (e: any) {
+      showAlert(getMutationError(e) || 'Failed to delete business', 'error');
     }
   };
 
@@ -576,7 +577,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
                           <Edit2 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDelete(biz.id, biz.name)}
+                          onClick={() => setDeleteTarget({ id: biz.id, name: biz.name })}
                           title="Terminate Instance"
                           disabled={!isPlatformSuperAdmin}
                           className="p-1 px-2.5 hover:bg-rose-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
@@ -946,6 +947,16 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
           </div>
         )}
       </AnimatePresence>
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDelete(deleteTarget.id, deleteTarget.name)}
+        title="Permanently Delete Business"
+        description={deleteTarget ? `You are about to permanently delete "${deleteTarget.name}" and all associated users, HR records, recruitment, finance, files, notifications, and audit logs. This action is irreversible.` : undefined}
+        confirmLabel="Delete Permanently"
+        variant="destructive"
+        loading={deleteBiz.isPending}
+      />
 
     </div>
   );

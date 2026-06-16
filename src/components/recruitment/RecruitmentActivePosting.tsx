@@ -9,7 +9,7 @@ import {
 } from '../../hooks/useJobRequests';
 import CandidateDetailModal from './CandidateDetailModal';
 import ScheduleInterviewModal from './ScheduleInterviewModal';
-import { LoadingSpinner, EmptyState, UserAvatar, StatusBadge } from '@/components/ui/blih';
+import { LoadingSpinner, EmptyState, UserAvatar, StatusBadge, ConfirmDialog } from '@/components/ui/blih';
 
 interface Props {
   onDraftAiSuggestion: (prompt: string) => void;
@@ -37,6 +37,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [selectedJob, setSelectedJob] = useState<any>(null);
+  const [closeTarget, setCloseTarget] = useState<{ id: string; title: string } | null>(null);
 
   // Index of applicant IDs that already have an interview scheduled
   const scheduledAppIds = useMemo(() => {
@@ -113,12 +114,17 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
     });
   };
 
-  const handleCloseJob = (e: React.MouseEvent, jobId: string, jobTitle: string) => {
+  const requestCloseJob = (e: React.MouseEvent, jobId: string, jobTitle: string) => {
     e.stopPropagation();
-    if (!confirm(`Close "${jobTitle}"? It will be removed from the public careers page immediately.`)) return;
+    setCloseTarget({ id: jobId, title: jobTitle });
+  };
+
+  const handleCloseJob = () => {
+    if (!closeTarget) return;
+    const { id: jobId, title: jobTitle } = closeTarget;
     setClosingJobId(jobId);
     closeJob.mutate(jobId, {
-      onSuccess: () => { showAlert(`"${jobTitle}" closed and removed from careers page`, 'success'); setClosingJobId(null); },
+      onSuccess: () => { showAlert(`"${jobTitle}" closed and removed from careers page`, 'success'); setClosingJobId(null); setCloseTarget(null); },
       onError: (err: any) => { showAlert(err?.response?.data?.message || 'Failed to close job', 'error'); setClosingJobId(null); },
     });
   };
@@ -168,7 +174,7 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
                 </div>
                 {/* Close button — always top-right */}
                 <button
-                  onClick={(e) => handleCloseJob(e, job.id, job.title)}
+                  onClick={(e) => requestCloseJob(e, job.id, job.title)}
                   disabled={closingJobId === job.id}
                   title="Close job posting"
                   className="flex-shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-all disabled:opacity-50"
@@ -448,6 +454,16 @@ export default function RecruitmentActivePosting({ onDraftAiSuggestion, showAler
         jobApplicationId={selectedCandidate?.id}
         onSchedule={handleScheduleInterview}
         isLoading={scheduleMutation.isPending}
+      />
+      <ConfirmDialog
+        open={!!closeTarget}
+        onClose={() => setCloseTarget(null)}
+        onConfirm={handleCloseJob}
+        title="Close Job Posting"
+        description={closeTarget ? `Close "${closeTarget.title}"? It will be removed from the public careers page immediately.` : undefined}
+        confirmLabel="Close Job"
+        variant="destructive"
+        loading={!!closingJobId}
       />
     </div>
   );

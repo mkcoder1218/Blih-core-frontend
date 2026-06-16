@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Plus, ExternalLink } from "lucide-react";
+import { Plus } from "lucide-react";
 import RecruitmentOverview from "../components/recruitment/RecruitmentOverview";
 import RecruitmentRequests from "../components/recruitment/RecruitmentRequests";
 import RecruitmentReadyToPost from "../components/recruitment/RecruitmentReadyToPost";
@@ -16,7 +16,6 @@ import { api } from "../api/client";
 import { useJobRequests, useApproveJobRequest, usePublishJobRequest } from "../hooks/useJobRequests";
 import { useMe } from "../hooks/useMe";
 import { useQueryClient } from "@tanstack/react-query";
-import { PageHeader } from "@/components/ui/blih";
 
 export default function RecruitmentPage() {
   const params = useParams();
@@ -148,37 +147,17 @@ export default function RecruitmentPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
-      <PageHeader
-        eyebrow="Recruitment"
-        title="Recruitment Management"
-        description="Manage job requests, postings, candidates, and offers."
-        eyebrowTone="blue"
-        actions={
-          <div className="flex items-center gap-2">
-            {me?.business?.slug && (
-              <a
-                href={`/careers/${me.business.slug}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 text-xs font-bold text-slate-500 hover:text-blue-600 bg-slate-50 hover:bg-blue-50 border border-slate-200 hover:border-blue-200 px-4 py-2.5 rounded-xl transition-all"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                View Careers Page
-              </a>
-            )}
-            {tab === "requests" && (
-              <button
-                onClick={() => openCreateModal("job")}
-                className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl text-xs px-5 py-2.5 flex items-center gap-2 shadow-md shadow-blue-200 transition-all cursor-pointer select-none"
-              >
-                <Plus className="w-4 h-4 stroke-[3]" />
-                <span>Request a Job</span>
-              </button>
-            )}
-          </div>
-        }
-      />
+      {tab === "requests" && (
+        <div className="flex justify-end">
+          <button
+            onClick={() => openCreateModal("job")}
+            className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl text-xs px-5 py-2.5 flex items-center gap-2 shadow-md shadow-blue-200 transition-all cursor-pointer select-none"
+          >
+            <Plus className="w-4 h-4 stroke-[3]" />
+            <span>Request a Job</span>
+          </button>
+        </div>
+      )}
 
       {/* Tab Content */}
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">

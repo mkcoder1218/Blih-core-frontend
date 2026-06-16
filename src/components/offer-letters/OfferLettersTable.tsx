@@ -3,6 +3,7 @@ import { Eye, Send, X, Rocket } from 'lucide-react';
 import { sendOfferLetter } from '../../api/offerLetters';
 import { motion, AnimatePresence } from 'motion/react';
 import OnboardingInitializerModal from '../onboarding/OnboardingInitializerModal';
+import { ConfirmDialog } from '@/components/ui/blih';
 
 const STATUS_STYLE: Record<string, string> = {
   DRAFT:    'bg-slate-100 text-slate-600 border border-slate-200',
@@ -46,9 +47,9 @@ export default function OfferLettersTable({ offerLetters, showAlert, onRefresh }
   const [viewingLetter, setViewingLetter] = useState<any>(null);
   const [resending, setResending] = useState<string | null>(null);
   const [onboardingOffer, setOnboardingOffer] = useState<any>(null);
+  const [resendTarget, setResendTarget] = useState<any>(null);
 
   const handleResend = async (letter: any) => {
-    if (!confirm(`Resend offer letter to ${letter.candidateName}?`)) return;
     setResending(letter.id);
     try {
       // Build render data from the existing letter record
@@ -97,6 +98,7 @@ export default function OfferLettersTable({ offerLetters, showAlert, onRefresh }
       }
 
       showAlert(`Offer letter resent to ${letter.candidateName}`, 'success');
+      setResendTarget(null);
       onRefresh?.();
     } catch (e: any) {
       showAlert(e.response?.data?.message || e.response?.data?.error || 'Failed to resend', 'error');
@@ -167,7 +169,7 @@ export default function OfferLettersTable({ offerLetters, showAlert, onRefresh }
                       {letter.status !== 'ACCEPTED' && (
                         <button
                           disabled={resending === letter.id}
-                          onClick={() => handleResend(letter)}
+                          onClick={() => setResendTarget(letter)}
                           className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-black text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
                         >
                           <Send className="w-3.5 h-3.5" />
@@ -211,6 +213,16 @@ export default function OfferLettersTable({ offerLetters, showAlert, onRefresh }
           />
         )}
       </AnimatePresence>
+      <ConfirmDialog
+        open={!!resendTarget}
+        onClose={() => setResendTarget(null)}
+        onConfirm={() => resendTarget && handleResend(resendTarget)}
+        title="Resend Offer Letter"
+        description={resendTarget ? `Resend offer letter to ${resendTarget.candidateName}?` : undefined}
+        confirmLabel="Resend"
+        variant="primary"
+        loading={!!resending}
+      />
     </>
   );
 }

@@ -10,7 +10,7 @@ import {
 } from "../../hooks/useJobRequests";
 import { useInterviewNotifications } from "../../hooks/useSocket";
 import { useMe } from "../../hooks/useMe";
-import { LoadingSpinner, EmptyState, StatusBadge, UserAvatar, InfoAlert } from "@/components/ui/blih";
+import { LoadingSpinner, EmptyState, StatusBadge, UserAvatar, InfoAlert, ConfirmDialog } from "@/components/ui/blih";
 
 const STATUS_STYLE: Record<string, string> = {
   pending_acceptance: "bg-amber-100 text-amber-700",
@@ -98,6 +98,7 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
   const [candidateScore, setCandidateScore] = useState<number | null>(null);
   const [dirty, setDirty] = useState(false);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
+  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
 
   // Seed local state when note loads — questions are per-interviewer (already isolated on backend)
   useEffect(() => {
@@ -171,8 +172,7 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
   };
 
   const handleCancel = async () => {
-    if (!confirm("Cancel this interview?")) return;
-    try { await cancelMut.mutateAsync(iv.id); showAlert("Interview cancelled", "error"); }
+    try { await cancelMut.mutateAsync(iv.id); setConfirmCancelOpen(false); showAlert("Interview cancelled", "error"); }
     catch (e: any) { showAlert(`Failed: ${e.message}`, "error"); }
   };
 
@@ -343,7 +343,7 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
                 {completeMut.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                 {(iv.currentSession || 1) < (iv.totalSessions || 1) ? `Complete Session ${iv.currentSession || 1}` : "Complete Final Session"}
               </button>
-              <button onClick={handleCancel} disabled={cancelMut.isPending}
+              <button onClick={() => setConfirmCancelOpen(true)} disabled={cancelMut.isPending}
                 className="flex items-center justify-center gap-2 px-5 py-2.5 bg-white border border-red-200 text-red-500 rounded-2xl text-[12px] font-black hover:bg-red-50 transition-all disabled:opacity-60">
                 <XCircle className="w-4 h-4" /> Cancel Interview
               </button>
@@ -369,6 +369,16 @@ function InterviewPanel({ iv, showAlert, allSkills, onShowCreateSkill, currentUs
           <p className="text-[12px] font-black text-amber-700">Waiting for candidate to accept the interview invitation.</p>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmCancelOpen}
+        onClose={() => setConfirmCancelOpen(false)}
+        onConfirm={handleCancel}
+        title="Cancel Interview"
+        description="Cancel this interview session? The candidate and interview panel will no longer use this schedule."
+        confirmLabel="Cancel Interview"
+        variant="destructive"
+        loading={cancelMut.isPending}
+      />
     </div>
   );
 }

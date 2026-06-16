@@ -10,7 +10,7 @@ import {
 } from 'recharts';
 import OffboardingSubmitTab from './tabs/OffboardingSubmitTab';
 import ResignationsTab from './tabs/ResignationsTab';
-import { StatCard, StatCardGrid } from '@/components/ui/blih';
+import { ConfirmDialog, InputDialog, StatCard, StatCardGrid } from '@/components/ui/blih';
 import { useMe } from '../../hooks/useMe';
 import {
   useCompleteExitClearanceStep,
@@ -77,6 +77,8 @@ export default function ExitOffboardingView({
   const deleteExitForm = useDeleteExitForm();
   const updateExitForm = useUpdateExitForm();
   const { data: activeTimeline = [], isLoading: loadingActiveTimeline } = useExitTimeline(activeExitProcessId || undefined);
+  const [editFormTarget, setEditFormTarget] = useState<any | null>(null);
+  const [deleteFormTarget, setDeleteFormTarget] = useState<any | null>(null);
 
   // ── Overview state ────────────────────────────────────────────────────────
   const warnings = exitAnalytics.activeNotifications || [];
@@ -732,17 +734,10 @@ export default function ExitOffboardingView({
                     <div className="flex items-center gap-2">
                       <button
                         disabled={updateExitForm.isPending}
-                        onClick={() => {
-                          const name = window.prompt('Update form name', form.name);
-                          if (!name || name === form.name) return;
-                          updateExitForm.mutate(
-                            { id: form.id, data: { name } },
-                            { onSuccess: () => showAlert('Form updated.', 'success'), onError: (e: any) => showAlert(e.response?.data?.error || 'Failed to update form', 'error') },
-                          );
-                        }}
+                        onClick={() => setEditFormTarget(form)}
                         className="text-slate-500 hover:text-slate-700 font-bold py-1 px-2.5 rounded hover:bg-slate-100 flex items-center gap-1 disabled:opacity-50"
                       ><Edit2 className="w-3 h-3" />Edit</button>
-                      <button disabled={deleteExitForm.isPending} onClick={() => { if (window.confirm(`Delete ${form.name}?`)) deleteExitForm.mutate(form.id, { onSuccess: () => showAlert('Form deleted.', 'success'), onError: (e: any) => showAlert(e.response?.data?.error || 'Failed to delete form', 'error') }); }} className="text-red-500 hover:text-red-700 font-bold py-1 px-2.5 rounded hover:bg-red-50 flex items-center gap-1 disabled:opacity-50"><Trash2 className="w-3 h-3" />Delete</button>
+                      <button disabled={deleteExitForm.isPending} onClick={() => setDeleteFormTarget(form)} className="text-red-500 hover:text-red-700 font-bold py-1 px-2.5 rounded hover:bg-red-50 flex items-center gap-1 disabled:opacity-50"><Trash2 className="w-3 h-3" />Delete</button>
                     </div>
                   </div>
                 </div>
@@ -808,6 +803,45 @@ export default function ExitOffboardingView({
           </div>
         </div>
       )}
+      <InputDialog
+        open={!!editFormTarget}
+        onClose={() => setEditFormTarget(null)}
+        onConfirm={(name) => {
+          if (!editFormTarget || !name || name === editFormTarget.name) {
+            setEditFormTarget(null);
+            return;
+          }
+          updateExitForm.mutate(
+            { id: editFormTarget.id, data: { name } },
+            {
+              onSuccess: () => { setEditFormTarget(null); showAlert('Form updated.', 'success'); },
+              onError: (e: any) => showAlert(e.response?.data?.error || 'Failed to update form', 'error'),
+            },
+          );
+        }}
+        title="Update Form Name"
+        label="Form name"
+        initialValue={editFormTarget?.name || ''}
+        confirmLabel="Update"
+        required
+        loading={updateExitForm.isPending}
+      />
+      <ConfirmDialog
+        open={!!deleteFormTarget}
+        onClose={() => setDeleteFormTarget(null)}
+        onConfirm={() => {
+          if (!deleteFormTarget) return;
+          deleteExitForm.mutate(deleteFormTarget.id, {
+            onSuccess: () => { setDeleteFormTarget(null); showAlert('Form deleted.', 'success'); },
+            onError: (e: any) => showAlert(e.response?.data?.error || 'Failed to delete form', 'error'),
+          });
+        }}
+        title="Delete Exit Form"
+        description={deleteFormTarget ? `Delete ${deleteFormTarget.name}?` : undefined}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleteExitForm.isPending}
+      />
     </div>
   );
 }

@@ -6,12 +6,14 @@ import OfferLetterCreateModal from './OfferLetterCreateModal';
 import OfferLetterTemplateModal from './OfferLetterTemplateModal';
 import { motion } from 'motion/react';
 import { useAlert } from '../../contexts/AlertContext';
+import { ConfirmDialog } from '@/components/ui/blih';
 
 export default function OfferLettersView() {
   const [activeTab, setActiveTab] = useState<'letters' | 'templates'>('letters');
   const [createLetterOpen, setCreateLetterOpen] = useState(false);
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<any>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
 
   const { showAlert } = useAlert();
 
@@ -20,9 +22,9 @@ export default function OfferLettersView() {
   const deleteTemplate = useDeleteOfferLetterTemplate();
 
   const handleDeleteTemplate = async (t: any) => {
-    if (!confirm(`Delete template "${t.name}"?`)) return;
     try {
       await deleteTemplate.mutateAsync(t.id);
+      setDeleteTarget(null);
       showAlert('Template deleted', 'success');
     } catch {
       showAlert('Failed to delete template', 'error');
@@ -119,7 +121,7 @@ export default function OfferLettersView() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleDeleteTemplate(t);
+                          setDeleteTarget(t);
                         }}
                         disabled={deleteTemplate.isPending}
                         className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 text-[11px] font-black rounded-lg transition-colors disabled:opacity-50"
@@ -158,6 +160,16 @@ export default function OfferLettersView() {
           setEditingTemplate(null);
         }}
         initialData={editingTemplate}
+      />
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDeleteTemplate(deleteTarget)}
+        title="Delete Offer Template"
+        description={deleteTarget ? `Delete template "${deleteTarget.name}"?` : undefined}
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleteTemplate.isPending}
       />
     </div>
   );

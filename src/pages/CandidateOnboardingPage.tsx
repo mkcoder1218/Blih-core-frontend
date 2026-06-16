@@ -12,6 +12,7 @@ import {
   useSubmitOnboarding,
 } from '../hooks/useCandidateOnboarding';
 import { uploadOnboardingDocument } from '../api/candidateOnboarding';
+import { ConfirmDialog } from '@/components/ui/blih';
 
 interface Props {
   onboardingId: string;
@@ -616,6 +617,7 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
   const [resourceResponses, setResourceResponses] = useState<any[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
 
   // Sync server data into local state on load
   useEffect(() => {
@@ -673,7 +675,7 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
   const handleSubmit = async () => {
     const password = sectionData.personal_info?.password;
     if (!password || password.length < 8) {
-      alert('Please set a valid password in the Personal Info section before submitting.');
+      setPasswordModalOpen(true);
       return;
     }
     try {
@@ -895,6 +897,19 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
           </div>
         </main>
       </div>
+      <ConfirmDialog
+        open={passwordModalOpen}
+        onClose={() => setPasswordModalOpen(false)}
+        onConfirm={() => {
+          setPasswordModalOpen(false);
+          setCurrentSectionIndex(Math.max(0, sections.indexOf('personal_info')));
+        }}
+        title="Password Required"
+        description="Please set a valid password in the Personal Info section before submitting."
+        confirmLabel="Go to Personal Info"
+        cancelLabel="Close"
+        variant="primary"
+      />
     </div>
   );
 }

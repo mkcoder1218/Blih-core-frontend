@@ -40,6 +40,7 @@ export { FormField, FormRow } from './FormField';
 
 // ── Confirm / destructive dialogs ────────────────────────────────────────────
 export { ConfirmDialog } from './ConfirmDialog';
+export { InputDialog } from './InputDialog';
 
 // ── Loading / skeleton states ────────────────────────────────────────────────
 export { LoadingSpinner, PageLoadingSpinner, SkeletonLine, SkeletonBlock } from './LoadingSpinner';

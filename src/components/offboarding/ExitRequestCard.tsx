@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { CalendarPlus, CheckCircle, Eye, FileSignature, Loader2, XCircle } from 'lucide-react';
 import ExitStatusBadge from './ExitStatusBadge';
+import { InputDialog } from '@/components/ui/blih';
 
 interface Props {
   key?: React.Key;
@@ -12,6 +13,7 @@ interface Props {
 }
 
 export default function ExitRequestCard({ request, expanded, updating, onToggle, onUpdateStatus }: Props) {
+  const [inputAction, setInputAction] = useState<null | 'approve' | 'reject' | 'schedule'>(null);
   const emp = request.employee;
   const profile = emp?.BusinessUserProfile;
   const name = emp?.fullName || 'Unknown';
@@ -85,12 +87,7 @@ export default function ExitRequestCard({ request, expanded, updating, onToggle,
           {request.status === 'pending' ? (
             <div className="flex gap-2 pt-1">
               <button
-                onClick={() => {
-                  const effectiveDate = window.prompt('Confirm last working date (YYYY-MM-DD)', request.effectiveDate ? String(request.effectiveDate).slice(0, 10) : '');
-                  if (!effectiveDate) return;
-                  const approvalNote = window.prompt('Approval note (optional)', '') || '';
-                  onUpdateStatus(request.id, 'in_progress', { effectiveDate, approvalNote });
-                }}
+                onClick={() => setInputAction('approve')}
                 disabled={updating}
                 className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-[11px] font-black py-2 rounded-xl transition-colors flex items-center justify-center gap-1.5"
               >
@@ -98,22 +95,14 @@ export default function ExitRequestCard({ request, expanded, updating, onToggle,
                 Approve & Respond
               </button>
               <button
-                onClick={() => {
-                  const rejectionReason = window.prompt('Enter mandatory rejection reason');
-                  if (!rejectionReason?.trim()) return;
-                  onUpdateStatus(request.id, 'rejected', { rejectionReason });
-                }}
+                onClick={() => setInputAction('reject')}
                 disabled={updating}
                 className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 text-[11px] font-black py-2 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 <XCircle className="w-3.5 h-3.5" /> Reject
               </button>
               <button
-                onClick={() => {
-                  const interviewDate = window.prompt('Interview date (YYYY-MM-DD)');
-                  if (!interviewDate) return;
-                  onUpdateStatus(request.id, 'interview_scheduled', { interviewDate });
-                }}
+                onClick={() => setInputAction('schedule')}
                 disabled={updating}
                 className="flex-1 bg-amber-50 hover:bg-amber-100 border border-amber-100 text-amber-700 text-[11px] font-black py-2 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
@@ -129,6 +118,52 @@ export default function ExitRequestCard({ request, expanded, updating, onToggle,
           )}
         </div>
       </div>
+      <InputDialog
+        open={inputAction === 'approve'}
+        onClose={() => setInputAction(null)}
+        onConfirm={(effectiveDate) => {
+          setInputAction(null);
+          onUpdateStatus(request.id, 'in_progress', { effectiveDate, approvalNote: '' });
+        }}
+        title="Approve Resignation"
+        description="Confirm the employee's last working date."
+        label="Last working date"
+        initialValue={request.effectiveDate ? String(request.effectiveDate).slice(0, 10) : ''}
+        placeholder="YYYY-MM-DD"
+        confirmLabel="Approve"
+        required
+        loading={updating}
+      />
+      <InputDialog
+        open={inputAction === 'reject'}
+        onClose={() => setInputAction(null)}
+        onConfirm={(rejectionReason) => {
+          setInputAction(null);
+          onUpdateStatus(request.id, 'rejected', { rejectionReason });
+        }}
+        title="Reject Resignation"
+        description="Enter the mandatory rejection reason."
+        label="Reason"
+        placeholder="Reason for rejection"
+        confirmLabel="Reject"
+        required
+        loading={updating}
+      />
+      <InputDialog
+        open={inputAction === 'schedule'}
+        onClose={() => setInputAction(null)}
+        onConfirm={(interviewDate) => {
+          setInputAction(null);
+          onUpdateStatus(request.id, 'interview_scheduled', { interviewDate });
+        }}
+        title="Schedule Exit Interview"
+        description="Enter the interview date."
+        label="Interview date"
+        placeholder="YYYY-MM-DD"
+        confirmLabel="Schedule"
+        required
+        loading={updating}
+      />
     </div>
   );
 }

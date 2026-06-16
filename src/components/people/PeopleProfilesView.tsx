@@ -21,7 +21,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
 import CreateEmployeeModal from './CreateEmployeeModal';
 import BulkEmployeeImportPage from '../../pages/BulkEmployeeImportPage';
-import { StatCard, StatCardGrid, UserAvatar } from '@/components/ui/blih';
+import { StatCard, StatCardGrid, UserAvatar, ConfirmDialog } from '@/components/ui/blih';
 import EventsTab from './EventsTab';
 import PendingRegistrationsTab from './PendingRegistrationsTab';
 import DepartmentsPositionsTab from './DepartmentsPositionsTab';
@@ -348,6 +348,7 @@ export default function PeopleProfilesView({
   const [activeActionsMenu, setActiveActionsMenu] = useState<string | null>(null);
   const [updateEmployeeModalOpen, setUpdateEmployeeModalOpen] = useState(false);
   const [updateEmployeeUserId, setUpdateEmployeeUserId] = useState<string | null>(null);
+  const [deleteEmployeeUserId, setDeleteEmployeeUserId] = useState<string | null>(null);
 
   const { data: orgResult, isLoading: loadingOrg, refetch: refetchOrg } = useOrganogram();
   const orgData: OrgNode[] = (orgResult as any) ?? [];
@@ -368,9 +369,9 @@ export default function PeopleProfilesView({
   };
 
   const handleDeleteEmployee = async (userId: string) => {
-    if (!window.confirm("Are you sure you want to delete this employee record?")) return;
     try {
       await deleteEmployeeMutation.mutateAsync(userId);
+      setDeleteEmployeeUserId(null);
       showAlert("Employee record deleted successfully", "success");
     } catch (e: any) {
       showAlert(e.message || "Failed to delete record", "error");
@@ -897,7 +898,7 @@ export default function PeopleProfilesView({
                                       <button 
                                         onClick={(e) => {
                                           e.stopPropagation();
-                                          handleDeleteEmployee(emp.userId);
+                                          setDeleteEmployeeUserId(emp.userId);
                                           setActiveActionsMenu(null);
                                         }}
                                         className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-rose-500 hover:bg-rose-50 transition-colors"
@@ -1281,6 +1282,16 @@ export default function PeopleProfilesView({
         mode="update"
         targetUserId={updateEmployeeUserId || undefined}
         onSuccess={() => fetchEmployees(currentPage)}
+      />
+      <ConfirmDialog
+        open={!!deleteEmployeeUserId}
+        onClose={() => setDeleteEmployeeUserId(null)}
+        onConfirm={() => deleteEmployeeUserId && handleDeleteEmployee(deleteEmployeeUserId)}
+        title="Delete Employee Record"
+        description="Are you sure you want to delete this employee record?"
+        confirmLabel="Delete"
+        variant="destructive"
+        loading={deleteEmployeeMutation.isPending}
       />
     </div>
   );
