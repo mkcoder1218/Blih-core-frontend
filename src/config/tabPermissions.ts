@@ -65,6 +65,7 @@ export const ATTENDANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   timesheet:      { requires: ["attendance.read", "attendance.manage"] },
   leaves:         { requires: ["leave.read", "leave.approve", "attendance.self"] },
   overtime:       { requires: ["leave.read", "leave.approve", "attendance.self"] },
+  unavailable:    { requires: ["attendance.self", "attendance.manage", "attendance.checkin_correction.approve"] },
   "memo-log":     { requires: ["attendance.manage"] },
   "work-from-home": { requires: ["attendance.self", "leave.approve"] },
 };
@@ -75,7 +76,7 @@ export const PERFORMANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   performance_review: { requires: ["performance.read", "performance.manage"] },
   okrs:               { requires: ["performance.read", "performance.manage", "performance.self"] },
   kpis:               { requires: ["performance.read", "performance.manage", "performance.self"] },
-  discipline:         { requires: ["performance.manage", "hr.write"] },
+  discipline:         { requires: ["performance.self", "performance.read", "performance.manage", "hr.write"] },
   evaluation_form:    { requires: ["performance.read", "performance.manage", "performance.self"] },
 };
 

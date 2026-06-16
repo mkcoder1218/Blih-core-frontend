@@ -7,12 +7,16 @@ import {
 
 const KEY = ['disciplinary-cases'];
 
-export function useDisciplinaryCases(params?: { status?: string; severity?: string; size?: number }) {
+export function useDisciplinaryCases(params?: { status?: string; severity?: string; page?: number; size?: number }) {
   return useQuery({
     queryKey: [...KEY, params],
     queryFn: () => disciplinaryApi.list(params),
     staleTime: 30_000,
   });
+}
+
+export function useCriticalDisciplinaryCases() {
+  return useDisciplinaryCases({ status: 'open', severity: 'critical', size: 20 });
 }
 
 export function useCreateDisciplinaryCase() {

@@ -15,6 +15,10 @@ export interface DisciplinaryCase {
   actionTaken?: string | null;
   status: DisciplinaryStatus;
   metadata: Record<string, any>;
+  attendanceReasons?: {
+    unavailable?: Array<{ id: string; title: string; category?: string | null; reason: string; status: string; fromAt?: string | null; toAt?: string | null; createdAt: string }>;
+    late?: Array<{ id: string; reasonName?: string | null; customReason?: string | null; lateByMinutes: number; createdAt: string }>;
+  };
   createdAt: string;
   employee?: { id: string; fullName: string; email: string } | null;
   reporter?: { id: string; fullName: string } | null;

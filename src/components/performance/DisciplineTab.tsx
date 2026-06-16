@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { AlertOctagon, ShieldAlert, BadgeAlert, Plus, Sparkles, RefreshCw, Activity } from 'lucide-react';
 import { UserAvatar, StatusBadge, SectionCard, FormField, FormRow, LoadingSpinner, EmptyState, InfoAlert, ConfirmDialog } from '@/components/ui/blih';
+import { Button } from '@/components/ui/button';
+import { Carousel, CarouselContent, CarouselItem } from '@/components/ui/carousel';
 import { useDisciplinaryCases, useCreateDisciplinaryCase, useUpdateDisciplinaryCase } from '../../hooks/useDisciplinary';
+import { useApproveAttendanceRequest, useRejectAttendanceRequest } from '../../hooks/useAttendanceRequests';
+import { useMyPermissions } from '../../hooks/usePermissions';
 import type { DisciplinaryCase } from '../../api/disciplinary';
 import { api } from '../../api/client';
 
@@ -39,11 +43,24 @@ function severityScore(c: DisciplinaryCase): string {
   return c.severity === 'critical' ? '8.5/10' : c.severity === 'major' ? '6.5/10' : '4.0/10';
 }
 
+function shortDateTime(value?: string | null) {
+  return value ? new Date(value).toLocaleString('en-US', { month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '-';
+}
+
+function hasPendingReasons(c: DisciplinaryCase) {
+  return (c.attendanceReasons?.unavailable || []).some((item) => item.status === 'pending');
+}
+
 export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: DisciplineTabProps) {
   const queryClient = useQueryClient();
+  const { hasAny } = useMyPermissions();
+  const canManageDiscipline = hasAny('performance.manage', 'hr.write');
+  const canRunAnalysis = hasAny('performance.manage', 'attendance.manage');
   const { data, isLoading } = useDisciplinaryCases({ size: 100 });
   const createCase   = useCreateDisciplinaryCase();
   const updateCase   = useUpdateDisciplinaryCase();
+  const approveReason = useApproveAttendanceRequest();
+  const rejectReason = useRejectAttendanceRequest();
 
   const cases: DisciplinaryCase[] = data?.rows ?? [];
 
@@ -51,10 +68,14 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
   const [logIncidentOpen, setLogIncidentOpen] = useState(false);
   const [analysisRunning, setAnalysisRunning] = useState(false);
   const [analysisResetting, setAnalysisResetting] = useState(false);
+  const [caseSending, setCaseSending] = useState<'all' | 'managers' | null>(null);
   const [analysisResult, setAnalysisResult] = useState<any | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [resetAnalysisOpen, setResetAnalysisOpen] = useState(false);
-  const [analysisConfig, setAnalysisConfig] = useState({ windowDays: 30, lateThreshold: 3, dryRun: false });
+  const [analysisConfig, setAnalysisConfig] = useState({ windowDays: 30, lateThreshold: 3 });
+  const [caseStatusFilter, setCaseStatusFilter] = useState<'all' | 'open' | 'under_review' | 'closed'>('all');
+  const [caseSeverityFilter, setCaseSeverityFilter] = useState<'all' | 'minor' | 'major' | 'critical'>('all');
+  const [casePage, setCasePage] = useState(1);
   const [incidentForm, setIncidentForm] = useState({
     employeeUserId: '',
     employeeName:   '',   // display only — for search; actual submit uses employeeUserId
@@ -71,6 +92,22 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
   const scores        = cases.map(c => parseFloat(severityScore(c)));
   const avgScore      = scores.length ? (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(1) : '0.0';
   const distinctTypes = new Set(cases.map(c => c.caseType)).size;
+  const filteredCases = cases.filter((c) => {
+    const statusOk = caseStatusFilter === 'all' || c.status === caseStatusFilter;
+    const severityOk = caseSeverityFilter === 'all' || c.severity === caseSeverityFilter;
+    return statusOk && severityOk;
+  });
+  const casePageSize = 8;
+  const totalCasePages = Math.max(1, Math.ceil(filteredCases.length / casePageSize));
+  const visibleCases = filteredCases.slice((casePage - 1) * casePageSize, casePage * casePageSize);
+
+  React.useEffect(() => {
+    setCasePage(1);
+  }, [caseStatusFilter, caseSeverityFilter]);
+
+  React.useEffect(() => {
+    if (casePage > totalCasePages) setCasePage(totalCasePages);
+  }, [casePage, totalCasePages]);
 
   const handleUpdateStatus = async (id: string, status: 'under_review' | 'closed') => {
     await updateCase.mutateAsync({ id, status });
@@ -91,9 +128,11 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
       const res = await api.post('/api/v1/hr/disciplinary/analyze-attendance', {
         windowDays:    analysisConfig.windowDays,
         lateThreshold: analysisConfig.lateThreshold,
-        dryRun:        analysisConfig.dryRun,
+        dryRun:        false,
       });
       setAnalysisResult(res.data?.data ?? res.data);
+      await queryClient.invalidateQueries({ queryKey: ['disciplinary-cases'] });
+      await queryClient.refetchQueries({ queryKey: ['disciplinary-cases'] });
       showAlert(res.data?.message ?? 'Analysis complete.', 'success');
     } catch (err: any) {
       showAlert(err?.response?.data?.error ?? 'Analysis failed.', 'error');
@@ -114,6 +153,53 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
       showAlert(err?.response?.data?.error ?? 'Failed to reset attendance analysis.', 'error');
     } finally {
       setAnalysisResetting(false);
+    }
+  };
+
+  const handleSendCase = async (c: DisciplinaryCase, audience: 'all' | 'managers') => {
+    if (c.status !== 'under_review') {
+      showAlert('Review and approve this case before sending.', 'error');
+      return;
+    }
+    if (hasPendingReasons(c)) {
+      showAlert('Approve or reject the employee reason before sending this case.', 'error');
+      return;
+    }
+    setCaseSending(audience);
+    try {
+      const res = await api.post('/api/v1/hr/disciplinary/analyze-attendance/send', {
+        audience,
+        caseIds: [c.id],
+      });
+      await queryClient.invalidateQueries({ queryKey: ['disciplinary-cases'] });
+      showAlert(res.data?.message ?? 'Case notification sent.', 'success');
+    } catch (err: any) {
+      showAlert(err?.response?.data?.error ?? err?.response?.data?.message ?? 'Failed to send case notification.', 'error');
+    } finally {
+      setCaseSending(null);
+    }
+  };
+
+  const handleReasonAction = async (reasonId: string, status: 'approved' | 'rejected') => {
+    try {
+      if (status === 'approved') await approveReason.mutateAsync(reasonId);
+      else await rejectReason.mutateAsync({ id: reasonId, reason: 'Rejected during discipline review' });
+
+      if (activeCaseModal) {
+        setActiveCaseModal({
+          ...activeCaseModal,
+          attendanceReasons: {
+            ...activeCaseModal.attendanceReasons,
+            unavailable: (activeCaseModal.attendanceReasons?.unavailable || []).map((item) =>
+              item.id === reasonId ? { ...item, status } : item
+            ),
+          },
+        });
+      }
+      await queryClient.invalidateQueries({ queryKey: ['disciplinary-cases'] });
+      showAlert(status === 'approved' ? 'Reason approved.' : 'Reason rejected.', status === 'approved' ? 'success' : 'info');
+    } catch (err: any) {
+      showAlert(err?.response?.data?.message || err?.response?.data?.error || 'Failed to update reason.', 'error');
     }
   };
 
@@ -159,32 +245,36 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
                   {pendingCount} employees have active discipline tags requiring immediate review and corporate safety actions.
                 </span>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {cases.filter(c => c.status === 'open').slice(0, 2).map(c => (
-                  <div key={c.id} className="bg-white border border-rose-200 shadow-3xs p-4 rounded-2xl relative flex flex-col justify-between">
-                    <div>
-                      <div className="flex justify-between items-start gap-3">
-                        <UserAvatar name={c.employee?.fullName ?? 'Employee'} subtitle={c.employee?.email ?? ''} size="sm" />
-                        <span className="text-[10px] text-slate-400 font-bold">{c.createdAt.slice(0, 10)}</span>
+              <Carousel className="w-full">
+                <CarouselContent>
+                  {cases.filter(c => c.status === 'open').map(c => (
+                    <CarouselItem key={c.id}>
+                      <div className="h-full bg-white border border-rose-200 shadow-3xs p-4 rounded-2xl relative flex flex-col justify-between">
+                        <div>
+                          <div className="flex justify-between items-start gap-3">
+                            <UserAvatar name={c.employee?.fullName ?? 'Employee'} subtitle={c.employee?.email ?? ''} size="sm" />
+                            <span className="text-[10px] text-slate-400 font-bold">{c.createdAt.slice(0, 10)}</span>
+                          </div>
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <StatusBadge label={c.caseType.replace('_', ' ')} tone="rose" />
+                            <StatusBadge label={c.severity} tone={SEVERITY_TONE[c.severity] as any} />
+                          </div>
+                          <p className="text-[11px] font-semibold text-slate-500 mt-2.5 leading-snug line-clamp-2">"{c.description}"</p>
+                        </div>
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-4">
+                          <div className="space-y-0.5">
+                            <span className="text-[8px] font-bold text-slate-400 block uppercase">Severity Score</span>
+                            <span className="text-xs font-black text-rose-600">{severityScore(c)}</span>
+                          </div>
+                          <Button onClick={() => setActiveCaseModal(c)} className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg">
+                            Review Case
+                          </Button>
+                        </div>
                       </div>
-                      <div className="mt-4 flex flex-wrap items-center gap-2">
-                        <StatusBadge label={c.caseType.replace('_', ' ')} tone="rose" />
-                        <StatusBadge label={c.severity} tone={SEVERITY_TONE[c.severity] as any} />
-                      </div>
-                      <p className="text-[11px] font-semibold text-slate-500 mt-2.5 leading-snug line-clamp-2">"{c.description}"</p>
-                    </div>
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between gap-4">
-                      <div className="space-y-0.5">
-                        <span className="text-[8px] font-bold text-slate-400 block uppercase">Severity Score</span>
-                        <span className="text-xs font-black text-rose-600">{severityScore(c)}</span>
-                      </div>
-                      <button onClick={() => setActiveCaseModal(c)} className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-1.5 px-3 rounded-lg flex items-center gap-1.5 transition-colors cursor-pointer">
-                        Review Case
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+                    </CarouselItem>
+                  ))}
+                </CarouselContent>
+              </Carousel>
             </div>
           </div>
         </div>
@@ -210,35 +300,94 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
             <span className="text-[8px] font-bold text-slate-405 block uppercase">Issue Types</span>
             <span className="text-lg font-black text-slate-900 leading-none block">{distinctTypes}</span>
           </div>
-          <button onClick={() => setLogIncidentOpen(true)} className="bg-slate-950 hover:bg-slate-900 text-white text-xs font-black py-2 px-3.5 rounded-xl flex items-center gap-1 cursor-pointer transition-all">
-            <Plus className="w-4 h-4 shrink-0" />
-            <span>Document Incident</span>
-          </button>
-          <button
-            onClick={() => setAnalysisOpen(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-black py-2 px-3.5 rounded-xl flex items-center gap-1 cursor-pointer transition-all"
-          >
-            <Activity className="w-4 h-4 shrink-0" />
-            <span>Run Attendance Analysis</span>
-          </button>
-          <button
-            onClick={() => setResetAnalysisOpen(true)}
-            disabled={analysisResetting || cases.length === 0}
-            className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-black py-2 px-3.5 rounded-xl flex items-center gap-1 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <RefreshCw className={`w-4 h-4 shrink-0 ${analysisResetting ? 'animate-spin' : ''}`} />
-            <span>Reset Analysis</span>
-          </button>
+          {canManageDiscipline && (
+            <button onClick={() => setLogIncidentOpen(true)} className="bg-slate-950 hover:bg-slate-900 text-white text-xs font-black py-2 px-3.5 rounded-xl flex items-center gap-1 cursor-pointer transition-all">
+              <Plus className="w-4 h-4 shrink-0" />
+              <span>Document Incident</span>
+            </button>
+          )}
+          {canRunAnalysis && (
+            <>
+              <button
+                onClick={() => setAnalysisOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-black py-2 px-3.5 rounded-xl flex items-center gap-1 cursor-pointer transition-all"
+              >
+                <Activity className="w-4 h-4 shrink-0" />
+                <span>Run Attendance Analysis</span>
+              </button>
+              <button
+                onClick={() => setResetAnalysisOpen(true)}
+                disabled={analysisResetting || cases.length === 0}
+                className="bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-black py-2 px-3.5 rounded-xl flex items-center gap-1 cursor-pointer transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-4 h-4 shrink-0 ${analysisResetting ? 'animate-spin' : ''}`} />
+                <span>Reset Analysis</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       {/* All cases grid */}
-      <SectionCard title={`All Incident Files (${cases.length})`}>
-        {cases.length === 0 ? (
+      <SectionCard title={`Incident Files (${filteredCases.length})`}>
+        <div className="mb-4 flex flex-col gap-3 border-b border-slate-100 pb-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <FormField label="Status">
+              <select
+                value={caseStatusFilter}
+                onChange={(e) => setCaseStatusFilter(e.target.value as any)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="all">All statuses</option>
+                <option value="open">Awaiting Action</option>
+                <option value="under_review">Reviewed</option>
+                <option value="closed">Closed</option>
+              </select>
+            </FormField>
+            <FormField label="Severity">
+              <select
+                value={caseSeverityFilter}
+                onChange={(e) => setCaseSeverityFilter(e.target.value as any)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer"
+              >
+                <option value="all">All severity</option>
+                <option value="critical">Critical</option>
+                <option value="major">Major</option>
+                <option value="minor">Minor</option>
+              </select>
+            </FormField>
+          </div>
+          <div className="flex items-center justify-between gap-3 text-xs font-bold text-slate-500 lg:justify-end">
+            <span>
+              Page {casePage} of {totalCasePages}
+            </span>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={casePage <= 1}
+                onClick={() => setCasePage((p) => Math.max(1, p - 1))}
+                className="rounded-xl text-xs font-bold"
+              >
+                Previous
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={casePage >= totalCasePages}
+                onClick={() => setCasePage((p) => Math.min(totalCasePages, p + 1))}
+                className="rounded-xl text-xs font-bold"
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </div>
+        {filteredCases.length === 0 ? (
           <EmptyState title="No disciplinary cases on record" compact />
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
-            {cases.map(c => (
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-2">
+            {visibleCases.map(c => (
               <div key={c.id} onClick={() => setActiveCaseModal(c)}
                 className="bg-slate-50/50 hover:bg-white border hover:border-slate-350 border-slate-100/80 p-3.5 rounded-2xl cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs space-y-4">
                 <div>
@@ -314,35 +463,105 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
                   </p>
                 </div>
               )}
-              <div className="bg-blue-50/30 border border-blue-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="space-y-1 text-xs">
-                  <h5 className="font-extrabold text-blue-900 flex items-center gap-1">
-                    <Sparkles className="w-4 h-4 text-blue-600 fill-blue-600" />
-                    AI Corrective Action Advisor
-                  </h5>
-                  <p className="text-slate-500 font-medium">Draft progressive warning, suspension or PIP recommendations aligned to compliance guidelines.</p>
+              {((activeCaseModal.attendanceReasons?.late?.length || 0) > 0 || (activeCaseModal.attendanceReasons?.unavailable?.length || 0) > 0) && (
+                <div className="space-y-3">
+                  <span className="text-[9px] font-black uppercase text-slate-400 block tracking-wider">Employee Reasons</span>
+                  {(activeCaseModal.attendanceReasons?.late || []).map((item) => (
+                    <div key={item.id} className="bg-amber-50/70 border border-amber-100 rounded-xl p-3 text-xs">
+                      <div className="flex justify-between gap-3 font-black text-amber-900">
+                        <span>Late check-in: {item.reasonName || 'Custom reason'}</span>
+                        <span>{item.lateByMinutes}m late</span>
+                      </div>
+                      {item.customReason && <p className="text-[11px] font-semibold text-slate-600 mt-1">{item.customReason}</p>}
+                      <p className="text-[10px] font-bold text-slate-400 mt-1">{shortDateTime(item.createdAt)}</p>
+                    </div>
+                  ))}
+                  {(activeCaseModal.attendanceReasons?.unavailable || []).map((item) => (
+                    <div key={item.id} className="bg-blue-50/70 border border-blue-100 rounded-xl p-3 text-xs space-y-2">
+                      <div className="flex flex-wrap justify-between gap-3 font-black text-blue-900">
+                        <span>{item.title}</span>
+                        <span className="uppercase">{item.status}</span>
+                      </div>
+                      <p className="text-[11px] font-semibold text-slate-600 mt-1">{item.reason}</p>
+                      <p className="text-[10px] font-bold text-slate-400 mt-1">{shortDateTime(item.fromAt)} to {shortDateTime(item.toAt)}</p>
+                      {canManageDiscipline && item.status === 'pending' && (
+                        <div className="flex flex-col gap-2 pt-2 sm:flex-row sm:justify-end">
+                          <Button
+                            type="button"
+                            onClick={() => handleReasonAction(item.id, 'approved')}
+                            disabled={approveReason.isPending || rejectReason.isPending}
+                            className="rounded-xl bg-blue-600 text-xs font-bold text-white hover:bg-blue-700"
+                          >
+                            Approve Reason
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            onClick={() => handleReasonAction(item.id, 'rejected')}
+                            disabled={approveReason.isPending || rejectReason.isPending}
+                            className="rounded-xl border-rose-200 bg-white text-xs font-bold text-rose-600 hover:bg-rose-50"
+                          >
+                            Reject
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
-                <button onClick={() => handleAiAdvisor(activeCaseModal)}
-                  className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs p-2.5 px-4 rounded-xl flex items-center gap-1 cursor-pointer w-full sm:w-auto shrink-0 justify-center transition-colors">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Draft corrective PIP
-                </button>
-              </div>
-            </div>
-            <div className="flex justify-between gap-2 border-t border-slate-100 pt-3">
-              <button onClick={() => handleUpdateStatus(activeCaseModal.id, 'closed')}
-                disabled={updateCase.isPending}
-                className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50">
-                Archive & Close
-              </button>
-              <div className="flex gap-2">
-                <button onClick={() => setActiveCaseModal(null)} className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 cursor-pointer">Dismiss</button>
-                {activeCaseModal.status === 'open' && (
-                  <button onClick={() => handleUpdateStatus(activeCaseModal.id, 'under_review')}
-                    disabled={updateCase.isPending}
-                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer disabled:opacity-50">
-                    Mark as Reviewed
+              )}
+              {canManageDiscipline && (
+                <div className="bg-blue-50/30 border border-blue-100 p-4 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <div className="space-y-1 text-xs">
+                    <h5 className="font-extrabold text-blue-900 flex items-center gap-1">
+                      <Sparkles className="w-4 h-4 text-blue-600 fill-blue-600" />
+                      AI Corrective Action Advisor
+                    </h5>
+                    <p className="text-slate-500 font-medium">Draft progressive warning, suspension or PIP recommendations aligned to compliance guidelines.</p>
+                  </div>
+                  <button onClick={() => handleAiAdvisor(activeCaseModal)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs p-2.5 px-4 rounded-xl flex items-center gap-1 cursor-pointer w-full sm:w-auto shrink-0 justify-center transition-colors">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Draft corrective PIP
                   </button>
+                </div>
+              )}
+            </div>
+            <div className="flex flex-col gap-3 border-t border-slate-100 pt-3 sm:flex-row sm:items-center sm:justify-between">
+              {canManageDiscipline ? (
+                <Button onClick={() => handleUpdateStatus(activeCaseModal.id, 'closed')}
+                  disabled={updateCase.isPending}
+                  className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl">
+                  Archive & Close
+                </Button>
+              ) : <span />}
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+                <Button variant="outline" onClick={() => setActiveCaseModal(null)} className="rounded-xl text-xs font-bold text-slate-500">Dismiss</Button>
+                {canManageDiscipline && activeCaseModal.status === 'open' && (
+                  <Button onClick={() => handleUpdateStatus(activeCaseModal.id, 'under_review')}
+                    disabled={updateCase.isPending}
+                    className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl">
+                    Mark as Reviewed
+                  </Button>
+                )}
+                {canManageDiscipline && activeCaseModal.metadata?.autoGenerated && (
+                  <>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSendCase(activeCaseModal, 'managers')}
+                      disabled={activeCaseModal.status !== 'under_review' || hasPendingReasons(activeCaseModal) || caseSending !== null || Boolean(activeCaseModal.metadata?.notificationStatus?.managersSentAt)}
+                      className="border-blue-200 bg-blue-50 text-blue-700 rounded-xl text-xs font-bold hover:bg-blue-100"
+                    >
+                      {caseSending === 'managers' ? 'Sending...' : 'Send for Managers'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => handleSendCase(activeCaseModal, 'all')}
+                      disabled={activeCaseModal.status !== 'under_review' || hasPendingReasons(activeCaseModal) || caseSending !== null || Boolean(activeCaseModal.metadata?.notificationStatus?.employeesSentAt)}
+                      className="border-rose-200 bg-rose-50 text-rose-700 rounded-xl text-xs font-bold hover:bg-rose-100"
+                    >
+                      {caseSending === 'all' ? 'Sending...' : 'Send for All'}
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
@@ -439,9 +658,9 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
             {!analysisResult && (
               <div className="space-y-4">
                 <p className="text-xs text-slate-500 leading-relaxed">
-                  This will scan all employee attendance records for the selected window, identify missed and late check-ins, calculate a severity score, and auto-create disciplinary cases for employees above the threshold. Employees will be notified directly.
+                  This scans attendance records, creates review cases for employees above the threshold, and keeps notifications paused until each case is approved and sent from its incident file.
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <FormField label="Look-back Window (days)">
                     <input type="number" min={7} max={365} value={analysisConfig.windowDays}
                       onChange={e => setAnalysisConfig(p => ({ ...p, windowDays: Number(e.target.value) }))}
@@ -452,18 +671,10 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
                       onChange={e => setAnalysisConfig(p => ({ ...p, lateThreshold: Number(e.target.value) }))}
                       className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none focus:bg-white" />
                   </FormField>
-                  <FormField label="Mode">
-                    <select value={analysisConfig.dryRun ? 'dry' : 'live'}
-                      onChange={e => setAnalysisConfig(p => ({ ...p, dryRun: e.target.value === 'dry' }))}
-                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold focus:outline-none cursor-pointer">
-                      <option value="live">Live — create cases & notify</option>
-                      <option value="dry">Dry Run — report only</option>
-                    </select>
-                  </FormField>
                 </div>
                 <InfoAlert
                   variant="info"
-                  message="Employees with missed or late days above the threshold will receive a notification directly. No admin notifications are sent."
+                  message="No employee or manager notifications are sent during analysis. Open each case, approve review, then send it individually."
                 />
                 <div className="flex justify-end gap-3 pt-2">
                   <button onClick={() => setAnalysisOpen(false)} className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 cursor-pointer">Cancel</button>
@@ -496,10 +707,6 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
                     </div>
                   ))}
                 </div>
-
-                {analysisConfig.dryRun && (
-                  <InfoAlert variant="warning" message="Dry run — no cases were created. Switch to Live mode to take action." />
-                )}
 
                 {/* Per-employee report */}
                 {(analysisResult.report ?? []).length === 0 ? (
@@ -559,3 +766,4 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
     </div>
   );
 }
+

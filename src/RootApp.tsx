@@ -3,6 +3,7 @@ import { useAccessToken } from "./api/authState";
 import AuthGuard from "./components/AuthGuard";
 import RequiredFullNameModal from "./components/RequiredFullNameModal";
 import RequiredDeviceRegistrationModal from "./components/RequiredDeviceRegistrationModal";
+import CriticalDisciplineModal from "./components/performance/CriticalDisciplineModal";
 import LoginPage from "./pages/LoginPage";
 import { useMe } from "./hooks/useMe";
 import { setLegacyUser } from "./api/legacyUserStore";
@@ -60,6 +61,7 @@ export default function RootApp() {
                 <SyncLegacyUser />
                 <RequiredFullNameModal />
                 <RequiredDeviceRegistrationModal />
+                <CriticalDisciplineModal />
                 <Routes>
                   <Route path="/unauthorized" element={<UnauthorizedPage />} />
                   <Route path="/" element={<AppShell />}>

@@ -22,9 +22,10 @@ import AttendanceRequestsTab from './AttendanceRequestsTab';
 import AttendanceTimesheetTab from './AttendanceTimesheetTab';
 import AttendanceMemoLogTab from './AttendanceMemoLogTab';
 import AttendanceWfhTab from './AttendanceWfhTab';
+import AttendanceUnavailableTab from './AttendanceUnavailableTab';
 
 interface AttendanceViewProps {
-  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'memo-log' | 'work-from-home';
+  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -281,6 +282,12 @@ export default function AttendanceView({
               setWfhRequests={setWfhRequests}
               previousLeaves={previousLeaves}
             />
+          </React.Fragment>
+        )}
+
+        {currentAttendanceTab === 'unavailable' && (
+          <React.Fragment key="unavailable">
+            <AttendanceUnavailableTab showAlert={showAlert} />
           </React.Fragment>
         )}
 

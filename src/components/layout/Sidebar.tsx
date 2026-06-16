@@ -4,6 +4,7 @@
  */
 
 import { useMyPermissions } from '../../hooks/usePermissions';
+import { useCriticalDisciplinaryCases } from '../../hooks/useDisciplinary';
 import {
   RECRUITMENT_TAB_PERMISSIONS,
   ONBOARDING_TAB_PERMISSIONS,
@@ -100,6 +101,8 @@ export default function Sidebar({
 }: SidebarProps) {
   const navigate = useNavigate();
   const { hasAny, isSuperAdmin } = useMyPermissions();
+  const { data: criticalDisciplineData } = useCriticalDisciplinaryCases();
+  const criticalDisciplineCount = criticalDisciplineData?.total ?? criticalDisciplineData?.rows?.length ?? 0;
 
   // ── Helper: filter a tab list by the permission map ───────────────────────
   function allowedTabs<T extends { id: string }>(
@@ -137,7 +140,7 @@ export default function Sidebar({
     { id: 'onboarding',  label: 'Onboarding & Probation', icon: UserCheck,       badge: 0 },
     { id: 'profiles',    label: 'People Profiles',        icon: Users,           badge: 0 },
     { id: 'attendance',  label: 'Attendance & Leave',     icon: Calendar,        badge: 0 },
-    { id: 'performance', label: 'Performance',            icon: TrendingUp,      badge: 0 },
+    { id: 'performance', label: 'Performance',            icon: TrendingUp,      badge: criticalDisciplineCount },
     { id: 'talent',      label: 'Career Management',      icon: GraduationCap,   badge: 0 },
     { id: 'exit',        label: 'Exit & Offboarding',     icon: LogOut,          badge: 0 },
     { id: 'finance',     label: 'Workforce Finance',      icon: CircleDollarSign,badge: 0 },
@@ -196,6 +199,7 @@ export default function Sidebar({
     { id: 'timesheet',      label: 'Timesheet',         badge: 0 },
     { id: 'leaves',         label: 'Leaves',            badge: 0 },
     { id: 'overtime',       label: 'Overtime',          badge: 0 },
+    { id: 'unavailable',    label: 'Unavailable',       badge: 0 },
     { id: 'memo-log',       label: 'Memo Log',          badge: 0 },
     { id: 'work-from-home', label: 'Work-from-Home',    badge: 0 },
   ] as const;
@@ -239,7 +243,7 @@ export default function Sidebar({
     { id: 'performance_review', label: 'Performance Review', badge: 0 },
     { id: 'okrs',               label: 'OKRs',               badge: 0 },
     { id: 'kpis',               label: 'KPIs',               badge: 0 },
-    { id: 'discipline',         label: 'Discipline',         badge: 0 },
+    { id: 'discipline',         label: 'Discipline',         badge: criticalDisciplineCount },
     { id: 'evaluation_form',    label: 'Evaluation Form',    badge: 0 },
   ] as const;
 
@@ -296,9 +300,9 @@ export default function Sidebar({
         : 'text-slate-600 hover:bg-slate-50/50 hover:text-slate-900'
     }`;
 
-  const Badge = ({ count }: { count: number }) =>
+  const Badge = ({ count, tone = 'blue' }: { count: number; tone?: 'blue' | 'red' }) =>
     count > 0 ? (
-      <span className="bg-blue-600 text-[10px] text-white font-semibold px-1.5 py-0.5 rounded-full inline-flex items-center justify-center min-w-[18px]">
+      <span className={`${tone === 'red' ? 'bg-red-600' : 'bg-blue-600'} text-[10px] text-white font-semibold px-1.5 py-0.5 rounded-full inline-flex items-center justify-center min-w-[18px]`}>
         {count}
       </span>
     ) : null;
@@ -350,7 +354,7 @@ export default function Sidebar({
                   >
                     <Icon className="w-5 h-5" />
                     {m.badge > 0 && !isActive && (
-                      <span className="absolute top-1 right-1 w-2.5 h-2.5 bg-sky-300 rounded-full border-2 border-[#1a56db]" />
+                      <span className={`absolute top-1 right-1 w-2.5 h-2.5 ${m.id === 'performance' ? 'bg-red-400' : 'bg-sky-300'} rounded-full border-2 border-[#1a56db]`} />
                     )}
                   </button>
                 );
@@ -443,7 +447,7 @@ export default function Sidebar({
               {currentModule === 'performance' && performanceTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentPerformanceTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/performance` : `/${roleSegment}/performance/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentPerformanceTab === tab.id)}>
                   <span>{tab.label}</span>
-                  <Badge count={tab.badge} />
+                  <Badge count={tab.badge} tone={tab.id === 'discipline' ? 'red' : 'blue'} />
                 </button>
               ))}
 
@@ -541,7 +545,7 @@ export default function Sidebar({
                   <span className="tracking-tight">{m.label}</span>
                 </div>
                 {m.badge > 0 && (
-                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center justify-center min-w-[20px] ${isActive ? 'bg-[#1a56db] text-white' : 'bg-white text-[#1a56db]'}`}>
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold inline-flex items-center justify-center min-w-[20px] ${m.id === 'performance' ? 'bg-red-600 text-white' : isActive ? 'bg-[#1a56db] text-white' : 'bg-white text-[#1a56db]'}`}>
                     {m.badge}
                   </span>
                 )}
