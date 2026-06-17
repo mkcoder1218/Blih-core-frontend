@@ -22,6 +22,7 @@ import { useRevertMyAttendanceEvent } from "../../hooks/useRevertMyAttendanceEve
 import type { AttendanceEventType, BusinessAttendanceSettings } from "../../api/types";
 import LateCheckInModal from "./LateCheckInModal";
 import { useGenerateTelegramLinkCode, useUnlinkMyTelegram } from "../../hooks/useTelegramLinkCode";
+import { ConfirmDialog } from "@/components/ui/blih";
 
 // ---------------------------------------------------------------------------
 // Local types
@@ -226,6 +227,8 @@ export default function EmployeeAttendancePage() {
   const [lateByMinutes, setLateByMinutes] = React.useState(0);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [confirmRevertOpen, setConfirmRevertOpen] = React.useState(false);
+  const [useExistingLateReasonsOpen, setUseExistingLateReasonsOpen] = React.useState(false);
+  const [pendingLateCheckIn, setPendingLateCheckIn] = React.useState<{ latitude: number; longitude: number } | null>(null);
 
   // Compute how many minutes late a check-in right now would be, using the
   // same logic as the backend (defaultStartTime + lateGracePeriodMinutes vs current local time).
@@ -257,19 +260,9 @@ export default function EmployeeAttendancePage() {
       const late = computeLateByMinutes();
       if (late > 0) {
         if (dailyLateReasons.length > 0) {
-          const ok = window.confirm(`You already submitted ${dailyLateReasons.length} late reason(s) for today. Use them for this check-in?`);
-          if (ok) {
-            try {
-              await createEvent.mutateAsync({
-                type,
-                latitude: coords.latitude,
-                longitude: coords.longitude,
-              });
-            } catch (e: any) {
-              setSubmitError(e?.response?.data?.message || e?.message || "Failed to record event");
-            }
-            return;
-          }
+          setPendingLateCheckIn({ latitude: coords.latitude, longitude: coords.longitude });
+          setUseExistingLateReasonsOpen(true);
+          return;
         }
         setLateByMinutes(late);
         setLateModalOpen(true);
@@ -662,6 +655,36 @@ export default function EmployeeAttendancePage() {
             setLateModalOpen(false);
           }
         }}
+      />
+
+      <ConfirmDialog
+        open={useExistingLateReasonsOpen}
+        onClose={() => {
+          setUseExistingLateReasonsOpen(false);
+          setPendingLateCheckIn(null);
+        }}
+        onConfirm={async () => {
+          if (!pendingLateCheckIn) return;
+          setSubmitError(null);
+          try {
+            await createEvent.mutateAsync({
+              type: "CHECK_IN",
+              latitude: pendingLateCheckIn.latitude,
+              longitude: pendingLateCheckIn.longitude,
+            });
+          } catch (e: any) {
+            setSubmitError(e?.response?.data?.message || e?.message || "Failed to record event");
+          } finally {
+            setUseExistingLateReasonsOpen(false);
+            setPendingLateCheckIn(null);
+          }
+        }}
+        title="Use existing late reasons?"
+        description={`You already submitted ${dailyLateReasons.length} late reason(s) for today. Use them for this check-in?`}
+        confirmLabel="Use reasons"
+        cancelLabel="Cancel"
+        variant="primary"
+        loading={createEvent.isPending}
       />
 
       {/* ── Timeline card ── */}
