@@ -2,11 +2,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ApiEnvelope, PositionsResponse, CreatePositionRequest } from "../api/types";
 
-export function usePositions() {
+type ListParams = { page?: number; size?: number; search?: string; departmentId?: string };
+
+export function usePositions(params: ListParams = {}) {
   return useQuery({
-    queryKey: ["positions"],
+    queryKey: ["positions", params],
     queryFn: async () => {
-      const res = await api.get<ApiEnvelope<PositionsResponse>>("/api/v1/positions");
+      const res = await api.get<ApiEnvelope<PositionsResponse>>("/api/v1/positions", { params });
       return res.data.data;
     },
   });

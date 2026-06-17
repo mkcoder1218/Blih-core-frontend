@@ -2,11 +2,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ApiEnvelope, DepartmentsResponse, CreateDepartmentRequest } from "../api/types";
 
-export function useDepartments() {
+type ListParams = { page?: number; size?: number; search?: string };
+
+export function useDepartments(params: ListParams = {}) {
   return useQuery({
-    queryKey: ["departments"],
+    queryKey: ["departments", params],
     queryFn: async () => {
-      const res = await api.get<ApiEnvelope<DepartmentsResponse>>("/api/v1/departments");
+      const res = await api.get<ApiEnvelope<DepartmentsResponse>>("/api/v1/departments", { params });
       return res.data.data;
     },
   });

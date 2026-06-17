@@ -13,8 +13,13 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
   const canUpdatePos = perms.hasAny("position.update");
   const canDeleteDept = perms.hasAny("department.delete");
   const canDeletePos = perms.hasAny("position.delete");
-  const departments = useDepartments();
-  const positions = usePositions();
+  const pageSize = 8;
+  const [deptPage, setDeptPage] = React.useState(1);
+  const [posPage, setPosPage] = React.useState(1);
+  const departments = useDepartments({ page: deptPage, size: pageSize });
+  const positions = usePositions({ page: posPage, size: pageSize });
+  const allDepartmentsQuery = useDepartments({ page: 1, size: 1000 });
+  const allPositionsQuery = usePositions({ page: 1, size: 1000 });
   const createDept = useCreateDepartment();
   const updateDept = useUpdateDepartment();
   const deleteDept = useDeleteDepartment();
@@ -26,8 +31,6 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
   const [posDeptId, setPosDeptId] = React.useState("");
   const [editingDept, setEditingDept] = React.useState<Record<string, string>>({});
   const [editingPos, setEditingPos] = React.useState<Record<string, { title: string; departmentId: string }>>({});
-  const [deptPage, setDeptPage] = React.useState(1);
-  const [posPage, setPosPage] = React.useState(1);
   const [reassignTarget, setReassignTarget] = React.useState<null | {
     type: "department" | "position";
     id: string;
@@ -47,12 +50,13 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
 
   const deptRows = departments.data?.departments || [];
   const posRows = positions.data?.positions || [];
+  const allDeptRows = allDepartmentsQuery.data?.departments || deptRows;
+  const allPosRows = allPositionsQuery.data?.positions || posRows;
+  const deptCount = departments.data?.count ?? deptRows.length;
+  const posCount = positions.data?.count ?? posRows.length;
   const affectedEmployees = reassignTarget?.employees || [];
-  const pageSize = 8;
-  const deptTotalPages = Math.max(1, Math.ceil(deptRows.length / pageSize));
-  const posTotalPages = Math.max(1, Math.ceil(posRows.length / pageSize));
-  const visibleDeptRows = deptRows.slice((deptPage - 1) * pageSize, deptPage * pageSize);
-  const visiblePosRows = posRows.slice((posPage - 1) * pageSize, posPage * pageSize);
+  const deptTotalPages = Math.max(1, Math.ceil(deptCount / pageSize));
+  const posTotalPages = Math.max(1, Math.ceil(posCount / pageSize));
 
   React.useEffect(() => {
     setDeptPage((page) => Math.min(page, deptTotalPages));
@@ -158,7 +162,7 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
         <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2 font-black text-sm"><Building2 className="w-4 h-4 text-blue-600" /> Departments</div>
-            <div className="text-[11px] font-bold text-slate-400">{deptRows.length} total</div>
+            <div className="text-[11px] font-bold text-slate-400">{deptCount} total</div>
           </div>
           {canCreateDept && (
             <div className="p-4 border-b border-slate-100 flex gap-2">
@@ -167,7 +171,7 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
             </div>
           )}
           <div className="divide-y divide-slate-100">
-            {visibleDeptRows.map((dept: Department) => {
+            {deptRows.map((dept: Department) => {
               const value = editingDept[dept.id] ?? dept.name;
               return (
                 <div key={dept.id} className="p-4 flex items-center gap-2">
@@ -187,14 +191,14 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
                 </div>
               );
             })}
-            {!visibleDeptRows.length ? (
+            {!deptRows.length ? (
               <div className="p-6 text-center text-xs font-semibold text-slate-500">No departments yet.</div>
             ) : null}
           </div>
           <PaginationFooter
             page={deptPage}
             totalPages={deptTotalPages}
-            total={deptRows.length}
+            total={deptCount}
             pageSize={pageSize}
             onPrev={() => setDeptPage((page) => Math.max(1, page - 1))}
             onNext={() => setDeptPage((page) => Math.min(deptTotalPages, page + 1))}
@@ -204,27 +208,27 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
         <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2 font-black text-sm"><Briefcase className="w-4 h-4 text-blue-600" /> Positions</div>
-            <div className="text-[11px] font-bold text-slate-400">{posRows.length} total</div>
+            <div className="text-[11px] font-bold text-slate-400">{posCount} total</div>
           </div>
           {canCreatePos && (
             <div className="p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
               <input value={posTitle} onChange={(e) => setPosTitle(e.target.value)} placeholder="New position title" className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold" />
               <select value={posDeptId} onChange={(e) => setPosDeptId(e.target.value)} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold">
                 <option value="">Select department</option>
-                {deptRows.map((dept: Department) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+                {allDeptRows.map((dept: Department) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
               </select>
               <button onClick={savePos} disabled={createPos.isPending} className="rounded-xl bg-blue-600 px-3 py-2 text-xs font-black text-white">Create</button>
             </div>
           )}
           <div className="divide-y divide-slate-100">
-            {visiblePosRows.map((pos: Position) => {
+            {posRows.map((pos: Position) => {
               const value = editingPos[pos.id] || { title: pos.title, departmentId: pos.departmentId || "" };
               return (
                 <div key={pos.id} className="p-4 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
                   <input disabled={!canUpdatePos} value={value.title} onChange={(e) => setEditingPos((p) => ({ ...p, [pos.id]: { ...value, title: e.target.value } }))} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold disabled:bg-slate-50" />
                   <select disabled={!canUpdatePos} value={value.departmentId} onChange={(e) => setEditingPos((p) => ({ ...p, [pos.id]: { ...value, departmentId: e.target.value } }))} className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold disabled:bg-slate-50">
                     <option value="">No department</option>
-                    {deptRows.map((dept: Department) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
+                    {allDeptRows.map((dept: Department) => <option key={dept.id} value={dept.id}>{dept.name}</option>)}
                   </select>
                   <div className="flex items-center gap-2">
                   {canUpdatePos && (
@@ -241,14 +245,14 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
                 </div>
               );
             })}
-            {!visiblePosRows.length ? (
+            {!posRows.length ? (
               <div className="p-6 text-center text-xs font-semibold text-slate-500">No positions yet.</div>
             ) : null}
           </div>
           <PaginationFooter
             page={posPage}
             totalPages={posTotalPages}
-            total={posRows.length}
+            total={posCount}
             pageSize={pageSize}
             onPrev={() => setPosPage((page) => Math.max(1, page - 1))}
             onNext={() => setPosPage((page) => Math.min(posTotalPages, page + 1))}
@@ -298,8 +302,8 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
                     >
                       <option value="">Select</option>
                       {reassignTarget.type === "department"
-                        ? deptRows.filter((d: Department) => d.id !== reassignTarget.id).map((d: Department) => <option key={d.id} value={d.id}>{d.name}</option>)
-                        : posRows.filter((p: Position) => p.id !== reassignTarget.id).map((p: Position) => <option key={p.id} value={p.id}>{p.title}</option>)
+                        ? allDeptRows.filter((d: Department) => d.id !== reassignTarget.id).map((d: Department) => <option key={d.id} value={d.id}>{d.name}</option>)
+                        : allPosRows.filter((p: Position) => p.id !== reassignTarget.id).map((p: Position) => <option key={p.id} value={p.id}>{p.title}</option>)
                       }
                     </select>
                   </div>

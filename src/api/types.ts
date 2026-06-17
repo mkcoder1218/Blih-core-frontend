@@ -359,6 +359,7 @@ export type Department = {
 
 export type DepartmentsResponse = {
   departments: Department[];
+  count?: number;
 };
 
 export type CreateDepartmentRequest = {
@@ -377,6 +378,7 @@ export type Position = {
 
 export type PositionsResponse = {
   positions: Position[];
+  count?: number;
 };
 
 export type CreatePositionRequest = {
