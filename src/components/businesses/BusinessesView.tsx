@@ -47,6 +47,7 @@ import { validateAttendanceSettings } from './attendance/attendanceSettings.sche
 import HolidayImportPanel from '../people/HolidayImportPanel';
 import PublicRegistrationConfigPanel from './PublicRegistrationConfigPanel';
 import { ConfirmDialog } from '@/components/ui/blih';
+import TelegramAttendanceIntegrationsPanel from './TelegramAttendanceIntegrationsPanel';
 
 type ViewBusiness = ApiBusiness & {
   legalName: string;
@@ -370,6 +371,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
         <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">External Integrations</h1>
         <p className="text-xs text-slate-500 font-medium mt-1">Configure third-party API connections used across the platform.</p>
       </div>
+      <TelegramAttendanceIntegrationsPanel showAlert={showAlert} />
       <HolidayImportPanel showAlert={showAlert} />
     </div>
   );

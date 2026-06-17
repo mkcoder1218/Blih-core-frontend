@@ -12,12 +12,14 @@ import {
   UtensilsCrossed,
   AlertTriangle,
   Undo2,
+  Link2,
 } from "lucide-react";
 import { useMyAttendanceToday } from "../../hooks/useMyAttendanceToday";
 import { useCreateMyAttendanceEvent } from "../../hooks/useCreateMyAttendanceEvent";
 import { useRevertMyAttendanceEvent } from "../../hooks/useRevertMyAttendanceEvent";
 import type { AttendanceEventType, BusinessAttendanceSettings } from "../../api/types";
 import LateCheckInModal from "./LateCheckInModal";
+import { useGenerateTelegramLinkCode, useUnlinkMyTelegram } from "../../hooks/useTelegramLinkCode";
 
 // ---------------------------------------------------------------------------
 // Local types
@@ -40,6 +42,9 @@ export default function EmployeeAttendancePage() {
   const today = useMyAttendanceToday();
   const createEvent = useCreateMyAttendanceEvent();
   const revertEvent = useRevertMyAttendanceEvent();
+  const generateTelegramCode = useGenerateTelegramLinkCode();
+  const unlinkTelegram = useUnlinkMyTelegram();
+  const [telegramCode, setTelegramCode] = React.useState<{ code: string; expiresAt: string } | null>(null);
 
   // ── Data from backend ──────────────────────────────────────────────────
   const data = today.data?.data as any;
@@ -51,6 +56,7 @@ export default function EmployeeAttendancePage() {
   const lunch: any = data?.lunch;
   const cooldown: any = data?.cooldown || null;
   const serverNowUtc: string | undefined = data?.serverNowUtc;
+  const dailyLateReasons: any[] = data?.dailyReasons?.late || [];
 
   const tz = settings?.timezone || "UTC";
   const currentStatus: string = calculation?.currentStatus || "NOT_STARTED";
@@ -247,6 +253,21 @@ export default function EmployeeAttendancePage() {
     if (type === "CHECK_IN") {
       const late = computeLateByMinutes();
       if (late > 0) {
+        if (dailyLateReasons.length > 0) {
+          const ok = window.confirm(`You already submitted ${dailyLateReasons.length} late reason(s) for today. Use them for this check-in?`);
+          if (ok) {
+            try {
+              await createEvent.mutateAsync({
+                type,
+                latitude: coords.latitude,
+                longitude: coords.longitude,
+              });
+            } catch (e: any) {
+              setSubmitError(e?.response?.data?.message || e?.message || "Failed to record event");
+            }
+            return;
+          }
+        }
         setLateByMinutes(late);
         setLateModalOpen(true);
         return;
@@ -552,6 +573,52 @@ export default function EmployeeAttendancePage() {
             ) : null}
           </div>
         </div>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 sm:p-6">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Telegram</div>
+            <div className="text-[14px] font-extrabold text-slate-900 mt-1">Personal attendance bot</div>
+            <div className="text-[11px] text-slate-500 font-semibold mt-1">
+              Generate a one-time code here, then send <span className="font-mono text-slate-700">/link CODE</span> to the company attendance bot.
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={async () => {
+                const res = await generateTelegramCode.mutateAsync();
+                setTelegramCode(res.data.telegramLinkCode);
+              }}
+              disabled={generateTelegramCode.isPending}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#1a56db] px-3 py-2 text-[11px] font-black text-white disabled:bg-slate-200 disabled:text-slate-400"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              {generateTelegramCode.isPending ? "Generating..." : "Link Telegram Account"}
+            </button>
+            <button
+              onClick={async () => {
+                await unlinkTelegram.mutateAsync();
+                setTelegramCode(null);
+              }}
+              disabled={unlinkTelegram.isPending}
+              className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-black text-slate-600 disabled:opacity-50"
+            >
+              Unlink
+            </button>
+          </div>
+        </div>
+        {telegramCode ? (
+          <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">One-time code</div>
+              <div className="font-mono text-lg font-black text-slate-900 tracking-wider">{telegramCode.code}</div>
+            </div>
+            <div className="text-[11px] font-semibold text-slate-500">
+              Expires at {new Date(telegramCode.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* ── Late check-in modal ── */}
