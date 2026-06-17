@@ -65,7 +65,10 @@ export default function EmployeeAttendancePage() {
   const tz = settings?.timezone || "UTC";
   const currentStatus: string = calculation?.currentStatus || "NOT_STARTED";
   const backendWorkedMins: number = calculation?.totalWorkedMinutes || 0;
+  const backendRawWorkedMins: number = calculation?.rawWorkedMinutes ?? backendWorkedMins;
   const backendBreakMins: number = calculation?.totalBreakMinutes || 0;
+  const penaltyMins: number = calculation?.penaltyMinutes || 0;
+  const penaltyReason: string | null = calculation?.penaltyReason || null;
   const expectedMins: number = settings?.expectedDailyMinutes || 480;
 
   // Day is complete when nextAllowed is empty, there is no disabled reason,
@@ -383,12 +386,14 @@ export default function EmployeeAttendancePage() {
             </div>
 
             {/* Mini stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-4">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mt-4">
               <MiniStat
-                label="Worked"
+                label="Credited"
                 value={fmtMins(localWorkedMins)}
                 highlight={currentStatus === "IN_PROGRESS"}
               />
+              <MiniStat label="Full worked" value={fmtMins(backendRawWorkedMins)} />
+              <MiniStat label="Penalty" value={penaltyMins > 0 ? fmtMins(penaltyMins) : "0m"} />
               <MiniStat label="Break" value={fmtMins(backendBreakMins)} />
               <MiniStat
                 label="Remaining"
@@ -398,6 +403,14 @@ export default function EmployeeAttendancePage() {
                 label="Your distance"
                 value={distanceMeters !== null ? `${Math.round(distanceMeters)} m` : "—"}
               />
+            </div>
+
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800 flex items-start gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+              <span>
+                Do not forget lunch checkout or final checkout. Missed final checkout gives half-day credit, and missed lunch checkout with final checkout deducts 2h.
+                {penaltyReason ? <span className="block mt-1 text-amber-900">Applied penalty: {penaltyReason}</span> : null}
+              </span>
             </div>
 
             {/* Progress bar */}
