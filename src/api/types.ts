@@ -146,8 +146,11 @@ export type AttendanceHrDailyRow = {
     lunchInAtUtc: string | null;
     checkOutAtUtc: string | null;
   };
+  rawWorkedMinutes?: number;
   workedMinutes: number;
   breakMinutes: number;
+  penaltyMinutes?: number;
+  penaltyReason?: string | null;
   status: string;
   isLate: boolean;
 };
@@ -167,8 +170,11 @@ export type AttendanceHrReportRow = {
   lunchOutAtUtc: string | null;
   lunchInAtUtc: string | null;
   checkOutAtUtc: string | null;
+  rawWorkedMinutes?: number;
   totalWorkedMinutes: number;
   totalBreakMinutes: number;
+  penaltyMinutes?: number;
+  penaltyReason?: string | null;
   expectedMinutes: number;
   overtimeMinutes: number;
   missingMinutes: number;

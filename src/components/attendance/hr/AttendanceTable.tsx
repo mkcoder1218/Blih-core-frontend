@@ -11,6 +11,7 @@ const COLUMNS = [
   "Lunch In",
   "Check Out",
   "Total Worked",
+  "Penalty",
   "Break",
   "Status",
   "Actions",
@@ -64,6 +65,16 @@ export default function AttendanceTable({
           </td>
           <td className="px-4 py-3 text-[12px] text-slate-700 font-extrabold">
             {formatMinutes(r.workedMinutes)}
+          </td>
+          <td className="px-4 py-3 text-[12px] text-slate-700 font-extrabold">
+            {r.penaltyMinutes ? (
+              <div>
+                <div className="text-red-600">{formatMinutes(r.penaltyMinutes)}</div>
+                {r.penaltyReason ? <div className="max-w-[180px] text-[10px] font-bold text-slate-400 leading-tight">{r.penaltyReason}</div> : null}
+              </div>
+            ) : (
+              <span className="text-slate-400">0m</span>
+            )}
           </td>
           <td className="px-4 py-3 text-[12px] text-slate-700 font-extrabold">
             {formatMinutes(r.breakMinutes)}
