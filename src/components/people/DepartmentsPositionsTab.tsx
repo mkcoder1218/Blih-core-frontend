@@ -1,5 +1,5 @@
 import React from "react";
-import { Building2, Briefcase, Save, Trash2, X } from "lucide-react";
+import { Building2, Briefcase, ChevronLeft, ChevronRight, Save, Trash2, X } from "lucide-react";
 import { useCreateDepartment, useDeleteDepartment, useDepartments, useUpdateDepartment } from "../../hooks/useDepartments";
 import { useCreatePosition, useDeletePosition, usePositions, useUpdatePosition } from "../../hooks/usePositions";
 import { useMyPermissions } from "../../hooks/usePermissions";
@@ -26,6 +26,8 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
   const [posDeptId, setPosDeptId] = React.useState("");
   const [editingDept, setEditingDept] = React.useState<Record<string, string>>({});
   const [editingPos, setEditingPos] = React.useState<Record<string, { title: string; departmentId: string }>>({});
+  const [deptPage, setDeptPage] = React.useState(1);
+  const [posPage, setPosPage] = React.useState(1);
   const [reassignTarget, setReassignTarget] = React.useState<null | {
     type: "department" | "position";
     id: string;
@@ -46,11 +48,25 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
   const deptRows = departments.data?.departments || [];
   const posRows = positions.data?.positions || [];
   const affectedEmployees = reassignTarget?.employees || [];
+  const pageSize = 8;
+  const deptTotalPages = Math.max(1, Math.ceil(deptRows.length / pageSize));
+  const posTotalPages = Math.max(1, Math.ceil(posRows.length / pageSize));
+  const visibleDeptRows = deptRows.slice((deptPage - 1) * pageSize, deptPage * pageSize);
+  const visiblePosRows = posRows.slice((posPage - 1) * pageSize, posPage * pageSize);
+
+  React.useEffect(() => {
+    setDeptPage((page) => Math.min(page, deptTotalPages));
+  }, [deptTotalPages]);
+
+  React.useEffect(() => {
+    setPosPage((page) => Math.min(page, posTotalPages));
+  }, [posTotalPages]);
 
   const saveDept = async () => {
     if (!deptName.trim()) return;
     await createDept.mutateAsync({ name: deptName.trim() });
     setDeptName("");
+    setDeptPage(1);
     showAlert("Department created", "success");
   };
 
@@ -59,6 +75,7 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
     await createPos.mutateAsync({ title: posTitle.trim(), departmentId: posDeptId });
     setPosTitle("");
     setPosDeptId("");
+    setPosPage(1);
     showAlert("Position created", "success");
   };
 
@@ -141,6 +158,7 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
         <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
           <div className="p-4 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-2 font-black text-sm"><Building2 className="w-4 h-4 text-blue-600" /> Departments</div>
+            <div className="text-[11px] font-bold text-slate-400">{deptRows.length} total</div>
           </div>
           {canCreateDept && (
             <div className="p-4 border-b border-slate-100 flex gap-2">
@@ -149,7 +167,7 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
             </div>
           )}
           <div className="divide-y divide-slate-100">
-            {deptRows.map((dept: Department) => {
+            {visibleDeptRows.map((dept: Department) => {
               const value = editingDept[dept.id] ?? dept.name;
               return (
                 <div key={dept.id} className="p-4 flex items-center gap-2">
@@ -169,11 +187,25 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
                 </div>
               );
             })}
+            {!visibleDeptRows.length ? (
+              <div className="p-6 text-center text-xs font-semibold text-slate-500">No departments yet.</div>
+            ) : null}
           </div>
+          <PaginationFooter
+            page={deptPage}
+            totalPages={deptTotalPages}
+            total={deptRows.length}
+            pageSize={pageSize}
+            onPrev={() => setDeptPage((page) => Math.max(1, page - 1))}
+            onNext={() => setDeptPage((page) => Math.min(deptTotalPages, page + 1))}
+          />
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
-          <div className="p-4 border-b border-slate-100 flex items-center gap-2 font-black text-sm"><Briefcase className="w-4 h-4 text-blue-600" /> Positions</div>
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-2 font-black text-sm"><Briefcase className="w-4 h-4 text-blue-600" /> Positions</div>
+            <div className="text-[11px] font-bold text-slate-400">{posRows.length} total</div>
+          </div>
           {canCreatePos && (
             <div className="p-4 border-b border-slate-100 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
               <input value={posTitle} onChange={(e) => setPosTitle(e.target.value)} placeholder="New position title" className="rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold" />
@@ -185,7 +217,7 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
             </div>
           )}
           <div className="divide-y divide-slate-100">
-            {posRows.map((pos: Position) => {
+            {visiblePosRows.map((pos: Position) => {
               const value = editingPos[pos.id] || { title: pos.title, departmentId: pos.departmentId || "" };
               return (
                 <div key={pos.id} className="p-4 grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-2">
@@ -209,7 +241,18 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
                 </div>
               );
             })}
+            {!visiblePosRows.length ? (
+              <div className="p-6 text-center text-xs font-semibold text-slate-500">No positions yet.</div>
+            ) : null}
           </div>
+          <PaginationFooter
+            page={posPage}
+            totalPages={posTotalPages}
+            total={posRows.length}
+            pageSize={pageSize}
+            onPrev={() => setPosPage((page) => Math.max(1, page - 1))}
+            onNext={() => setPosPage((page) => Math.min(posTotalPages, page + 1))}
+          />
         </section>
       </div>
 
@@ -276,6 +319,56 @@ export default function DepartmentsPositionsTab({ showAlert }: { showAlert: (tit
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PaginationFooter({
+  page,
+  totalPages,
+  total,
+  pageSize,
+  onPrev,
+  onNext,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
+  const end = Math.min(total, page * pageSize);
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-t border-slate-100 px-4 py-3">
+      <div className="text-[11px] font-bold text-slate-500">
+        Showing {start}-{end} of {total}
+      </div>
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={onPrev}
+          disabled={page <= 1}
+          className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-black text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
+        >
+          <ChevronLeft className="w-3.5 h-3.5" />
+          Prev
+        </button>
+        <div className="min-w-20 text-center text-[11px] font-black text-slate-500">
+          Page {page} of {totalPages}
+        </div>
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={page >= totalPages}
+          className="inline-flex items-center gap-1 rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-black text-slate-600 hover:bg-slate-50 disabled:opacity-40 disabled:hover:bg-white"
+        >
+          Next
+          <ChevronRight className="w-3.5 h-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
