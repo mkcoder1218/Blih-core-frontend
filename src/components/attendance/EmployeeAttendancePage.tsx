@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Undo2,
   Link2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { useMyAttendanceToday } from "../../hooks/useMyAttendanceToday";
 import { useCreateMyAttendanceEvent } from "../../hooks/useCreateMyAttendanceEvent";
@@ -45,6 +47,7 @@ export default function EmployeeAttendancePage() {
   const generateTelegramCode = useGenerateTelegramLinkCode();
   const unlinkTelegram = useUnlinkMyTelegram();
   const [telegramCode, setTelegramCode] = React.useState<{ code: string; expiresAt: string } | null>(null);
+  const [telegramCodeCopied, setTelegramCodeCopied] = React.useState(false);
 
   // ── Data from backend ──────────────────────────────────────────────────
   const data = today.data?.data as any;
@@ -589,6 +592,7 @@ export default function EmployeeAttendancePage() {
               onClick={async () => {
                 const res = await generateTelegramCode.mutateAsync();
                 setTelegramCode(res.data.telegramLinkCode);
+                setTelegramCodeCopied(false);
               }}
               disabled={generateTelegramCode.isPending}
               className="inline-flex items-center gap-1.5 rounded-xl bg-[#1a56db] px-3 py-2 text-[11px] font-black text-white disabled:bg-slate-200 disabled:text-slate-400"
@@ -612,7 +616,21 @@ export default function EmployeeAttendancePage() {
           <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">One-time code</div>
-              <div className="font-mono text-lg font-black text-slate-900 tracking-wider">{telegramCode.code}</div>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="font-mono text-lg font-black text-slate-900 tracking-wider">{telegramCode.code}</div>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await navigator.clipboard.writeText(telegramCode.code);
+                    setTelegramCodeCopied(true);
+                    window.setTimeout(() => setTelegramCodeCopied(false), 1800);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-black text-slate-600 hover:bg-slate-50"
+                >
+                  {telegramCodeCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  {telegramCodeCopied ? "Copied" : "Copy"}
+                </button>
+              </div>
             </div>
             <div className="text-[11px] font-semibold text-slate-500">
               Expires at {new Date(telegramCode.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
