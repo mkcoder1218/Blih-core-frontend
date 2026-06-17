@@ -1,5 +1,5 @@
 import React from "react";
-import { Bot, Clock, MessageSquare, Send } from "lucide-react";
+import { Bot, Clock } from "lucide-react";
 import { useBusinesses } from "../../hooks/useBusinesses";
 import { useAttendanceTelegramSettings, useSendAttendanceTelegramTest, useUpsertAttendanceTelegramSetting } from "../../hooks/useAttendanceTelegramSettings";
 import type { TelegramBotType, TelegramSetting } from "../../api/attendanceTelegram";
@@ -8,24 +8,11 @@ type Props = {
   showAlert: (msg: string, type?: "success" | "info" | "error") => void;
 };
 
-const BOT_LABELS: Record<TelegramBotType, { title: string; icon: any; time: boolean; copy: string }> = {
-  ATTENDANCE_SUMMARY: {
-    title: "Attendance Summary Bot",
-    icon: Send,
-    time: true,
-    copy: "Daily CSV delivery with worked hours, check-in/out, late status, and remote or office mode."
-  },
-  LATE_REASON: {
-    title: "Late Reason Notification Bot",
-    icon: MessageSquare,
-    time: false,
-    copy: "Instant Telegram message when an employee submits a late check-in reason."
-  },
+const BOT_LABELS: Record<TelegramBotType, { title: string; icon: any; copy: string }> = {
   PERSONAL_SUMMARY: {
-    title: "Personal Attendance Summary Bot",
+    title: "Telegram Attendance Bot",
     icon: Bot,
-    time: false,
-    copy: "Employees link using a one-time ERP code and request /today, /week, /month, or /unlink."
+    copy: "One bot for employee summaries, Telegram check-in/out, late reason notifications, and admin attendance reports."
   }
 };
 
@@ -164,7 +151,7 @@ function BotForm({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Chat ID or Group ID</label>
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Admin/HR Group Chat ID</label>
           <input
             value={draft.chatId}
             onChange={(e) => setDraft({ ...draft, chatId: e.target.value })}
@@ -174,21 +161,19 @@ function BotForm({
       </div>
 
       <div className="grid md:grid-cols-2 gap-3">
-        {meta.time ? (
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Report Send Time</label>
-            <div className="relative">
-              <Clock className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
-              <input type="time" value={normalizeTimeInput(draft.sendTime)} onChange={(e) => setDraft({ ...draft, sendTime: normalizeTimeInput(e.target.value) })} className="w-full bg-slate-50 focus:bg-white pl-9 pr-3 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700" />
-            </div>
-            <div className="text-[10px] font-semibold text-slate-400">
-              Saved as {normalizeTimeInput(draft.sendTime)} ({formatSavedTime(normalizeTimeInput(draft.sendTime))})
-            </div>
-            <div className="text-[10px] font-semibold text-amber-600">
-              {nextSendText(draft.sendTime, draft.timezone || browserTimezone())}
-            </div>
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Report Send Time</label>
+          <div className="relative">
+            <Clock className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
+            <input type="time" value={normalizeTimeInput(draft.sendTime)} onChange={(e) => setDraft({ ...draft, sendTime: normalizeTimeInput(e.target.value) })} className="w-full bg-slate-50 focus:bg-white pl-9 pr-3 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700" />
           </div>
-        ) : null}
+          <div className="text-[10px] font-semibold text-slate-400">
+            Saved as {normalizeTimeInput(draft.sendTime)} ({formatSavedTime(normalizeTimeInput(draft.sendTime))})
+          </div>
+          <div className="text-[10px] font-semibold text-amber-600">
+            {nextSendText(draft.sendTime, draft.timezone || browserTimezone())}
+          </div>
+        </div>
         <div className="space-y-1">
           <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Timezone</label>
           <div className="flex gap-2">
@@ -225,7 +210,7 @@ function BotForm({
           onClick={() => onSave({ ...draft, sendTime: normalizeTimeInput(draft.sendTime), chatId: draft.chatId || null, botToken: draft.botToken || undefined })}
           className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white shadow-sm leading-none py-2.5 px-4 rounded-xl text-xs cursor-pointer"
         >
-          {saving ? "Saving..." : "Save Bot"}
+          {saving ? "Saving..." : "Save Telegram Bot"}
         </button>
       </div>
     </div>
@@ -250,8 +235,8 @@ export default function TelegramAttendanceIntegrationsPanel({ showAlert }: Props
     <div className="bg-slate-50/60 border border-slate-200/70 rounded-2xl p-4 space-y-4">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
-          <div className="text-xs font-black text-slate-900">Telegram Attendance Bots</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Configure tenant-specific Telegram bots for attendance reports, late reasons, and employee self-service.</div>
+          <div className="text-xs font-black text-slate-900">Telegram Attendance Bot</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Configure one tenant-specific bot for employee actions, late notifications, and admin reports.</div>
         </div>
         <select value={businessId} onChange={(e) => setBusinessId(e.target.value)} className="bg-white px-3 py-2.5 rounded-xl border border-slate-200/80 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] font-semibold text-xs text-slate-700 cursor-pointer">
           {businesses.map((b) => (
