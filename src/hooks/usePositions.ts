@@ -1,16 +1,24 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ApiEnvelope, PositionsResponse, CreatePositionRequest } from "../api/types";
 
 type ListParams = { page?: number; size?: number; search?: string; departmentId?: string };
 
 export function usePositions(params: ListParams = {}) {
+  const page = params.page ?? 1;
+  const size = params.size ?? 20;
+  const search = params.search ?? "";
+  const departmentId = params.departmentId ?? "";
   return useQuery({
-    queryKey: ["positions", params],
+    queryKey: ["positions", page, size, search, departmentId],
     queryFn: async () => {
-      const res = await api.get<ApiEnvelope<PositionsResponse>>("/api/v1/positions", { params });
+      const query = new URLSearchParams({ page: String(page), size: String(size) });
+      if (search) query.set("search", search);
+      if (departmentId) query.set("departmentId", departmentId);
+      const res = await api.get<ApiEnvelope<PositionsResponse>>(`/api/v1/positions?${query.toString()}`);
       return res.data.data;
     },
+    placeholderData: keepPreviousData,
   });
 }
 
