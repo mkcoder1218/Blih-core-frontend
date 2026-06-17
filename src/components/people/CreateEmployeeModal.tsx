@@ -111,6 +111,8 @@ export default function CreateEmployeeModal({
   // Organizational Data
   const [departments, setDepartments] = useState<any[]>([]);
   const [allPositions, setAllPositions] = useState<any[]>([]);
+  const [departmentPositions, setDepartmentPositions] = useState<any[]>([]);
+  const [positionsLoading, setPositionsLoading] = useState(false);
   const [systemRoles, setSystemRoles] = useState<any[]>([]);
   const [showCreateDept, setShowCreateDept] = useState(false);
   const [showCreatePos, setShowCreatePos] = useState(false);
@@ -133,6 +135,14 @@ export default function CreateEmployeeModal({
       loadEmployeeForUpdate(targetUserId);
     }
   }, [isOpen, initialDraftId, mode, targetUserId]);
+
+  useEffect(() => {
+    if (!isOpen || !formData.departmentId) {
+      setDepartmentPositions([]);
+      return;
+    }
+    loadPositionsForDepartment(formData.departmentId);
+  }, [isOpen, formData.departmentId]);
 
   const loadEmployeeForUpdate = async (userId: string) => {
     try {
@@ -317,9 +327,8 @@ export default function CreateEmployeeModal({
 
   const loadOrgData = async () => {
     try {
-      const [deptRes, posRes, roleRes] = await Promise.all([
-        api.get("/api/v1/departments"),
-        api.get("/api/v1/positions"),
+      const [deptRes, roleRes] = await Promise.all([
+        api.get("/api/v1/departments?page=1&size=1000"),
         api.get("/api/v1/roles/my-domain"),
       ]);
       // Backend returns { rows, count } for depts and positions, and { roles } for roles
@@ -327,12 +336,6 @@ export default function CreateEmployeeModal({
         deptRes.data.data?.departments ||
           deptRes.data.rows ||
           deptRes.data.data ||
-          [],
-      );
-      setAllPositions(
-        posRes.data.data?.positions ||
-          posRes.data.rows ||
-          posRes.data.data ||
           [],
       );
       setSystemRoles(
@@ -343,6 +346,25 @@ export default function CreateEmployeeModal({
       );
     } catch (e) {
       console.error("Failed to load org data", e);
+    }
+  };
+
+  const loadPositionsForDepartment = async (departmentId: string) => {
+    try {
+      setPositionsLoading(true);
+      const res = await api.get(`/api/v1/positions?departmentId=${encodeURIComponent(departmentId)}&page=1&size=1000`);
+      const rows = res.data.data?.positions || res.data.rows || res.data.data || [];
+      setDepartmentPositions(rows);
+      setAllPositions((prev) => {
+        const merged = new Map(prev.map((position: any) => [position.id, position]));
+        rows.forEach((position: any) => merged.set(position.id, position));
+        return Array.from(merged.values());
+      });
+    } catch (e) {
+      console.error("Failed to load positions for department", e);
+      setDepartmentPositions([]);
+    } finally {
+      setPositionsLoading(false);
     }
   };
 
@@ -932,11 +954,9 @@ export default function CreateEmployeeModal({
                               ${formData.departmentId ? "bg-slate-50 border-slate-200 focus:bg-white focus:border-blue-500" : "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed"}`}
                       >
                         <option value="">Select Position</option>
-                        {allPositions
-                          ?.filter(
-                            (p) => p.departmentId === formData.departmentId,
-                          )
-                          .map((p) => (
+                        {positionsLoading ? <option value="" disabled>Loading positions...</option> : null}
+                        {departmentPositions
+                          ?.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.title}
                             </option>
@@ -1441,6 +1461,7 @@ export default function CreateEmployeeModal({
           initialDeptId={formData.departmentId}
           onSuccess={(newPos) => {
             loadOrgData();
+            if (newPos.departmentId) loadPositionsForDepartment(newPos.departmentId);
             setFormData((prev) => ({
               ...prev,
               departmentId: newPos.departmentId,
