@@ -60,6 +60,7 @@ interface RegConfig {
   openFrom: string | null;
   openUntil: string | null;
   autoApprove: boolean;
+  askInternPaymentType: boolean;
 }
 
 interface FormData {
@@ -70,7 +71,7 @@ interface FormData {
   requestedRoleKey: string; employmentType: string; hireDate: string;
   departmentId: string; positionId: string;
   emergencyName: string; emergencyPhone: string; emergencyRelationship: string;
-  bankName: string; bankAccount: string;
+  internPaymentType: string; bankName: string; bankAccount: string;
 }
 
 const EMPTY: FormData = {
@@ -80,7 +81,7 @@ const EMPTY: FormData = {
   requestedRoleKey: 'EMPLOYEE', employmentType: 'full_time',
   hireDate: '', departmentId: '', positionId: '',
   emergencyName: '', emergencyPhone: '', emergencyRelationship: '',
-  bankName: '', bankAccount: '',
+  internPaymentType: '', bankName: '', bankAccount: '',
 };
 
 // ── Draft persistence ──────────────────────────────────────────────────────────
@@ -564,7 +565,10 @@ export default function PublicRegisterPage() {
   useEffect(() => {
     if (!businessSlug) return;
     api.get(`/api/v1/auth/public-register/${businessSlug}/config`)
-      .then(r => setConfig(r.data?.data ?? r.data))
+      .then(r => {
+        const next = r.data?.data ?? r.data;
+        setConfig({ ...next, askInternPaymentType: next?.askInternPaymentType !== false });
+      })
       .catch(err => setConfigError(err?.response?.data?.message ?? 'Could not load registration info.'))
       .finally(() => setConfigLoading(false));
   }, [businessSlug]);
@@ -659,9 +663,17 @@ export default function PublicRegisterPage() {
     if (s === 3) {
       if (!form.requestedRoleKey) e.requestedRoleKey = 'Select a role';
       if (!form.employmentType)   e.employmentType   = 'Select employment type';
+      if (config.askInternPaymentType && form.employmentType === 'intern' && !form.internPaymentType) {
+        e.internPaymentType = 'Select paid or unpaid';
+      }
     }
     if (s === 4) {
-      if (form.bankAccount && !form.bankAccount.trim().startsWith('013')) {
+      const requiresAwashAccount =
+        form.employmentType !== 'intern' ||
+        form.internPaymentType === 'paid';
+      if (requiresAwashAccount && !form.bankAccount.trim()) {
+        e.bankAccount = 'Awash Bank account number is required for paid interns';
+      } else if (form.bankAccount && !form.bankAccount.trim().startsWith('013')) {
         e.bankAccount = 'Awash Bank account numbers must start with 013';
       }
     }
@@ -705,14 +717,15 @@ export default function PublicRegisterPage() {
       if (form.zipCode)               fd.append('zipCode',               form.zipCode.trim());
       if (form.requestedRoleKey)      fd.append('requestedRoleKey',      form.requestedRoleKey);
       if (form.employmentType)        fd.append('employmentType',        form.employmentType);
+      if (form.employmentType === 'intern' && config.askInternPaymentType) fd.append('internPaymentType', form.internPaymentType || 'unpaid');
       if (form.hireDate)              fd.append('hireDate',              form.hireDate);
       if (form.departmentId)          fd.append('departmentId',          form.departmentId);
       if (form.positionId)            fd.append('positionId',            form.positionId);
       if (form.emergencyName)         fd.append('emergencyName',         form.emergencyName.trim());
       if (form.emergencyPhone)        fd.append('emergencyPhone',        form.emergencyPhone.trim());
       if (form.emergencyRelationship) fd.append('emergencyRelationship', form.emergencyRelationship.trim());
-      if (form.bankName)              fd.append('bankName',              'Awash Bank');
-      if (form.bankAccount)           fd.append('bankAccount',           form.bankAccount.trim());
+      if (form.bankAccount && (form.employmentType !== 'intern' || form.internPaymentType === 'paid')) fd.append('bankName', 'Awash Bank');
+      if (form.bankAccount && (form.employmentType !== 'intern' || form.internPaymentType === 'paid')) fd.append('bankAccount', form.bankAccount.trim());
       if (idFront)                    fd.append('idDocumentFront',       idFront,  idFront.name);
       if (idBack)                     fd.append('idDocumentBack',        idBack,   idBack.name);
 
@@ -1305,7 +1318,15 @@ export default function PublicRegisterPage() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <Field label="Type" required error={fieldErrors.employmentType} icon={Shield}>
-                      <Select value={form.employmentType} onValueChange={set('employmentType')}>
+                      <Select
+                        value={form.employmentType}
+                        onValueChange={(value) => {
+                          set('employmentType')(value);
+                          if (value !== 'intern') {
+                            setForm(f => ({ ...f, internPaymentType: '', bankAccount: '', bankName: '' }));
+                          }
+                        }}
+                      >
                         <Sel className="w-full">
                           <SelectValue placeholder="Select" />
                         </Sel>
@@ -1320,6 +1341,30 @@ export default function PublicRegisterPage() {
                       <Inp type="date" value={form.hireDate} onChange={e => set('hireDate')(e.target.value)} />
                     </Field>
                   </div>
+
+                  {config.askInternPaymentType && form.employmentType === 'intern' && (
+                    <Field label="Payment Type" required error={fieldErrors.internPaymentType} icon={CreditCard}>
+                      <Select
+                        value={form.internPaymentType}
+                        onValueChange={(value) => {
+                          setForm(f => ({
+                            ...f,
+                            internPaymentType: value,
+                            bankName: value === 'paid' ? 'Awash Bank' : '',
+                            bankAccount: value === 'paid' ? f.bankAccount : '',
+                          }));
+                        }}
+                      >
+                        <Sel className="w-full">
+                          <SelectValue placeholder="Select" />
+                        </Sel>
+                        <SelectContent>
+                          <SelectItem value="paid" className="text-xs">Paid Intern</SelectItem>
+                          <SelectItem value="unpaid" className="text-xs">Unpaid Intern</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                  )}
 
                   {!config.autoApprove && (
                     <motion.div 
@@ -1370,6 +1415,7 @@ export default function PublicRegisterPage() {
                       </div>
                     </div>
 
+                    {(form.employmentType !== 'intern' || form.internPaymentType === 'paid') && (
                     <div className="bg-blue-50/30 rounded-xl p-3 border border-blue-100/30">
                       <div className="flex items-center gap-1.5 mb-2">
                         <Landmark className="w-3 h-3 text-blue-600" />
@@ -1395,6 +1441,7 @@ export default function PublicRegisterPage() {
                         Account numbers must start with <span className="font-bold text-blue-600">013</span>
                       </p>
                     </div>
+                    )}
                   </div>
                 </>
               )}

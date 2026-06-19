@@ -1,5 +1,5 @@
 import React from "react";
-import { Bot, Clock } from "lucide-react";
+import { Bot, Clock, DatabaseBackup } from "lucide-react";
 import { useBusinesses } from "../../hooks/useBusinesses";
 import { useAttendanceTelegramSettings, useSendAttendanceTelegramTest, useUpsertAttendanceTelegramSetting } from "../../hooks/useAttendanceTelegramSettings";
 import type { TelegramBotType, TelegramSetting } from "../../api/attendanceTelegram";
@@ -13,6 +13,11 @@ const BOT_LABELS: Record<TelegramBotType, { title: string; icon: any; copy: stri
     title: "Telegram Attendance Bot",
     icon: Bot,
     copy: "One bot for employee summaries, Telegram check-in/out, late reason notifications, and admin attendance reports."
+  },
+  DATABASE_BACKUP: {
+    title: "Telegram Database Backup Bot",
+    icon: DatabaseBackup,
+    copy: "A separate bot that sends a database backup file to the configured admin group once per day."
   }
 };
 
@@ -107,7 +112,7 @@ function BotForm({
     enabled: Boolean(setting.enabled),
     botToken: "",
     chatId: setting.chatId || "",
-    sendTime: setting.sendTime || "20:00",
+    sendTime: setting.sendTime || (setting.botType === "DATABASE_BACKUP" ? "02:00" : "20:00"),
     timezone: setting.timezone || browserTimezone()
   });
 
@@ -116,7 +121,7 @@ function BotForm({
       enabled: Boolean(setting.enabled),
       botToken: "",
       chatId: setting.chatId || "",
-      sendTime: setting.sendTime || "20:00",
+      sendTime: setting.sendTime || (setting.botType === "DATABASE_BACKUP" ? "02:00" : "20:00"),
       timezone: setting.timezone || browserTimezone()
     });
   }, [setting.id, setting.botType, setting.chatId, setting.sendTime, setting.timezone, setting.enabled]);
@@ -151,7 +156,9 @@ function BotForm({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Admin/HR Group Chat ID</label>
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            {setting.botType === "DATABASE_BACKUP" ? "Backup Group Chat ID" : "Admin/HR Group Chat ID"}
+          </label>
           <input
             value={draft.chatId}
             onChange={(e) => setDraft({ ...draft, chatId: e.target.value })}
@@ -162,7 +169,9 @@ function BotForm({
 
       <div className="grid md:grid-cols-2 gap-3">
         <div className="space-y-1">
-          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Report Send Time</label>
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
+            {setting.botType === "DATABASE_BACKUP" ? "Backup Send Time" : "Report Send Time"}
+          </label>
           <div className="relative">
             <Clock className="absolute left-3 top-2.5 w-3.5 h-3.5 text-slate-400" />
             <input type="time" value={normalizeTimeInput(draft.sendTime)} onChange={(e) => setDraft({ ...draft, sendTime: normalizeTimeInput(e.target.value) })} className="w-full bg-slate-50 focus:bg-white pl-9 pr-3 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700" />
@@ -210,7 +219,7 @@ function BotForm({
           onClick={() => onSave({ ...draft, sendTime: normalizeTimeInput(draft.sendTime), chatId: draft.chatId || null, botToken: draft.botToken || undefined })}
           className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white shadow-sm leading-none py-2.5 px-4 rounded-xl text-xs cursor-pointer"
         >
-          {saving ? "Saving..." : "Save Telegram Bot"}
+          {saving ? "Saving..." : setting.botType === "DATABASE_BACKUP" ? "Save Backup Bot" : "Save Telegram Bot"}
         </button>
       </div>
     </div>
@@ -235,8 +244,8 @@ export default function TelegramAttendanceIntegrationsPanel({ showAlert }: Props
     <div className="bg-slate-50/60 border border-slate-200/70 rounded-2xl p-4 space-y-4">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
-          <div className="text-xs font-black text-slate-900">Telegram Attendance Bot</div>
-          <div className="text-[11px] text-slate-500 mt-0.5">Configure one tenant-specific bot for employee actions, late notifications, and admin reports.</div>
+          <div className="text-xs font-black text-slate-900">Telegram Bots</div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Configure tenant-specific bots for attendance workflows and database backup delivery.</div>
         </div>
         <select value={businessId} onChange={(e) => setBusinessId(e.target.value)} className="bg-white px-3 py-2.5 rounded-xl border border-slate-200/80 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] font-semibold text-xs text-slate-700 cursor-pointer">
           {businesses.map((b) => (

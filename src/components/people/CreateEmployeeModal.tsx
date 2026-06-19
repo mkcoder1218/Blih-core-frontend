@@ -32,6 +32,7 @@ interface CreateEmployeeModalProps {
   initialDraftId?: string;
   mode?: "create" | "update";
   targetUserId?: string;
+  initialEmploymentType?: string;
 }
 
 const steps = [
@@ -50,6 +51,7 @@ export default function CreateEmployeeModal({
   initialDraftId,
   mode = "create",
   targetUserId,
+  initialEmploymentType,
 }: CreateEmployeeModalProps) {
   const perms = useMyPermissions();
   const canCreateDepartment = perms.hasAny("department.create");
@@ -87,8 +89,14 @@ export default function CreateEmployeeModal({
     monthlySalary: "",
     salaryCurrency: "ETB",
     probationPeriod: "3",
-    employmentType: DEFAULT_EMPLOYMENT_TYPE,
+    employmentType: initialEmploymentType || DEFAULT_EMPLOYMENT_TYPE,
     additionalNotes: "",
+    internshipProgram: "",
+    internshipInstitution: "",
+    internshipMentorUserId: "",
+    internshipExpectedEndDate: "",
+    internshipStatus: "active",
+    internshipStipendType: "paid",
 
     dateOfBirth: "",
     city: "",
@@ -107,6 +115,7 @@ export default function CreateEmployeeModal({
 
   // Store File objects before upload
   const [files, setFiles] = useState<Record<string, File>>({});
+  const isIntern = formData.employmentType === "intern";
 
   // Organizational Data
   const [departments, setDepartments] = useState<any[]>([]);
@@ -151,6 +160,7 @@ export default function CreateEmployeeModal({
       const record = res.data?.data?.employeeRecord || res.data?.employeeRecord;
       const user = record?.user || {};
       const metadata = record?.metadata || {};
+      const internship = metadata?.internship || {};
       const emergency = record?.emergencyContact || {};
       const salaryInfo = record?.salaryInfo || {};
 
@@ -211,6 +221,14 @@ export default function CreateEmployeeModal({
         probationPeriod: probationPeriod || formData.probationPeriod,
         employmentType: record?.employmentType || formData.employmentType,
         additionalNotes: metadata?.additionalNotes || "",
+        internshipProgram: internship?.program || "",
+        internshipInstitution: internship?.institution || "",
+        internshipMentorUserId: internship?.mentorUserId || "",
+        internshipExpectedEndDate: internship?.expectedEndDate
+          ? new Date(internship.expectedEndDate).toISOString().slice(0, 10)
+          : "",
+        internshipStatus: internship?.status || "active",
+        internshipStipendType: internship?.stipendType || "paid",
 
         dateOfBirth: metadata?.dateOfBirth
           ? new Date(metadata.dateOfBirth).toISOString().slice(0, 10)
@@ -393,6 +411,17 @@ export default function CreateEmployeeModal({
     }
   };
 
+  const setInternshipStipendType = (value: "paid" | "unpaid") => {
+    setFormData((prev) => ({
+      ...prev,
+      internshipStipendType: value,
+      bankName:
+        value === "paid" && !prev.bankName.trim()
+          ? "Awash Bank"
+          : prev.bankName,
+    }));
+  };
+
   const uploadFile = async (file: File): Promise<any> => {
     const fd = new FormData();
     fd.append("file", file);
@@ -403,6 +432,16 @@ export default function CreateEmployeeModal({
   };
 
   const handleSubmit = async () => {
+    if (
+      formData.employmentType === "intern" &&
+      formData.internshipStipendType === "paid" &&
+      !formData.bankAccountNumber.trim()
+    ) {
+      setCurrentStep(1);
+      showAlert("Awash account number is required for paid interns", "error");
+      return;
+    }
+
     setLoading(true);
     try {
       // 1. Upload all files
@@ -434,6 +473,12 @@ export default function CreateEmployeeModal({
           monthlySalary: formData.monthlySalary,
           salaryCurrency: formData.salaryCurrency,
           probationPeriod: formData.probationPeriod,
+          internshipProgram: formData.internshipProgram,
+          internshipInstitution: formData.internshipInstitution,
+          internshipMentorUserId: formData.internshipMentorUserId,
+          internshipExpectedEndDate: formData.internshipExpectedEndDate,
+          internshipStatus: formData.internshipStatus,
+          internshipStipendType: formData.internshipStipendType,
           dateOfBirth: formData.dateOfBirth,
           city: formData.city,
           countryOfBirth: formData.countryOfBirth,
@@ -574,6 +619,42 @@ export default function CreateEmployeeModal({
           "additionalNotes",
           formData.additionalNotes,
           base.additionalNotes,
+        );
+        setIfChanged(
+          profile,
+          "internshipProgram",
+          formData.internshipProgram,
+          base.internshipProgram,
+        );
+        setIfChanged(
+          profile,
+          "internshipInstitution",
+          formData.internshipInstitution,
+          base.internshipInstitution,
+        );
+        setIfChanged(
+          profile,
+          "internshipMentorUserId",
+          formData.internshipMentorUserId,
+          base.internshipMentorUserId,
+        );
+        setIfChanged(
+          profile,
+          "internshipExpectedEndDate",
+          formData.internshipExpectedEndDate,
+          base.internshipExpectedEndDate,
+        );
+        setIfChanged(
+          profile,
+          "internshipStatus",
+          formData.internshipStatus,
+          base.internshipStatus,
+        );
+        setIfChanged(
+          profile,
+          "internshipStipendType",
+          formData.internshipStipendType,
+          base.internshipStipendType,
         );
 
         const nextBank = [
@@ -1098,6 +1179,141 @@ export default function CreateEmployeeModal({
                     </div>
 
                     <div className="col-span-2 space-y-2">
+                      {isIntern && (
+                        <div className="mb-4 rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                          <div className="mb-4">
+                            <h4 className="text-[12px] font-black text-blue-950">
+                              Internship Details
+                            </h4>
+                          </div>
+                          <div className="grid grid-cols-2 gap-5">
+                            <div className="space-y-2">
+                              <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                Program / Track
+                              </label>
+                              <input
+                                name="internshipProgram"
+                                value={formData.internshipProgram}
+                                onChange={handleInputChange}
+                                placeholder="e.g. Frontend Internship"
+                                className="w-full bg-white border border-blue-100 rounded-xl px-4 py-3 text-sm font-medium focus:border-blue-500 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                School / Institution
+                              </label>
+                              <input
+                                name="internshipInstitution"
+                                value={formData.internshipInstitution}
+                                onChange={handleInputChange}
+                                placeholder="University or training provider"
+                                className="w-full bg-white border border-blue-100 rounded-xl px-4 py-3 text-sm font-medium focus:border-blue-500 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                Mentor
+                              </label>
+                              <UserSearchSelect
+                                value={formData.internshipMentorUserId}
+                                onChange={(userId) =>
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    internshipMentorUserId: userId,
+                                  }))
+                                }
+                                placeholder="Search and select mentor..."
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                Expected End Date
+                              </label>
+                              <input
+                                type="date"
+                                name="internshipExpectedEndDate"
+                                value={formData.internshipExpectedEndDate}
+                                onChange={handleInputChange}
+                                className="w-full bg-white border border-blue-100 rounded-xl px-4 py-3 text-sm font-medium focus:border-blue-500 outline-none transition-all"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                Internship Status
+                              </label>
+                              <select
+                                name="internshipStatus"
+                                value={formData.internshipStatus}
+                                onChange={handleInputChange}
+                                className="w-full bg-white border border-blue-100 rounded-xl px-4 py-3 text-sm font-medium focus:border-blue-500 outline-none transition-all"
+                              >
+                                <option value="active">Active</option>
+                                <option value="extended">Extended</option>
+                                <option value="completed">Completed</option>
+                                <option value="terminated">Terminated</option>
+                              </select>
+                            </div>
+                            <div className="space-y-2">
+                              <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                Stipend
+                              </label>
+                              <div className="grid grid-cols-2 gap-2">
+                                <label
+                                  className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-sm font-bold cursor-pointer transition-all ${
+                                    formData.internshipStipendType === "paid"
+                                      ? "bg-blue-600 border-blue-600 text-white"
+                                      : "bg-white border-blue-100 text-slate-600 hover:border-blue-300"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.internshipStipendType === "paid"}
+                                    onChange={() => setInternshipStipendType("paid")}
+                                    className="h-4 w-4 rounded border-blue-200"
+                                  />
+                                  Paid
+                                </label>
+                                <label
+                                  className={`flex items-center gap-2 rounded-xl border px-3 py-3 text-sm font-bold cursor-pointer transition-all ${
+                                    formData.internshipStipendType === "unpaid"
+                                      ? "bg-slate-800 border-slate-800 text-white"
+                                      : "bg-white border-blue-100 text-slate-600 hover:border-blue-300"
+                                  }`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={formData.internshipStipendType === "unpaid"}
+                                    onChange={() => setInternshipStipendType("unpaid")}
+                                    className="h-4 w-4 rounded border-blue-200"
+                                  />
+                                  Unpaid
+                                </label>
+                              </div>
+                            </div>
+                            {formData.internshipStipendType === "paid" && (
+                              <div className="space-y-2">
+                                <label className="text-[11px] font-bold text-slate-500 uppercase">
+                                  Awash Account <span className="text-rose-500">*</span>
+                                </label>
+                                <input
+                                  name="bankAccountNumber"
+                                  value={formData.bankAccountNumber}
+                                  onChange={(e) =>
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      bankName: prev.bankName.trim() || "Awash Bank",
+                                      bankAccountNumber: e.target.value,
+                                    }))
+                                  }
+                                  placeholder="Enter Awash account number"
+                                  className="w-full bg-white border border-blue-100 rounded-xl px-4 py-3 text-sm font-medium focus:border-blue-500 outline-none transition-all"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
                       <label className="text-[11px] font-bold text-slate-500 uppercase">
                         Additional Notes
                       </label>
@@ -1393,7 +1609,9 @@ export default function CreateEmployeeModal({
                 onClick={handleSubmit}
                 className="px-8 py-2.5 rounded-xl text-sm font-extrabold text-white bg-blue-600 hover:bg-blue-700 shadow-sm transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
               >
-                {loading ? "Creating Profile..." : "Create Employee Profile"}
+                {loading
+                  ? mode === "update" ? "Updating Profile..." : "Creating Profile..."
+                  : mode === "update" ? "Update Profile" : isIntern ? "Create Intern Profile" : "Create Employee Profile"}
               </button>
             )}
           </div>

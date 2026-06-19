@@ -3,13 +3,16 @@ import { api } from "../api/client";
 
 // ─── Employee Directory ───────────────────────────────────────────────────────
 
-export function useEmployees(params?: { limit?: number; offset?: number }) {
+export function useEmployees(params?: { limit?: number; offset?: number; employmentType?: string; employmentStatus?: string }) {
   return useQuery({
-    queryKey: ["hr-records", params?.limit, params?.offset],
+    queryKey: ["hr-records", params?.limit, params?.offset, params?.employmentType, params?.employmentStatus],
     queryFn: async () => {
       const limit = params?.limit ?? 10;
       const offset = params?.offset ?? 0;
-      const res = await api.get(`/api/v1/hr/records?limit=${limit}&offset=${offset}`);
+      const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) });
+      if (params?.employmentType) qs.set("employmentType", params.employmentType);
+      if (params?.employmentStatus) qs.set("employmentStatus", params.employmentStatus);
+      const res = await api.get(`/api/v1/hr/records?${qs.toString()}`);
       return {
         employees: (res.data?.data as any[]) ?? [],
         total: res.data?.meta?.total ?? 0,

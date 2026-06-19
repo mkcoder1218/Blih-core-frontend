@@ -54,3 +54,52 @@ export async function downloadAttendanceHrExport(params: {
   });
   return res;
 }
+
+export async function downloadAttendanceDailyReportExport(params: {
+  date: string;
+  departmentId?: string;
+  employeeId?: string;
+  employmentCategory?: "Managerial" | "Non-Managerial";
+  status?: string;
+  search?: string;
+  format?: "csv" | "excel";
+}) {
+  const res = await api.get("/api/v1/attendance/hr/reports/daily/export", {
+    params: { ...params, format: params.format || "csv" },
+    responseType: "blob",
+  });
+  return res;
+}
+
+export async function downloadAttendanceWeeklyReportExport(params: {
+  startDate: string;
+  endDate: string;
+  departmentId?: string;
+  employeeId?: string;
+  employmentCategory?: "Managerial" | "Non-Managerial";
+  status?: string;
+  search?: string;
+  format?: "csv" | "excel";
+}) {
+  const res = await api.get("/api/v1/attendance/hr/reports/weekly/export", {
+    params: { ...params, format: params.format || "csv" },
+    responseType: "blob",
+  });
+  return res;
+}
+
+export async function downloadAttendanceMonthlyReportExport(params: {
+  month: string;
+  departmentId?: string;
+  employeeId?: string;
+  employmentCategory?: "Managerial" | "Non-Managerial";
+  status?: string;
+  search?: string;
+  format?: "csv" | "excel";
+}) {
+  const res = await api.get("/api/v1/attendance/hr/reports/monthly/export", {
+    params: { ...params, format: params.format || "csv" },
+    responseType: "blob",
+  });
+  return res;
+}

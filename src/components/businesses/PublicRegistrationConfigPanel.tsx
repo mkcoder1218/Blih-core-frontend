@@ -18,10 +18,11 @@ interface RegConfig {
   openFrom: string;
   openUntil: string;
   autoApprove: boolean;
+  askInternPaymentType: boolean;
   windowDays: number;
 }
 
-const DEFAULT: RegConfig = { enabled: false, openFrom: '', openUntil: '', autoApprove: false, windowDays: 3 };
+const DEFAULT: RegConfig = { enabled: false, openFrom: '', openUntil: '', autoApprove: false, askInternPaymentType: true, windowDays: 3 };
 
 function toLocalInput(iso: string | null | undefined): string {
   if (!iso) return '';
@@ -83,12 +84,13 @@ export default function PublicRegistrationConfigPanel({ showAlert }: PublicRegis
         const openFrom    = get('public_registration_open_from')  as string ?? '';
         const openUntil   = get('public_registration_open_until') as string ?? '';
         const autoApprove = get('auto_approve_registration') === true;
+        const askInternPaymentType = get('public_registration_ask_intern_payment_type') !== false;
         let windowDays = 3;
         if (openFrom && openUntil) {
           const diff = (new Date(openUntil).getTime() - new Date(openFrom).getTime()) / 86400_000;
           if (diff > 0) windowDays = Math.round(diff);
         }
-        setConfig({ enabled, openFrom, openUntil, autoApprove, windowDays });
+        setConfig({ enabled, openFrom, openUntil, autoApprove, askInternPaymentType, windowDays });
       })
       .catch(() => setConfig({ ...DEFAULT }))
       .finally(() => setLoading(false));
@@ -122,6 +124,7 @@ export default function PublicRegistrationConfigPanel({ showAlert }: PublicRegis
         { key: 'public_registration_open_from',  value: config.openFrom || null, category: 'auth', isPublic: false, businessId: selectedBusinessId },
         { key: 'public_registration_open_until', value: config.openUntil || null,category: 'auth', isPublic: false, businessId: selectedBusinessId },
         { key: 'auto_approve_registration',      value: config.autoApprove,      category: 'auth', isPublic: false, businessId: selectedBusinessId },
+        { key: 'public_registration_ask_intern_payment_type', value: config.askInternPaymentType, category: 'auth', isPublic: false, businessId: selectedBusinessId },
       ];
       for (const s of settings) await api.post('/api/v1/settings', s);
       showAlert('Public registration config saved.', 'success');
@@ -216,6 +219,7 @@ export default function PublicRegistrationConfigPanel({ showAlert }: PublicRegis
                             { key: 'public_registration_open_from',  value: from,           category: 'auth', isPublic: false, businessId: selectedBusinessId },
                             { key: 'public_registration_open_until', value: until,          category: 'auth', isPublic: false, businessId: selectedBusinessId },
                             { key: 'auto_approve_registration',      value: next.autoApprove, category: 'auth', isPublic: false, businessId: selectedBusinessId },
+                            { key: 'public_registration_ask_intern_payment_type', value: next.askInternPaymentType, category: 'auth', isPublic: false, businessId: selectedBusinessId },
                           ]) { await api.post('/api/v1/settings', s); }
                           showAlert('Registration window opened and saved!', 'success');
                         } catch (err: any) {
@@ -262,6 +266,19 @@ export default function PublicRegistrationConfigPanel({ showAlert }: PublicRegis
                   </div>
                   <button onClick={() => setConfig(p => ({ ...p, autoApprove: !p.autoApprove }))} className="cursor-pointer flex-shrink-0">
                     {config.autoApprove ? <ToggleRight className="w-8 h-8 text-blue-600" /> : <ToggleLeft className="w-8 h-8 text-slate-400" />}
+                  </button>
+                </div>
+
+                {/* Intern payment prompt */}
+                <div className="flex items-center justify-between bg-slate-50 rounded-xl border border-slate-200 p-4">
+                  <div>
+                    <p className="text-xs font-bold text-slate-900">Ask Payment Type for Interns</p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      If on, interns choose paid or unpaid; paid interns must enter an Awash account
+                    </p>
+                  </div>
+                  <button onClick={() => setConfig(p => ({ ...p, askInternPaymentType: !p.askInternPaymentType }))} className="cursor-pointer flex-shrink-0">
+                    {config.askInternPaymentType ? <ToggleRight className="w-8 h-8 text-blue-600" /> : <ToggleLeft className="w-8 h-8 text-slate-400" />}
                   </button>
                 </div>
 

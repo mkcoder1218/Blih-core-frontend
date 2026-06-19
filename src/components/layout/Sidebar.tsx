@@ -61,7 +61,7 @@ interface SidebarProps {
   setCurrentBusinessesTab: (tab: BusinessesTab) => void;
   isDetailedView: boolean;
   setIsDetailedView: (val: boolean) => void;
-  user?: { name: string; email: string; role: string; departmentName?: string | null } | null;
+  user?: { name: string; email: string; role: string; departmentName?: string | null; employmentType?: string | null; employmentStatus?: string | null } | null;
   onLogout?: () => void;
   onProfileClick?: () => void;
   mobileOpen?: boolean;
@@ -125,6 +125,7 @@ export default function Sidebar({
       : user?.role === 'HR Manager'
       ? 'hr-manager'
       : 'employee';
+  const isInternUser = user?.employmentType === 'intern';
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
@@ -147,7 +148,9 @@ export default function Sidebar({
     { id: 'projects',    label: 'Projects',               icon: BriefcaseBusiness,badge: 0 },
   ] as const;
 
+  const internModuleIds = new Set(['attendance']);
   const mainModules = ALL_MODULES.filter((m) => {
+    if (isInternUser && !internModuleIds.has(m.id)) return false;
     const required = MODULE_PERMISSIONS[m.id];
     if (!required) return false;
     return hasAny(...required);
@@ -181,6 +184,7 @@ export default function Sidebar({
     { id: 'bulk_create',            label: 'Bulk Create',           badge: 0 },
     { id: 'organogram',             label: 'Organogram',            badge: 0 },
     { id: 'directory',              label: 'Directory',             badge: 0 },
+    { id: 'interns',                label: 'Interns',               badge: 0 },
     { id: 'organization',           label: 'Departments & Positions', badge: 0 },
     { id: 'devices',                label: 'Devices',               badge: 0 },
     { id: 'events',                 label: 'Events',                badge: 0 },
@@ -193,6 +197,7 @@ export default function Sidebar({
     { id: 'check-in',       label: 'Check-ins',         badge: 0 },
     { id: 'check-me-in',    label: 'Check me in',       badge: 0 },
     { id: 'history',        label: 'History',           badge: 0 },
+    { id: 'my-lateness-reason', label: 'My Lateness Reason', badge: 0 },
     { id: 'late-reasons',   label: 'Late Reasons',      badge: 0 },
     { id: 'requests',       label: 'Requests',          badge: 0 },
     { id: 'timesheet',      label: 'Timesheet',         badge: 0 },
@@ -259,8 +264,10 @@ export default function Sidebar({
   // ── Resolved tab arrays (filtered by user permissions) ────────────────────
   const recruitmentTabs   = allowedTabs(ALL_RECRUITMENT_TABS,  RECRUITMENT_TAB_PERMISSIONS);
   const onboardingTabs    = allowedTabs(ALL_ONBOARDING_TABS,   ONBOARDING_TAB_PERMISSIONS);
-  const profilesTabs      = allowedTabs(ALL_PROFILES_TABS,     PROFILES_TAB_PERMISSIONS);
-  const attendanceTabs    = allowedTabs(ALL_ATTENDANCE_TABS,   ATTENDANCE_TAB_PERMISSIONS);
+  const profilesTabs      = allowedTabs(ALL_PROFILES_TABS,     PROFILES_TAB_PERMISSIONS)
+    .filter((tab) => !isInternUser || ['events'].includes(tab.id));
+  const attendanceTabs    = allowedTabs(ALL_ATTENDANCE_TABS,   ATTENDANCE_TAB_PERMISSIONS)
+    .filter((tab) => !isInternUser || ['check-me-in', 'history', 'requests', 'leaves', 'overtime', 'unavailable', 'work-from-home'].includes(tab.id));
   const talentTabs        = allowedTabs(ALL_TALENT_TABS,       TALENT_TAB_PERMISSIONS);
   const exitTabs          = allowedTabs(ALL_EXIT_TABS,         EXIT_TAB_PERMISSIONS);
   const financeTabs       = allowedTabs(ALL_FINANCE_TABS,      FINANCE_TAB_PERMISSIONS);
@@ -307,7 +314,7 @@ export default function Sidebar({
       </span>
     ) : null;
 
-  const portalTitle = user?.departmentName ? `${user.departmentName} Portal` : `${user?.role || 'Employee'} Portal`;
+  const portalTitle = isInternUser ? 'Intern Portal' : user?.departmentName ? `${user.departmentName} Portal` : `${user?.role || 'Employee'} Portal`;
   const defaultModule = user?.role === 'Employee' ? 'attendance' : 'recruitment';
   const defaultPath = user?.role === 'Employee' ? `/${roleSegment}/attendance/check-me-in` : `/${roleSegment}/recruitment`;
 

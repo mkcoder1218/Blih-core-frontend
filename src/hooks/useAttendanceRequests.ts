@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 
-export type AttendanceRequestType = "work_from_home" | "memo_log" | "check_in_correction" | "not_available";
-export type AttendanceRequestStatus = "pending" | "approved" | "rejected";
+export type AttendanceRequestType = "work_from_home" | "memo_log" | "check_in_correction" | "not_available" | "lateness_notice";
+export type AttendanceRequestStatus = "pending" | "approved" | "rejected" | "invalid" | "expired" | "cancelled";
 
 export interface AttendanceRequest {
   id: string;
@@ -13,6 +13,13 @@ export interface AttendanceRequest {
   fromAt?: string | null;
   toAt?: string | null;
   durationMinutes?: number | null;
+  submittedAt?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  reasonCategory?: string | null;
+  reasonText?: string | null;
+  validityStatus?: string | null;
+  deadlineAt?: string | null;
   status: AttendanceRequestStatus;
   createdAt: string;
   actionedAt?: string | null;
@@ -71,11 +78,16 @@ export function useSubmitAttendanceRequest() {
       fromAt?: string;
       toAt?: string;
       durationMinutes?: number;
+      reasonCategory?: string;
+      reasonText?: string;
     }) => {
       const res = await api.post("/api/v1/attendance-requests", payload);
       return res.data.attendanceRequest as AttendanceRequest;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance-requests"] }),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["attendance-requests"] });
+      await qc.invalidateQueries({ queryKey: ["attendanceMe", "today"] });
+    },
   });
 }
 

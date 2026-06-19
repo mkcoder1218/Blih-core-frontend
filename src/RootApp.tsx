@@ -229,9 +229,11 @@ function SyncLegacyUser() {
       email: u.email,
       role: u.isPlatformSuperAdmin ? "Super Admin" : isHrManager ? "HR Manager" : isBusinessAdmin ? "Business Admin" : "Employee",
       departmentName: profile?.department?.name || null,
+      employmentType: u.employmentType || null,
+      employmentStatus: u.employmentStatus || null,
     };
     setLegacyUser(legacy);
-  }, [u?.id, roles.join(","), profile?.department?.name]);
+  }, [u?.id, roles.join(","), profile?.department?.name, u?.employmentType, u?.employmentStatus]);
 
   return null;
 }

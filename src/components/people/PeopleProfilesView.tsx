@@ -314,7 +314,7 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 }
 
 interface PeopleProfilesViewProps {
-  currentProfilesTab: 'create' | 'bulk_create' | 'organogram' | 'directory' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations';
+  currentProfilesTab: 'create' | 'bulk_create' | 'organogram' | 'directory' | 'interns' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
   onViewProfile?: (employee: any) => void;
@@ -344,11 +344,13 @@ export default function PeopleProfilesView({
 
   // Organogram & Directory — React Query hooks
   const [currentPage, setCurrentPage] = useState(1);
+  const [internsPage, setInternsPage] = useState(1);
   const employeesPerPage = 10;
   const [activeActionsMenu, setActiveActionsMenu] = useState<string | null>(null);
   const [updateEmployeeModalOpen, setUpdateEmployeeModalOpen] = useState(false);
   const [updateEmployeeUserId, setUpdateEmployeeUserId] = useState<string | null>(null);
   const [deleteEmployeeUserId, setDeleteEmployeeUserId] = useState<string | null>(null);
+  const [createInternModalOpen, setCreateInternModalOpen] = useState(false);
 
   const { data: orgResult, isLoading: loadingOrg, refetch: refetchOrg } = useOrganogram();
   const orgData: OrgNode[] = (orgResult as any) ?? [];
@@ -359,6 +361,13 @@ export default function PeopleProfilesView({
   });
   const employees: any[] = empResult?.employees ?? [];
   const totalEmployees: number = empResult?.total ?? 0;
+  const { data: internResult, isLoading: loadingInterns, refetch: refetchInterns } = useEmployees({
+    limit: employeesPerPage,
+    offset: (internsPage - 1) * employeesPerPage,
+    employmentType: "intern",
+  });
+  const interns: any[] = internResult?.employees ?? [];
+  const totalInterns: number = internResult?.total ?? 0;
 
   const deleteEmployeeMutation = useDeleteEmployee();
 
@@ -764,6 +773,195 @@ export default function PeopleProfilesView({
           </motion.div>
         )}
 
+        {currentProfilesTab === 'interns' && (
+          <motion.div
+            key="interns"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            <div className="flex justify-between items-end">
+              <div>
+                <h4 className="text-sm font-bold text-slate-950 tracking-tight">Interns</h4>
+                <p className="text-[11px] text-slate-500 font-medium">Create, edit, and track internship records</p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setCreateInternModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-[11px] font-black text-white hover:bg-blue-700"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Add Intern
+                </button>
+                <button
+                  onClick={() => refetchInterns()}
+                  disabled={loadingInterns}
+                  className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:underline disabled:opacity-50"
+                >
+                  {loadingInterns ? 'Reloading...' : 'Reload Interns'}
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs space-y-4">
+              <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest pt-1">
+                {totalInterns} interns found
+              </div>
+
+              <div className="overflow-visible">
+                <table className="w-full text-left font-sans text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 tracking-wider uppercase">
+                      <th className="py-3 px-4">Name</th>
+                      <th className="py-3 px-4">Program</th>
+                      <th className="py-3 px-4">Department</th>
+                      <th className="py-3 px-4">Expected End</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {loadingInterns ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center">
+                          <div className="flex flex-col items-center gap-2">
+                            <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fetching Interns...</span>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : interns.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          No interns found.
+                        </td>
+                      </tr>
+                    ) : (
+                      interns.map((intern) => {
+                        const internship = intern.metadata?.internship || {};
+                        const initials = intern.user?.fullName?.split(' ').map((n: string) => n[0]).join('').toUpperCase().slice(0, 2) || '??';
+                        return (
+                          <tr
+                            key={intern.id}
+                            onClick={() => onViewProfile?.(intern)}
+                            className={`group transition-all relative cursor-pointer hover:bg-slate-50/30 ${activeActionsMenu === intern.id ? 'z-50' : 'z-0'}`}
+                          >
+                            <td className="py-3.5 px-4 flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-blue-600 text-white flex items-center justify-center font-extrabold text-xs shadow-sm border border-white/20">
+                                {initials}
+                              </div>
+                              <div>
+                                <span className="font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">{intern.user?.fullName}</span>
+                                <span className="text-[10.5px] text-slate-400 block mt-0.5">{intern.employeeCode || intern.user?.email}</span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="font-bold text-slate-700">{internship.program || intern.position?.title || 'Program not set'}</span>
+                              <span className="block text-[10px] text-slate-400 mt-0.5">{internship.institution || 'Institution not set'}</span>
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200">
+                                {intern.department?.name || 'General'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-[10.5px] font-semibold text-slate-600">
+                              {internship.expectedEndDate ? new Date(internship.expectedEndDate).toLocaleDateString() : 'Not set'}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="inline-flex rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-[10.5px] font-bold capitalize text-blue-700">
+                                {internship.status || intern.employmentStatus || 'active'}
+                              </span>
+                            </td>
+                            <td className={`py-3 px-4 text-right relative ${activeActionsMenu === intern.id ? 'z-50' : ''}`}>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setActiveActionsMenu(activeActionsMenu === intern.id ? null : intern.id);
+                                }}
+                                className="p-1.5 rounded-lg hover:bg-white border border-transparent hover:border-slate-200 transition-all text-slate-400 hover:text-slate-600 cursor-pointer"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                              <AnimatePresence>
+                                {activeActionsMenu === intern.id && (
+                                  <>
+                                    <div className="fixed inset-0 z-10" onClick={(e) => { e.stopPropagation(); setActiveActionsMenu(null); }} />
+                                    <motion.div
+                                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                                      exit={{ opacity: 0, scale: 0.95, y: -10 }}
+                                      className="absolute right-0 top-8 w-44 bg-white border border-slate-100 rounded-2xl shadow-2xl z-[100] overflow-hidden py-1.5"
+                                    >
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          onViewProfile?.(intern);
+                                          setActiveActionsMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                      >
+                                        <Eye className="w-3.5 h-3.5" /> View Profile
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setUpdateEmployeeUserId(intern.userId);
+                                          setUpdateEmployeeModalOpen(true);
+                                          setActiveActionsMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                      >
+                                        <Pencil className="w-3.5 h-3.5" /> Update Intern
+                                      </button>
+                                    </motion.div>
+                                  </>
+                                )}
+                              </AnimatePresence>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="flex justify-center items-center gap-1.5 pt-4 border-t border-slate-50">
+                <button
+                  disabled={internsPage === 1}
+                  onClick={() => setInternsPage(p => p - 1)}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                {Array.from({ length: Math.ceil(totalInterns / employeesPerPage) }).map((_, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setInternsPage(i + 1)}
+                    className={`w-7 h-7 font-black text-xs rounded-full flex items-center justify-center cursor-pointer transition-all ${
+                      internsPage === i + 1 ? 'bg-blue-600 text-white shadow-md scale-110' : 'text-slate-500 hover:bg-slate-50 font-bold'
+                    }`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                {totalInterns === 0 && (
+                  <button className="w-7 h-7 bg-blue-600 text-white font-black text-xs rounded-full flex items-center justify-center cursor-pointer">
+                    1
+                  </button>
+                )}
+                <button
+                  disabled={internsPage >= Math.ceil(totalInterns / employeesPerPage)}
+                  onClick={() => setInternsPage(p => p + 1)}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-400 hover:text-slate-700 cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {currentProfilesTab === 'organization' && (
           <motion.div
             key="organization"
@@ -1076,6 +1274,18 @@ export default function PeopleProfilesView({
       )}
 
       <CreateEmployeeModal
+        isOpen={createInternModalOpen}
+        onClose={() => setCreateInternModalOpen(false)}
+        showAlert={showAlert}
+        initialEmploymentType="intern"
+        onSuccess={() => {
+          setCreateInternModalOpen(false);
+          refetchInterns();
+          refetchEmployees();
+        }}
+      />
+
+      <CreateEmployeeModal
         isOpen={updateEmployeeModalOpen}
         onClose={() => {
           setUpdateEmployeeModalOpen(false);
@@ -1084,7 +1294,10 @@ export default function PeopleProfilesView({
         showAlert={showAlert}
         mode="update"
         targetUserId={updateEmployeeUserId || undefined}
-        onSuccess={() => fetchEmployees(currentPage)}
+        onSuccess={() => {
+          fetchEmployees(currentPage);
+          refetchInterns();
+        }}
       />
       <ConfirmDialog
         open={!!deleteEmployeeUserId}

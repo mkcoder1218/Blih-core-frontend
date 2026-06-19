@@ -8,7 +8,11 @@ import AttendanceSummaryCards from "./AttendanceSummaryCards";
 import AttendanceFilters, { type AttendanceFiltersValue } from "./AttendanceFilters";
 import AttendanceTable from "./AttendanceTable";
 import EmployeeAttendanceDrawer from "./EmployeeAttendanceDrawer";
-import { downloadAttendanceHrExport } from "../../../api/attendanceHr";
+import {
+  downloadAttendanceDailyReportExport,
+  downloadAttendanceMonthlyReportExport,
+  downloadAttendanceWeeklyReportExport,
+} from "../../../api/attendanceHr";
 import { PageHeader, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
 import { Button } from "@/components/ui/button";
 import { Download, RefreshCw } from "lucide-react";
@@ -55,30 +59,41 @@ export default function HrAttendanceCheckInsPage() {
   const tz = daily.data?.data?.timezone || summary.data?.data?.timezone || "UTC";
   const rows = daily.data?.data?.rows || [];
 
-  const exportParams = React.useMemo(() => {
-    const startDate = filters.range === "daily" ? filters.date : filters.startDate;
-    const endDate = filters.range === "daily" ? filters.date : filters.endDate;
-    return {
-      startDate,
-      endDate,
+  const handleExport = async () => {
+    const commonParams = {
       departmentId: filters.departmentId || undefined,
       status: filters.status || undefined,
       search: filters.search || undefined,
-      sortBy: filters.sortBy,
-      sortOrder: filters.sortOrder,
       format: "csv" as const,
     };
-  }, [filters]);
-
-  const handleExport = async () => {
-    const res = await downloadAttendanceHrExport(exportParams);
-    const blob = new Blob([res.data], { type: res.headers["content-type"] || "text/csv" });
+    const res =
+      filters.range === "weekly"
+        ? await downloadAttendanceWeeklyReportExport({
+            ...commonParams,
+            startDate: filters.startDate,
+            endDate: filters.endDate,
+          })
+        : filters.range === "monthly"
+          ? await downloadAttendanceMonthlyReportExport({
+              ...commonParams,
+              month: (filters.startDate || filters.date).slice(0, 7),
+            })
+          : await downloadAttendanceDailyReportExport({
+              ...commonParams,
+              date: filters.date,
+            });
+    const contentType = res.headers["content-type"];
+    const blob = new Blob([res.data], { type: typeof contentType === "string" ? contentType : "text/csv" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
+    const contentDisposition = res.headers["content-disposition"];
+    const headerFilename = typeof contentDisposition === "string"
+      ? contentDisposition.match(/filename=\"?([^\";]+)\"?/i)?.[1]
+      : undefined;
     const filename =
-      (res.headers["content-disposition"] as string | undefined)?.match(/filename=\"?([^\";]+)\"?/i)?.[1] ||
-      `attendance-${exportParams.startDate}-to-${exportParams.endDate}.csv`;
+      headerFilename ||
+      `attendance-${filters.range}-${filters.date}.csv`;
     a.download = filename;
     document.body.appendChild(a);
     a.click();

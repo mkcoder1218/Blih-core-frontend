@@ -46,6 +46,7 @@ export const PROFILES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   bulk_create:           { requires: ["hr.write"] },
   organogram:            { requires: ["profiles.read", "hr.read"] },
   directory:             { requires: ["profiles.read", "hr.read"] },
+  interns:               { requires: ["profiles.read", "hr.read"] },
   organization:          { requires: ["department.create", "department.update", "position.create", "position.update"] },
   devices:               { requires: ["device.read", "device.approve"] },
   events:                { requires: ["profiles.read", "hr.read", "profiles.self"] },
@@ -59,6 +60,7 @@ export const ATTENDANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   "check-in":     { requires: ["attendance.manage"] },           // HR check-in dashboard
   "check-me-in":  { requires: ["attendance.self"] },             // self check-in
   history:        { requires: ["attendance.self", "attendance.read"] },
+  "my-lateness-reason": { requires: ["attendance.self"] },
   "late-reasons": { requires: ["attendance.late_reason.read", "attendance.manage"] },
   requests:       { requires: ["attendance.self", "leave.read", "leave.approve", "attendance.checkin_correction.approve"] },
   timesheet:      { requires: ["attendance.read", "attendance.manage"] },

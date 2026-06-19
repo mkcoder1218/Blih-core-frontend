@@ -39,7 +39,7 @@ export default function AttendanceUnavailableTab({ showAlert }: AttendanceUnavai
 
   const rows = pending.data?.rows || [];
   const mineRows = archive.data?.rows || [];
-  const reasonOptions = (lateReasons.data?.data?.reasons || []).filter((item: any) => item.isActive !== false);
+  const reasonOptions = (lateReasons.data?.data?.reasons || []).filter((item: any) => item.isActive !== false && item.enabled !== false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createHrLateReason, deactivateHrLateReason, getHrLateReasons, updateHrLateReason } from "../api/attendanceLateReasons";
+import { createHrLateReason, deactivateHrLateReason, getHrLateReasons, updateHrLateReason, type AttendanceLateReasonPayload } from "../api/attendanceLateReasons";
 
 export function useHrLateReasons() {
   return useQuery({
@@ -11,8 +11,7 @@ export function useHrLateReasons() {
 export function useCreateHrLateReason() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { name: string; description?: string | null; requiresComment: boolean; isActive?: boolean }) =>
-      createHrLateReason(payload),
+    mutationFn: async (payload: AttendanceLateReasonPayload) => createHrLateReason(payload),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["attendanceHr", "lateReasons"] });
     },
@@ -38,4 +37,3 @@ export function useDeactivateHrLateReason() {
     },
   });
 }
-

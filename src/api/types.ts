@@ -19,6 +19,8 @@ export type SafeUser = {
   email: string;
   phone?: string | null;
   status: string;
+  employmentType?: EmploymentType | null;
+  employmentStatus?: EmploymentStatus | null;
   isPlatformSuperAdmin: boolean;
   lastLoginAt?: string | null;
 };
@@ -112,8 +114,8 @@ export type AttendanceMeTodayResponse = {
 
 export type AttendanceMeCreateEventRequest = {
   type: AttendanceEventType;
-  latitude: number;
-  longitude: number;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 export type AttendanceMeHistoryResponse = {

@@ -20,7 +20,6 @@ import { useMyAttendanceToday } from "../../hooks/useMyAttendanceToday";
 import { useCreateMyAttendanceEvent } from "../../hooks/useCreateMyAttendanceEvent";
 import { useRevertMyAttendanceEvent } from "../../hooks/useRevertMyAttendanceEvent";
 import type { AttendanceEventType, BusinessAttendanceSettings } from "../../api/types";
-import LateCheckInModal from "./LateCheckInModal";
 import { useGenerateTelegramLinkCode, useUnlinkMyTelegram } from "../../hooks/useTelegramLinkCode";
 import { ConfirmDialog } from "@/components/ui/blih";
 
@@ -60,7 +59,6 @@ export default function EmployeeAttendancePage() {
   const lunch: any = data?.lunch;
   const cooldown: any = data?.cooldown || null;
   const serverNowUtc: string | undefined = data?.serverNowUtc;
-  const dailyLateReasons: any[] = data?.dailyReasons?.late || [];
 
   const tz = settings?.timezone || "UTC";
   const currentStatus: string = calculation?.currentStatus || "NOT_STARTED";
@@ -88,6 +86,10 @@ export default function EmployeeAttendancePage() {
     return serverTs - Date.now();
   }, [serverNowUtc]);
   const serverNowDate = React.useMemo(() => new Date(nowTs + serverClockOffsetMs), [nowTs, serverClockOffsetMs]);
+  const isSaturdayTrackingOnly = React.useMemo(
+    () => new Intl.DateTimeFormat("en-US", { timeZone: tz, weekday: "short" }).format(serverNowDate) === "Sat",
+    [serverNowDate, tz]
+  );
 
   // ── Live worked-time ticker ────────────────────────────────────────────
   // Backend is authoritative. Between 30-second refetches we locally
@@ -216,6 +218,7 @@ export default function EmployeeAttendancePage() {
     if (today.isLoading) return "Loading…";
     if (disabledReason) return disabledReason;
     if (!settings?.attendanceEnabled) return "Attendance is disabled";
+    if (isSaturdayTrackingOnly) return createEvent.isPending ? "Processing..." : null;
     if (!office) return "Attendance location is not configured";
     if (geo.status === "denied") return "Location access denied";
     if (geo.status === "error") return (geo as any).message;
@@ -226,12 +229,8 @@ export default function EmployeeAttendancePage() {
   })();
 
   // ── Late check-in modal ────────────────────────────────────────────────
-  const [lateModalOpen, setLateModalOpen] = React.useState(false);
-  const [lateByMinutes, setLateByMinutes] = React.useState(0);
   const [submitError, setSubmitError] = React.useState<string | null>(null);
   const [confirmRevertOpen, setConfirmRevertOpen] = React.useState(false);
-  const [useExistingLateReasonsOpen, setUseExistingLateReasonsOpen] = React.useState(false);
-  const [pendingLateCheckIn, setPendingLateCheckIn] = React.useState<{ latitude: number; longitude: number } | null>(null);
 
   // Compute how many minutes late a check-in right now would be, using the
   // same logic as the backend (defaultStartTime + lateGracePeriodMinutes vs current local time).
@@ -257,26 +256,13 @@ export default function EmployeeAttendancePage() {
   }, [settings, tz, serverNowDate]);
 
   const handleAction = async (type: AttendanceEventType) => {
-    if (!coords) return;
+    if (!coords && !isSaturdayTrackingOnly) return;
     setSubmitError(null);
-    if (type === "CHECK_IN") {
-      const late = computeLateByMinutes();
-      if (late > 0) {
-        if (dailyLateReasons.length > 0) {
-          setPendingLateCheckIn({ latitude: coords.latitude, longitude: coords.longitude });
-          setUseExistingLateReasonsOpen(true);
-          return;
-        }
-        setLateByMinutes(late);
-        setLateModalOpen(true);
-        return;
-      }
-    }
     try {
       await createEvent.mutateAsync({
         type,
-        latitude: coords.latitude,
-        longitude: coords.longitude,
+        latitude: coords?.latitude ?? null,
+        longitude: coords?.longitude ?? null,
       });
     } catch (e: any) {
       setSubmitError(
@@ -363,7 +349,7 @@ export default function EmployeeAttendancePage() {
                   Current status
                 </div>
                 <div className="text-sm font-extrabold text-slate-900 mt-1">
-                  {humanStatus(currentStatus, disabledReason, office, geo, coords, withinRadius)}
+                  {isSaturdayTrackingOnly ? "Saturday tracking only" : humanStatus(currentStatus, disabledReason, office, geo, coords, withinRadius)}
                 </div>
                 <div className="text-[11px] text-slate-600 font-semibold mt-1 flex items-center gap-1.5">
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
@@ -522,7 +508,7 @@ export default function EmployeeAttendancePage() {
                   <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
                     <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                     <span>
-                      You are <span className="font-black">{computeLateByMinutes()} min late</span> — you'll be asked to provide a reason before checking in.
+                      You are <span className="font-black">{computeLateByMinutes()} min late</span>. Submit your reason separately in My Lateness Reason before 08:30 AM.
                     </span>
                   </div>
                 ) : null}
@@ -563,7 +549,7 @@ export default function EmployeeAttendancePage() {
                 })}
 
                 {/* Prompt location access if needed */}
-                {geo.status === "prompt" && !coords ? (
+                {geo.status === "prompt" && !coords && !isSaturdayTrackingOnly ? (
                   <button
                     onClick={requestLocation}
                     className="w-full mt-1 rounded-2xl py-2.5 px-4 text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-white"
@@ -646,60 +632,6 @@ export default function EmployeeAttendancePage() {
       </div>
 
       {/* ── Late check-in modal ── */}
-      <LateCheckInModal
-        open={lateModalOpen}
-        lateByMinutes={lateByMinutes}
-        onCancel={() => setLateModalOpen(false)}
-        onSubmit={async ({ lateReasonId, customReason }) => {
-          if (!coords) return;
-          try {
-            await createEvent.mutateAsync({
-              type: "CHECK_IN",
-              latitude: coords.latitude,
-              longitude: coords.longitude,
-              lateReasonId,
-              customReason,
-            } as any);
-            setLateModalOpen(false);
-          } catch (e: any) {
-            setSubmitError(
-              e?.response?.data?.message || e?.message || "Failed to check in"
-            );
-            setLateModalOpen(false);
-          }
-        }}
-      />
-
-      <ConfirmDialog
-        open={useExistingLateReasonsOpen}
-        onClose={() => {
-          setUseExistingLateReasonsOpen(false);
-          setPendingLateCheckIn(null);
-        }}
-        onConfirm={async () => {
-          if (!pendingLateCheckIn) return;
-          setSubmitError(null);
-          try {
-            await createEvent.mutateAsync({
-              type: "CHECK_IN",
-              latitude: pendingLateCheckIn.latitude,
-              longitude: pendingLateCheckIn.longitude,
-            });
-          } catch (e: any) {
-            setSubmitError(e?.response?.data?.message || e?.message || "Failed to record event");
-          } finally {
-            setUseExistingLateReasonsOpen(false);
-            setPendingLateCheckIn(null);
-          }
-        }}
-        title="Use existing late reasons?"
-        description={`You already submitted ${dailyLateReasons.length} late reason(s) for today. Use them for this check-in?`}
-        confirmLabel="Use reasons"
-        cancelLabel="Cancel"
-        variant="primary"
-        loading={createEvent.isPending}
-      />
-
       {/* ── Timeline card ── */}
       <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 sm:p-6">
         <div className="flex items-center justify-between gap-3">

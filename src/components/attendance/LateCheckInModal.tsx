@@ -20,7 +20,7 @@ export default function LateCheckInModal({
   const [saving, setSaving] = React.useState(false);
 
   const list = reasons.data?.data?.reasons || [];
-  const active = list.filter((r: any) => r.isActive);
+  const active = list.filter((r: any) => r.isActive !== false && r.enabled !== false);
   const selected = active.find((r: any) => r.id === lateReasonId) || null;
   const requiresComment = Boolean(selected?.requiresComment);
 
@@ -60,7 +60,7 @@ export default function LateCheckInModal({
             <option value="">Select reason…</option>
             {active.map((r: any) => (
               <option key={r.id} value={r.id}>
-                {r.name}
+                {r.label || r.name}
               </option>
             ))}
           </select>
@@ -121,4 +121,3 @@ export default function LateCheckInModal({
     </div>
   );
 }
-

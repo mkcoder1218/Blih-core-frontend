@@ -13,9 +13,9 @@ export default function AppShell() {
   const activeUser = useLegacyUser();
   const location = useLocation();
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>("overview");
-  const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "bulk_create" | "organogram" | "directory" | "organization" | "devices" | "events" | "archive" | "pending_registrations">("overview");
+  const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "bulk_create" | "organogram" | "directory" | "interns" | "organization" | "devices" | "events" | "archive" | "pending_registrations">("overview");
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<
-    "overview" | "check-in" | "check-me-in" | "history" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "unavailable" | "memo-log" | "work-from-home"
+    "overview" | "check-in" | "check-me-in" | "history" | "my-lateness-reason" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "unavailable" | "memo-log" | "work-from-home"
   >("overview");
   const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
   const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("offboarding");

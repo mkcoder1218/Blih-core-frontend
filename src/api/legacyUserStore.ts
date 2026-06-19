@@ -1,6 +1,13 @@
 import { useSyncExternalStore } from "react";
 
-export type LegacyUser = { name: string; email: string; role: string; departmentName?: string | null } | null;
+export type LegacyUser = {
+  name: string;
+  email: string;
+  role: string;
+  departmentName?: string | null;
+  employmentType?: string | null;
+  employmentStatus?: string | null;
+} | null;
 
 type Listener = () => void;
 const listeners = new Set<Listener>();

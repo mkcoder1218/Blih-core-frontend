@@ -13,6 +13,7 @@ import EmployeeAttendancePage from './EmployeeAttendancePage';
 import HrAttendanceCheckInsPage from './hr/HrAttendanceCheckInsPage';
 import EmployeeAttendanceHistoryPage from './EmployeeAttendanceHistoryPage';
 import HrLateReasonsPage from './hr/HrLateReasonsPage';
+import MyLatenessReasonPage from './MyLatenessReasonPage';
 import OvertimePage from './OvertimePage';
 import LeavePage from './LeavePage';
 
@@ -25,7 +26,7 @@ import AttendanceWfhTab from './AttendanceWfhTab';
 import AttendanceUnavailableTab from './AttendanceUnavailableTab';
 
 interface AttendanceViewProps {
-  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home';
+  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -192,6 +193,14 @@ export default function AttendanceView({
     return (
       <div className="h-full flex flex-col space-y-6">
         <EmployeeAttendanceHistoryPage />
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'my-lateness-reason') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <MyLatenessReasonPage />
       </div>
     );
   }

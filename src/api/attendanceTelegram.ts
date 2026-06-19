@@ -1,7 +1,7 @@
 import { api } from "./client";
 import type { ApiEnvelope } from "./types";
 
-export type TelegramBotType = "PERSONAL_SUMMARY";
+export type TelegramBotType = "PERSONAL_SUMMARY" | "DATABASE_BACKUP";
 
 export type TelegramSetting = {
   id?: string;
