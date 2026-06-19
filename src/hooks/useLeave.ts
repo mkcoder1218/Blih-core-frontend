@@ -12,8 +12,11 @@ export interface LeaveTemplate {
   businessId: string;
   name: string;
   leaveType: LeaveType;
+  hasAmount?: boolean;
   totalDays: number;
   description?: string | null;
+  requiresEvidence?: boolean;
+  evidenceInstructions?: string | null;
   isActive: boolean;
   createdAt: string;
   creator?: { id: string; fullName: string } | null;
@@ -29,6 +32,8 @@ export interface LeaveRequest {
   endDate: string;
   totalDays: number;
   reason: string;
+  evidenceUrl?: string | null;
+  evidenceNote?: string | null;
   approvalStage: LeaveApprovalStage;
   status: LeaveStatus;
   deptHeadComment?: string | null;
@@ -36,7 +41,7 @@ export interface LeaveRequest {
   rejectionReason?: string | null;
   createdAt: string;
   employee?: { id: string; fullName: string; email: string } | null;
-  template?: { id: string; name: string; leaveType: string; totalDays: number } | null;
+  template?: { id: string; name: string; leaveType: string; hasAmount?: boolean; totalDays: number; requiresEvidence?: boolean; evidenceInstructions?: string | null } | null;
   deptHeadApprover?: { id: string; fullName: string } | null;
   adminApprover?: { id: string; fullName: string } | null;
 }
@@ -80,8 +85,11 @@ export function useCreateLeaveTemplate() {
     mutationFn: async (data: {
       name: string;
       leaveType: LeaveType;
+      hasAmount?: boolean;
       totalDays: number;
       description?: string;
+      requiresEvidence?: boolean;
+      evidenceInstructions?: string;
     }) => {
       const res = await api.post("/api/v1/leave-requests/templates", data);
       return res.data.template as LeaveTemplate;
@@ -168,6 +176,8 @@ export function useSubmitLeaveRequest() {
       startDate: string;
       endDate: string;
       reason: string;
+      evidenceUrl?: string;
+      evidenceNote?: string;
     }) => {
       const res = await api.post("/api/v1/leave-requests", data);
       return res.data.leaveRequest as LeaveRequest;
