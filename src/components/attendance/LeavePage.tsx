@@ -365,32 +365,36 @@ function SubmitModal({
                 <SelectTrigger className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold h-9">
                   <SelectValue placeholder="Select leave type..." />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-[min(92vw,360px)]">
                   {activeTemplates.map((tpl) => {
                     const bal = balances.find((b) => b.leaveType === tpl.leaveType);
                     const usesAmount = tpl.hasAmount !== false;
                     const remaining = bal?.remainingDays ?? tpl.totalDays;
                     const exhausted = usesAmount && remaining <= 0;
                     return (
-                      <SelectItem key={tpl.id} value={tpl.id} disabled={exhausted}>
-                        <div className="flex items-center gap-2">
-                          <span>{tpl.name}</span>
-                          {!usesAmount && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                              No balance
-                            </span>
-                          )}
-                          {tpl.requiresEvidence && (
-                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
-                              Evidence
-                            </span>
-                          )}
-                          <span className={cn(
-                            "text-[9px] font-bold px-1.5 py-0.5 rounded",
-                            exhausted ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"
-                          )}>
-                            {exhausted ? "Exhausted" : usesAmount ? `${remaining}d left` : "Open"}
+                      <SelectItem key={tpl.id} value={tpl.id} disabled={exhausted} className="py-2 pr-8">
+                        <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+                          <span className="min-w-0 whitespace-normal break-words text-xs font-semibold leading-snug">
+                            {tpl.name}
                           </span>
+                          <div className="flex flex-shrink-0 flex-wrap justify-end gap-1">
+                            {!usesAmount && (
+                              <span className="whitespace-nowrap text-[9px] font-bold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                No balance
+                              </span>
+                            )}
+                            {tpl.requiresEvidence && (
+                              <span className="whitespace-nowrap text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                Evidence
+                              </span>
+                            )}
+                            <span className={cn(
+                              "whitespace-nowrap text-[9px] font-bold px-1.5 py-0.5 rounded",
+                              exhausted ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"
+                            )}>
+                              {exhausted ? "Exhausted" : usesAmount ? `${remaining}d left` : "Open"}
+                            </span>
+                          </div>
                         </div>
                       </SelectItem>
                     );
