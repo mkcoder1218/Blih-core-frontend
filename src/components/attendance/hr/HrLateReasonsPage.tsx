@@ -185,12 +185,14 @@ function RuleFields({ form, setField, creditConfig }: { form: RuleForm; setField
 
       <textarea value={form.description} onChange={(e) => setField("description", e.target.value)} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700" placeholder="Description (optional)" />
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
-        <Field label="Exceeded behavior">
-          <select value={form.behaviorWhenExceeded} onChange={(e) => setField("behaviorWhenExceeded", e.target.value as LatenessReasonBehavior)} className={inputClass}>
-            {BEHAVIORS.map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-        </Field>
+      <div className={`grid grid-cols-1 ${isGlobalPool ? "md:grid-cols-4" : "md:grid-cols-5"} gap-3`}>
+        {!isGlobalPool && (
+          <Field label="Exceeded behavior">
+            <select value={form.behaviorWhenExceeded} onChange={(e) => setField("behaviorWhenExceeded", e.target.value as LatenessReasonBehavior)} className={inputClass}>
+              {BEHAVIORS.map((item) => <option key={item} value={item}>{item}</option>)}
+            </select>
+          </Field>
+        )}
         <Field label="Sort order">
           <input type="number" value={form.sortOrder} onChange={(e) => setField("sortOrder", Number(e.target.value))} className={inputClass} />
         </Field>
@@ -207,7 +209,9 @@ function RuleFields({ form, setField, creditConfig }: { form: RuleForm; setField
           <div className={labelClass}>Monthly limit is used in per-reason mode. In global pool mode, all enabled reasons share the system monthly credit limit.</div>
           <div className={labelClass}>Examples: SICKNESS 2 / 60, TRANSPORT 1 / 30, FAMILY_EMERGENCY 2 / 120, MEDICAL_APPOINTMENT 2 / 90 with attachment, OTHER 0 / 0 with HR_REVIEW.</div>
         </>
-      ) : null}
+      ) : (
+        <div className={labelClass}>Exceeded behavior is controlled by the global credit mode settings above.</div>
+      )}
     </div>
   );
 }
@@ -345,6 +349,7 @@ function ReasonRow({ r, canManage, creditConfig, onSave, onDeactivate }: {
                   <>
                     <span>Shared limit: {creditConfig?.globalMonthlyLimit ?? 0}/month</span>
                     <span>Shared covers: {creditConfig?.globalCoversMinutes ?? 0} min</span>
+                    <span>Shared exceeded: {creditConfig?.behaviorWhenExceeded || "HR_REVIEW"}</span>
                   </>
                 ) : (
                   <>

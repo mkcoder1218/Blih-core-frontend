@@ -43,6 +43,7 @@ export interface LeaveRequest {
   employee?: { id: string; fullName: string; email: string } | null;
   template?: { id: string; name: string; leaveType: string; hasAmount?: boolean; totalDays: number; requiresEvidence?: boolean; evidenceInstructions?: string | null } | null;
   deptHeadApprover?: { id: string; fullName: string } | null;
+  businessAdminApprover?: { id: string; fullName: string } | null;
   adminApprover?: { id: string; fullName: string } | null;
 }
 

@@ -134,6 +134,34 @@ function Pipeline({ current }: { current: string }) {
   );
 }
 
+function ApprovalFlowDetails({ req }: { req: LeaveRequest }) {
+  const firstStageApprover = req.deptHeadApprover || req.businessAdminApprover;
+  const firstStageLabel = req.businessAdminApprover ? "Business Admin" : "Dept Head";
+  const firstStageDone = Boolean(firstStageApprover) || req.approvalStage === "admin" || req.approvalStage === "approved";
+  const finalDone = Boolean(req.adminApprover) || req.approvalStage === "approved";
+  const rejected = req.approvalStage === "rejected";
+  const itemClass = "flex items-center justify-between gap-3 rounded-xl border px-3 py-2";
+  const labelClass = "text-[9px] font-black uppercase tracking-wider text-slate-400";
+  const valueClass = "text-[10.5px] font-bold text-slate-700 text-right";
+
+  return (
+    <div className="space-y-2">
+      <div className={cn(itemClass, firstStageDone ? "border-emerald-100 bg-emerald-50" : rejected ? "border-slate-100 bg-slate-50" : "border-amber-100 bg-amber-50")}>
+        <span className={labelClass}>{firstStageLabel}</span>
+        <span className={valueClass}>
+          {firstStageApprover?.fullName || (firstStageDone ? "Approved" : "Waiting")}
+        </span>
+      </div>
+      <div className={cn(itemClass, finalDone ? "border-emerald-100 bg-emerald-50" : req.approvalStage === "admin" ? "border-blue-100 bg-blue-50" : "border-slate-100 bg-slate-50")}>
+        <span className={labelClass}>HR Final Approval</span>
+        <span className={valueClass}>
+          {req.adminApprover?.fullName || (finalDone ? "Approved" : req.approvalStage === "admin" ? "Waiting" : "Not reached")}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function LeaveTypeBadge({ type }: { type: string }) {
   const colors: Record<string, string> = {
     annual:    "bg-blue-600",
@@ -200,6 +228,7 @@ function LeaveCard({
 
       {/* Pipeline */}
       <Pipeline current={req.approvalStage} />
+      <ApprovalFlowDetails req={req} />
 
       {/* Dates */}
       <div className="grid grid-cols-2 gap-2 bg-slate-50 rounded-xl p-3 text-[10.5px]">
@@ -996,6 +1025,7 @@ export default function LeavePage({ showAlert }: LeavePageProps) {
     perms.hasAny("self_department_leave_read", "self_department_leave_manage") ||
     currentRoles.has("DEPARTMENT_HEAD") ||
     currentRoles.has("DEPT_HEAD");
+  const canViewSentRequests = isHrAdmin || isApprover;
   const currentUserId = meRes?.data?.user?.id ?? (legacyUser as any)?.id ?? "";
 
   // Tab: "my" (everyone), "on-request" (approvers only), "sent" (hr/admin only), "templates" (hr/admin only)
@@ -1060,6 +1090,7 @@ export default function LeavePage({ showAlert }: LeavePageProps) {
           setView={(v) => { setView(v as TabId); setPage(1); }}
           isHrAdmin={isHrAdmin}
           isApprover={isApprover}
+          canViewSentRequests={canViewSentRequests}
           pendingCount={pendingCount}
         />
         <TemplatesPanel showAlert={showAlert} />
@@ -1165,6 +1196,7 @@ export default function LeavePage({ showAlert }: LeavePageProps) {
         setView={(v) => { setView(v as TabId); setPage(1); }}
         isHrAdmin={isHrAdmin}
         isApprover={isApprover}
+        canViewSentRequests={canViewSentRequests}
         pendingCount={pendingCount}
       />
 
@@ -1254,12 +1286,14 @@ function TabStrip({
   setView,
   isHrAdmin,
   isApprover,
+  canViewSentRequests,
   pendingCount,
 }: {
   view: string;
   setView: (v: string) => void;
   isHrAdmin: boolean;
   isApprover: boolean;
+  canViewSentRequests: boolean;
   pendingCount: number;
 }) {
   return (
@@ -1291,8 +1325,7 @@ function TabStrip({
         </button>
       )}
 
-      {isHrAdmin && (
-        <>
+      {canViewSentRequests && (
           <button
             onClick={() => setView("sent")}
             className={cn(
@@ -1302,6 +1335,10 @@ function TabStrip({
           >
             Leave Request Sent
           </button>
+      )}
+
+      {isHrAdmin && (
+        <>
           <button
             onClick={() => setView("templates")}
             className={cn(
