@@ -230,6 +230,7 @@ export type LoginSuccessResponse = {
   business: Business | null;
   roles: string[];
   permissions: string[];
+  portalUser?: { id: string; clientId: string; fullName: string; email: string } | null;
   enabledModules: EnabledModule[];
 };
 
@@ -247,6 +248,7 @@ export type MeResponse = {
   business: Business | null;
   roles: string[];
   permissions: string[];
+  portalUser?: { id: string; clientId: string; fullName: string; email: string } | null;
   enabledModules: EnabledModule[];
 };
 

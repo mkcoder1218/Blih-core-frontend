@@ -4,6 +4,7 @@ import { ArrowLeft, Archive, FileText, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { EmptyState, PageLoadingSpinner, StatCard, StatCardGrid } from "@/components/ui/blih";
 import { useMyPermissions } from "../../../hooks/usePermissions";
+import { useClients } from "../../../hooks/useClients";
 import { ProjectStatusBadge } from "../components/ProjectStatusBadge";
 import { TaskList } from "../components/TaskList";
 import { EmployeeSelect } from "../components/EmployeeSelect";
@@ -43,7 +44,9 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
   const [tab, setTab] = useState<DetailTab>("overview");
   const [memberEmployeeId, setMemberEmployeeId] = useState("");
   const [settings, setSettings] = useState<any>({});
+  const [issuedCredentials, setIssuedCredentials] = useState<{ email: string; password: string | null; portalUrl: string } | null>(null);
   const perms = useMyPermissions();
+  const clients = useClients();
   const project = useProject(projectId);
   const tasks = useProjectTasks(projectId);
   const members = useProjectMembers(projectId);
@@ -74,7 +77,34 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
   const doneTasks = taskRows.filter((t) => t.status === "DONE").length;
 
   const saveSettings = async () => {
-    await updateProject.mutateAsync({ id: projectId, data: settings });
+    const selectedClient = clients.data?.find((client) => client.id === (settings.clientId ?? p.clientId));
+    const payload = {
+      ...settings,
+      clientPortalUser: settings.issueClientLogin ? {
+        fullName: settings.clientContactName || settings.clientCompanyName || selectedClient?.contactName || selectedClient?.companyName || undefined,
+        email: settings.clientEmail || selectedClient?.email || undefined,
+        phone: settings.clientPhone || selectedClient?.phone || undefined,
+        password: settings.clientPassword || undefined,
+      } : undefined,
+    };
+    delete (payload as any).clientMode;
+    delete (payload as any).clientCompanyName;
+    delete (payload as any).clientContactName;
+    delete (payload as any).clientEmail;
+    delete (payload as any).clientPhone;
+    delete (payload as any).clientPassword;
+    delete (payload as any).issueClientLogin;
+    if (settings.clientMode !== "new") delete (payload as any).newClient;
+    if (settings.clientMode === "new") delete (payload as any).clientId;
+    if (!settings.issueClientLogin) delete (payload as any).clientPortalUser;
+    const updated: any = await updateProject.mutateAsync({ id: projectId, data: payload });
+    if (updated?.clientPortalUser?.email) {
+      setIssuedCredentials({
+        email: updated.clientPortalUser.email,
+        password: updated.clientPortalUser.temporaryPassword || settings.clientPassword || null,
+        portalUrl: `${window.location.origin}/client-portal`,
+      });
+    }
     setSettings({});
   };
 
@@ -202,6 +232,51 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
               <label><span className="mb-1 block text-xs font-bold text-slate-600">Priority</span><select defaultValue={p.priority || "NORMAL"} onChange={(e) => setSettings((s: any) => ({ ...s, priority: e.target.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label>
               <label><span className="mb-1 block text-xs font-bold text-slate-600">Owner</span><EmployeeSelect value={settings.ownerEmployeeId ?? p.ownerEmployeeId ?? ""} onChange={(v) => setSettings((s: any) => ({ ...s, ownerEmployeeId: v }))} /></label>
               <label><span className="mb-1 block text-xs font-bold text-slate-600">Manager</span><EmployeeSelect value={settings.managerEmployeeId ?? p.managerEmployeeId ?? ""} onChange={(v) => setSettings((s: any) => ({ ...s, managerEmployeeId: v }))} /></label>
+              <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-black uppercase text-slate-500">Client portal</span>
+                  <button type="button" onClick={() => setSettings((s: any) => ({ ...s, clientMode: "existing", newClient: undefined }))} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${(settings.clientMode || "existing") === "existing" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>Existing client</button>
+                  <button type="button" onClick={() => setSettings((s: any) => ({ ...s, clientMode: "new", clientId: undefined }))} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${settings.clientMode === "new" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>New client</button>
+                </div>
+                {(settings.clientMode || "existing") === "existing" ? (
+                  <label>
+                    <span className="mb-1 block text-xs font-bold text-slate-600">Linked client</span>
+                    <select value={settings.clientId ?? p.clientId ?? ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientId: e.target.value || null }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                      <option value="">No client linked</option>
+                      {(clients.data ?? []).map((client) => <option key={client.id} value={client.id}>{client.companyName}</option>)}
+                    </select>
+                  </label>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <label>
+                      <span className="mb-1 block text-xs font-bold text-slate-600">Company</span>
+                      <input value={settings.clientCompanyName || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientCompanyName: e.target.value, newClient: { ...(s.newClient || {}), companyName: e.target.value } }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                    </label>
+                    <label>
+                      <span className="mb-1 block text-xs font-bold text-slate-600">Contact</span>
+                      <input value={settings.clientContactName || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientContactName: e.target.value, newClient: { ...(s.newClient || {}), contactName: e.target.value } }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                    </label>
+                  </div>
+                )}
+                <label className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-700">
+                  <input type="checkbox" checked={Boolean(settings.issueClientLogin)} onChange={(e) => setSettings((s: any) => ({ ...s, issueClientLogin: e.target.checked }))} />
+                  Create or reset client portal login
+                </label>
+                {settings.issueClientLogin && (
+                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                    <input placeholder="Client email" value={settings.clientEmail || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientEmail: e.target.value, newClient: s.clientMode === "new" ? { ...(s.newClient || {}), email: e.target.value } : s.newClient }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                    <input placeholder="Client phone" value={settings.clientPhone || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientPhone: e.target.value, newClient: s.clientMode === "new" ? { ...(s.newClient || {}), phone: e.target.value } : s.newClient }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                    <input placeholder="New password" value={settings.clientPassword || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientPassword: e.target.value }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                  </div>
+                )}
+                {issuedCredentials && (
+                  <div className="mt-3 grid gap-3 rounded-lg border border-emerald-100 bg-emerald-50 p-3 text-sm sm:grid-cols-3">
+                    <div><span className="block text-xs font-black text-emerald-700">Email</span><span className="font-semibold text-emerald-900">{issuedCredentials.email}</span></div>
+                    <div><span className="block text-xs font-black text-emerald-700">Password</span><span className="font-semibold text-emerald-900">{issuedCredentials.password || "Existing password"}</span></div>
+                    <div><span className="block text-xs font-black text-emerald-700">Login URL</span><span className="font-semibold text-emerald-900">{issuedCredentials.portalUrl}</span></div>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="mt-4"><Button onClick={saveSettings} disabled={updateProject.isPending}><Save className="h-4 w-4" /> Save Changes</Button></div>
           </section>

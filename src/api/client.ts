@@ -69,7 +69,8 @@ api.interceptors.response.use(
     const isAuthRequest = url.includes("/api/v1/auth/login") || url.includes("/api/v1/auth/refresh");
 
     if (status === 401 && isAuthRequest) {
-      redirectToLogin();
+      clearAuthTokens();
+      notifyAuthChanged();
       return Promise.reject(error);
     }
 

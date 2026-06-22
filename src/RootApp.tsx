@@ -22,6 +22,7 @@ import CandidateOnboardingPage from "./pages/CandidateOnboardingPage";
 import PublicRegisterPage from "./pages/PublicRegisterPage";
 import MyProfilePage from "./pages/MyProfilePage";
 import BulkEmployeeImportPage from "./pages/BulkEmployeeImportPage";
+import ClientPortalPage from "./pages/ClientPortalPage";
 import { ProjectDetailsPage, ProjectsPage } from "./features/projects";
 
 // Wrapper to extract :onboardingId param and pass as prop
@@ -47,6 +48,7 @@ export default function RootApp() {
         <Route path="/careers/:businessSlug" element={<PublicCareersPage />} />
         <Route path="/careers/:businessSlug/apply/:jobId" element={<PublicJobApplicationPage />} />
         <Route path="/interview/respond" element={<InterviewResponsePage />} />
+        <Route path="/onboarding/:onboardingId" element={<CandidateOnboardingRoute />} />
         <Route path="/career/onboarding/:onboardingId" element={<CandidateOnboardingRoute />} />
         <Route path="/register/:businessSlug" element={<PublicRegisterPage />} />
         
@@ -59,12 +61,11 @@ export default function RootApp() {
             ) : (
               <AuthGuard>
                 <SyncLegacyUser />
-                <RequiredFullNameModal />
-                <RequiredDeviceRegistrationModal />
-                <CriticalDisciplineModal />
+                <InternalUserModals />
                 <Routes>
                   <Route path="/unauthorized" element={<UnauthorizedPage />} />
-                  <Route path="/" element={<AppShell />}>
+                  <Route path="/client-portal" element={<ClientPortalPage />} />
+                  <Route path="/" element={<InternalShellGuard />}>
                     <Route index element={<HomeRedirect />} />
                     <Route path="projects" element={<ProjectsPage currentTab="overview" />} />
                     <Route path="projects/all" element={<ProjectsPage currentTab="all" />} />
@@ -241,8 +242,27 @@ function SyncLegacyUser() {
 function HomeRedirect() {
   const me = useMe();
   const isSuper = Boolean(me.data?.data?.user?.isPlatformSuperAdmin);
+  const isClientPortal = Boolean((me.data as any)?.data?.portalUser);
   const roles: string[] = (me.data as any)?.data?.roles || [];
   const isBusinessAdmin = roles.includes("BUSINESS_ADMIN");
   const isHrManager = roles.includes("HR_MANAGER");
-  return <Navigate to={isSuper ? "/super-admin/businesses" : isBusinessAdmin ? "/business-admin/recruitment" : isHrManager ? "/hr-manager/recruitment" : "/employee/attendance/check-me-in"} replace />;
+  return <Navigate to={isClientPortal ? "/client-portal" : isSuper ? "/super-admin/businesses" : isBusinessAdmin ? "/business-admin/recruitment" : isHrManager ? "/hr-manager/recruitment" : "/employee/attendance/check-me-in"} replace />;
+}
+
+function InternalUserModals() {
+  const me = useMe();
+  if ((me.data as any)?.data?.portalUser) return null;
+  return (
+    <>
+      <RequiredFullNameModal />
+      <RequiredDeviceRegistrationModal />
+      <CriticalDisciplineModal />
+    </>
+  );
+}
+
+function InternalShellGuard() {
+  const me = useMe();
+  if ((me.data as any)?.data?.portalUser) return <Navigate to="/client-portal" replace />;
+  return <AppShell />;
 }

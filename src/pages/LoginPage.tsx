@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useLogin } from "../hooks/useLogin";
 import { useSelectWorkspace } from "../hooks/useSelectWorkspace";
 import type { WorkspaceOption } from "../api/types";
+import { useNavigate } from "react-router-dom";
 import {
   Building2,
   Eye,
@@ -17,6 +18,7 @@ import {
 export default function LoginPage() {
   const login = useLogin();
   const selectWorkspace = useSelectWorkspace();
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,6 +43,8 @@ export default function LoginPage() {
     const data: any = res.data;
     if (data?.requiresWorkspaceSelection) {
       setWorkspaces(data.businesses || []);
+    } else if (data?.portalUser) {
+      navigate("/client-portal", { replace: true });
     }
   };
 

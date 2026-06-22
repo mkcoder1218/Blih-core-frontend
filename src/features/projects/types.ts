@@ -24,6 +24,7 @@ export interface ProjectMember {
 export interface Project {
   id: string;
   businessId: string;
+  clientId?: string | null;
   title: string;
   code?: string | null;
   description?: string | null;
@@ -38,6 +39,7 @@ export interface Project {
   managerEmployeeId?: string | null;
   owner?: ProjectPerson | null;
   manager?: ProjectPerson | null;
+  Client?: { id: string; companyName: string; contactName?: string | null; email?: string | null; phone?: string | null } | null;
   members?: ProjectMember[];
   metadata?: { progress?: { totalTasks: number; completedTasks: number; progressPercent: number }; [key: string]: unknown };
   createdAt: string;
