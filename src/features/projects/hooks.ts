@@ -8,6 +8,7 @@ import {
   createProject,
   createProjectTask,
   createProjectWorkflowForm,
+  deleteProjectTask,
   getProjectWorkflowCatalog,
   getProject,
   listAllMyTasks,
@@ -137,6 +138,19 @@ export function useUpdateProjectTask(projectId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ taskId, data }: { taskId: string; data: any }) => updateProjectTask(projectId, taskId, data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: projectKeys.taskLists(projectId) });
+      qc.invalidateQueries({ queryKey: projectKeys.myTaskLists() });
+      qc.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+      qc.invalidateQueries({ queryKey: projectKeys.lists() });
+    },
+  });
+}
+
+export function useDeleteProjectTask(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: string) => deleteProjectTask(projectId, taskId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: projectKeys.taskLists(projectId) });
       qc.invalidateQueries({ queryKey: projectKeys.myTaskLists() });

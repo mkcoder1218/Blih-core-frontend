@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { EmployeeSelect } from "./EmployeeSelect";
 import { ProjectStatusBadge } from "./ProjectStatusBadge";
 import type { ProjectTask } from "../types";
-import { useUpdateProjectTask } from "../hooks";
+import { useDeleteProjectTask, useUpdateProjectTask } from "../hooks";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
@@ -22,6 +23,7 @@ export function TaskDetailsModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const updateTask = useUpdateProjectTask(projectId);
+  const deleteTask = useDeleteProjectTask(projectId);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
     title: "",
@@ -77,6 +79,20 @@ export function TaskDetailsModal({
       onOpenChange(false);
     } catch (e: any) {
       setError(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Could not update task.");
+    }
+  };
+
+  const remove = async () => {
+    if (!task) return;
+    const confirmed = window.confirm(`Delete "${task.title}"? This removes the task from the project.`);
+    if (!confirmed) return;
+
+    try {
+      setError("");
+      await deleteTask.mutateAsync(task.id);
+      onOpenChange(false);
+    } catch (e: any) {
+      setError(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Could not delete task.");
     }
   };
 
@@ -161,9 +177,16 @@ export function TaskDetailsModal({
 
         {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</div>}
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-          {canEdit && <Button onClick={save} disabled={updateTask.isPending}>{updateTask.isPending ? "Saving..." : "Save Task"}</Button>}
+        <DialogFooter className="gap-2 sm:justify-between">
+          {canEdit && (
+            <Button variant="destructive" onClick={remove} disabled={deleteTask.isPending}>
+              <Trash2 className="h-4 w-4" /> {deleteTask.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          )}
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+            {canEdit && <Button onClick={save} disabled={updateTask.isPending}>{updateTask.isPending ? "Saving..." : "Save Task"}</Button>}
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

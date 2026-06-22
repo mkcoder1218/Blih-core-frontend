@@ -90,6 +90,10 @@ export async function updateProjectTask(projectId: string, taskId: string, data:
   return res.data.data;
 }
 
+export async function deleteProjectTask(projectId: string, taskId: string) {
+  await api.delete<ApiEnvelope<null>>(`/api/v1/projects/${projectId}/tasks/${taskId}`);
+}
+
 export async function changeTaskStatus(projectId: string, taskId: string, status: string) {
   const res = await api.patch<ApiEnvelope<ProjectTask>>(`/api/v1/projects/${projectId}/tasks/${taskId}/status`, { status });
   return res.data.data;
