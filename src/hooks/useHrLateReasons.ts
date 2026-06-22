@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createHrLateReason, deactivateHrLateReason, getHrLateReasons, updateHrLateReason, type AttendanceLateReasonPayload } from "../api/attendanceLateReasons";
+import { createHrLateReason, deactivateHrLateReason, getHrLateReasons, getLatenessCreditConfig, updateHrLateReason, updateLatenessCreditConfig, type AttendanceLateReasonPayload, type LatenessCreditConfig } from "../api/attendanceLateReasons";
 
 export function useHrLateReasons() {
   return useQuery({
@@ -34,6 +34,24 @@ export function useDeactivateHrLateReason() {
     mutationFn: async (reasonId: string) => deactivateHrLateReason(reasonId),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["attendanceHr", "lateReasons"] });
+    },
+  });
+}
+
+export function useLatenessCreditConfig() {
+  return useQuery({
+    queryKey: ["lateness-credit-config"],
+    queryFn: async () => getLatenessCreditConfig(),
+  });
+}
+
+export function useUpdateLatenessCreditConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: LatenessCreditConfig) => updateLatenessCreditConfig(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["lateness-credit-config"] });
+      qc.invalidateQueries({ queryKey: ["attendance-me-today"] });
     },
   });
 }

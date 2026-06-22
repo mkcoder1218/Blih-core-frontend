@@ -2,6 +2,14 @@ import { api } from "./client";
 import type { ApiEnvelope } from "./types";
 
 export type LatenessReasonBehavior = "BLOCK" | "MARK_INVALID" | "HR_REVIEW";
+export type LatenessCreditMode = "PER_REASON" | "GLOBAL_POOL";
+
+export type LatenessCreditConfig = {
+  mode: LatenessCreditMode;
+  globalMonthlyLimit: number;
+  globalCoversMinutes: number;
+  behaviorWhenExceeded: LatenessReasonBehavior;
+};
 
 export type AttendanceLateReason = {
   id: string;
@@ -52,5 +60,15 @@ export async function updateHrLateReason(reasonId: string, payload: Partial<Atte
 
 export async function deactivateHrLateReason(reasonId: string) {
   const res = await api.patch<ApiEnvelope<{ rule: AttendanceLateReason }>>(`/api/v1/attendance/hr/lateness-reason-rules/${reasonId}/disable`);
+  return res.data;
+}
+
+export async function getLatenessCreditConfig() {
+  const res = await api.get<ApiEnvelope<{ config: LatenessCreditConfig }>>("/api/v1/attendance/hr/lateness-credit-config");
+  return res.data;
+}
+
+export async function updateLatenessCreditConfig(payload: LatenessCreditConfig) {
+  const res = await api.patch<ApiEnvelope<{ config: LatenessCreditConfig }>>("/api/v1/attendance/hr/lateness-credit-config", payload);
   return res.data;
 }

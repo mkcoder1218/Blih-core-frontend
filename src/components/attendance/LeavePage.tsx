@@ -59,6 +59,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useMyPermissions } from "../../hooks/usePermissions";
+import { useMe } from "../../hooks/useMe";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -977,11 +979,24 @@ interface LeavePageProps {
 
 export default function LeavePage({ showAlert }: LeavePageProps) {
   const legacyUser = useLegacyUser();
+  const perms = useMyPermissions();
+  const { data: meRes } = useMe();
+  const currentRoles = new Set((meRes?.data?.roles || []).map((role) => role.toUpperCase()));
   const role = legacyUser?.role || "Employee";
-  const isHrAdmin = role === "HR Manager" || role === "Business Admin" || role === "Super Admin";
-  const isDeptHead = role === "Department Head" || role === "HR Manager" || role === "Business Admin";
-  const isApprover = isDeptHead;
-  const currentUserId = (legacyUser as any)?.id ?? "";
+  const legacyIsHrAdmin = role === "HR Manager" || role === "Business Admin" || role === "Super Admin";
+  const legacyIsDeptHead = role === "Department Head";
+  const isHrAdmin =
+    legacyIsHrAdmin ||
+    perms.hasAny("leave.read", "leave.approve") ||
+    currentRoles.has("HR_MANAGER") ||
+    currentRoles.has("BUSINESS_ADMIN");
+  const isApprover =
+    isHrAdmin ||
+    legacyIsDeptHead ||
+    perms.hasAny("self_department_leave_read", "self_department_leave_manage") ||
+    currentRoles.has("DEPARTMENT_HEAD") ||
+    currentRoles.has("DEPT_HEAD");
+  const currentUserId = meRes?.data?.user?.id ?? (legacyUser as any)?.id ?? "";
 
   // Tab: "my" (everyone), "on-request" (approvers only), "sent" (hr/admin only), "templates" (hr/admin only)
   type TabId = "my" | "on-request" | "sent" | "templates";

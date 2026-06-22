@@ -1,10 +1,10 @@
 import React from "react";
-import { useCreateHrLateReason, useDeactivateHrLateReason, useHrLateReasons, useUpdateHrLateReason } from "../../../hooks/useHrLateReasons";
+import { useCreateHrLateReason, useDeactivateHrLateReason, useHrLateReasons, useLatenessCreditConfig, useUpdateHrLateReason, useUpdateLatenessCreditConfig } from "../../../hooks/useHrLateReasons";
 import { useMyPermissions } from "../../../hooks/usePermissions";
 import { useMe } from "../../../hooks/useMe";
 import { PageHeader, SectionCard, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
 import { Button } from "@/components/ui/button";
-import type { AttendanceLateReason, LatenessReasonBehavior } from "../../../api/attendanceLateReasons";
+import type { AttendanceLateReason, LatenessCreditConfig, LatenessCreditMode, LatenessReasonBehavior } from "../../../api/attendanceLateReasons";
 
 const BEHAVIORS: LatenessReasonBehavior[] = ["BLOCK", "MARK_INVALID", "HR_REVIEW"];
 
@@ -77,11 +77,14 @@ export default function HrLateReasonsPage() {
   const me = useMe();
   const roles: string[] = (me.data as any)?.data?.roles || [];
   const q = useHrLateReasons();
+  const creditConfig = useLatenessCreditConfig();
+  const updateCreditConfig = useUpdateLatenessCreditConfig();
   const create = useCreateHrLateReason();
   const update = useUpdateHrLateReason();
   const deactivate = useDeactivateHrLateReason();
   const canManage = perms.hasAny("attendance.manage") || roles.includes("BUSINESS_ADMIN") || roles.includes("HR_MANAGER");
   const reasons = q.data?.data?.reasons || [];
+  const currentCreditConfig = creditConfig.data?.data?.config;
   const [form, setForm] = React.useState<RuleForm>(emptyForm());
   const [formError, setFormError] = React.useState("");
 
@@ -96,9 +99,18 @@ export default function HrLateReasonsPage() {
       />
 
       {canManage && (
+        <CreditConfigCard
+          config={creditConfig.data?.data?.config}
+          isLoading={creditConfig.isLoading}
+          isSaving={updateCreditConfig.isPending}
+          onSave={(config) => updateCreditConfig.mutateAsync(config)}
+        />
+      )}
+
+      {canManage && (
         <SectionCard title="Create Reason Rule">
           {formError && <InfoAlert variant="error" message={formError} className="mb-3" />}
-          <RuleFields form={form} setField={setField} />
+          <RuleFields form={form} setField={setField} creditConfig={currentCreditConfig} />
           <Button
             onClick={async () => {
               setFormError("");
@@ -128,6 +140,7 @@ export default function HrLateReasonsPage() {
               <ReasonRow
                 r={r}
                 canManage={canManage}
+                creditConfig={currentCreditConfig}
                 onSave={(data) => update.mutateAsync({ reasonId: r.id, data })}
                 onDeactivate={() => deactivate.mutateAsync(r.id)}
               />
@@ -139,25 +152,36 @@ export default function HrLateReasonsPage() {
   );
 }
 
-function RuleFields({ form, setField }: { form: RuleForm; setField: <K extends keyof RuleForm>(key: K, value: RuleForm[K]) => void }) {
+function RuleFields({ form, setField, creditConfig }: { form: RuleForm; setField: <K extends keyof RuleForm>(key: K, value: RuleForm[K]) => void; creditConfig?: LatenessCreditConfig }) {
   const inputClass = "bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700";
   const labelClass = "text-[10px] font-bold uppercase tracking-wider text-slate-400";
+  const isGlobalPool = creditConfig?.mode === "GLOBAL_POOL";
   return (
     <div className="space-y-3">
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+      <div className={`grid grid-cols-1 ${isGlobalPool ? "md:grid-cols-2" : "md:grid-cols-4"} gap-3`}>
         <Field label="Reason code">
           <input value={form.reasonCode} onChange={(e) => setField("reasonCode", normalizeCode(e.target.value))} className={inputClass} placeholder="SICKNESS" />
         </Field>
         <Field label="Label">
           <input value={form.label} onChange={(e) => setField("label", e.target.value)} className={inputClass} placeholder="Sickness" />
         </Field>
-        <Field label="Monthly limit">
-          <input type="number" min={0} value={form.monthlyLimit} onChange={(e) => setField("monthlyLimit", Number(e.target.value))} className={inputClass} />
-        </Field>
-        <Field label="Covers minutes">
-          <input type="number" min={0} value={form.coversMinutes} onChange={(e) => setField("coversMinutes", Number(e.target.value))} className={inputClass} />
-        </Field>
+        {!isGlobalPool && (
+          <>
+            <Field label="Monthly limit">
+              <input type="number" min={0} value={form.monthlyLimit} onChange={(e) => setField("monthlyLimit", Number(e.target.value))} className={inputClass} />
+            </Field>
+            <Field label="Covers minutes">
+              <input type="number" min={0} value={form.coversMinutes} onChange={(e) => setField("coversMinutes", Number(e.target.value))} className={inputClass} />
+            </Field>
+          </>
+        )}
       </div>
+
+      {isGlobalPool && (
+        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-[11px] font-bold text-blue-700">
+          One shared credit is active: {creditConfig?.globalMonthlyLimit ?? 0}/month, covers {creditConfig?.globalCoversMinutes ?? 0} minutes. Per-reason monthly limit and covers minutes are hidden because they are not used.
+        </div>
+      )}
 
       <textarea value={form.description} onChange={(e) => setField("description", e.target.value)} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700" placeholder="Description (optional)" />
 
@@ -178,8 +202,99 @@ function RuleFields({ form, setField }: { form: RuleForm; setField: <K extends k
         <Toggle label="Allow after deadline" checked={form.allowAfterDeadline} onChange={(value) => setField("allowAfterDeadline", value)} />
         <Toggle label="Requires comment" checked={form.requiresComment} onChange={(value) => setField("requiresComment", value)} />
       </div>
-      <div className={labelClass}>Examples: SICKNESS 2 / 60, TRANSPORT 1 / 30, FAMILY_EMERGENCY 2 / 120, MEDICAL_APPOINTMENT 2 / 90 with attachment, OTHER 0 / 0 with HR_REVIEW.</div>
+      {!isGlobalPool ? (
+        <>
+          <div className={labelClass}>Monthly limit is used in per-reason mode. In global pool mode, all enabled reasons share the system monthly credit limit.</div>
+          <div className={labelClass}>Examples: SICKNESS 2 / 60, TRANSPORT 1 / 30, FAMILY_EMERGENCY 2 / 120, MEDICAL_APPOINTMENT 2 / 90 with attachment, OTHER 0 / 0 with HR_REVIEW.</div>
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function CreditConfigCard({
+  config,
+  isLoading,
+  isSaving,
+  onSave,
+}: {
+  config?: LatenessCreditConfig;
+  isLoading: boolean;
+  isSaving: boolean;
+  onSave: (config: LatenessCreditConfig) => Promise<any>;
+}) {
+  const [form, setForm] = React.useState<LatenessCreditConfig>({
+    mode: "PER_REASON",
+    globalMonthlyLimit: 3,
+    globalCoversMinutes: 60,
+    behaviorWhenExceeded: "HR_REVIEW",
+  });
+  const [error, setError] = React.useState("");
+
+  React.useEffect(() => {
+    if (config) setForm(config);
+  }, [config]);
+
+  const inputClass = "bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700";
+
+  return (
+    <SectionCard
+      title="Credit Mode"
+      description="Choose whether lateness credits are counted per reason category or as one shared monthly credit pool."
+    >
+      {isLoading ? <LoadingSpinner label="Loading credit config..." /> : null}
+      {error ? <InfoAlert variant="error" message={error} className="mb-3" /> : null}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <Field label="Implementation">
+          <select value={form.mode} onChange={(e) => setForm((prev) => ({ ...prev, mode: e.target.value as LatenessCreditMode }))} className={inputClass}>
+            <option value="PER_REASON">Each reason has own credit</option>
+            <option value="GLOBAL_POOL">One credit number for all</option>
+          </select>
+        </Field>
+        <Field label="Global monthly credit">
+          <input
+            type="number"
+            min={0}
+            value={form.globalMonthlyLimit}
+            disabled={form.mode !== "GLOBAL_POOL"}
+            onChange={(e) => setForm((prev) => ({ ...prev, globalMonthlyLimit: Number(e.target.value) }))}
+            className={`${inputClass} disabled:text-slate-400`}
+          />
+        </Field>
+        <Field label="Global covers minutes">
+          <input
+            type="number"
+            min={0}
+            value={form.globalCoversMinutes}
+            disabled={form.mode !== "GLOBAL_POOL"}
+            onChange={(e) => setForm((prev) => ({ ...prev, globalCoversMinutes: Number(e.target.value) }))}
+            className={`${inputClass} disabled:text-slate-400`}
+          />
+        </Field>
+        <Field label="Exceeded behavior">
+          <select value={form.behaviorWhenExceeded} onChange={(e) => setForm((prev) => ({ ...prev, behaviorWhenExceeded: e.target.value as LatenessReasonBehavior }))} className={inputClass}>
+            {BEHAVIORS.map((item) => <option key={item} value={item}>{item}</option>)}
+          </select>
+        </Field>
+      </div>
+      <div className="mt-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+        Per-reason mode keeps the current behavior. Global pool mode still requires an enabled selected reason, but all approved notices consume the same shared monthly credit.
+      </div>
+      <Button
+        onClick={async () => {
+          setError("");
+          try {
+            await onSave(form);
+          } catch (e: any) {
+            setError(e?.response?.data?.message || e?.message || "Failed to save credit config");
+          }
+        }}
+        disabled={isSaving}
+        className="mt-4 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white text-xs h-9 rounded-xl"
+      >
+        {isSaving ? "Saving..." : "Save Credit Mode"}
+      </Button>
+    </SectionCard>
   );
 }
 
@@ -196,9 +311,10 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
   );
 }
 
-function ReasonRow({ r, canManage, onSave, onDeactivate }: {
+function ReasonRow({ r, canManage, creditConfig, onSave, onDeactivate }: {
   r: AttendanceLateReason;
   canManage: boolean;
+  creditConfig?: LatenessCreditConfig;
   onSave: (data: any) => Promise<any>;
   onDeactivate: () => Promise<any>;
 }) {
@@ -207,6 +323,7 @@ function ReasonRow({ r, canManage, onSave, onDeactivate }: {
   const [err, setErr] = React.useState("");
   const [saving, setSaving] = React.useState(false);
   const setField = <K extends keyof RuleForm>(key: K, value: RuleForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
+  const isGlobalPool = creditConfig?.mode === "GLOBAL_POOL";
 
   return (
     <div className="px-5 py-4">
@@ -214,7 +331,7 @@ function ReasonRow({ r, canManage, onSave, onDeactivate }: {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           {editing ? (
-            <RuleFields form={form} setField={setField} />
+            <RuleFields form={form} setField={setField} creditConfig={creditConfig} />
           ) : (
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -224,8 +341,17 @@ function ReasonRow({ r, canManage, onSave, onDeactivate }: {
               </div>
               <div className="text-[11px] text-slate-600 font-semibold">{r.description || "-"}</div>
               <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[11px] font-bold text-slate-600">
-                <span>Limit: {r.monthlyLimit}/month</span>
-                <span>Covers: {r.coversMinutes} min</span>
+                {isGlobalPool ? (
+                  <>
+                    <span>Shared limit: {creditConfig?.globalMonthlyLimit ?? 0}/month</span>
+                    <span>Shared covers: {creditConfig?.globalCoversMinutes ?? 0} min</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Limit: {r.monthlyLimit}/month</span>
+                    <span>Covers: {r.coversMinutes} min</span>
+                  </>
+                )}
                 <span>Exceeded: {r.behaviorWhenExceeded}</span>
                 <span>Approval: {r.requiresApproval === false ? "No" : "Yes"}</span>
                 <span>Attachment: {r.requiresAttachment ? "Yes" : "No"}</span>
