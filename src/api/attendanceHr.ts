@@ -23,6 +23,14 @@ export async function getAttendanceHrEmployee(employeeId: string, params: { date
   return res.data;
 }
 
+export async function getLatenessReasonUsage(params: { startDate?: string; endDate?: string; search?: string; size?: number } = {}) {
+  const res = await api.get<ApiEnvelope<{ rows: any[]; total: number; startDate: string; endDate: string }>>(
+    "/api/v1/attendance/hr/lateness-reason-usage",
+    { params }
+  );
+  return res.data;
+}
+
 export async function sendLateNoReasonPenaltyMessage(employeeId: string, payload: { date: string }) {
   const res = await api.post<ApiEnvelope<{ sent: boolean; message: string }>>(
     `/api/v1/attendance/hr/employees/${employeeId}/late-no-reason-message`,

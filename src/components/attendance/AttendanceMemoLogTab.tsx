@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { CheckSquare, Clock, Search } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import {
   useRejectAttendanceRequest,
   type AttendanceRequest,
 } from '../../hooks/useAttendanceRequests';
+import { getLatenessReasonUsage } from '../../api/attendanceHr';
 
 interface AttendanceMemoLogTabProps {
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
@@ -33,7 +35,7 @@ function employeeName(row: AttendanceRequest) {
   return row.employee?.fullName || row.employee?.email || 'Employee';
 }
 
-function employeeMeta(row: AttendanceRequest) {
+function employeeMeta(row: { employee?: AttendanceRequest['employee'] | null }) {
   const profile = row.employee?.BusinessUserProfile;
   return {
     department: profile?.department?.name || '-',
@@ -56,12 +58,16 @@ export default function AttendanceMemoLogTab({ showAlert }: AttendanceMemoLogTab
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const pendingMemo = useAttendanceRequests({ requestType: 'memo_log', status: 'pending', size: 50 });
   const memoArchive = useAttendanceRequests({ requestType: 'memo_log', status, search: search || undefined, size: 100 });
-  const reasonUsage = useAttendanceRequests({ requestType: 'lateness_notice', status: 'all', search: search || undefined, size: 100 });
+  const reasonUsage = useQuery({
+    queryKey: ['attendance-hr', 'lateness-reason-usage', search],
+    queryFn: () => getLatenessReasonUsage({ search: search || undefined, size: 100 }),
+    staleTime: 20_000,
+  });
   const approve = useApproveAttendanceRequest();
   const reject = useRejectAttendanceRequest();
 
   const memoRows = memoArchive.data?.rows || [];
-  const reasonRows = reasonUsage.data?.rows || [];
+  const reasonRows = reasonUsage.data?.data?.rows || [];
   const selected = memoRows.find((row) => row.id === selectedId) || memoRows[0] || null;
   const thisWeekMemoCount = memoRows.filter((row) => {
     const created = new Date(row.createdAt).getTime();
