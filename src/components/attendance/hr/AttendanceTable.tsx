@@ -11,6 +11,7 @@ const COLUMNS = [
   "Lunch In",
   "Check Out",
   "Total Worked",
+  "Reason Credit Left",
   "Penalty",
   "Break",
   "Status",
@@ -22,11 +23,15 @@ export default function AttendanceTable({
   timezone,
   onSelectEmployee,
   onRequestCorrection,
+  onSendPenaltyMessage,
+  sendingPenaltyEmployeeId,
 }: {
   rows: AttendanceHrDailyRow[];
   timezone: string;
   onSelectEmployee: (employeeId: string) => void;
   onRequestCorrection?: (row: AttendanceHrDailyRow) => void;
+  onSendPenaltyMessage?: (row: AttendanceHrDailyRow) => void | Promise<void>;
+  sendingPenaltyEmployeeId?: string | null;
 }) {
   return (
     <DataTable
@@ -67,6 +72,22 @@ export default function AttendanceTable({
             {formatMinutes(r.workedMinutes)}
           </td>
           <td className="px-4 py-3 text-[12px] text-slate-700 font-extrabold">
+            <div className="min-w-[120px]">
+              <div className={r.latenessReasonCredit?.remaining ? "text-emerald-700" : "text-rose-700"}>
+                {r.latenessReasonCredit?.remaining ?? 0}/{r.latenessReasonCredit?.limit ?? 0}
+              </div>
+              {r.latenessReasonCredit?.reasons?.length ? (
+                <div className="mt-0.5 max-w-[180px] text-[10px] font-bold text-slate-400 leading-tight">
+                  {r.latenessReasonCredit.reasons
+                    .map((reason) => `${reason.label}: ${reason.remainingThisMonth}/${reason.monthlyLimit}`)
+                    .join(" • ")}
+                </div>
+              ) : (
+                <div className="mt-0.5 text-[10px] font-bold text-slate-400">No active credit</div>
+              )}
+            </div>
+          </td>
+          <td className="px-4 py-3 text-[12px] text-slate-700 font-extrabold">
             {r.penaltyMinutes ? (
               <div>
                 <div className="text-red-600">{formatMinutes(r.penaltyMinutes)}</div>
@@ -84,6 +105,20 @@ export default function AttendanceTable({
           </td>
           <td className="px-4 py-3">
             <div className="flex flex-wrap gap-2">
+              {onSendPenaltyMessage && r.lateNoReasonPenaltyEligible && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 rounded-xl border-amber-200 bg-amber-50 text-[11px] font-extrabold text-amber-800 hover:bg-amber-100"
+                  disabled={sendingPenaltyEmployeeId === r.employeeId}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSendPenaltyMessage(r);
+                  }}
+                >
+                  {sendingPenaltyEmployeeId === r.employeeId ? "Sending..." : "Send penalty msg"}
+                </Button>
+              )}
               {onRequestCorrection && (
                 <Button
                   type="button"

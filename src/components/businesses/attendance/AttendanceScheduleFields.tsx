@@ -46,7 +46,7 @@ export default function AttendanceScheduleFields({ value, onChange, disabled, er
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="sm:col-span-1">
+        <div>
           <Field label="Late grace (minutes)" disabled={disabled} error={errors.lateGracePeriodMinutes}>
             <input
               value={value.lateGracePeriodMinutes ?? ""}
@@ -58,8 +58,21 @@ export default function AttendanceScheduleFields({ value, onChange, disabled, er
             />
           </Field>
         </div>
-        <div className="sm:col-span-2 text-[11px] text-slate-500 leading-relaxed">
+        <div>
+          <Field label="No-reason penalty window" disabled={disabled} error={errors.lateNoReasonPenaltyGraceMinutes}>
+            <input
+              value={value.lateNoReasonPenaltyGraceMinutes ?? ""}
+              onChange={(e) => set({ lateNoReasonPenaltyGraceMinutes: e.target.value === "" ? null : Number(e.target.value) })}
+              disabled={disabled}
+              className={inputClass(disabled, Boolean(errors.lateNoReasonPenaltyGraceMinutes))}
+              placeholder="0"
+              inputMode="numeric"
+            />
+          </Field>
+        </div>
+        <div className="text-[11px] text-slate-500 leading-relaxed">
           These defaults are used later for check-ins and daily attendance calculations. You can keep attendance disabled until you’re ready to enforce location validation.
+          No-reason penalty window controls how many late minutes are allowed before a half-day penalty when no valid lateness reason exists.
         </div>
       </div>
     </div>
@@ -95,4 +108,3 @@ function inputClass(disabled: boolean, invalid = false) {
     invalid ? "border-red-300 focus:border-red-500 focus:ring-red-200" : "",
   ].join(" ");
 }
-

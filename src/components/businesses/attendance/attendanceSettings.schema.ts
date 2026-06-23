@@ -25,6 +25,9 @@ export function validateAttendanceSettings(draft: BusinessAttendanceSettingsDraf
   if (draft.lateGracePeriodMinutes !== undefined && draft.lateGracePeriodMinutes !== null && draft.lateGracePeriodMinutes < 0) {
     errors.lateGracePeriodMinutes = "Grace period must be 0 or greater.";
   }
+  if (draft.lateNoReasonPenaltyGraceMinutes !== undefined && draft.lateNoReasonPenaltyGraceMinutes !== null && draft.lateNoReasonPenaltyGraceMinutes < 0) {
+    errors.lateNoReasonPenaltyGraceMinutes = "Penalty window must be 0 or greater.";
+  }
   if (draft.defaultStartTime && !timeHHmm.test(draft.defaultStartTime)) errors.defaultStartTime = "Use HH:mm (24h).";
   if (draft.defaultEndTime && !timeHHmm.test(draft.defaultEndTime)) errors.defaultEndTime = "Use HH:mm (24h).";
 

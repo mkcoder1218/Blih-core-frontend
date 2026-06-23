@@ -50,6 +50,7 @@ export type BusinessAttendanceSettings = {
   defaultStartTime: string;
   defaultEndTime: string;
   lateGracePeriodMinutes: number;
+  lateNoReasonPenaltyGraceMinutes: number;
   lunchBreakEnabled?: boolean;
   lunchMode?: "FIXED" | "FLEXIBLE";
   fixedLunchStartTime?: string | null;
@@ -71,6 +72,7 @@ export type UpsertBusinessAttendanceSettingsRequest = {
   defaultStartTime?: string;
   defaultEndTime?: string;
   lateGracePeriodMinutes?: number;
+  lateNoReasonPenaltyGraceMinutes?: number;
   lunchBreakEnabled?: boolean;
   lunchMode?: "FIXED" | "FLEXIBLE";
   fixedLunchStartTime?: string | null;
@@ -153,8 +155,21 @@ export type AttendanceHrDailyRow = {
   breakMinutes: number;
   penaltyMinutes?: number;
   penaltyReason?: string | null;
+  latenessReasonCredit?: {
+    remaining: number;
+    limit: number;
+    reasons?: Array<{
+      reasonCode: string;
+      label: string;
+      remainingThisMonth: number;
+      monthlyLimit: number;
+    }>;
+  };
   status: string;
   isLate: boolean;
+  lateByMinutes?: number;
+  hasSubmittedLatenessReason?: boolean;
+  lateNoReasonPenaltyEligible?: boolean;
 };
 
 export type AttendanceHrDailyResponse = {

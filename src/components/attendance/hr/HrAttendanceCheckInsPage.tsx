@@ -1,4 +1,5 @@
 import React from "react";
+import { useMutation } from "@tanstack/react-query";
 import { useAttendanceHrDaily } from "../../../hooks/useAttendanceHrDaily";
 import { useAttendanceHrSummary } from "../../../hooks/useAttendanceHrSummary";
 import { useMyPermissions } from "../../../hooks/usePermissions";
@@ -12,6 +13,7 @@ import {
   downloadAttendanceDailyReportExport,
   downloadAttendanceMonthlyReportExport,
   downloadAttendanceWeeklyReportExport,
+  sendLateNoReasonPenaltyMessage,
 } from "../../../api/attendanceHr";
 import { PageHeader, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
 import { Button } from "@/components/ui/button";
@@ -45,6 +47,8 @@ export default function HrAttendanceCheckInsPage() {
   const [correctionType, setCorrectionType] = React.useState("CHECK_IN");
   const [correctionTime, setCorrectionTime] = React.useState("09:00");
   const [correctionReason, setCorrectionReason] = React.useState("");
+  const [penaltyMessageEmployeeId, setPenaltyMessageEmployeeId] = React.useState<string | null>(null);
+  const [penaltyMessageStatus, setPenaltyMessageStatus] = React.useState<{ type: "success" | "error"; message: string } | null>(null);
 
   const summary = useAttendanceHrSummary({ date: filters.date, departmentId: filters.departmentId || undefined });
   const daily = useAttendanceHrDaily({
@@ -58,6 +62,11 @@ export default function HrAttendanceCheckInsPage() {
 
   const tz = daily.data?.data?.timezone || summary.data?.data?.timezone || "UTC";
   const rows = daily.data?.data?.rows || [];
+
+  const penaltyMessage = useMutation({
+    mutationFn: ({ employeeId, date }: { employeeId: string; date: string }) =>
+      sendLateNoReasonPenaltyMessage(employeeId, { date }),
+  });
 
   const handleExport = async () => {
     const commonParams = {
@@ -120,6 +129,22 @@ export default function HrAttendanceCheckInsPage() {
     setCorrectionReason("");
   };
 
+  const handleSendPenaltyMessage = async (row: AttendanceHrDailyRow) => {
+    setPenaltyMessageEmployeeId(row.employeeId);
+    setPenaltyMessageStatus(null);
+    try {
+      await penaltyMessage.mutateAsync({ employeeId: row.employeeId, date: filters.date });
+      setPenaltyMessageStatus({ type: "success", message: `Penalty message sent for ${row.employeeName}.` });
+    } catch (error: any) {
+      setPenaltyMessageStatus({
+        type: "error",
+        message: error?.response?.data?.message || error?.message || "Failed to send penalty message.",
+      });
+    } finally {
+      setPenaltyMessageEmployeeId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -155,6 +180,9 @@ export default function HrAttendanceCheckInsPage() {
           message={`Fixed manual times for selected date. Updated ${fixManualTimes.data.updated}, created ${fixManualTimes.data.created}.`}
         />
       )}
+      {penaltyMessageStatus && (
+        <InfoAlert variant={penaltyMessageStatus.type} message={penaltyMessageStatus.message} />
+      )}
 
       {summary.isError && (
         <InfoAlert variant="error" message="Failed to load summary." />
@@ -175,6 +203,8 @@ export default function HrAttendanceCheckInsPage() {
           timezone={tz}
           onSelectEmployee={setSelectedEmployeeId}
           onRequestCorrection={canRequestCorrection ? setCorrectionRow : undefined}
+          onSendPenaltyMessage={handleSendPenaltyMessage}
+          sendingPenaltyEmployeeId={penaltyMessageEmployeeId}
         />
       )}
 
