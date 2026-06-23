@@ -7,7 +7,12 @@ export const initializeOnboarding = (data: {
   sections?: string[];
   resources?: any[];
   requiredDocuments?: { name: string; required: boolean }[];
-  requiredPolicies?: { title: string; content: string; required: boolean }[];
+  requiredPolicies?: { policyId?: string; title: string; content?: string; required: boolean }[];
+  inventoryItemIds?: string[];
+  assignedEmail?: string;
+  expiresAt?: string;
+  deadlineDays?: number;
+  policyTypes?: string[];
 }) => api.post('/api/v1/hr/onboarding/initialize', data);
 
 export const listOnboardings = (params?: { limit?: number; offset?: number }) =>
@@ -23,6 +28,9 @@ export const getOnboardingByOfferId = (offerId: string) =>
 
 export const getPublicOnboarding = (onboardingId: string) =>
   api.get(`/api/v1/hr/public/onboarding/${onboardingId}`);
+
+export const getPublicOnboardingPolicy = (onboardingId: string, policyType: string) =>
+  api.get(`/api/v1/hr/public/onboarding/${onboardingId}/policies/${encodeURIComponent(policyType)}`);
 
 export const saveOnboardingSection = (
   onboardingId: string,

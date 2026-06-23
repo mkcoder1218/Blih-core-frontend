@@ -13,6 +13,7 @@ import EmployeeAttendancePage from './EmployeeAttendancePage';
 import HrAttendanceCheckInsPage from './hr/HrAttendanceCheckInsPage';
 import EmployeeAttendanceHistoryPage from './EmployeeAttendanceHistoryPage';
 import HrLateReasonsPage from './hr/HrLateReasonsPage';
+import ManualLatenessReasonPage from './hr/ManualLatenessReasonPage';
 import MyLatenessReasonPage from './MyLatenessReasonPage';
 import OvertimePage from './OvertimePage';
 import LeavePage from './LeavePage';
@@ -26,7 +27,7 @@ import AttendanceWfhTab from './AttendanceWfhTab';
 import AttendanceUnavailableTab from './AttendanceUnavailableTab';
 
 interface AttendanceViewProps {
-  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home';
+  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -209,6 +210,14 @@ export default function AttendanceView({
     return (
       <div className="h-full flex flex-col space-y-6">
         {canViewLateReasons ? <HrLateReasonsPage /> : <div className="text-xs text-slate-600">Not authorized.</div>}
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'manual-lateness-reason') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        {isHr ? <ManualLatenessReasonPage showAlert={showAlert} /> : <div className="text-xs text-slate-600">Not authorized.</div>}
       </div>
     );
   }

@@ -17,7 +17,7 @@ import {
   Eye, EyeOff, UserPlus, Clock, CheckCircle, AlertCircle,
   Loader2, ArrowRight, ArrowLeft, User, Briefcase, Shield,
   CreditCard, ChevronsUpDown, Check, Plus, Globe, Smartphone,
-  MapPin, Building2, UploadCloud, HeartPulse, Landmark
+  MapPin, Building2, UploadCloud, HeartPulse, Landmark, PackageCheck, FileText
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Country, State, City } from 'country-state-city';
@@ -37,6 +37,7 @@ import {
 } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 import { api } from '../api/client';
+import { getPublicOnboardingPolicy } from '../api/candidateOnboarding';
 
 // Taller wrappers so form fields feel comfortable on a registration page
 const Inp = ({ className, ...p }: React.ComponentProps<typeof Input>) => (
@@ -372,11 +373,20 @@ export default function PublicRegisterPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const resubmitToken = searchParams.get('resubmit') || null;
+  const onboardingId = searchParams.get('onboarding') || null;
 
   // ── Resubmit prefill loading ──
   const [prefillLoading, setPrefillLoading] = useState(false);
   const [prefillError,   setPrefillError]   = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
+  const [onboardingPrefill, setOnboardingPrefill] = useState<any>(null);
+  const [resourceAcknowledgements, setResourceAcknowledgements] = useState<Record<number, boolean>>({});
+  const [policyAcknowledgements, setPolicyAcknowledgements] = useState<Record<string, boolean>>({});
+  const [readPolicies, setReadPolicies] = useState<Record<string, boolean>>({});
+  const [activePolicyModal, setActivePolicyModal] = useState<{ key: string; policy: any } | null>(null);
+  const [policyModalLoading, setPolicyModalLoading] = useState(false);
+  const [policyModalError, setPolicyModalError] = useState('');
+  const policyContentRef = useRef<HTMLDivElement | null>(null);
   // resubmitToken → when present we show "updating" flow instead of fresh registration
   const isResubmit = !!resubmitToken;
 
@@ -393,6 +403,17 @@ export default function PublicRegisterPage() {
   const [result,      setResult]      = useState<{ autoApproved: boolean; resubmitted?: boolean } | null>(null);
 
   const set = (k: keyof FormData) => (v: string) => setForm(p => ({ ...p, [k]: v }));
+  const onboardingResources: any[] = onboardingPrefill?.resources || [];
+  const onboardingPolicies: any[] = onboardingPrefill?.requiredPolicies || [];
+  const activeSteps = useMemo(() => {
+    const steps = [...STEPS];
+    if (onboardingResources.length) steps.push({ id: 5, label: 'Resources', icon: PackageCheck });
+    if (onboardingPolicies.length) steps.push({ id: 6, label: 'Policies', icon: FileText });
+    return steps.map((item, index) => ({ ...item, id: index + 1 }));
+  }, [onboardingResources.length, onboardingPolicies.length]);
+  const resourceStepId = activeSteps.find(s => s.label === 'Resources')?.id ?? null;
+  const policyStepId = activeSteps.find(s => s.label === 'Policies')?.id ?? null;
+  const finalStepId = activeSteps[activeSteps.length - 1]?.id ?? 4;
 
   // Country / state / city cascade
   const [countryCode, setCountryCode] = useState('');
@@ -421,7 +442,7 @@ export default function PublicRegisterPage() {
   const [selectedPos,  setSelectedPos]  = useState<SearchableItem | null>(null);
 
   // ── Draft persistence ────────────────────────────────────────────────────────
-  const DRAFT_KEY = useMemo(() => draftKey(businessSlug ?? 'unknown', resubmitToken), [businessSlug, resubmitToken]);
+  const DRAFT_KEY = useMemo(() => draftKey(businessSlug ?? 'unknown', resubmitToken || onboardingId), [businessSlug, resubmitToken, onboardingId]);
   const [draftSavedAt,  setDraftSavedAt]  = useState<Date | null>(null);
   const [hasDraftBanner, setHasDraftBanner] = useState(false);
   const draftSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -548,6 +569,35 @@ export default function PublicRegisterPage() {
 
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:4000';
 
+  const openPolicyModal = async (key: string, policy: any) => {
+    setPolicyModalError('');
+    setPolicyModalLoading(true);
+    setActivePolicyModal({ key, policy });
+    const type = policy.policyType || policy.policyId || key;
+    try {
+      if (!onboardingId) throw new Error('Missing onboarding id');
+      const res = await getPublicOnboardingPolicy(onboardingId, type);
+      const fetchedPolicy = res.data?.data ?? res.data;
+      setActivePolicyModal({ key, policy: { ...policy, ...fetchedPolicy } });
+    } catch (err: any) {
+      setActivePolicyModal({ key, policy: { ...policy, content: '', contentHtml: null } });
+      setPolicyModalError(err?.response?.data?.message || err?.response?.data?.error || 'Could not fetch this policy from the server.');
+    } finally {
+      setPolicyModalLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!activePolicyModal || policyModalLoading || policyModalError) return;
+    const timer = window.setTimeout(() => {
+      const el = policyContentRef.current;
+      if (el && el.scrollHeight <= el.clientHeight + 8) {
+        setReadPolicies(prev => ({ ...prev, [activePolicyModal.key]: true }));
+      }
+    }, 50);
+    return () => window.clearTimeout(timer);
+  }, [activePolicyModal?.key, policyModalLoading, policyModalError]);
+
   const handleIdSideChange = (side: 'front' | 'back', e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -636,6 +686,39 @@ export default function PublicRegisterPage() {
       .finally(() => setPrefillLoading(false));
   }, [resubmitToken, businessSlug]);
 
+  useEffect(() => {
+    if (!onboardingId || !businessSlug || isResubmit) return;
+    setPrefillLoading(true);
+    api.get(`/api/v1/hr/public/onboarding/${onboardingId}`)
+      .then(r => {
+        const ob = r.data?.data ?? r.data;
+        setOnboardingPrefill(ob);
+        setResourceAcknowledgements(
+          Object.fromEntries(((ob?.resources || []) as any[]).map((_: any, index: number) => [index, false]))
+        );
+        setPolicyAcknowledgements(
+          Object.fromEntries(((ob?.requiredPolicies || []) as any[]).map((policy: any, index: number) => [policy.policyId || policy.policyType || String(index), false]))
+        );
+        setReadPolicies({});
+        const personal = ob?.candidateData?.personal_info || {};
+        const meta = ob?.metadata || {};
+        const email = meta.assignedEmail || personal.email || ob?.candidateEmail || '';
+        setForm(prev => ({
+          ...prev,
+          fullName: personal.firstName
+            ? `${personal.firstName} ${personal.lastName || ''}`.trim()
+            : ob?.candidateName || prev.fullName,
+          email: email || prev.email,
+          phone: personal.phone || prev.phone,
+          employmentType: meta.employmentType || prev.employmentType,
+          hireDate: meta.startDate ? String(meta.startDate).slice(0, 10) : prev.hireDate,
+          requestedRoleKey: 'EMPLOYEE',
+        }));
+      })
+      .catch(() => setPrefillError('Could not load this onboarding invite. Please contact HR for a new link.'))
+      .finally(() => setPrefillLoading(false));
+  }, [onboardingId, businessSlug, isResubmit]);
+
   // ── Validation ─────────────────────────────────────────────────────────────
   const validate = (s: number): boolean => {
     const e: Partial<Record<keyof FormData, string>> = {};
@@ -677,21 +760,40 @@ export default function PublicRegisterPage() {
         e.bankAccount = 'Awash Bank account numbers must start with 013';
       }
     }
+    if (resourceStepId && s === resourceStepId) {
+      const missingResource = onboardingResources.some((resource, index) => resource?.acceptanceRequired !== false && !resourceAcknowledgements[index]);
+      if (missingResource) {
+        setServerError('Please acknowledge all assigned company resources before continuing.');
+        return false;
+      }
+    }
+    if (policyStepId && s === policyStepId) {
+      const missingPolicy = onboardingPolicies.some((policy, index) => {
+        const key = policy.policyId || policy.policyType || String(index);
+        return policy?.required !== false && !policyAcknowledgements[key];
+      });
+      if (missingPolicy) {
+        setServerError('Please accept all required company policies before finishing.');
+        return false;
+      }
+    }
+    setServerError('');
     setFieldErrors(e);
     return Object.keys(e).length === 0;
   };
 
-  const handleNext = () => { if (validate(step)) setStep(s => Math.min(4, s + 1)); };
+  const handleNext = () => { if (validate(step)) setStep(s => Math.min(finalStepId, s + 1)); };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validate(4)) return;
+    if (!validate(finalStepId)) return;
     setServerError('');
     setSubmitting(true);
     try {
       const fd = new FormData();
       fd.append('businessSlug', businessSlug!);
       fd.append('fullName',     form.fullName.trim());
+      if (onboardingId) fd.append('onboardingId', onboardingId);
 
       // Resubmit flow: use PUT to resubmit endpoint, password only sent if changed
       if (!isResubmit) {
@@ -728,6 +830,10 @@ export default function PublicRegisterPage() {
       if (form.bankAccount && (form.employmentType !== 'intern' || form.internPaymentType === 'paid')) fd.append('bankAccount', form.bankAccount.trim());
       if (idFront)                    fd.append('idDocumentFront',       idFront,  idFront.name);
       if (idBack)                     fd.append('idDocumentBack',        idBack,   idBack.name);
+      if (onboardingId) {
+        fd.append('resourceAcknowledgements', JSON.stringify(resourceAcknowledgements));
+        fd.append('policyAcknowledgements', JSON.stringify(policyAcknowledgements));
+      }
 
       const res = isResubmit
         ? await api.post(`/api/v1/auth/public-register/resubmit/${resubmitToken}`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
@@ -761,8 +867,10 @@ export default function PublicRegisterPage() {
     </div>
   );
   if (configError || !config) return <ClosedScreen title="Not Available" message={configError || 'Invalid link.'} />;
-  if (!config.enabled)         return <ClosedScreen title={config.businessName} message="Self-registration is not enabled." />;
-  if (config.openUntil && new Date(config.openUntil).getTime() < Date.now() - 3_600_000)
+  if (prefillError) return <ClosedScreen title={config.businessName} message={prefillError} />;
+  const isOnboardingInvite = Boolean(onboardingId && onboardingPrefill);
+  if (!isOnboardingInvite && !config.enabled) return <ClosedScreen title={config.businessName} message="Self-registration is not enabled." />;
+  if (!isOnboardingInvite && config.openUntil && new Date(config.openUntil).getTime() < Date.now() - 3_600_000)
     return <ClosedScreen title={config.businessName} message="The registration window has closed." />;
 
   // ── Success ────────────────────────────────────────────────────────────────
@@ -811,9 +919,10 @@ export default function PublicRegisterPage() {
   );
 
   // ── Form ──────────────────────────────────────────────────────────────────
-  const progress = ((step - 1) / (STEPS.length - 1)) * 100;
+  const progress = ((step - 1) / Math.max(activeSteps.length - 1, 1)) * 100;
 
   return (
+    <>
     <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center p-4 relative overflow-hidden font-sans">
       {/* Premium Background Elements */}
       <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-50/50 rounded-full blur-[120px] pointer-events-none" />
@@ -847,7 +956,7 @@ export default function PublicRegisterPage() {
         {/* ── Step indicators ── */}
         <div className="px-6">
           <div className="flex items-center justify-between gap-0.5 mb-2">
-            {STEPS.map((s, i) => {
+            {activeSteps.map((s, i) => {
               const Icon    = s.icon;
               const active  = step === s.id;
               const done    = step > s.id;
@@ -874,7 +983,7 @@ export default function PublicRegisterPage() {
                       {s.label}
                     </span>
                   </div>
-                  {i < STEPS.length - 1 && (
+                  {i < activeSteps.length - 1 && (
                     <div className="flex-1 h-px mt-[-20px] relative">
                       <div className="absolute inset-0 bg-slate-200" />
                       <motion.div 
@@ -963,7 +1072,7 @@ export default function PublicRegisterPage() {
           )}
 
           <form
-            onSubmit={step === 4 ? handleSubmit : e => { e.preventDefault(); handleNext(); }}
+            onSubmit={step === finalStepId ? handleSubmit : e => { e.preventDefault(); handleNext(); }}
           >
             <AnimatePresence mode="wait">
               <motion.div
@@ -995,6 +1104,7 @@ export default function PublicRegisterPage() {
                       type="email" value={form.email} onChange={e => set('email')(e.target.value)}
                       placeholder="your@company.com"
                       aria-invalid={!!fieldErrors.email}
+                      disabled={Boolean(onboardingPrefill?.metadata?.assignedEmail)}
                     />
                   </Field>
 
@@ -1445,6 +1555,87 @@ export default function PublicRegisterPage() {
                   </div>
                 </>
               )}
+
+              {resourceStepId && step === resourceStepId && (
+                <>
+                  <div className="mb-2">
+                    <h3 className="text-sm font-bold text-slate-900 tracking-tight text-center sm:text-left text-xs uppercase">Company Resources</h3>
+                    <p className="text-[9px] text-slate-500 mt-0.5 text-center sm:text-left">Review and acknowledge assigned equipment</p>
+                  </div>
+                  <div className="space-y-3">
+                    {onboardingResources.map((resource, index) => (
+                      <label
+                        key={`${resource.inventoryItemId || resource.resourceName || index}`}
+                        className={cn(
+                          'block rounded-xl border p-3 transition-all cursor-pointer',
+                          resourceAcknowledgements[index] ? 'border-emerald-200 bg-emerald-50/60' : 'border-slate-200 bg-slate-50/50 hover:border-blue-200'
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(resourceAcknowledgements[index])}
+                            onChange={e => setResourceAcknowledgements(prev => ({ ...prev, [index]: e.target.checked }))}
+                            className="mt-1 h-4 w-4 accent-emerald-600"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-black text-slate-900">{resource.resourceName || resource.name || 'Company resource'}</p>
+                            <p className="mt-1 text-[10px] font-semibold text-slate-500">
+                              {[resource.resourceType, resource.condition, resource.assetTag, resource.serialNumber ? `SN: ${resource.serialNumber}` : null].filter(Boolean).join(' · ')}
+                            </p>
+                            <p className="mt-2 text-[10px] leading-relaxed text-slate-500">
+                              I acknowledge receiving this company item and agree to use, safeguard, and return it according to company requirements.
+                            </p>
+                          </div>
+                        </div>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {policyStepId && step === policyStepId && (
+                <>
+                  <div className="mb-2">
+                    <h3 className="text-sm font-bold text-slate-900 tracking-tight text-center sm:text-left text-xs uppercase">Policies & Agreements</h3>
+                    <p className="text-[9px] text-slate-500 mt-0.5 text-center sm:text-left">Read and accept required employee policies</p>
+                  </div>
+                  <div className="space-y-3">
+                    {onboardingPolicies.map((policy, index) => {
+                      const key = policy.policyId || policy.policyType || String(index);
+                      return (
+                        <div key={key} className="rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => openPolicyModal(key, policy)}
+                            className="w-full text-left p-3 border-b border-slate-100 bg-white/70 hover:bg-blue-50/60 transition-colors"
+                          >
+                            <p className="text-xs font-black text-slate-900">{policy.title || policy.policyType || 'Company policy'}</p>
+                            <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
+                              {readPolicies[key] ? 'Read completed' : 'Click to read full policy'} {policy.version ? `· Version ${policy.version}` : ''}
+                            </p>
+                          </button>
+                          <label className={cn(
+                            'flex items-start gap-3 border-t border-slate-100 bg-white/70 p-3',
+                            readPolicies[key] ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'
+                          )}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(policyAcknowledgements[key])}
+                              disabled={!readPolicies[key]}
+                              onChange={e => setPolicyAcknowledgements(prev => ({ ...prev, [key]: e.target.checked }))}
+                              className="mt-0.5 h-4 w-4 accent-blue-600"
+                            />
+                            <span className="text-[10px] font-semibold leading-relaxed text-slate-600">
+                              {readPolicies[key] ? 'I have read and accept this policy.' : 'Read the full policy before accepting.'}
+                            </span>
+                          </label>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
                 </motion.div>
               </AnimatePresence>
 
@@ -1485,7 +1676,7 @@ export default function PublicRegisterPage() {
                   disabled={submitting}
                   className={cn(
                     "px-6 py-4 rounded-xl min-w-[120px] shadow-lg",
-                    step === 4 
+                    step === finalStepId
                       ? "bg-emerald-600 hover:bg-emerald-700 text-white shadow-emerald-500/10" 
                       : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-600/10"
                   )}
@@ -1495,7 +1686,7 @@ export default function PublicRegisterPage() {
                       <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
                       ...
                     </>
-                  ) : step === 4 ? (
+                  ) : step === finalStepId ? (
                     <>
                       Finish
                       <CheckCircle className="w-3.5 h-3.5 ml-1.5" />
@@ -1534,5 +1725,70 @@ export default function PublicRegisterPage() {
           </motion.div>
         </div>
       </div>
+      {activePolicyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.96, y: 8 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl overflow-hidden"
+          >
+            <div className="flex items-start justify-between gap-4 border-b border-slate-100 p-4">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">{activePolicyModal.policy.title || 'Company policy'}</h3>
+                <p className="mt-0.5 text-[10px] font-semibold text-slate-400">
+                  Scroll to the bottom to unlock acceptance
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActivePolicyModal(null)}
+                className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                ×
+              </button>
+            </div>
+            <div
+              ref={policyContentRef}
+              className="max-h-[60vh] overflow-auto p-5 text-xs leading-relaxed text-slate-600"
+              onScroll={(e) => {
+                const el = e.currentTarget;
+                if (el.scrollTop + el.clientHeight >= el.scrollHeight - 8) {
+                  setReadPolicies(prev => ({ ...prev, [activePolicyModal.key]: true }));
+                }
+              }}
+            >
+              {policyModalLoading ? (
+                <div className="flex items-center gap-2 text-slate-500">
+                  <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
+                  Fetching policy from server...
+                </div>
+              ) : activePolicyModal.policy.contentHtml ? (
+                <div dangerouslySetInnerHTML={{ __html: activePolicyModal.policy.contentHtml }} />
+              ) : policyModalError ? (
+                <p className="rounded-lg border border-amber-100 bg-amber-50 p-3 text-[11px] font-semibold text-amber-700">
+                  {policyModalError}
+                </p>
+              ) : (
+                <p className="whitespace-pre-wrap">
+                  {activePolicyModal.policy.content || 'Please review this company policy before accepting.'}
+                </p>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 p-4">
+              <p className="text-[10px] font-semibold text-slate-500">
+                {readPolicies[activePolicyModal.key] ? 'Reading completed. You can accept this policy now.' : 'Acceptance unlocks after complete reading.'}
+              </p>
+              <Btn
+                type="button"
+                onClick={() => setActivePolicyModal(null)}
+                className="bg-blue-600 text-white hover:bg-blue-700"
+              >
+                Done
+              </Btn>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </>
     );
 }

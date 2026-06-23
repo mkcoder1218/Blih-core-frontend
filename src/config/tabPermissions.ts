@@ -61,6 +61,7 @@ export const ATTENDANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   "check-me-in":  { requires: ["attendance.self"] },             // self check-in
   history:        { requires: ["attendance.self", "attendance.read"] },
   "my-lateness-reason": { requires: ["attendance.self"] },
+  "manual-lateness-reason": { requires: ["attendance.manage", "attendance.checkin_correction.approve"] },
   "late-reasons": { requires: ["attendance.late_reason.read", "attendance.manage"] },
   requests:       { requires: ["attendance.self", "leave.read", "leave.approve", "attendance.checkin_correction.approve"] },
   timesheet:      { requires: ["attendance.read", "attendance.manage"] },

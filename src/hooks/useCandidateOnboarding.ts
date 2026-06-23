@@ -54,7 +54,12 @@ export function useInitializeOnboarding() {
       sections?: string[];
       resources?: any[];
       requiredDocuments?: { name: string; required: boolean }[];
-      requiredPolicies?: { title: string; content: string; required: boolean }[];
+      requiredPolicies?: { policyId?: string; title: string; content?: string; required: boolean }[];
+      inventoryItemIds?: string[];
+      assignedEmail?: string;
+      expiresAt?: string;
+      deadlineDays?: number;
+      policyTypes?: string[];
     }) => {
       const res = await initializeOnboarding(data);
       // res.data = { success, message, data: { onboarding, onboardingUrl } }

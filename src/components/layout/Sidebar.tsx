@@ -198,6 +198,7 @@ export default function Sidebar({
     { id: 'check-me-in',    label: 'Check me in',       badge: 0 },
     { id: 'history',        label: 'History',           badge: 0 },
     { id: 'my-lateness-reason', label: 'My Lateness Reason', badge: 0 },
+    { id: 'manual-lateness-reason', label: 'Manual Lateness', badge: 0 },
     { id: 'late-reasons',   label: 'Late Reasons',      badge: 0 },
     { id: 'requests',       label: 'Requests',          badge: 0 },
     { id: 'timesheet',      label: 'Timesheet',         badge: 0 },

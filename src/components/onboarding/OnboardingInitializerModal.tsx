@@ -1,20 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { X, Copy, Check, Plus, Trash2, ChevronRight, ChevronLeft, Rocket, RefreshCw, ShieldCheck } from 'lucide-react';
+import { X, Copy, Check, Plus, Trash2, ChevronRight, ChevronLeft, Rocket, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useInitializeOnboarding, useOnboardingByOfferId } from '../../hooks/useCandidateOnboarding';
-import { useActivePolicies } from '../../hooks/usePolicies';
-import { POLICY_TYPE_LABELS, type PolicyType } from '../../api/policies';
+import { useInventory } from '../../hooks/useInventory';
+import { POLICY_TYPES, POLICY_TYPE_LABELS, type PolicyType } from '../../api/policies';
 
-const ALL_SECTIONS = [
-  { key: 'overview', label: 'Overview & Welcome' },
-  { key: 'personal_info', label: 'Personal Information' },
-  { key: 'documents', label: 'Document Uploads' },
-  { key: 'emergency_contact', label: 'Emergency Contact' },
-  { key: 'payroll', label: 'Payroll / Bank Info' },
-  { key: 'policies', label: 'Policies & Contract' },
-  { key: 'resources', label: 'Resources & Equipment' },
-  { key: 'review', label: 'Review & Submit' },
-];
+const DEFAULT_ONBOARDING_SECTIONS = ['personal_info', 'emergency_contact', 'payroll', 'resources', 'policies'];
 
 interface Props {
   isOpen: boolean;
@@ -26,20 +17,18 @@ interface Props {
 
 export default function OnboardingInitializerModal({ isOpen, onClose, offer, showAlert, onSuccess }: Props) {
   const [step, setStep] = useState(1);
-  const [selectedSections, setSelectedSections] = useState<string[]>(ALL_SECTIONS.map(s => s.key));
-  const [requiredDocuments, setRequiredDocuments] = useState<{ name: string; required: boolean }[]>([
-    { name: 'National ID / Passport', required: true },
-    { name: 'Proof of Address', required: true },
-  ]);
-  const [selectedPolicyIds, setSelectedPolicyIds] = useState<Set<string>>(new Set());
+  const [selectedPolicyTypes, setSelectedPolicyTypes] = useState<Set<string>>(new Set(['terms-and-conditions']));
   const [resources, setResources] = useState<any[]>([]);
+  const [selectedInventoryIds, setSelectedInventoryIds] = useState<Set<string>>(new Set());
+  const [assignedEmail, setAssignedEmail] = useState('');
+  const [expiresAt, setExpiresAt] = useState('');
 
-  // Fetch real policies from the backend
-  const { data: backendPolicies, isLoading: loadingPolicies } = useActivePolicies();
+  const { data: inventoryItems = [], isLoading: loadingInventory } = useInventory({ status: 'AVAILABLE' });
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const initMutation = useInitializeOnboarding();
+  const businessSlug = offer?.businessSlug || offer?.business?.slug || offer?.Business?.slug;
 
   // Load existing onboarding for this offer (if already initialized)
   const { data: existingOnboarding, isLoading: loadingExisting } = useOnboardingByOfferId(
@@ -49,34 +38,33 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
   // Auto-fill state from existing onboarding when it loads
   useEffect(() => {
     if (!existingOnboarding) return;
-    if (existingOnboarding.sections?.length)        setSelectedSections(existingOnboarding.sections);
-    if (existingOnboarding.requiredDocuments?.length) setRequiredDocuments(existingOnboarding.requiredDocuments);
     if (existingOnboarding.requiredPolicies?.length) {
-      // requiredPolicies on existing onboarding may store { policyId } or { _id } — extract ids
-      const ids = existingOnboarding.requiredPolicies
-        .map((p: any) => p.policyId || p._id || p.id)
+      const types = existingOnboarding.requiredPolicies
+        .map((policy: any) => policy.policyType)
         .filter(Boolean);
-      setSelectedPolicyIds(new Set(ids));
+      setSelectedPolicyTypes(new Set(types.length ? types : ['terms-and-conditions']));
     }
     if (existingOnboarding.resources?.length)         setResources(existingOnboarding.resources);
+    if (existingOnboarding.metadata?.assignedEmail)   setAssignedEmail(existingOnboarding.metadata.assignedEmail);
+    if (existingOnboarding.metadata?.expiresAt)       setExpiresAt(existingOnboarding.metadata.expiresAt.slice(0, 10));
     // Pre-set the generated URL so step 4 shows it immediately if they just want to resend
-    const url = `${window.location.origin}/career/onboarding/${existingOnboarding.onboardingId}`;
+    const slug = businessSlug || existingOnboarding.businessSlug || existingOnboarding.business?.slug || existingOnboarding.Business?.slug;
+    const url = slug
+      ? `${window.location.origin}/register/${encodeURIComponent(slug)}?onboarding=${encodeURIComponent(existingOnboarding.onboardingId)}`
+      : null;
     setGeneratedUrl(url);
-  }, [existingOnboarding?.id]);
+  }, [existingOnboarding?.id, businessSlug]);
 
-  const toggleSection = (key: string) => {
-    setSelectedSections(prev =>
-      prev.includes(key) ? prev.filter(s => s !== key) : [...prev, key]
-    );
+  const togglePolicy = (type: string) => {
+    setSelectedPolicyTypes(prev => {
+      const next = new Set(prev);
+      next.has(type) ? next.delete(type) : next.add(type);
+      return next;
+    });
   };
 
-  const addDocument = () => setRequiredDocuments(prev => [...prev, { name: '', required: true }]);
-  const removeDocument = (i: number) => setRequiredDocuments(prev => prev.filter((_, idx) => idx !== i));
-  const updateDocument = (i: number, field: 'name' | 'required', value: any) =>
-    setRequiredDocuments(prev => prev.map((d, idx) => idx === i ? { ...d, [field]: value } : d));
-
-  const togglePolicy = (id: string) => {
-    setSelectedPolicyIds(prev => {
+  const toggleInventory = (id: string) => {
+    setSelectedInventoryIds(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
@@ -95,12 +83,14 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
     try {
       const result = await initMutation.mutateAsync({
         offerId: offer.id,
-        sections: selectedSections,
+        sections: DEFAULT_ONBOARDING_SECTIONS,
         resources,
-        requiredDocuments: requiredDocuments.filter(d => d.name.trim()),
-        requiredPolicies: (backendPolicies ?? [])
-          .filter(p => selectedPolicyIds.has(p._id))
-          .map(p => ({ policyId: p._id, title: p.title, required: p.isRequired })),
+        requiredDocuments: [],
+        requiredPolicies: [],
+        inventoryItemIds: Array.from(selectedInventoryIds),
+        assignedEmail: assignedEmail.trim() || undefined,
+        expiresAt: expiresAt || undefined,
+        policyTypes: Array.from(selectedPolicyTypes),
       });
       // successResponse wraps as { success, data: { onboarding, onboardingUrl } }
       // axios wraps that as res.data, so mutateAsync returns res.data = { success, data: {...} }
@@ -125,7 +115,7 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
     setStep(1);
     setGeneratedUrl(null);
     setCopied(false);
-    setSelectedPolicyIds(new Set());
+    setSelectedPolicyTypes(new Set(['terms-and-conditions']));
     onClose();
   };
 
@@ -169,7 +159,7 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
         {/* Step indicator */}
         {step < 4 && (
           <div className="flex items-center gap-2 px-6 py-3 bg-slate-50 border-b border-slate-100">
-            {['Sections & Docs', 'Resources', 'Confirm'].map((label, i) => (
+            {['Settings & Policies', 'Resources', 'Confirm'].map((label, i) => (
               <React.Fragment key={i}>
                 <div className={`flex items-center gap-1.5 text-[11px] font-bold ${step === i + 1 ? 'text-blue-600' : step > i + 1 ? 'text-emerald-600' : 'text-slate-400'}`}>
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black ${step === i + 1 ? 'bg-blue-600 text-white' : step > i + 1 ? 'bg-emerald-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
@@ -188,93 +178,102 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
           <AnimatePresence mode="wait">
             {step === 1 && (
               <motion.div key="step1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-6">
-                {/* Sections */}
                 <div>
-                  <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-wider mb-3">Onboarding Sections</h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    {ALL_SECTIONS.map(s => (
-                      <label key={s.key} className={`flex items-center gap-2.5 p-3 rounded-xl border cursor-pointer transition-all ${selectedSections.includes(s.key) ? 'border-blue-300 bg-blue-50' : 'border-slate-200 hover:border-slate-300'}`}>
-                        <input type="checkbox" checked={selectedSections.includes(s.key)} onChange={() => toggleSection(s.key)} className="w-4 h-4 accent-blue-600" />
-                        <span className="text-[12px] font-semibold text-slate-700">{s.label}</span>
-                      </label>
-                    ))}
+                  <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-wider mb-3">Instance Settings</h3>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Assigned Email</span>
+                      <input
+                        type="email"
+                        value={assignedEmail}
+                        onChange={e => setAssignedEmail(e.target.value)}
+                        placeholder="employee@company.com"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-400"
+                      />
+                    </label>
+                    <label>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Deadline</span>
+                      <input
+                        type="date"
+                        value={expiresAt}
+                        onChange={e => setExpiresAt(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-400"
+                      />
+                    </label>
                   </div>
-                </div>
-                {/* Required Documents */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-wider">Required Documents</h3>
-                    <button onClick={addDocument} className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700">
-                      <Plus className="w-3.5 h-3.5" /> Add
-                    </button>
-                  </div>
-                  <div className="space-y-2">
-                    {requiredDocuments.map((doc, i) => (
-                      <div key={i} className="flex items-center gap-2">
-                        <input value={doc.name} onChange={e => updateDocument(i, 'name', e.target.value)} placeholder="Document name" className="flex-1 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-medium text-slate-700 focus:outline-none focus:border-blue-400" />
-                        <label className="flex items-center gap-1 text-[11px] font-semibold text-slate-500 whitespace-nowrap">
-                          <input type="checkbox" checked={doc.required} onChange={e => updateDocument(i, 'required', e.target.checked)} className="w-3.5 h-3.5 accent-blue-600" /> Required
-                        </label>
-                        <button onClick={() => removeDocument(i)} className="p-1.5 text-rose-400 hover:bg-rose-50 rounded-lg transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                  <p className="mt-2 text-[11px] font-semibold text-slate-400">Assigned email pre-fills and locks the onboarding email field when the company requires a specific address.</p>
                 </div>
                 {/* Policies */}
                 <div>
                   <div className="flex items-center justify-between mb-3">
                     <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-wider">Policies & Agreements</h3>
-                    {selectedPolicyIds.size > 0 && (
+                    {selectedPolicyTypes.size > 0 && (
                       <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
-                        {selectedPolicyIds.size} selected
+                        {selectedPolicyTypes.size} selected
                       </span>
                     )}
                   </div>
-                  {loadingPolicies ? (
+                  <div className="grid grid-cols-2 gap-2">
+                    {POLICY_TYPES.map((policyType) => {
+                      const isChecked = selectedPolicyTypes.has(policyType);
+                      const typeLabel = POLICY_TYPE_LABELS[policyType as PolicyType] ?? policyType;
+                      return (
+                        <label
+                          key={policyType}
+                          className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
+                            isChecked ? 'border-blue-300 bg-blue-50' : 'border-slate-200 hover:border-slate-300 bg-white'
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => togglePolicy(policyType)}
+                            className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <span className="text-[12px] font-bold text-slate-800">{typeLabel}</span>
+                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Fetched with guest policy access when onboarding is sent.</p>
+                          </div>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-semibold text-blue-700">
+                    The backend fetches selected policy documents through the guest policy endpoint, so no employee token is required here.
+                  </div>
+                </div>              </motion.div>
+            )}
+
+            {step === 2 && (
+              <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-wider">Inventory Items</h3>
+                    {selectedInventoryIds.size > 0 && (
+                      <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">{selectedInventoryIds.size} selected</span>
+                    )}
+                  </div>
+                  {loadingInventory ? (
                     <div className="flex items-center gap-2 py-4 text-slate-400">
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span className="text-[11px] font-semibold">Loading policies…</span>
+                      <span className="text-[11px] font-semibold">Loading inventory...</span>
                     </div>
-                  ) : !backendPolicies?.length ? (
-                    <div className="text-center py-4 bg-slate-50 rounded-xl border border-slate-100">
-                      <ShieldCheck className="w-5 h-5 text-slate-300 mx-auto mb-1" />
-                      <p className="text-[11px] text-slate-400 font-semibold">No active policies found.</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">Publish policies in the Policies module first.</p>
+                  ) : !inventoryItems.length ? (
+                    <div className="rounded-xl border border-slate-100 bg-slate-50 p-4 text-center text-[11px] font-semibold text-slate-400">
+                      No available inventory items. You can still add manual resources below.
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {backendPolicies.map(policy => {
-                        const isChecked = selectedPolicyIds.has(policy._id);
-                        const typeLabel = POLICY_TYPE_LABELS[policy.policyType as PolicyType] ?? policy.policyType;
+                    <div className="grid grid-cols-2 gap-2">
+                      {inventoryItems.map(item => {
+                        const checked = selectedInventoryIds.has(item.id);
                         return (
-                          <label
-                            key={policy._id}
-                            className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all ${
-                              isChecked ? 'border-blue-300 bg-blue-50' : 'border-slate-200 hover:border-slate-300 bg-white'
-                            }`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isChecked}
-                              onChange={() => togglePolicy(policy._id)}
-                              className="w-4 h-4 mt-0.5 accent-blue-600 flex-shrink-0"
-                            />
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className="text-[12px] font-bold text-slate-800">{policy.title}</span>
-                                {policy.isRequired && (
-                                  <span className="text-[9px] font-black text-rose-500 bg-rose-50 border border-rose-100 px-1.5 py-0.5 rounded-full uppercase tracking-wide">
-                                    Required
-                                  </span>
-                                )}
-                              </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                  {typeLabel}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-medium">v{policy.version}</span>
+                          <label key={item.id} className={`rounded-xl border p-3 cursor-pointer transition-all ${checked ? 'border-blue-300 bg-blue-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                            <div className="flex items-start gap-2">
+                              <input type="checkbox" checked={checked} onChange={() => toggleInventory(item.id)} className="mt-0.5 w-4 h-4 accent-blue-600" />
+                              <div className="min-w-0">
+                                <p className="text-[12px] font-bold text-slate-800 truncate">{item.name}</p>
+                                <p className="text-[10px] font-semibold text-slate-400">{item.category} {item.assetTag ? `- ${item.assetTag}` : ''}</p>
+                                {item.serialNumber && <p className="text-[10px] text-slate-400">SN: {item.serialNumber}</p>}
                               </div>
                             </div>
                           </label>
@@ -283,11 +282,6 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
                     </div>
                   )}
                 </div>
-              </motion.div>
-            )}
-
-            {step === 2 && (
-              <motion.div key="step2" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
                 <div className="flex items-center justify-between mb-1">
                   <h3 className="text-[12px] font-black text-slate-700 uppercase tracking-wider">Resources & Equipment</h3>
                   <button onClick={addResource} className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-700">
@@ -362,10 +356,11 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
                 <div className="bg-slate-50 rounded-2xl p-4 space-y-3 border border-slate-100">
                   <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Candidate</span><span className="font-bold text-slate-800">{offer?.candidateName}</span></div>
                   <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Email</span><span className="font-bold text-slate-800">{offer?.candidateEmail}</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Sections</span><span className="font-bold text-slate-800">{selectedSections.length} selected</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Documents</span><span className="font-bold text-slate-800">{requiredDocuments.filter(d => d.name).length} required</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Policies</span><span className="font-bold text-slate-800">{selectedPolicyIds.size} policies</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Resources</span><span className="font-bold text-slate-800">{resources.length} items</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Assigned Email</span><span className="font-bold text-slate-800">{assignedEmail || 'Not set'}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Deadline</span><span className="font-bold text-slate-800">{expiresAt || 'No deadline'}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Policies</span><span className="font-bold text-slate-800">{selectedPolicyTypes.size} policies</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Inventory</span><span className="font-bold text-slate-800">{selectedInventoryIds.size} items</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-slate-500 font-semibold">Manual Resources</span><span className="font-bold text-slate-800">{resources.length} items</span></div>
                 </div>
                 <p className="text-[12px] text-slate-500 leading-relaxed">
                   {existingOnboarding
@@ -433,3 +428,5 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
     </div>
   );
 }
+
+

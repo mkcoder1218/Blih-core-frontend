@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  UserPlus, CheckCircle, TrendingUp, Plus, RefreshCw, ExternalLink, Sparkles, Loader2,
+  UserPlus, CheckCircle, TrendingUp, Plus, RefreshCw, ExternalLink, Sparkles, Loader2, Clock,
 } from 'lucide-react';
 import { useOnboardings } from '../../../hooks/useCandidateOnboarding';
 import { StatCard, StatCardGrid, StatusBadge } from '@/components/ui/blih';
@@ -137,7 +137,7 @@ export default function OnboardingProgressTab({
                       <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-slate-800">{pct}%</span>
                     </div>
                     <a
-                      href={`/career/onboarding/${ob.onboardingId}`}
+                      href={`/onboarding/${ob.onboardingId}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1.5 rounded-lg border border-blue-100 transition-colors"

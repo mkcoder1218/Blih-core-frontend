@@ -82,7 +82,7 @@ function OverviewSection({ onboarding }: { onboarding: any }) {
   );
 }
 
-function PersonalInfoSection({ data, onChange }: { data: any; onChange: (d: any) => void }) {
+function PersonalInfoSection({ data, onChange, assignedEmail }: { data: any; onChange: (d: any) => void; assignedEmail?: string | null }) {
   const f = data || {};
   const set = (k: string, v: string) => onChange({ ...f, [k]: v });
   const [showPassword, setShowPassword] = useState(false);
@@ -95,6 +95,7 @@ function PersonalInfoSection({ data, onChange }: { data: any; onChange: (d: any)
       <div className="grid grid-cols-2 gap-4">
         <Field label="First Name" value={f.firstName || ''} onChange={v => set('firstName', v)} />
         <Field label="Last Name" value={f.lastName || ''} onChange={v => set('lastName', v)} />
+        <Field label="Email" type="email" value={assignedEmail || f.email || ''} onChange={v => set('email', v)} disabled={Boolean(assignedEmail)} className="col-span-2" />
         <Field label="Date of Birth" type="date" value={f.dateOfBirth || ''} onChange={v => set('dateOfBirth', v)} />
         <div>
           <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">Gender</label>
@@ -410,8 +411,12 @@ function PoliciesSection({ requiredPolicies, data, onChange }: { requiredPolicie
               <p className="text-sm font-bold text-slate-800">{policy.title}</p>
             </div>
             <div className="p-4">
-              <div className="bg-slate-50 rounded-lg p-3 max-h-40 overflow-y-auto mb-3">
-                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">{policy.content || 'No content provided.'}</p>
+              <div className="bg-slate-50 rounded-lg p-3 max-h-40 overflow-y-auto mb-3 text-xs text-slate-600 leading-relaxed">
+                {policy.contentHtml ? (
+                  <div dangerouslySetInnerHTML={{ __html: policy.contentHtml }} />
+                ) : (
+                  <p className="whitespace-pre-wrap">{policy.content || 'No content provided.'}</p>
+                )}
               </div>
               <label className="flex items-center gap-2.5 cursor-pointer">
                 <input type="checkbox" checked={Boolean(f[key])} onChange={e => set(key, e.target.checked)} className="w-4 h-4 accent-blue-600" />
@@ -453,6 +458,9 @@ function ResourcesSection({
               <div>
                 <p className="text-sm font-bold text-slate-800">{resource.resourceName}</p>
                 <p className="text-xs text-slate-500 font-medium">{resource.resourceType} · Qty: {resource.quantity} · Condition: {resource.condition}</p>
+                {(resource.assetTag || resource.serialNumber) && (
+                  <p className="text-xs text-slate-400 mt-0.5">{resource.assetTag ? `Asset: ${resource.assetTag}` : ''} {resource.serialNumber ? `SN: ${resource.serialNumber}` : ''}</p>
+                )}
                 {resource.expectedIssueDate && (
                   <p className="text-xs text-slate-400 mt-0.5">Expected: {new Date(resource.expectedIssueDate).toLocaleDateString()}</p>
                 )}
@@ -464,6 +472,7 @@ function ResourcesSection({
             {resource.acceptanceRequired && (
               <div className="space-y-2">
                 <p className="text-[11px] font-black text-slate-500 uppercase tracking-wider">Your Response</p>
+                <p className="text-[11px] font-semibold text-slate-500">I confirm that I accept responsibility for the company item listed above.</p>
                 <div className="flex items-center gap-2">
                   {[
                     { value: 'accepted', label: 'Accept', icon: <CheckCircle className="w-3.5 h-3.5" />, cls: 'text-emerald-600 border-emerald-300 bg-emerald-50' },
@@ -573,7 +582,7 @@ function ReviewSection({ onboarding, sectionData, onSubmit, isSubmitting }: { on
 
       <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
         <p className="text-xs text-slate-600 leading-relaxed">
-          By submitting, you confirm that all information provided is accurate and complete. Your employee account will be created automatically using the email and password you provided.
+          By submitting, you confirm that all information provided is accurate and complete. Your information will be sent to HR for review before your employee account is activated.
         </p>
       </div>
       <button
@@ -581,14 +590,14 @@ function ReviewSection({ onboarding, sectionData, onSubmit, isSubmitting }: { on
         disabled={isSubmitting || !passwordOk}
         className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-black py-3.5 rounded-2xl text-sm transition-all flex items-center justify-center gap-2"
       >
-        {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Creating your account…</> : '🚀 Submit & Create Account'}
+        {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</> : 'Submit for HR Review'}
       </button>
     </div>
   );
 }
 
 // ─── Shared Field component ───────────────────────────────────────────────────
-function Field({ label, value, onChange, type = 'text', className = '' }: { label: string; value: string; onChange: (v: string) => void; type?: string; className?: string }) {
+function Field({ label, value, onChange, type = 'text', className = '', disabled = false }: { label: string; value: string; onChange: (v: string) => void; type?: string; className?: string; disabled?: boolean }) {
   return (
     <div className={className}>
       <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider block mb-1">{label}</label>
@@ -596,8 +605,10 @@ function Field({ label, value, onChange, type = 'text', className = '' }: { labe
         type={type}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors"
+        disabled={disabled}
+        className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-700 focus:outline-none focus:border-blue-400 focus:bg-white transition-colors disabled:bg-slate-100 disabled:text-slate-500"
       />
+      {disabled && <p className="mt-1 text-[10px] font-semibold text-slate-400">Provided by the company.</p>}
     </div>
   );
 }
@@ -722,9 +733,9 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
           className="bg-white rounded-3xl shadow-xl border border-emerald-100 p-10 max-w-lg text-center space-y-5"
         >
           <div className="text-5xl">🎉</div>
-          <h2 className="text-2xl font-black text-slate-900">Account Created!</h2>
+          <h2 className="text-2xl font-black text-slate-900">Submitted for Review!</h2>
           <p className="text-sm text-slate-600 leading-relaxed">
-            Your onboarding is complete and your employee account has been created. You can now log in to the employee portal using your email and the password you set.
+            Your onboarding is complete and has been sent to HR for approval. You will be notified when your account is activated.
           </p>
           <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 space-y-1 text-left">
             <p className="text-xs font-black text-emerald-700 uppercase tracking-wider">Your Login Details</p>
@@ -821,6 +832,7 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
                 {currentSection === 'personal_info' && (
                   <PersonalInfoSection
                     data={sectionData.personal_info}
+                    assignedEmail={onboarding.metadata?.assignedEmail}
                     onChange={d => setSectionData(prev => ({ ...prev, personal_info: d }))}
                   />
                 )}
@@ -913,3 +925,5 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
     </div>
   );
 }
+
+
