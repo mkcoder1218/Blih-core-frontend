@@ -156,13 +156,19 @@ export type AttendanceHrDailyRow = {
   penaltyMinutes?: number;
   penaltyReason?: string | null;
   latenessReasonCredit?: {
+    mode?: "PER_REASON" | "GLOBAL_POOL";
     remaining: number;
     limit: number;
+    used?: number;
     reasons?: Array<{
       reasonCode: string;
       label: string;
       remainingThisMonth: number;
       monthlyLimit: number;
+      creditMode?: "PER_REASON" | "GLOBAL_POOL";
+      globalMonthlyLimit?: number;
+      globalUsedThisMonth?: number;
+      globalRemainingThisMonth?: number;
     }>;
   };
   status: string;

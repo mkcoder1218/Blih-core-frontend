@@ -84,7 +84,11 @@ export default function AttendanceTable({
                 <div className={r.latenessReasonCredit?.remaining ? "text-emerald-700" : "text-rose-700"}>
                   {r.latenessReasonCredit?.remaining ?? 0}/{r.latenessReasonCredit?.limit ?? 0}
                 </div>
-                {r.latenessReasonCredit?.reasons?.length ? (
+                {r.latenessReasonCredit?.mode === "GLOBAL_POOL" ? (
+                  <div className="mt-0.5 max-w-[180px] text-[10px] font-bold text-slate-400 leading-tight">
+                    Shared pool for all reasons
+                  </div>
+                ) : r.latenessReasonCredit?.reasons?.length ? (
                   <div className="mt-0.5 max-w-[180px] text-[10px] font-bold text-slate-400 leading-tight">
                     {r.latenessReasonCredit.reasons
                       .map((reason) => `${reason.label}: ${reason.remainingThisMonth}/${reason.monthlyLimit}`)
