@@ -105,7 +105,7 @@ export default function AttendanceTable({
           </td>
           <td className="px-4 py-3">
             <div className="flex flex-wrap gap-2">
-              {onSendPenaltyMessage && r.lateNoReasonPenaltyEligible && (
+              {onSendPenaltyMessage && r.noReasonPenaltyMessageEligible && (
                 <Button
                   type="button"
                   variant="outline"

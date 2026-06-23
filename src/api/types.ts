@@ -169,7 +169,9 @@ export type AttendanceHrDailyRow = {
   isLate: boolean;
   lateByMinutes?: number;
   hasSubmittedLatenessReason?: boolean;
+  hasLeaveRequest?: boolean;
   lateNoReasonPenaltyEligible?: boolean;
+  noReasonPenaltyMessageEligible?: boolean;
 };
 
 export type AttendanceHrDailyResponse = {
