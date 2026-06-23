@@ -172,6 +172,8 @@ export type AttendanceHrDailyRow = {
   hasLeaveRequest?: boolean;
   lateNoReasonPenaltyEligible?: boolean;
   noReasonPenaltyMessageEligible?: boolean;
+  latenessReasonCreditApplies?: boolean;
+  latenessReasonCreditNote?: string | null;
 };
 
 export type AttendanceHrDailyResponse = {

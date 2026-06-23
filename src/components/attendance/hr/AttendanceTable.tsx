@@ -72,20 +72,29 @@ export default function AttendanceTable({
             {formatMinutes(r.workedMinutes)}
           </td>
           <td className="px-4 py-3 text-[12px] text-slate-700 font-extrabold">
-            <div className="min-w-[120px]">
-              <div className={r.latenessReasonCredit?.remaining ? "text-emerald-700" : "text-rose-700"}>
-                {r.latenessReasonCredit?.remaining ?? 0}/{r.latenessReasonCredit?.limit ?? 0}
-              </div>
-              {r.latenessReasonCredit?.reasons?.length ? (
+            {isMissedOrAbsent(r.status) ? (
+              <div className="min-w-[120px]">
+                <div className="text-amber-700">Leave only</div>
                 <div className="mt-0.5 max-w-[180px] text-[10px] font-bold text-slate-400 leading-tight">
-                  {r.latenessReasonCredit.reasons
-                    .map((reason) => `${reason.label}: ${reason.remainingThisMonth}/${reason.monthlyLimit}`)
-                    .join(" • ")}
+                  Absence does not use late credit
                 </div>
-              ) : (
-                <div className="mt-0.5 text-[10px] font-bold text-slate-400">No active credit</div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="min-w-[120px]">
+                <div className={r.latenessReasonCredit?.remaining ? "text-emerald-700" : "text-rose-700"}>
+                  {r.latenessReasonCredit?.remaining ?? 0}/{r.latenessReasonCredit?.limit ?? 0}
+                </div>
+                {r.latenessReasonCredit?.reasons?.length ? (
+                  <div className="mt-0.5 max-w-[180px] text-[10px] font-bold text-slate-400 leading-tight">
+                    {r.latenessReasonCredit.reasons
+                      .map((reason) => `${reason.label}: ${reason.remainingThisMonth}/${reason.monthlyLimit}`)
+                      .join(" • ")}
+                  </div>
+                ) : (
+                  <div className="mt-0.5 text-[10px] font-bold text-slate-400">No active credit</div>
+                )}
+              </div>
+            )}
           </td>
           <td className="px-4 py-3 text-[12px] text-slate-700 font-extrabold">
             {r.penaltyMinutes ? (
@@ -154,4 +163,8 @@ function formatMinutes(mins: number) {
   const m = mins % 60;
   if (h <= 0) return `${m}m`;
   return `${h}h ${m}m`;
+}
+
+function isMissedOrAbsent(status: string) {
+  return ["MISSED", "NOT_STARTED", "ABSENT"].includes(String(status || "").toUpperCase());
 }
