@@ -80,7 +80,6 @@ export function useSubmitAttendanceRequest() {
       durationMinutes?: number;
       reasonCategory?: string;
       reasonText?: string;
-      manualValidityStatus?: "hr_review";
     }) => {
       const res = await api.post("/api/v1/attendance-requests", payload);
       return res.data.attendanceRequest as AttendanceRequest;

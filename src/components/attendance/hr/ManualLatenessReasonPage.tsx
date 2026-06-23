@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, Search } from "lucide-react";
+import { CheckCircle2, Search } from "lucide-react";
 import { PageHeader, SectionCard, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
 import { Button } from "@/components/ui/button";
 import { useEmployees } from "../../../hooks/useHrRecords";
@@ -29,7 +29,7 @@ function employeeMeta(employee: any) {
 
 function statusTone(value: string) {
   if (value === "invalid") return "bg-rose-50 text-rose-700";
-  if (value === "hr_review") return "bg-amber-50 text-amber-700";
+  if (value === "valid" || value === "approved") return "bg-emerald-50 text-emerald-700";
   return "bg-slate-100 text-slate-600";
 }
 
@@ -80,7 +80,6 @@ export default function ManualLatenessReasonPage({ showAlert }: { showAlert: (ti
         reasonText: reasonText.trim(),
         fromAt: `${date}T${time}`,
         durationMinutes: minutes,
-        manualValidityStatus: "hr_review",
       });
       setReasonText("");
       setLateByMinutes("0");
@@ -95,7 +94,7 @@ export default function ManualLatenessReasonPage({ showAlert }: { showAlert: (ti
       <PageHeader
         eyebrow="Attendance"
         title="Manual Lateness Reason"
-        description="Add admin-entered lateness reasons for employees whose issue needs invalid or HR review handling."
+        description="Add approved lateness reasons for employees with documented issues."
       />
 
       <SectionCard title="Add Reason">
@@ -161,9 +160,12 @@ export default function ManualLatenessReasonPage({ showAlert }: { showAlert: (ti
                   ))}
                 </select>
               </label>
-              <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-2.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600">Outcome</span>
-                <div className="mt-1 text-xs font-black text-amber-800">HR Review</div>
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600">Outcome</span>
+                <div className="mt-1 flex items-center gap-1.5 text-xs font-black text-emerald-800">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Auto Approved
+                </div>
               </div>
             </div>
 
@@ -191,8 +193,8 @@ export default function ManualLatenessReasonPage({ showAlert }: { showAlert: (ti
             />
 
             <div className="flex items-center justify-between gap-3">
-              <div className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone("hr_review")}`}>
-                HR Review
+              <div className={`rounded-full px-2.5 py-1 text-[10px] font-black uppercase ${statusTone("approved")}`}>
+                Auto Approved
               </div>
               <Button onClick={handleSubmit} disabled={submit.isPending} className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white text-xs h-9 rounded-xl">
                 {submit.isPending ? "Adding..." : "Add Manual Reason"}
