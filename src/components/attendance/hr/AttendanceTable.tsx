@@ -86,7 +86,7 @@ export default function AttendanceTable({
                 </div>
                 {r.latenessReasonCredit?.mode === "GLOBAL_POOL" ? (
                   <div className="mt-0.5 max-w-[180px] text-[10px] font-bold text-slate-400 leading-tight">
-                    Shared pool for all reasons
+                    Shared pool used {r.latenessReasonCredit?.used ?? 0}/{r.latenessReasonCredit?.limit ?? 0}
                   </div>
                 ) : r.latenessReasonCredit?.reasons?.length ? (
                   <div className="mt-0.5 max-w-[180px] text-[10px] font-bold text-slate-400 leading-tight">
