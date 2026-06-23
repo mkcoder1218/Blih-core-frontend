@@ -155,6 +155,7 @@ export type AttendanceHrDailyRow = {
   breakMinutes: number;
   penaltyMinutes?: number;
   penaltyReason?: string | null;
+  deductionLabel?: string;
   latenessReasonCredit?: {
     mode?: "PER_REASON" | "GLOBAL_POOL";
     remaining: number;
