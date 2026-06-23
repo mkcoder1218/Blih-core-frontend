@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { X, Copy, Check, Plus, Trash2, ChevronRight, ChevronLeft, Rocket, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useInitializeOnboarding, useOnboardingByOfferId } from '../../hooks/useCandidateOnboarding';
+import { useAvailableOnboardingPolicies, useInitializeOnboarding, useOnboardingByOfferId } from '../../hooks/useCandidateOnboarding';
 import { useInventory } from '../../hooks/useInventory';
-import { POLICY_TYPES, POLICY_TYPE_LABELS, type PolicyType } from '../../api/policies';
+import { POLICY_TYPE_LABELS, type PolicyType } from '../../api/policies';
 
 const DEFAULT_ONBOARDING_SECTIONS = ['personal_info', 'emergency_contact', 'payroll', 'resources', 'policies'];
 
@@ -24,6 +24,7 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
   const [expiresAt, setExpiresAt] = useState('');
 
   const { data: inventoryItems = [], isLoading: loadingInventory } = useInventory({ status: 'AVAILABLE' });
+  const { data: availablePolicies = [], isLoading: loadingPolicies } = useAvailableOnboardingPolicies();
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -54,6 +55,16 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
       : null;
     setGeneratedUrl(url);
   }, [existingOnboarding?.id, businessSlug]);
+
+  useEffect(() => {
+    if (!availablePolicies.length) return;
+    const allowed = new Set(availablePolicies.map((policy: any) => policy.policyType));
+    setSelectedPolicyTypes(prev => {
+      const kept = Array.from(prev).filter(type => allowed.has(type));
+      if (kept.length) return new Set(kept);
+      return new Set([availablePolicies[0].policyType]);
+    });
+  }, [availablePolicies]);
 
   const togglePolicy = (type: string) => {
     setSelectedPolicyTypes(prev => {
@@ -213,10 +224,21 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
                       </span>
                     )}
                   </div>
+                  {loadingPolicies ? (
+                    <div className="flex items-center gap-2 py-4 text-slate-400">
+                      <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                      <span className="text-[11px] font-semibold">Loading active policies...</span>
+                    </div>
+                  ) : !availablePolicies.length ? (
+                    <div className="rounded-xl border border-amber-100 bg-amber-50 px-3 py-3 text-[11px] font-semibold text-amber-700">
+                      No active onboarding policies are available from the policy service.
+                    </div>
+                  ) : (
                   <div className="grid grid-cols-2 gap-2">
-                    {POLICY_TYPES.map((policyType) => {
+                    {availablePolicies.map((policy: any) => {
+                      const policyType = policy.policyType;
                       const isChecked = selectedPolicyTypes.has(policyType);
-                      const typeLabel = POLICY_TYPE_LABELS[policyType as PolicyType] ?? policyType;
+                      const typeLabel = policy.title || POLICY_TYPE_LABELS[policyType as PolicyType] || policyType;
                       return (
                         <label
                           key={policyType}
@@ -232,14 +254,17 @@ export default function OnboardingInitializerModal({ isOpen, onClose, offer, sho
                           />
                           <div className="flex-1 min-w-0">
                             <span className="text-[12px] font-bold text-slate-800">{typeLabel}</span>
-                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">Fetched with guest policy access when onboarding is sent.</p>
+                            <p className="text-[10px] text-slate-400 font-medium mt-0.5">
+                              Active in policy service{policy.version ? ` · v${policy.version}` : ''}.
+                            </p>
                           </div>
                         </label>
                       );
                     })}
                   </div>
+                  )}
                   <div className="mt-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-semibold text-blue-700">
-                    The backend fetches selected policy documents through the guest policy endpoint, so no employee token is required here.
+                    Only active policies returned by the guest policy endpoint can be selected.
                   </div>
                 </div>              </motion.div>
             )}

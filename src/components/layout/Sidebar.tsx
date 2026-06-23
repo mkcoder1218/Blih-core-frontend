@@ -184,6 +184,7 @@ export default function Sidebar({
     { id: 'bulk_create',            label: 'Bulk Create',           badge: 0 },
     { id: 'organogram',             label: 'Organogram',            badge: 0 },
     { id: 'directory',              label: 'Directory',             badge: 0 },
+    { id: 'left',                   label: 'Left Employees',        badge: 0 },
     { id: 'interns',                label: 'Interns',               badge: 0 },
     { id: 'organization',           label: 'Departments & Positions', badge: 0 },
     { id: 'devices',                label: 'Devices',               badge: 0 },
@@ -207,6 +208,7 @@ export default function Sidebar({
     { id: 'unavailable',    label: 'Unavailable',       badge: 0 },
     { id: 'memo-log',       label: 'Memo Log',          badge: 0 },
     { id: 'work-from-home', label: 'Work-from-Home',    badge: 0 },
+    { id: 'exit-request',   label: 'Exit Request',      badge: 0 },
   ] as const;
 
   const ALL_TALENT_TABS = [
@@ -268,7 +270,7 @@ export default function Sidebar({
   const profilesTabs      = allowedTabs(ALL_PROFILES_TABS,     PROFILES_TAB_PERMISSIONS)
     .filter((tab) => !isInternUser || ['events'].includes(tab.id));
   const attendanceTabs    = allowedTabs(ALL_ATTENDANCE_TABS,   ATTENDANCE_TAB_PERMISSIONS)
-    .filter((tab) => !isInternUser || ['check-me-in', 'history', 'requests', 'leaves', 'overtime', 'unavailable', 'work-from-home'].includes(tab.id));
+    .filter((tab) => !isInternUser || ['check-me-in', 'history', 'requests', 'leaves', 'overtime', 'unavailable', 'work-from-home', 'exit-request'].includes(tab.id));
   const talentTabs        = allowedTabs(ALL_TALENT_TABS,       TALENT_TAB_PERMISSIONS);
   const exitTabs          = allowedTabs(ALL_EXIT_TABS,         EXIT_TAB_PERMISSIONS);
   const financeTabs       = allowedTabs(ALL_FINANCE_TABS,      FINANCE_TAB_PERMISSIONS);

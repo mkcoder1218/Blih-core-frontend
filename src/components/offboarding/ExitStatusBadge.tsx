@@ -14,13 +14,13 @@ const STATUS_STYLE: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
   pending: 'Pending',
-  in_progress: 'Approved',
+  in_progress: 'On Leave',
   interview_scheduled: 'Interview Scheduled',
   interview_completed: 'Interview Completed',
   rejected: 'Rejected',
   clearance_pending: 'Clearance Pending',
   completed: 'Completed',
-  account_disabled: 'Account Disabled',
+  account_disabled: 'Left',
   cancelled: 'Revision Requested',
 };
 

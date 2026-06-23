@@ -18,6 +18,9 @@ export const initializeOnboarding = (data: {
 export const listOnboardings = (params?: { limit?: number; offset?: number }) =>
   api.get('/api/v1/hr/onboarding', { params });
 
+export const listAvailableOnboardingPolicies = () =>
+  api.get('/api/v1/hr/onboarding/available-policies');
+
 export const getOnboardingById = (id: string) =>
   api.get(`/api/v1/hr/onboarding/${id}`);
 

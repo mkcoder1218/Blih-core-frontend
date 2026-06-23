@@ -240,6 +240,28 @@ export function useDisableExitAccount() {
   });
 }
 
+export function useSendOffboardingForm() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/hr/exit/${id}/offboarding-form/send`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
+      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
+    },
+  });
+}
+
+export function useSubmitOffboardingForm() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => api.post(`/api/v1/hr/exit/${id}/offboarding-form`, data),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
+      queryClient.invalidateQueries({ queryKey: ["exit-request", variables.id] });
+    },
+  });
+}
+
 export function useUpdateExitFinalPay() {
   const queryClient = useQueryClient();
   return useMutation({

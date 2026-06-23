@@ -86,6 +86,7 @@ export default function ExitOffboardingView({
   // ── Interviews state ──────────────────────────────────────────────────────
   const [searchQuery, setSearchQuery] = useState('');
   const [showLogInterviewModal, setShowLogInterviewModal] = useState(false);
+  const [interviewTarget, setInterviewTarget] = useState<any | null>(null);
   const [newInterview, setNewInterview] = useState({ name: '', role: '', dept: '', interviewer: '', rating: '5', recommend: 'Yes', remarks: '' });
 
   // ── Documents state ───────────────────────────────────────────────────────
@@ -127,7 +128,7 @@ export default function ExitOffboardingView({
   const submitLoggedInterview = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newInterview.name || !newInterview.role) { showAlert('Please enter employee name & role', 'error'); return; }
-    const target = exitInterviews.find((item: any) => item.status === 'scheduled') || exitInterviews[0];
+    const target = interviewTarget?.raw || exitInterviews.find((item: any) => item.status === 'scheduled') || exitInterviews[0];
     if (!target && !activeExitProcessId) { showAlert('No exit process available for feedback.', 'error'); return; }
     const payload = {
       rating: parseFloat(newInterview.rating),
@@ -145,6 +146,7 @@ export default function ExitOffboardingView({
         await completeExitInterview.mutateAsync({ interviewId: created.data?.data?.id || created.data?.id, data: payload });
       }
       setShowLogInterviewModal(false);
+      setInterviewTarget(null);
       setNewInterview({ name: '', role: '', dept: '', interviewer: '', rating: '5', recommend: 'Yes', remarks: '' });
       showAlert('Exit interview logged safely!', 'success');
     } catch (err: any) {
@@ -193,6 +195,89 @@ export default function ExitOffboardingView({
   const documentInitials = documentName.split(' ').map((n: string) => n[0]).join('').slice(0, 2).toUpperCase();
   const documentDoneCount = exitDocuments.filter((doc: any) => ['uploaded', 'verified', 'waived'].includes(doc.status)).length;
   const documentPercent = exitDocuments.length ? Math.round((documentDoneCount / exitDocuments.length) * 100) : 0;
+
+  const openInterviewCompletion = (item?: any) => {
+    setInterviewTarget(item || null);
+    setNewInterview({
+      name: item?.name || '',
+      role: item?.role || '',
+      dept: item?.dept || '',
+      interviewer: item?.interviewer || '',
+      rating: '5',
+      recommend: 'Yes',
+      remarks: '',
+    });
+    setShowLogInterviewModal(true);
+  };
+
+  const generateClearanceCertificate = () => {
+    if (!clearanceProcess) {
+      showAlert('No clearance process selected.', 'error');
+      return;
+    }
+    const employee = clearanceProcess.employee || selectedExitProcess?.employee || {};
+    const name = employee.fullName || employee.email || 'Employee';
+    const steps = clearanceProcess.clearanceSteps || [];
+    const completed = steps.filter((step: any) => ['completed', 'waived'].includes(step.status)).length;
+    const allDone = steps.length > 0 && completed === steps.length;
+    if (!allDone) {
+      showAlert('All clearance steps must be completed or waived before generating the certificate.', 'error');
+      return;
+    }
+    const issuedAt = new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+    const rows = steps.map((step: any) => `
+      <tr>
+        <td>${step.title || step.stepKey}</td>
+        <td>${step.status}</td>
+        <td>${step.completedAt ? new Date(step.completedAt).toLocaleDateString() : '-'}</td>
+      </tr>
+    `).join('');
+    const certificateHtml = `<!doctype html>
+      <html>
+        <head>
+          <title>Clearance Certificate - ${name}</title>
+          <style>
+            body { font-family: Arial, sans-serif; color: #0f172a; margin: 48px; }
+            .sheet { border: 1px solid #cbd5e1; padding: 40px; max-width: 840px; margin: 0 auto; }
+            h1 { text-align: center; margin: 0 0 8px; font-size: 28px; }
+            .sub { text-align: center; color: #64748b; margin-bottom: 32px; }
+            .certifies { font-size: 15px; line-height: 1.8; margin: 24px 0; }
+            table { width: 100%; border-collapse: collapse; margin-top: 24px; font-size: 13px; }
+            th, td { border: 1px solid #e2e8f0; padding: 10px; text-align: left; }
+            th { background: #f8fafc; }
+            .sign { display: flex; justify-content: space-between; margin-top: 56px; gap: 48px; }
+            .line { border-top: 1px solid #334155; padding-top: 8px; flex: 1; font-size: 12px; color: #475569; }
+            @media print { body { margin: 0; } .sheet { border: none; } }
+          </style>
+        </head>
+        <body>
+          <div class="sheet">
+            <h1>Employee Clearance Certificate</h1>
+            <div class="sub">Issued on ${issuedAt}</div>
+            <p class="certifies">
+              This certifies that <strong>${name}</strong> has completed the required exit clearance steps recorded in the HR offboarding system.
+            </p>
+            <table>
+              <thead><tr><th>Clearance Item</th><th>Status</th><th>Completed Date</th></tr></thead>
+              <tbody>${rows}</tbody>
+            </table>
+            <div class="sign">
+              <div class="line">HR Representative</div>
+              <div class="line">Employee Signature</div>
+            </div>
+          </div>
+          <script>window.onload = () => window.print();</script>
+        </body>
+      </html>`;
+    const win = window.open('', '_blank');
+    if (!win) {
+      showAlert('Pop-up blocked. Please allow pop-ups to generate the certificate.', 'error');
+      return;
+    }
+    win.document.open();
+    win.document.write(certificateHtml);
+    win.document.close();
+  };
 
   return (
     <div className="space-y-8 font-sans">
@@ -354,6 +439,13 @@ export default function ExitOffboardingView({
                     <button onClick={() => handleSendInterviewReminder(item)} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-2 px-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"><Send className="w-3.5 h-3.5" />Send Reminder</button>
                     <button onClick={() => handleRescheduleInterview(item)} className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-semibold text-xs py-2 px-3 rounded-xl transition-all">Reschedule</button>
                   </div>
+                  <button
+                    onClick={() => openInterviewCompletion(item)}
+                    disabled={completeExitInterview.isPending}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs py-2 px-3 rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"
+                  >
+                    <CheckCircle className="w-3.5 h-3.5" />Complete Interview
+                  </button>
                 </div>
               ))}
             </div>
@@ -370,7 +462,7 @@ export default function ExitOffboardingView({
                   <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input type="text" placeholder="Search..." value={searchQuery} onChange={e => setSearchQuery(e.target.value)} className="pl-9 pr-4 py-1.5 text-xs bg-slate-50 border border-slate-200 outline-none rounded-xl w-[200px] focus:bg-white focus:border-blue-400 transition-all font-medium text-slate-800" />
                 </div>
-                <button onClick={() => setShowLogInterviewModal(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition-all shadow-sm"><PlusCircle className="w-3.5 h-3.5" />Log Exit Feedback</button>
+                <button onClick={() => openInterviewCompletion()} className="bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs py-1.5 px-3 rounded-xl flex items-center gap-1.5 transition-all shadow-sm"><PlusCircle className="w-3.5 h-3.5" />Log Exit Feedback</button>
               </div>
             </div>
             <div className="space-y-4">
@@ -641,7 +733,7 @@ export default function ExitOffboardingView({
                     </div>
                     <div className="flex items-center gap-3">
                       <button onClick={() => showAlert('Details overview populated.', 'success')} className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold py-2 px-4 rounded-xl transition-all">View Details</button>
-                      <button onClick={() => showAlert(`Clearance Certificate for ${employeeName} dispatched!`, 'success')} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition-all shadow-sm">Generate Clearance Certificate</button>
+                      <button onClick={generateClearanceCertificate} className="bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2 px-4 rounded-xl transition-all shadow-sm">Generate Clearance Certificate</button>
                     </div>
                   </div>
                 </div>
@@ -750,11 +842,11 @@ export default function ExitOffboardingView({
       {/* ── Log Interview Modal ──────────────────────────────────────────────── */}
       {showLogInterviewModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="absolute inset-0" onClick={() => setShowLogInterviewModal(false)} />
+          <div className="absolute inset-0" onClick={() => { setShowLogInterviewModal(false); setInterviewTarget(null); }} />
           <div className="relative bg-white rounded-2xl shadow-2xl border border-slate-100 w-full max-w-lg mx-4 p-6 space-y-5 z-10">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900">Log Exit Interview Feedback</h3>
-              <button onClick={() => setShowLogInterviewModal(false)} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"><X className="w-4 h-4" /></button>
+              <h3 className="text-sm font-bold text-slate-900">{interviewTarget ? 'Complete Exit Interview' : 'Log Exit Interview Feedback'}</h3>
+              <button onClick={() => { setShowLogInterviewModal(false); setInterviewTarget(null); }} className="p-1 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-slate-700 transition-colors"><X className="w-4 h-4" /></button>
             </div>
             <form onSubmit={submitLoggedInterview} className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -796,8 +888,10 @@ export default function ExitOffboardingView({
                 <textarea rows={3} placeholder="Reasons for leaving, concerns, suggestions..." value={newInterview.remarks} onChange={e => setNewInterview({ ...newInterview, remarks: e.target.value })} className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:border-blue-400 font-medium resize-none leading-relaxed text-sm" />
               </div>
               <div className="flex items-center gap-3 pt-3 border-t border-slate-50">
-                <button type="button" onClick={() => setShowLogInterviewModal(false)} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 px-4 rounded-xl transition-all font-semibold text-sm">Cancel</button>
-                <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2.5 px-4 rounded-xl transition-all shadow-sm font-bold text-sm">Save Entry</button>
+                <button type="button" onClick={() => { setShowLogInterviewModal(false); setInterviewTarget(null); }} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 px-4 rounded-xl transition-all font-semibold text-sm">Cancel</button>
+                <button type="submit" disabled={completeExitInterview.isPending} className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2.5 px-4 rounded-xl transition-all shadow-sm font-bold text-sm">
+                  {completeExitInterview.isPending ? 'Saving...' : interviewTarget ? 'Complete Interview' : 'Save Entry'}
+                </button>
               </div>
             </form>
           </div>

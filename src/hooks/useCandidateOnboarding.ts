@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   listOnboardings,
+  listAvailableOnboardingPolicies,
   getOnboardingById,
   getOnboardingByOfferId,
   getPublicOnboarding,
@@ -20,6 +21,17 @@ export function useOnboardings(params?: { limit?: number; offset?: number }) {
       // res.data = { success, message, data: { rows, count } }
       return res.data?.data ?? res.data;
     },
+  });
+}
+
+export function useAvailableOnboardingPolicies() {
+  return useQuery({
+    queryKey: ['onboarding-available-policies'],
+    queryFn: async () => {
+      const res = await listAvailableOnboardingPolicies();
+      return res.data?.data ?? res.data ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
   });
 }
 

@@ -314,7 +314,7 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 }
 
 interface PeopleProfilesViewProps {
-  currentProfilesTab: 'create' | 'bulk_create' | 'organogram' | 'directory' | 'interns' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations';
+  currentProfilesTab: 'create' | 'bulk_create' | 'organogram' | 'directory' | 'left' | 'interns' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
   onViewProfile?: (employee: any) => void;
@@ -368,6 +368,13 @@ export default function PeopleProfilesView({
   });
   const interns: any[] = internResult?.employees ?? [];
   const totalInterns: number = internResult?.total ?? 0;
+  const { data: leftResult, isLoading: loadingLeftEmployees, refetch: refetchLeftEmployees } = useEmployees({
+    limit: employeesPerPage,
+    offset: 0,
+    employmentStatus: "terminated",
+  });
+  const leftEmployees: any[] = leftResult?.employees ?? [];
+  const totalLeftEmployees: number = leftResult?.total ?? 0;
 
   const deleteEmployeeMutation = useDeleteEmployee();
 
@@ -769,6 +776,66 @@ export default function PeopleProfilesView({
                 </button>
               </div>
 
+            </div>
+          </motion.div>
+        )}
+
+        {currentProfilesTab === 'left' && (
+          <motion.div
+            key="left"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="space-y-6"
+          >
+            <div className="flex justify-between items-end">
+              <div>
+                <h4 className="text-sm font-bold text-slate-950 tracking-tight">Left Employees</h4>
+                <p className="text-[11px] text-slate-500 font-medium">Employees whose offboarding has been finally approved</p>
+              </div>
+              <button
+                onClick={() => refetchLeftEmployees()}
+                disabled={loadingLeftEmployees}
+                className="text-[10px] font-black text-blue-600 flex items-center gap-1 hover:underline disabled:opacity-50"
+              >
+                {loadingLeftEmployees ? 'Refreshing...' : 'Refresh'}
+              </button>
+            </div>
+            <div className="bg-white border border-slate-150 rounded-2xl shadow-sm overflow-hidden">
+              <div className="px-5 py-4 border-b border-slate-100 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+                {totalLeftEmployees} left employees found
+              </div>
+              <table className="w-full text-left font-sans text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-[10px] font-black text-slate-400 tracking-wider uppercase">
+                    <th className="py-3 px-4">Name</th>
+                    <th className="py-3 px-4">Position</th>
+                    <th className="py-3 px-4">Department</th>
+                    <th className="py-3 px-4">Email</th>
+                    <th className="py-3 px-4">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-medium">
+                  {loadingLeftEmployees ? (
+                    <tr><td colSpan={5} className="py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">Loading left employees...</td></tr>
+                  ) : leftEmployees.length === 0 ? (
+                    <tr><td colSpan={5} className="py-12 text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">No left employees found.</td></tr>
+                  ) : leftEmployees.map((emp) => (
+                    <tr key={emp.id} onClick={() => onViewProfile?.(emp)} className="hover:bg-slate-50/50 cursor-pointer">
+                      <td className="py-3.5 px-4">
+                        <span className="font-bold text-slate-900 block">{emp.user?.fullName || emp.user?.email || 'Employee'}</span>
+                        <span className="text-[10.5px] text-slate-400 block mt-0.5">{emp.employeeCode || '-'}</span>
+                      </td>
+                      <td className="py-3 px-4 text-slate-700">{emp.position?.title || emp.Position?.title || 'Position not set'}</td>
+                      <td className="py-3 px-4 text-slate-700">{emp.department?.name || 'General'}</td>
+                      <td className="py-3 px-4 text-slate-500">{emp.user?.email || '-'}</td>
+                      <td className="py-3 px-4">
+                        <span className="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200">Left</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </motion.div>
         )}

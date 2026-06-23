@@ -25,9 +25,10 @@ import AttendanceTimesheetTab from './AttendanceTimesheetTab';
 import AttendanceMemoLogTab from './AttendanceMemoLogTab';
 import AttendanceWfhTab from './AttendanceWfhTab';
 import AttendanceUnavailableTab from './AttendanceUnavailableTab';
+import ExitOffboardingView from '../offboarding/ExitOffboardingView';
 
 interface AttendanceViewProps {
-  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home';
+  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -234,6 +235,14 @@ export default function AttendanceView({
     return (
       <div className="h-full flex flex-col space-y-6">
         <LeavePage showAlert={showAlert} />
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'exit-request') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <ExitOffboardingView currentTab="offboarding" onDraftAiSuggestion={onDraftAiSuggestion} showAlert={showAlert} />
       </div>
     );
   }

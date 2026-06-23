@@ -70,6 +70,7 @@ export const ATTENDANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   unavailable:    { requires: ["attendance.self", "attendance.manage", "attendance.checkin_correction.approve"] },
   "memo-log":     { requires: ["attendance.manage"] },
   "work-from-home": { requires: ["attendance.self", "leave.approve"] },
+  "exit-request": { requires: ["exit.self", "attendance.self"] },
 };
 
 // ─── Performance ─────────────────────────────────────────────────────────────
