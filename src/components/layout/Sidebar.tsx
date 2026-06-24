@@ -166,6 +166,7 @@ export default function Sidebar({
     { id: 'ongoing_recruitment', label: 'Ongoing Recruitment', badge: 0 },
     { id: 'my_interviews',       label: 'My Interviews',       badge: 0 },
     { id: 'offers',              label: 'Offers',              badge: 0 },
+    { id: 'offer_templates',     label: 'Offer Templates',     badge: 0 },
     { id: 'closed_posts',        label: 'Closed Posts',        badge: 0 },
     { id: 'applicant_forms',     label: 'Applicant Forms',     badge: 0 },
   ] as const;
@@ -382,8 +383,8 @@ export default function Sidebar({
         </div>
 
         {/* Column 2: Sub-menu */}
-        <div className="w-60 flex flex-col justify-between py-6 px-4 bg-white flex-shrink-0 h-full overflow-y-auto">
-          <div>
+        <div className="w-60 min-h-0 flex flex-col py-6 px-4 bg-white flex-shrink-0 h-full overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="mb-6 px-2">
               <h2 className="text-sm font-semibold text-slate-900 tracking-tight">
                 {currentModule === 'recruitment' ? portalTitle
@@ -486,7 +487,7 @@ export default function Sidebar({
           </div>
 
           {/* User block */}
-          <div className="border-t border-slate-100 pt-4 px-2 flex items-center justify-between gap-3">
+          <div className="mt-3 flex flex-shrink-0 items-center justify-between gap-3 border-t border-slate-100 px-2 pt-4">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold flex-shrink-0 border border-blue-100 shadow-xs">
                 {user ? getInitials(user.name) : 'AY'}

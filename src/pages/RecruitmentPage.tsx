@@ -16,6 +16,7 @@ import { api } from "../api/client";
 import { useJobRequests, useApproveJobRequest, usePublishJobRequest } from "../hooks/useJobRequests";
 import { useMe } from "../hooks/useMe";
 import { useQueryClient } from "@tanstack/react-query";
+import OfferLetterTemplatePage from "./OfferLetterTemplatePage";
 
 export default function RecruitmentPage() {
   const params = useParams();
@@ -134,6 +135,8 @@ export default function RecruitmentPage() {
         );
       case "offers":
         return <RecruitmentOffers showAlert={() => {}} />;
+      case "offer_templates":
+        return <OfferLetterTemplatePage />;
       case "active_posting":
         return <RecruitmentActivePosting onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
       case "ongoing_recruitment":

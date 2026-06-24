@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Clock, CheckCircle2, Briefcase, Plus, Send, Eye,
-  Loader2, UserPlus, X, RefreshCw, Pencil,
+  Loader2, UserPlus, X, RefreshCw, Pencil, FilePlus2,
 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   getOfferLetters,
 } from "../../api/offerLetters";
@@ -69,6 +70,8 @@ interface Props {
 
 // ─── Main component ───────────────────────────────────────────────────────────
 export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
+  const navigate = useNavigate();
+  const location = useLocation();
   // ── Data ──
   const [offers, setOffers]     = useState<OfferLetter[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -159,6 +162,15 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
           <button onClick={fetchOffers} disabled={loading}
             className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors disabled:opacity-40">
             <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+          </button>
+          <button
+            onClick={() => {
+              const prefix = location.pathname.startsWith("/business-admin") ? "/business-admin" : "/hr-manager";
+              navigate(`${prefix}/recruitment/offer_templates`);
+            }}
+            className="flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2.5 text-xs font-black text-blue-700 transition-all hover:bg-blue-100"
+          >
+            <FilePlus2 className="h-4 w-4" /> Create Template
           </button>
           <button onClick={() => setAddCandidateOpen(true)}
             className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs px-4 py-2.5 rounded-xl shadow-md shadow-blue-100 transition-all">

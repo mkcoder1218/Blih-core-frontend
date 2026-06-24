@@ -26,6 +26,7 @@ export const RECRUITMENT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   ongoing_recruitment:  { requires: ["job.manage", "applicant.manage"] },
   my_interviews:        { requires: ["interview.schedule", "interview.feedback"] },
   offers:               { requires: ["offer.create", "offer.approve"] },
+  offer_templates:      { requires: ["offer.create", "offer.approve"] },
   closed_posts:         { requires: ["job.archive", "job.manage"] },
   applicant_forms:      { requires: ["job_template.read", "job_template.manage"] },
 };

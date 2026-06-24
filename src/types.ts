@@ -26,6 +26,7 @@ export type RecruitmentTab =
   | 'ongoing_recruitment'
   | 'my_interviews'
   | 'offers'
+  | 'offer_templates'
   | 'closed_posts'
   | 'applicant_forms';
 
