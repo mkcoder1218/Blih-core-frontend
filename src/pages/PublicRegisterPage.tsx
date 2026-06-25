@@ -153,6 +153,17 @@ function FieldError({ msg }: { msg?: string }) {
   return <p className="mt-1 text-[10px] font-semibold text-red-500">{msg}</p>;
 }
 
+function getApiErrorMessage(err: any, fallback: string) {
+  const body = err?.response?.data;
+  const details = Array.isArray(body?.data) ? body.data : Array.isArray(body?.details) ? body.details : [];
+  const detailMessages = details
+    .map((d: any) => d?.message || d)
+    .filter(Boolean)
+    .map((message: string) => String(message).replace(/"/g, ''));
+  const message = body?.error || body?.message || err?.message;
+  return detailMessages.length ? `${message || fallback}: ${detailMessages.join(', ')}` : (message || fallback);
+}
+
 function Field({
   label, required, error, children, icon: Icon,
 }: { label: string; required?: boolean; error?: string; children: ReactNode; icon?: any }) {
@@ -720,7 +731,7 @@ export default function PublicRegisterPage() {
   }, [onboardingId, businessSlug, isResubmit]);
 
   // ── Validation ─────────────────────────────────────────────────────────────
-  const validate = (s: number): boolean => {
+  const validate = (s: number, options: { silent?: boolean } = {}): boolean => {
     const e: Partial<Record<keyof FormData, string>> = {};
     if (s === 1) {
       if (!form.fullName.trim() || form.fullName.length < 2) e.fullName = 'Full name required (min 2 chars)';
@@ -763,7 +774,7 @@ export default function PublicRegisterPage() {
     if (resourceStepId && s === resourceStepId) {
       const missingResource = onboardingResources.some((resource, index) => resource?.acceptanceRequired !== false && !resourceAcknowledgements[index]);
       if (missingResource) {
-        setServerError('Please acknowledge all assigned company resources before continuing.');
+        if (!options.silent) setServerError('Please acknowledge all assigned company resources before continuing.');
         return false;
       }
     }
@@ -773,20 +784,34 @@ export default function PublicRegisterPage() {
         return policy?.required !== false && !policyAcknowledgements[key];
       });
       if (missingPolicy) {
-        setServerError('Please accept all required company policies before finishing.');
+        if (!options.silent) setServerError('Please accept all required company policies before finishing.');
         return false;
       }
     }
-    setServerError('');
-    setFieldErrors(e);
+    if (!options.silent) setServerError('');
+    setFieldErrors(prev => options.silent ? { ...prev, ...e } : e);
     return Object.keys(e).length === 0;
   };
 
   const handleNext = () => { if (validate(step)) setStep(s => Math.min(finalStepId, s + 1)); };
 
+  const validateAllSteps = () => {
+    setServerError('');
+    setFieldErrors({});
+    for (const activeStep of activeSteps) {
+      if (!validate(activeStep.id, { silent: true })) {
+        setStep(activeStep.id);
+        setServerError(`Please fix the highlighted fields in ${activeStep.label} before submitting.`);
+        return false;
+      }
+    }
+    setServerError('');
+    return true;
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    if (!validate(finalStepId)) return;
+    if (!validateAllSteps()) return;
     setServerError('');
     setSubmitting(true);
     try {
@@ -854,7 +879,7 @@ export default function PublicRegisterPage() {
         setTimeout(() => navigate('/'), 1500);
       }
     } catch (err: any) {
-      setServerError(err?.response?.data?.error ?? err?.response?.data?.message ?? (isResubmit ? 'Resubmission failed. Please try again.' : 'Registration failed. Please try again.'));
+      setServerError(getApiErrorMessage(err, isResubmit ? 'Resubmission failed. Please try again.' : 'Registration failed. Please try again.'));
     } finally {
       setSubmitting(false);
     }
@@ -1068,6 +1093,26 @@ export default function PublicRegisterPage() {
             >
               <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
               <p className="text-xs font-semibold leading-tight">{serverError}</p>
+            </motion.div>
+          )}
+
+          {Object.keys(fieldErrors).length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.98 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-red-50 border border-red-100 text-red-700 rounded-xl px-4 py-3 mb-4"
+            >
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-wider mb-1">Please review this step</p>
+                  <ul className="space-y-0.5">
+                    {Object.values(fieldErrors).filter(Boolean).map((message, index) => (
+                      <li key={`${message}-${index}`} className="text-xs font-semibold leading-tight">{message}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </motion.div>
           )}
 

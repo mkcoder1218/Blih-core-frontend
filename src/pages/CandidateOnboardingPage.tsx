@@ -31,6 +31,21 @@ const SECTION_META: Record<string, { label: string; icon: React.ReactNode }> = {
 
 // ─── Section Forms ────────────────────────────────────────────────────────────
 
+function getApiErrorMessage(err: any, fallback: string) {
+  const body = err?.response?.data;
+  const details = Array.isArray(body?.data) ? body.data : Array.isArray(body?.details) ? body.details : [];
+  const detailMessages = details
+    .map((d: any) => d?.message || d)
+    .filter(Boolean)
+    .map((message: string) => String(message).replace(/"/g, ''));
+  const message = body?.error || body?.message || err?.message;
+  return detailMessages.length ? `${message || fallback}: ${detailMessages.join(', ')}` : (message || fallback);
+}
+
+function hasValue(value: any) {
+  return typeof value === 'string' ? value.trim().length > 0 : Boolean(value);
+}
+
 function OverviewSection({ onboarding }: { onboarding: any }) {
   const meta = onboarding.metadata || {};
   return (
@@ -629,6 +644,7 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
   const [submitted, setSubmitted] = useState(false);
   const [saving, setSaving] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [sectionError, setSectionError] = useState('');
 
   // Sync server data into local state on load
   useEffect(() => {
@@ -646,25 +662,62 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
   const currentSection = sections[currentSectionIndex];
   const progress = onboarding?.progress || 0;
 
-  const isSectionComplete = (key: string) => {
-    if (key === 'review') return false;
-    if (key === 'overview') return true; // read-only, always complete
+  const validateSection = (key: string) => {
+    const d = sectionData[key] || {};
+    if (key === 'overview') return '';
+    if (key === 'personal_info') {
+      if (!hasValue(d.firstName)) return 'First name is required.';
+      if (!hasValue(d.lastName)) return 'Last name is required.';
+      const email = onboarding?.metadata?.assignedEmail || d.email;
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return 'A valid email is required.';
+      if (!hasValue(d.phone)) return 'Phone number is required.';
+      if (!hasValue(d.password) || d.password.length < 8) return 'Password must be at least 8 characters.';
+      if (d.password !== d.confirmPassword) return 'Passwords do not match.';
+      return '';
+    }
+    if (key === 'documents') {
+      const missing = (onboarding?.requiredDocuments || []).some((doc: any, i: number) =>
+        doc?.required !== false && !d[`doc_${i}`]?.fileId
+      );
+      return missing ? 'Please upload all required documents before continuing.' : '';
+    }
+    if (key === 'emergency_contact') {
+      return '';
+    }
+    if (key === 'payroll') {
+      return '';
+    }
+    if (key === 'policies') {
+      const missing = (onboarding?.requiredPolicies || []).some((policy: any, i: number) => {
+        const policyKey = `policy_${i}`;
+        return policy?.required !== false && !d[policyKey];
+      });
+      return missing ? 'Please accept all required policies before continuing.' : '';
+    }
     if (key === 'resources') {
       const resources: any[] = onboarding?.resources || [];
-      const resourceResponses: any[] = onboarding?.resourceResponses || [];
-      if (resources.length === 0) return true;
-      const acceptanceRequired = resources.filter((r: any) => r.acceptanceRequired);
-      if (acceptanceRequired.length === 0) return true;
-      return acceptanceRequired.every((_: any, i: number) =>
-        resourceResponses.some((rr: any) => rr.resourceIndex === i && rr.status)
+      const missing = resources.some((resource: any, index: number) =>
+        resource?.acceptanceRequired !== false &&
+        !resourceResponses.some((rr: any) => rr.resourceIndex === index && rr.status)
       );
+      return missing ? 'Please respond to all required company resources before continuing.' : '';
     }
-    const d = sectionData[key];
-    return d && Object.keys(d).length > 0;
+    return '';
+  };
+
+  const isSectionComplete = (key: string) => {
+    if (key === 'review') return false;
+    return !validateSection(key);
   };
 
   const handleSaveAndContinue = async () => {
     if (!currentSection || currentSection === 'review') return;
+    const validationMessage = validateSection(currentSection);
+    if (validationMessage) {
+      setSectionError(validationMessage);
+      return;
+    }
+    setSectionError('');
     setSaving(true);
     try {
       if (currentSection === 'resources') {
@@ -678,12 +731,21 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
       }
     } catch (e: any) {
       console.error('Save failed:', e);
+      setSectionError(getApiErrorMessage(e, 'Could not save this section. Please try again.'));
     } finally {
       setSaving(false);
     }
   };
 
   const handleSubmit = async () => {
+    setSectionError('');
+    const firstInvalidIndex = sections.findIndex(section => section !== 'review' && validateSection(section));
+    if (firstInvalidIndex >= 0) {
+      const invalidSection = sections[firstInvalidIndex];
+      setCurrentSectionIndex(firstInvalidIndex);
+      setSectionError(validateSection(invalidSection));
+      return;
+    }
     const password = sectionData.personal_info?.password;
     if (!password || password.length < 8) {
       setPasswordModalOpen(true);
@@ -694,6 +756,7 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
       setSubmitted(true);
     } catch (e: any) {
       console.error('Submit failed:', e);
+      setSectionError(getApiErrorMessage(e, 'Could not submit onboarding. Please review your information and try again.'));
     }
   };
 
@@ -828,6 +891,12 @@ export default function CandidateOnboardingPage({ onboardingId }: Props) {
                 transition={{ duration: 0.2 }}
                 className="bg-white rounded-2xl border border-slate-100 shadow-sm p-6 space-y-6"
               >
+                {sectionError && (
+                  <div className="flex items-start gap-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-3">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <p className="text-xs font-bold leading-snug">{sectionError}</p>
+                  </div>
+                )}
                 {currentSection === 'overview' && <OverviewSection onboarding={onboarding} />}
                 {currentSection === 'personal_info' && (
                   <PersonalInfoSection
