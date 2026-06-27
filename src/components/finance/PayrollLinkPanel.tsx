@@ -76,16 +76,19 @@ function LinkModal({
   const prev = preview();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md space-y-5 p-6 relative">
-        <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-700 cursor-pointer">
-          <X className="w-4 h-4" />
-        </button>
-
+    <div className="fixed inset-0 z-[9999] bg-white">
+      <div className="w-full h-full bg-white overflow-y-auto">
+        <div className="sticky top-0 z-10 px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
         <div>
           <h4 className="text-sm font-black text-slate-900">Link to Payroll Template</h4>
           <p className="text-[11px] text-slate-400 font-semibold mt-0.5">{employee.name} · {employee.department}</p>
         </div>
+        <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center cursor-pointer">
+          <X className="w-4 h-4" />
+        </button>
+        </div>
+
+        <div className="p-6 lg:p-8 space-y-5 max-w-2xl mx-auto">
 
         {/* Template selector */}
         <div>
@@ -150,7 +153,7 @@ function LinkModal({
           </div>
         )}
 
-        <div className="flex gap-2 pt-1">
+        <div className="sticky bottom-0 bg-white flex gap-2 pt-4 pb-2 border-t border-slate-100">
           <button
             onClick={onClose}
             className="flex-1 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold rounded-xl text-xs cursor-pointer"
@@ -164,6 +167,7 @@ function LinkModal({
           >
             {isLoading ? 'Linking...' : 'Link Employee'}
           </button>
+        </div>
         </div>
       </div>
     </div>

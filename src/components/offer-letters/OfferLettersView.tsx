@@ -7,8 +7,11 @@ import OfferLetterTemplateModal from './OfferLetterTemplateModal';
 import { motion } from 'motion/react';
 import { useAlert } from '../../contexts/AlertContext';
 import { ConfirmDialog } from '@/components/ui/blih';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export default function OfferLettersView() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState<'letters' | 'templates'>('letters');
   const [createLetterOpen, setCreateLetterOpen] = useState(false);
   const [createTemplateOpen, setCreateTemplateOpen] = useState(false);
@@ -43,7 +46,10 @@ export default function OfferLettersView() {
         </div>
         <div className="flex gap-3">
           <button
-            onClick={() => setCreateTemplateOpen(true)}
+            onClick={() => {
+              const prefix = location.pathname.startsWith('/business-admin') ? '/business-admin' : '/hr-manager';
+              navigate(`${prefix}/offer-letters/templates/new`);
+            }}
             className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
           >
             Create Template

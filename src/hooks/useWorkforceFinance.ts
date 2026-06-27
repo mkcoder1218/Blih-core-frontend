@@ -11,6 +11,7 @@ import {
   getPayrollDashboard,
   listEmployeeSalaries,
   linkEmployeeToTemplate,
+  bulkLinkEmployeesToTemplate,
   unlinkEmployee,
 } from "../api/finance";
 
@@ -136,6 +137,18 @@ export function useLinkEmployee() {
   return useMutation({
     mutationFn: (data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number }) =>
       linkEmployeeToTemplate(data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
+    },
+  });
+}
+
+export function useBulkLinkEmployees() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { employeeUserIds: string[]; templateId: string }) =>
+      bulkLinkEmployeesToTemplate(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
       queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });

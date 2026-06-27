@@ -56,6 +56,10 @@ export async function linkEmployeeToTemplate(data: { employeeUserId: string; tem
   return api.post("/api/v1/finance/payroll-links", data);
 }
 
+export async function bulkLinkEmployeesToTemplate(data: { employeeUserIds: string[]; templateId: string }) {
+  return api.post("/api/v1/finance/payroll-links/bulk", data);
+}
+
 export async function unlinkEmployee(userId: string) {
   return api.delete(`/api/v1/finance/payroll-links/${userId}`);
 }

@@ -163,7 +163,7 @@ export default function RecruitmentPage() {
       )}
 
       {/* Tab Content */}
-      <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div>
         {renderTabContent()}
       </div>
 

@@ -24,6 +24,8 @@ import MyProfilePage from "./pages/MyProfilePage";
 import BulkEmployeeImportPage from "./pages/BulkEmployeeImportPage";
 import ClientPortalPage from "./pages/ClientPortalPage";
 import { ProjectDetailsPage, ProjectsPage } from "./features/projects";
+import SubscriptionPage from "./pages/SubscriptionPage";
+import OfferLetterTemplatePage from "./pages/OfferLetterTemplatePage";
 
 // Wrapper to extract :onboardingId param and pass as prop
 function CandidateOnboardingRoute() {
@@ -80,6 +82,14 @@ export default function RootApp() {
                     <Route path="employee/:module" element={<ModulePage />} />
                     <Route path="employee/:module/:tab" element={<ModulePage />} />
                     <Route
+                      path="hr-manager/offer-letters/templates/new"
+                      element={
+                        <RoleGuard allow="hr_manager">
+                          <OfferLetterTemplatePage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
                       path="hr-manager/recruitment"
                       element={
                         <RoleGuard allow="hr_manager">
@@ -120,6 +130,14 @@ export default function RootApp() {
                       }
                     />
                     <Route
+                      path="business-admin/offer-letters/templates/new"
+                      element={
+                        <RoleGuard allow="business_admin">
+                          <OfferLetterTemplatePage />
+                        </RoleGuard>
+                      }
+                    />
+                    <Route
                       path="business-admin/recruitment"
                       element={
                         <RoleGuard allow="business_admin">
@@ -144,6 +162,10 @@ export default function RootApp() {
                       }
                     />
                     <Route
+                      path="business-admin/subscription"
+                      element={<RoleGuard allow="business_admin"><SubscriptionPage /></RoleGuard>}
+                    />
+                    <Route
                       path="business-admin/:module"
                       element={
                         <RoleGuard allow="business_admin">
@@ -166,6 +188,10 @@ export default function RootApp() {
                           <PermissionManagement />
                         </RoleGuard>
                       }
+                    />
+                    <Route
+                      path="super-admin/subscription"
+                      element={<RoleGuard allow="platform_super_admin"><SubscriptionPage /></RoleGuard>}
                     />
                     <Route
                       path="super-admin/businesses"

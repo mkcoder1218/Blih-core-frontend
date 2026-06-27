@@ -16,7 +16,8 @@ export type MainModule =
   | 'finance'
   | 'projects'
   | 'businesses'
-  | 'permissions';
+  | 'permissions'
+  | 'subscription';
 
 export type RecruitmentTab =
   | 'overview'

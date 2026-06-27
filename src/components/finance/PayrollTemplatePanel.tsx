@@ -6,14 +6,18 @@ import { useState } from 'react';
 import {
   Plus, Pencil, Trash2, X, Percent, DollarSign,
   ChevronDown, ChevronUp, Sparkles, Calculator, AlertCircle,
+  Users,
 } from 'lucide-react';
 import {
   usePayrollTemplates,
+  usePayrollDashboard,
+  useBulkLinkEmployees,
   useCreatePayrollTemplate,
   useUpdatePayrollTemplate,
   useDeletePayrollTemplate,
   usePreviewPayroll,
   type PayrollTemplate,
+  type PendingEmployee,
 } from '../../hooks/useWorkforceFinance';
 
 // ── Currencies ─────────────────────────────────────────────────────────────────
@@ -197,12 +201,144 @@ interface Props {
   showAlert: (msg: string, type?: 'success' | 'info' | 'error') => void;
 }
 
+function BulkAssignModal({
+  template,
+  employees,
+  onClose,
+  onAssign,
+  isLoading,
+}: {
+  template: PayrollTemplate;
+  employees: PendingEmployee[];
+  onClose: () => void;
+  onAssign: (employeeUserIds: string[]) => void;
+  isLoading: boolean;
+}) {
+  const [selectedIds, setSelectedIds] = useState<string[]>(employees.map((employee) => employee.userId));
+  const selectedSet = new Set(selectedIds);
+  const allSelected = employees.length > 0 && selectedIds.length === employees.length;
+
+  function toggleAll() {
+    setSelectedIds(allSelected ? [] : employees.map((employee) => employee.userId));
+  }
+
+  function toggleEmployee(userId: string) {
+    setSelectedIds((current) =>
+      current.includes(userId)
+        ? current.filter((id) => id !== userId)
+        : [...current, userId]
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[9999] bg-white">
+      <div className="w-full h-screen bg-white grid grid-rows-[auto_1fr_auto] overflow-hidden">
+        <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
+          <div>
+            <h4 className="text-sm font-black text-slate-900">Bulk Assign Template</h4>
+            <p className="text-[11px] text-slate-400 font-semibold mt-0.5">
+              {template.name} - {employees.length} employees need payroll setup
+            </p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center cursor-pointer">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 overflow-y-auto bg-slate-50/50 px-6 py-5">
+          <div className="max-w-6xl mx-auto">
+          {employees.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-10 text-center">
+              <Users className="w-8 h-8 text-slate-300 mx-auto mb-3" />
+              <p className="text-xs font-bold text-slate-500">No employees need payroll setup.</p>
+            </div>
+          ) : (
+            <div className="bg-white border border-slate-200 overflow-hidden">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-white border-b border-slate-200">
+                    <th colSpan={5} className="px-4 py-3">
+                      <div className="flex items-center justify-between">
+                        <label className="flex items-center gap-2 cursor-pointer select-none">
+                          <input type="checkbox" checked={allSelected} onChange={toggleAll} className="accent-blue-600" />
+                          <span className="text-xs font-bold text-slate-800">Select all</span>
+                        </label>
+                        <span className="text-xs font-bold text-blue-600">{selectedIds.length} selected</span>
+                      </div>
+                    </th>
+                  </tr>
+                  <tr className="bg-slate-50 border-b border-slate-200">
+                    <th className="w-12 px-4 py-3" />
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Employee</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Role</th>
+                    <th className="px-4 py-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">Department</th>
+                    <th className="px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider text-slate-400">Base Salary</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {employees.map((employee) => (
+                    <tr
+                      key={employee.userId}
+                      onClick={() => toggleEmployee(employee.userId)}
+                      className={`border-b border-slate-100 last:border-b-0 cursor-pointer ${
+                        selectedSet.has(employee.userId) ? 'bg-blue-50/40' : 'bg-white hover:bg-slate-50'
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <input
+                          type="checkbox"
+                          checked={selectedSet.has(employee.userId)}
+                          onChange={() => toggleEmployee(employee.userId)}
+                          onClick={(event) => event.stopPropagation()}
+                          className="accent-blue-600"
+                        />
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-xs font-bold text-slate-900">{employee.name}</div>
+                        <div className="text-[10px] font-semibold text-slate-400">{employee.email || employee.userId}</div>
+                      </td>
+                      <td className="px-4 py-3 text-xs font-semibold text-slate-700">{employee.role}</td>
+                      <td className="px-4 py-3 text-xs font-semibold text-slate-700">{employee.department}</td>
+                      <td className="px-4 py-3 text-right text-xs font-bold text-slate-700">
+                        {employee.baseSalary > 0 ? `${template.currency} ${employee.baseSalary.toLocaleString()}` : 'No base set'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold rounded-xl text-xs cursor-pointer transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onAssign(selectedIds)}
+            disabled={isLoading || selectedIds.length === 0}
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-extrabold rounded-xl text-xs cursor-pointer transition-colors"
+          >
+            {isLoading ? 'Assigning...' : `Assign ${selectedIds.length} Employees`}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function PayrollTemplatePanel({ showAlert }: Props) {
   const { data: templates = [], isLoading, isError } = usePayrollTemplates();
+  const { data: payrollData } = usePayrollDashboard();
   const createTpl   = useCreatePayrollTemplate();
   const updateTpl   = useUpdatePayrollTemplate();
   const deleteTpl   = useDeletePayrollTemplate();
   const previewCalc = usePreviewPayroll();
+  const bulkLinkEmployees = useBulkLinkEmployees();
 
   const [showForm, setShowForm]         = useState(false);
   const [editId, setEditId]             = useState<string | null>(null);
@@ -215,6 +351,8 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
   const [previewBase, setPreviewBase]   = useState('');
   const [previewResult, setPreviewResult] = useState<any>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
+  const [bulkTemplate, setBulkTemplate] = useState<PayrollTemplate | null>(null);
+  const pendingEmployees = payrollData?.pending ?? [];
 
   // Format money respecting the template's currency
   const formatMoney = (v = 0, currency = form.currency) => {
@@ -315,6 +453,17 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
       showAlert(extractError(e, `Failed to delete "${name}". It may still have linked employees.`), 'error');
     } finally {
       setDeleting(null);
+    }
+  }
+
+  async function handleBulkAssign(employeeUserIds: string[]) {
+    if (!bulkTemplate) return;
+    try {
+      await bulkLinkEmployees.mutateAsync({ templateId: bulkTemplate.id, employeeUserIds });
+      showAlert(`${employeeUserIds.length} employees assigned to "${bulkTemplate.name}"`, 'success');
+      setBulkTemplate(null);
+    } catch (e: any) {
+      showAlert(extractError(e, 'Bulk assignment failed. Please try again.'), 'error');
     }
   }
 
@@ -656,6 +805,14 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
                       )}
                     </div>
                     <button
+                      onClick={() => setBulkTemplate(tpl)}
+                      className="px-2.5 py-1.5 text-[10px] font-black text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors cursor-pointer inline-flex items-center gap-1"
+                      title="Bulk assign this template"
+                    >
+                      <Users className="w-3.5 h-3.5" />
+                      Bulk assign
+                    </button>
+                    <button
                       onClick={() => openEdit(tpl)}
                       className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
                       title="Edit template"
@@ -745,6 +902,16 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
             );
           })}
         </div>
+      )}
+
+      {bulkTemplate && (
+        <BulkAssignModal
+          template={bulkTemplate}
+          employees={pendingEmployees}
+          onClose={() => setBulkTemplate(null)}
+          onAssign={handleBulkAssign}
+          isLoading={bulkLinkEmployees.isPending}
+        />
       )}
     </div>
   );
