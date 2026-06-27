@@ -10,6 +10,8 @@ import {
   previewPayrollCalculation,
   getPayrollDashboard,
   listEmployeeSalaries,
+  updateEmployeeBaseSalary,
+  syncEthiopianSalaryTax,
   linkEmployeeToTemplate,
   bulkLinkEmployeesToTemplate,
   unlinkEmployee,
@@ -132,6 +134,29 @@ export function useEmployeeSalaries(params: Record<string, unknown>) {
   });
 }
 
+export function useUpdateEmployeeBaseSalary() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, baseSalary }: { userId: string; baseSalary: number }) =>
+      updateEmployeeBaseSalary(userId, { baseSalary }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
+    },
+  });
+}
+
+export function useSyncEthiopianSalaryTax() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (filters: Record<string, unknown>) => syncEthiopianSalaryTax(filters),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
+    },
+  });
+}
+
 export function useLinkEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -249,7 +274,39 @@ export interface EmployeeSalaryRow {
   otherDeduction: number;
   totalDeductions: number;
   netPay: number;
+  taxMeta?: EthiopianTaxMeta | null;
   linkedAt?: string | null;
+}
+
+export interface EthiopianTaxAllowanceLine {
+  amount: number;
+  exempt: number;
+  taxable: number;
+  cap?: number;
+  dailyCap?: number;
+  taxCap?: number;
+  treatment?: string;
+  rule?: string;
+}
+
+export interface EthiopianTaxMeta {
+  mode?: string;
+  policyVersion?: string;
+  taxableIncome?: number;
+  taxableIncomeBeforeFringe?: number;
+  rate?: number;
+  deduction?: number;
+  incomeTaxBeforeFringe?: number;
+  fringeTax?: number;
+  fringeTaxCap?: number;
+  allowanceBreakdown?: {
+    baseSalary?: EthiopianTaxAllowanceLine;
+    transport?: EthiopianTaxAllowanceLine;
+    perDiem?: EthiopianTaxAllowanceLine;
+    medical?: EthiopianTaxAllowanceLine;
+    housing?: EthiopianTaxAllowanceLine;
+    fringeBenefits?: EthiopianTaxAllowanceLine;
+  };
 }
 
 export interface PayrollDashboard {

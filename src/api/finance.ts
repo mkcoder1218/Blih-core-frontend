@@ -52,6 +52,14 @@ export async function exportEmployeeSalaries(params?: Record<string, unknown>) {
   return api.get("/api/v1/finance/employee-salaries/export", { params, responseType: "blob" });
 }
 
+export async function updateEmployeeBaseSalary(userId: string, data: { baseSalary: number }) {
+  return api.patch(`/api/v1/finance/employee-salaries/${userId}/base-salary`, data);
+}
+
+export async function syncEthiopianSalaryTax(filters?: Record<string, unknown>) {
+  return api.post("/api/v1/finance/employee-salaries/sync-ethiopian-tax", filters ?? {});
+}
+
 export async function linkEmployeeToTemplate(data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number }) {
   return api.post("/api/v1/finance/payroll-links", data);
 }
