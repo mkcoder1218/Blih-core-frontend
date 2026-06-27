@@ -48,6 +48,10 @@ export async function listEmployeeSalaries(params?: Record<string, unknown>) {
   return api.get("/api/v1/finance/employee-salaries", { params });
 }
 
+export async function exportEmployeeSalaries(params?: Record<string, unknown>) {
+  return api.get("/api/v1/finance/employee-salaries/export", { params, responseType: "blob" });
+}
+
 export async function linkEmployeeToTemplate(data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number }) {
   return api.post("/api/v1/finance/payroll-links", data);
 }

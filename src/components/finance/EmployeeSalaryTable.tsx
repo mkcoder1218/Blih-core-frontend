@@ -1,5 +1,5 @@
 import React from "react";
-import { Calculator, Eye, Filter, Pencil, Search, X } from "lucide-react";
+import { Calculator, Download, Eye, Filter, Pencil, Search, X } from "lucide-react";
 import { DataTable, LoadingSpinner, SectionCard, StatCard, StatCardGrid } from "@/components/ui/blih";
 import {
   useEmployeeSalaries,
@@ -9,6 +9,7 @@ import {
 } from "../../hooks/useWorkforceFinance";
 import { useDepartments } from "../../hooks/useDepartments";
 import { EMPLOYMENT_STATUS_OPTIONS } from "../../constants/employee";
+import { exportEmployeeSalaries } from "../../api/finance";
 
 type Props = {
   showAlert: (message: string, type?: "success" | "info" | "error") => void;
@@ -32,6 +33,10 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "EM";
 }
 
+function payrollSetupLabel(status: EmployeeSalaryRow["payrollStatus"]) {
+  return status === "linked" ? "Configured" : "Needs setup";
+}
+
 export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [page, setPage] = React.useState(1);
   const [limit, setLimit] = React.useState(10);
@@ -43,6 +48,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [employmentStatus, setEmploymentStatus] = React.useState("");
   const [activeRow, setActiveRow] = React.useState<EmployeeSalaryRow | null>(null);
   const [editRow, setEditRow] = React.useState<EmployeeSalaryRow | null>(null);
+  const [exporting, setExporting] = React.useState(false);
 
   React.useEffect(() => {
     const id = window.setTimeout(() => {
@@ -74,6 +80,31 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const total = Number(pagination.total ?? pagination.count ?? 0);
   const totalPages = Math.max(Number((salaries.data?.meta?.totalPages ?? pagination.totalPages ?? Math.ceil(total / limit)) || 1), 1);
 
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const res = await exportEmployeeSalaries({
+        q: search || undefined,
+        payrollStatus: payrollStatus || undefined,
+        templateId: templateId || undefined,
+        departmentId: departmentId || undefined,
+        employmentStatus: employmentStatus || undefined,
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "employee-salaries.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch {
+      showAlert("Could not export employee salaries.", "error");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <StatCardGrid cols={4}>
@@ -85,9 +116,19 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
 
       <SectionCard
         title="Employee Salaries"
-        description="All employee salary records with payroll calculation status."
+        description="Approved employee salary records with payroll setup and calculation details."
         icon={<Calculator className="w-4 h-4 stroke-[3]" />}
         accent="blue"
+        action={
+          <button
+            onClick={exportCsv}
+            disabled={exporting}
+            className="h-9 px-3 rounded-lg bg-blue-600 text-white text-xs font-black hover:bg-blue-700 disabled:opacity-60 inline-flex items-center gap-2"
+          >
+            <Download className="w-3.5 h-3.5" />
+            {exporting ? "Exporting..." : "Export CSV"}
+          </button>
+        }
       >
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-[1fr_160px_160px_180px_200px_110px] gap-3">
@@ -126,8 +167,8 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
               className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
             >
               <option value="">All statuses</option>
-              <option value="linked">Linked</option>
-              <option value="pending">Pending</option>
+              <option value="linked">Configured</option>
+              <option value="pending">Needs setup</option>
             </select>
             <select
               value={templateId}
@@ -149,7 +190,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           </div>
 
           <DataTable
-            columns={["Employee", "Department", "Template", "Base", "Gross", "Deductions", "Net", "Status", "Actions"]}
+            columns={["Employee", "Department", "Template", "Base", "Gross", "Deductions", "Net", "Payroll setup", "Actions"]}
             rows={rows}
             loading={salaries.isLoading}
             emptyMessage="No employee salary records match these filters."
@@ -177,7 +218,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                 <td className="px-4 py-3 text-xs font-black text-emerald-700 whitespace-nowrap">{row.payrollStatus === "linked" ? money(row.netPay, row.currency) : "-"}</td>
                 <td className="px-4 py-3 whitespace-nowrap">
                   <span className={`text-[10px] font-black px-2 py-1 rounded-full ${row.payrollStatus === "linked" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                    {row.payrollStatus}
+                    {payrollSetupLabel(row.payrollStatus)}
                   </span>
                 </td>
                 <td className="px-4 py-3">
@@ -236,16 +277,16 @@ function CalculationModal({ row, onClose }: { row: EmployeeSalaryRow; onClose: (
   ];
 
   return (
-    <div className="fixed inset-0 z-[220] bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl rounded-2xl bg-white border border-slate-100 shadow-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-[9999] bg-white">
+      <div className="w-full h-full bg-white overflow-y-auto">
+        <div className="sticky top-0 z-10 px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
           <div>
             <h3 className="text-sm font-black text-slate-900">Salary Calculation</h3>
             <p className="text-xs font-semibold text-slate-400 mt-0.5">{row.name} - {row.templateName || "No payroll template"}</p>
           </div>
           <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center"><X className="w-4 h-4" /></button>
         </div>
-        <div className="p-5 space-y-4">
+        <div className="p-6 lg:p-8 space-y-6 max-w-5xl mx-auto">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
               <span className="text-[10px] font-black uppercase text-blue-500">Base</span>
@@ -260,7 +301,7 @@ function CalculationModal({ row, onClose }: { row: EmployeeSalaryRow; onClose: (
               <p className="text-lg font-black text-rose-900 mt-1">{pct(deductionRate)}</p>
             </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {values.map(([label, value]) => (
               <div key={label as string} className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-xs">
                 <span className="font-bold text-slate-500">{label}</span>
@@ -312,16 +353,16 @@ function UpdateSalaryModal({
   };
 
   return (
-    <div className="fixed inset-0 z-[220] bg-slate-950/40 backdrop-blur-sm flex items-center justify-center p-4">
-      <form onSubmit={submit} className="w-full max-w-lg rounded-2xl bg-white border border-slate-100 shadow-xl overflow-hidden">
-        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+    <div className="fixed inset-0 z-[9999] bg-white">
+      <form onSubmit={submit} className="w-full h-full bg-white overflow-y-auto">
+        <div className="sticky top-0 z-10 px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
           <div>
             <h3 className="text-sm font-black text-slate-900">Update Salary Calculation</h3>
             <p className="text-xs font-semibold text-slate-400 mt-0.5">{row.name}</p>
           </div>
           <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center"><X className="w-4 h-4" /></button>
         </div>
-        <div className="p-5 space-y-4">
+        <div className="p-6 lg:p-8 space-y-4 max-w-2xl mx-auto">
           {templatesLoading ? <LoadingSpinner label="Loading templates..." /> : null}
           <label className="block space-y-1.5">
             <span className="text-[10px] font-black uppercase text-slate-400">Payroll Template</span>
@@ -338,7 +379,7 @@ function UpdateSalaryModal({
             Saving recalculates allowances, deductions, gross pay, and net pay from the selected template.
           </div>
         </div>
-        <div className="px-5 py-4 border-t border-slate-100 flex justify-end gap-2">
+        <div className="sticky bottom-0 px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-2">
           <button type="button" onClick={onClose} className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50">Cancel</button>
           <button type="submit" disabled={linkEmployee.isPending} className="px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-black hover:bg-blue-700 disabled:opacity-60">
             {linkEmployee.isPending ? "Saving..." : "Save calculation"}
