@@ -44,6 +44,10 @@ export async function getPayrollDashboard() {
   return api.get("/api/v1/finance/payroll-dashboard");
 }
 
+export async function listEmployeeSalaries(params?: Record<string, unknown>) {
+  return api.get("/api/v1/finance/employee-salaries", { params });
+}
+
 export async function linkEmployeeToTemplate(data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number }) {
   return api.post("/api/v1/finance/payroll-links", data);
 }

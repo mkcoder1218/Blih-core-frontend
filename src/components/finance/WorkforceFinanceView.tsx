@@ -51,11 +51,12 @@ import type { PayrollTemplate, LinkedEmployee, PendingEmployee } from '../../hoo
 import { exportWorkforceFinance } from '../../api/finance';
 import PayrollTemplatePanel from './PayrollTemplatePanel';
 import PayrollLinkPanel from './PayrollLinkPanel';
+import EmployeeSalaryTable from './EmployeeSalaryTable';
 import { StatCard, StatCardGrid, TabSwitcher, SectionCard, InfoAlert } from '@/components/ui/blih';
 import { useMyPermissions } from '../../hooks/usePermissions';
 
 interface WorkforceFinanceViewProps {
-  currentTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits';
+  currentTab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'my_payslip' | 'benefits';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -603,6 +604,11 @@ export default function WorkforceFinanceView({
             </div>
           </div>
         </div>
+      )}
+
+      {/* 2. EMPLOYEE SALARY */}
+      {currentTab === 'employee_salary' && (
+        <EmployeeSalaryTable showAlert={showAlert} />
       )}
 
       {/* 2. SALARY & PAYROLL (merged) */}

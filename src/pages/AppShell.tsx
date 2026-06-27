@@ -19,7 +19,7 @@ export default function AppShell() {
   >("overview");
   const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
   const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("offboarding");
-  const [currentFinanceTab, setCurrentFinanceTab] = useState<"overview" | "salary_payroll" | "payroll_template" | "budget" | "expense" | "benefits">("overview");
+  const [currentFinanceTab, setCurrentFinanceTab] = useState<"overview" | "employee_salary" | "salary_payroll" | "payroll_template" | "budget" | "expense" | "benefits">("overview");
   const [currentProjectsTab, setCurrentProjectsTab] = useState<ProjectsTab>("overview");
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<"overview" | "contract" | "progress" | "probation" | "checklists" | "policy">("overview");
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<"overview" | "performance_review" | "okrs" | "kpis" | "discipline" | "evaluation_form">("overview");
@@ -51,6 +51,7 @@ export default function AppShell() {
     if (p.includes("/finance")) return "finance";
     if (p.includes("/projects")) return "projects";
     if (p.includes("/permissions")) return "permissions";
+    if (p.includes("/subscription")) return "subscription";
     return userRole === "Super Admin" ? "businesses" : userRole === "Employee" ? "attendance" : "recruitment";
   }, [location.pathname, userRole]);
 
@@ -135,9 +136,10 @@ export default function AppShell() {
         <AnimatePresence>
           {notification.show && (
             <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
+              initial={{ opacity: 0, y: -8, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              exit={{ opacity: 0, y: -6, scale: 0.98 }}
+              transition={{ type: "tween", duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
               className="absolute top-20 right-4 sm:right-8 z-[200] bg-slate-900 border border-slate-800 text-white shadow-xl px-4 py-3.5 rounded-xl flex items-center gap-3 max-w-[calc(100vw-2rem)]"
             >
               {notification.type === "success" ? (

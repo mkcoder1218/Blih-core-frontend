@@ -108,6 +108,7 @@ export const EXIT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 export const FINANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   // Manager-only tabs — require explicit finance or payroll management access
   overview:         { requires: ["finance.read", "finance.manage"] },
+  employee_salary:  { requires: ["salary_employee_read", "finance.manage"] },
   salary_payroll:   { requires: ["finance.read", "finance.manage"] },
   payroll_template: { requires: ["finance.manage"] },
   budget:           { requires: ["finance.read", "finance.manage"] },
@@ -148,7 +149,7 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   performance: ["performance.read", "performance.manage", "performance.self"],
   talent:      ["performance.read", "performance.manage", "career.self"],
   exit:        ["hr.read", "hr.write", "exit.self"],
-  finance:     ["finance.read", "finance.manage", "finance.mine"],
+  finance:     ["finance.read", "finance.manage", "finance.mine", "salary_employee_read"],
   projects:    ["project.read", "project.manage", "project.self", "project.task"],
   // Platform-level modules — super admin only. No regular permission key unlocks these.
   businesses:  [],

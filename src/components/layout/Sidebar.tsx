@@ -32,6 +32,7 @@ import {
   Shield,
   Building2,
   BriefcaseBusiness,
+  Gem,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BusinessesTab, MainModule, ProjectsTab, RecruitmentTab } from '../../types';
@@ -49,8 +50,8 @@ interface SidebarProps {
   setCurrentTalentTab: (tab: 'overview' | 'career' | 'training' | 'culture' | 'development') => void;
   currentExitTab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding';
   setCurrentExitTab: (tab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding') => void;
-  currentFinanceTab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits';
-  setCurrentFinanceTab: (tab: 'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits') => void;
+  currentFinanceTab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits';
+  setCurrentFinanceTab: (tab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits') => void;
   currentProjectsTab?: ProjectsTab;
   setCurrentProjectsTab?: (tab: ProjectsTab) => void;
   currentOnboardingTab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy';
@@ -137,6 +138,7 @@ export default function Sidebar({
   const ALL_MODULES = [
     { id: 'businesses',  label: 'Businesses',             icon: Building2,       badge: 0 },
     { id: 'permissions', label: 'Roles & Permissions',    icon: Shield,          badge: 0 },
+    { id: 'subscription', label: 'Subscription & Billing', icon: Gem,             badge: 0 },
     { id: 'recruitment', label: 'Recruitment & Hiring',   icon: UserPlus,        badge: 0 },
     { id: 'onboarding',  label: 'Onboarding & Probation', icon: UserCheck,       badge: 0 },
     { id: 'profiles',    label: 'People Profiles',        icon: Users,           badge: 0 },
@@ -151,6 +153,7 @@ export default function Sidebar({
   const internModuleIds = new Set(['attendance']);
   const mainModules = ALL_MODULES.filter((m) => {
     if (isInternUser && !internModuleIds.has(m.id)) return false;
+    if (m.id === 'subscription') return user?.role === 'Business Admin' || user?.role === 'Super Admin';
     const required = MODULE_PERMISSIONS[m.id];
     if (!required) return false;
     return hasAny(...required);
@@ -231,6 +234,7 @@ export default function Sidebar({
 
   const ALL_FINANCE_TABS = [
     { id: 'overview',        label: 'Overview',         badge: 0 },
+    { id: 'employee_salary', label: 'Employee Salary',  badge: 0 },
     { id: 'salary_payroll',  label: 'Salary & Payroll', badge: 0 },
     { id: 'payroll_template', label: 'Pay Templates',   badge: 0 },
     { id: 'budget',          label: 'Budget',           badge: 0 },
@@ -286,6 +290,7 @@ export default function Sidebar({
       moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' ||
       moduleId === 'finance' || moduleId === 'projects' || moduleId === 'performance' || moduleId === 'businesses' ||
       moduleId === 'permissions'
+      || moduleId === 'subscription'
     ) {
       setIsDetailedView(true);
       if (moduleId === 'businesses') setCurrentBusinessesTab('overview');
@@ -469,13 +474,20 @@ export default function Sidebar({
                 </button>
               )}
 
+              {currentModule === 'subscription' && (
+                <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold bg-slate-50 text-slate-900 border-l-2 border-blue-600 pl-2.5 cursor-pointer">
+                  <span>Plan & Billing</span>
+                  <Gem className="w-3.5 h-3.5 text-blue-600" />
+                </button>
+              )}
+
               {currentModule === 'businesses' && businessesTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentBusinessesTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/businesses` : `/${roleSegment}/businesses/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentBusinessesTab === tab.id)}>
                   <span>{tab.label}</span>
                 </button>
               ))}
 
-              {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','projects','performance','permissions','businesses'].includes(currentModule) && (
+              {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','projects','performance','permissions','businesses','subscription'].includes(currentModule) && (
                 <div className="py-2 text-slate-500 font-medium text-xs text-center border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50">
                   <span className="block mb-1">Standard Mode</span>
                   <button onClick={() => { setCurrentModule(defaultModule as MainModule); navigate(defaultPath); onMobileClose?.(); }} className="text-blue-600 hover:underline text-[11px] font-semibold">

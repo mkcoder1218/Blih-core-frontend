@@ -9,6 +9,7 @@ import {
   deletePayrollTemplate,
   previewPayrollCalculation,
   getPayrollDashboard,
+  listEmployeeSalaries,
   linkEmployeeToTemplate,
   unlinkEmployee,
 } from "../api/finance";
@@ -115,12 +116,30 @@ export function usePayrollDashboard() {
   });
 }
 
+export function useEmployeeSalaries(params: Record<string, unknown>) {
+  return useQuery({
+    queryKey: ["employee-salaries", params],
+    queryFn: async () => {
+      const res = await listEmployeeSalaries(params);
+      return {
+        rows: (res.data?.data ?? []) as EmployeeSalaryRow[],
+        pagination: res.data?.meta ?? {},
+        meta: res.data?.meta ?? {},
+      };
+    },
+    staleTime: 10_000,
+  });
+}
+
 export function useLinkEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number }) =>
       linkEmployeeToTemplate(data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
+    },
   });
 }
 
@@ -186,6 +205,38 @@ export interface PendingEmployee {
   role: string;
   hireDate?: string;
   baseSalary: number;
+}
+
+export interface EmployeeSalaryRow {
+  id: string;
+  userId: string;
+  employeeCode?: string;
+  name: string;
+  email?: string;
+  department?: { id: string; name: string } | null;
+  position?: { id: string; title: string } | null;
+  employmentType?: string;
+  employmentStatus?: string;
+  hireDate?: string;
+  payrollStatus: "linked" | "pending";
+  templateId?: string | null;
+  templateName?: string | null;
+  currency: string;
+  baseSalary: number;
+  baseSalaryOverride?: number | null;
+  housingAllowance: number;
+  transportAllowance: number;
+  mealAllowance: number;
+  otherAllowance: number;
+  grossPay: number;
+  taxDeduction: number;
+  pensionDeduction: number;
+  healthDeduction: number;
+  loanDeduction: number;
+  otherDeduction: number;
+  totalDeductions: number;
+  netPay: number;
+  linkedAt?: string | null;
 }
 
 export interface PayrollDashboard {
