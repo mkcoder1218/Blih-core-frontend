@@ -18,6 +18,16 @@ export interface PendingRegistrant {
     bankName?: string | null;
     bankAccount?: string | null;
     tin?: string | null;
+    salaryInputMode?: 'base' | 'net' | null;
+    baseSalary?: number | null;
+    netSalary?: number | null;
+    transportAllowance?: number | null;
+    housingAllowance?: number | null;
+    mealAllowance?: number | null;
+    otherAllowance?: number | null;
+    employeePensionRate?: number | null;
+    employerPensionRate?: number | null;
+    remarks?: string | null;
   };
   personal: {
     dateOfBirth: string | null;
@@ -40,7 +50,9 @@ export interface PendingListResponse {
 }
 
 export interface ApprovalFinancialInfo {
-  baseSalary: number;
+  baseSalary?: number;
+  netSalary?: number;
+  salaryInputMode?: 'base' | 'net';
   pensionableSalary?: number;
   currency?: string;
   transportAllowance?: number;

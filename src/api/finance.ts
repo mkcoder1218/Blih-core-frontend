@@ -52,11 +52,11 @@ export async function exportEmployeeSalaries(params?: Record<string, unknown>) {
   return api.get("/api/v1/finance/employee-salaries/export", { params, responseType: "blob" });
 }
 
-export async function updateEmployeeBaseSalary(userId: string, data: { baseSalary: number }) {
+export async function updateEmployeeBaseSalary(userId: string, data: { baseSalary?: number; netSalary?: number; salaryInputMode?: "base" | "net" }) {
   return api.patch(`/api/v1/finance/employee-salaries/${userId}/base-salary`, data);
 }
 
-export async function linkEmployeeToTemplate(data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number }) {
+export async function linkEmployeeToTemplate(data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number; netSalaryOverride?: number; salaryInputMode?: "base" | "net" }) {
   return api.post("/api/v1/finance/payroll-links", data);
 }
 

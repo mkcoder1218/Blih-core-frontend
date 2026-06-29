@@ -533,7 +533,9 @@ function UpdateSalaryModal({
   showAlert: Props["showAlert"];
 }) {
   const [templateId, setTemplateId] = React.useState(row.templateId || templates[0]?.id || "");
+  const [salaryInputMode, setSalaryInputMode] = React.useState<"base" | "net">("base");
   const [baseSalary, setBaseSalary] = React.useState(String(row.baseSalaryOverride ?? row.baseSalary ?? ""));
+  const [netSalary, setNetSalary] = React.useState(String(row.netPay || ""));
   const linkEmployee = useLinkEmployee();
 
   React.useEffect(() => {
@@ -546,12 +548,17 @@ function UpdateSalaryModal({
       showAlert("Select a payroll template first.", "error");
       return;
     }
-    const parsedSalary = Number(baseSalary);
+    const parsedSalary = Number(salaryInputMode === "net" ? netSalary : baseSalary);
     if (!Number.isFinite(parsedSalary) || parsedSalary < 0) {
-      showAlert("Enter a valid base salary.", "error");
+      showAlert(`Enter a valid ${salaryInputMode === "net" ? "net" : "base"} salary.`, "error");
       return;
     }
-    await linkEmployee.mutateAsync({ employeeUserId: row.userId, templateId, baseSalaryOverride: parsedSalary });
+    await linkEmployee.mutateAsync({
+      employeeUserId: row.userId,
+      templateId,
+      salaryInputMode,
+      ...(salaryInputMode === "net" ? { netSalaryOverride: parsedSalary } : { baseSalaryOverride: parsedSalary }),
+    });
     showAlert("Salary calculation updated.", "success");
     onClose();
   };
@@ -575,9 +582,29 @@ function UpdateSalaryModal({
               {templates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
             </select>
           </label>
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-slate-50 border border-slate-100 p-1">
+            {(["base", "net"] as const).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setSalaryInputMode(mode)}
+                className={[
+                  "h-9 rounded-lg text-xs font-black transition-colors",
+                  salaryInputMode === mode ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700",
+                ].join(" ")}
+              >
+                {mode === "base" ? "Base Salary" : "Net Salary"}
+              </button>
+            ))}
+          </div>
           <label className="block space-y-1.5">
-            <span className="text-[10px] font-black uppercase text-slate-400">Base Salary Override</span>
-            <input value={baseSalary} onChange={(event) => setBaseSalary(event.target.value)} inputMode="decimal" className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500" />
+            <span className="text-[10px] font-black uppercase text-slate-400">{salaryInputMode === "net" ? "Net Salary Target" : "Base Salary Override"}</span>
+            <input
+              value={salaryInputMode === "net" ? netSalary : baseSalary}
+              onChange={(event) => salaryInputMode === "net" ? setNetSalary(event.target.value) : setBaseSalary(event.target.value)}
+              inputMode="decimal"
+              className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+            />
           </label>
           <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-[11px] font-semibold text-slate-500">
             Saving recalculates allowances, deductions, gross pay, and net pay from the selected template.

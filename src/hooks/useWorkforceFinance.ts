@@ -136,8 +136,8 @@ export function useEmployeeSalaries(params: Record<string, unknown>) {
 export function useUpdateEmployeeBaseSalary() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ userId, baseSalary }: { userId: string; baseSalary: number }) =>
-      updateEmployeeBaseSalary(userId, { baseSalary }),
+    mutationFn: ({ userId, baseSalary, netSalary, salaryInputMode }: { userId: string; baseSalary?: number; netSalary?: number; salaryInputMode?: "base" | "net" }) =>
+      updateEmployeeBaseSalary(userId, { baseSalary, netSalary, salaryInputMode }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
       queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
@@ -148,7 +148,7 @@ export function useUpdateEmployeeBaseSalary() {
 export function useLinkEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number }) =>
+    mutationFn: (data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number; netSalaryOverride?: number; salaryInputMode?: "base" | "net" }) =>
       linkEmployeeToTemplate(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });

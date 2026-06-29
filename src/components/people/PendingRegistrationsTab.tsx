@@ -205,7 +205,9 @@ function RejectModal({
 }
 
 type FinancialFormState = {
+  salaryInputMode: 'base' | 'net';
   baseSalary: string;
+  netSalary: string;
   pensionableSalary: string;
   transportAllowance: string;
   housingAllowance: string;
@@ -219,7 +221,9 @@ type FinancialFormState = {
 };
 
 const createInitialFinancialForm = (prefill?: Partial<FinancialFormState>): FinancialFormState => ({
+  salaryInputMode: 'base',
   baseSalary: '',
+  netSalary: '',
   pensionableSalary: '',
   transportAllowance: '0',
   housingAllowance: '0',
@@ -238,11 +242,73 @@ const financialNumber = (value: string, fallback = 0) => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const toApprovalFinancialInfo = (form: FinancialFormState): ApprovalFinancialInfo => {
-  const baseSalary = financialNumber(form.baseSalary);
+const money = (value?: number | null) => `ETB ${Math.round(Number(value || 0)).toLocaleString('en-US')}`;
+
+function incomeTaxBracket(taxableIncome: number) {
+  if (taxableIncome >= 2001 && taxableIncome <= 4000) return { rate: 0.15, deduction: 300 };
+  if (taxableIncome >= 4001 && taxableIncome <= 7000) return { rate: 0.20, deduction: 500 };
+  if (taxableIncome >= 7001 && taxableIncome <= 10000) return { rate: 0.25, deduction: 850 };
+  if (taxableIncome >= 10001 && taxableIncome <= 14000) return { rate: 0.30, deduction: 1350 };
+  if (taxableIncome > 14000) return { rate: 0.35, deduction: 2050 };
+  return { rate: 0, deduction: 0 };
+}
+
+function calculateEthiopianPreview(baseSalary: number, form: FinancialFormState) {
+  const transportAllowance = financialNumber(form.transportAllowance);
+  const housingAllowance = financialNumber(form.housingAllowance);
+  const mealAllowance = financialNumber(form.mealAllowance);
+  const otherAllowance = financialNumber(form.otherAllowance);
+  const grossPay = baseSalary + transportAllowance + housingAllowance + mealAllowance + otherAllowance;
+  const salaryPctCap = baseSalary * 0.25;
+  const taxableTransport = Math.max(transportAllowance - Math.min(2200, salaryPctCap), 0);
+  const taxableMeal = Math.max(mealAllowance - Math.min(2200, salaryPctCap), 0);
+  const taxableIncomeBeforeFringe = baseSalary + housingAllowance + taxableTransport + taxableMeal;
+  const taxableIncome = taxableIncomeBeforeFringe + otherAllowance;
+  const baseTaxBracket = incomeTaxBracket(taxableIncomeBeforeFringe);
+  const fullTaxBracket = incomeTaxBracket(taxableIncome);
+  const incomeTaxBeforeFringe = Math.max(taxableIncomeBeforeFringe * baseTaxBracket.rate - baseTaxBracket.deduction, 0);
+  const fullIncomeTax = Math.max(taxableIncome * fullTaxBracket.rate - fullTaxBracket.deduction, 0);
+  const fringeTax = Math.min(Math.max(fullIncomeTax - incomeTaxBeforeFringe, 0), baseSalary * 0.1);
+  const incomeTax = incomeTaxBeforeFringe + fringeTax;
+  const pensionableSalary = form.pensionableSalary ? financialNumber(form.pensionableSalary) : baseSalary;
+  const employeePension = pensionableSalary * (financialNumber(form.employeePensionRate, 7) / 100);
+  const employerPension = pensionableSalary * (financialNumber(form.employerPensionRate, 11) / 100);
+  const totalDeductions = incomeTax + employeePension;
+  const netPay = Math.max(grossPay - totalDeductions, 0);
+
   return {
     baseSalary,
-    pensionableSalary: baseSalary,
+    grossPay,
+    taxableIncome,
+    incomeTax,
+    employeePension,
+    employerPension,
+    totalDeductions,
+    netPay,
+    totalCostToCompany: grossPay + employerPension,
+  };
+}
+
+function resolveEthiopianPreviewFromNet(targetNetSalary: number, form: FinancialFormState) {
+  if (!Number.isFinite(targetNetSalary) || targetNetSalary <= 0) return null;
+  let lower = 0;
+  let upper = Math.max(targetNetSalary * 2, 1000);
+  while (calculateEthiopianPreview(upper, form).netPay < targetNetSalary && upper < 1_000_000_000) upper *= 2;
+  for (let i = 0; i < 70; i += 1) {
+    const mid = (lower + upper) / 2;
+    if (calculateEthiopianPreview(mid, form).netPay < targetNetSalary) lower = mid;
+    else upper = mid;
+  }
+  return calculateEthiopianPreview(Math.round(upper * 100) / 100, form);
+}
+
+const toApprovalFinancialInfo = (form: FinancialFormState): ApprovalFinancialInfo => {
+  const baseSalary = financialNumber(form.baseSalary);
+  const netSalary = financialNumber(form.netSalary);
+  return {
+    salaryInputMode: form.salaryInputMode,
+    ...(form.salaryInputMode === 'net' ? { netSalary } : { baseSalary }),
+    ...(form.pensionableSalary ? { pensionableSalary: financialNumber(form.pensionableSalary, baseSalary) } : {}),
     currency: 'ETB',
     transportAllowance: financialNumber(form.transportAllowance),
     housingAllowance: financialNumber(form.housingAllowance),
@@ -343,8 +409,18 @@ function RegistrantDrawer({
   const [drawerStep, setDrawerStep] = useState<'review' | 'financial'>('review');
   const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
   const [financialForm, setFinancialForm] = useState<FinancialFormState>(() => createInitialFinancialForm({
+    salaryInputMode: registrant.financial?.salaryInputMode === 'net' ? 'net' : 'base',
+    baseSalary: registrant.financial?.baseSalary ? String(registrant.financial.baseSalary) : '',
+    netSalary: registrant.financial?.netSalary ? String(registrant.financial.netSalary) : '',
+    transportAllowance: registrant.financial?.transportAllowance != null ? String(registrant.financial.transportAllowance) : '0',
+    housingAllowance: registrant.financial?.housingAllowance != null ? String(registrant.financial.housingAllowance) : '0',
+    mealAllowance: registrant.financial?.mealAllowance != null ? String(registrant.financial.mealAllowance) : '0',
+    otherAllowance: registrant.financial?.otherAllowance != null ? String(registrant.financial.otherAllowance) : '0',
+    employeePensionRate: registrant.financial?.employeePensionRate != null ? String(registrant.financial.employeePensionRate) : '7',
+    employerPensionRate: registrant.financial?.employerPensionRate != null ? String(registrant.financial.employerPensionRate) : '11',
     bankAccount: registrant.financial?.bankAccount || '',
     tin: registrant.financial?.tin || '',
+    remarks: registrant.financial?.remarks || '',
   }));
 
   // Fetch full detail (EmployeeRecord metadata has the ID doc URLs)
@@ -379,15 +455,25 @@ function RegistrantDrawer({
       ...prev,
       bankAccount: prev.bankAccount || bankAccount || '',
       tin: prev.tin || tin || '',
+      salaryInputMode: prev.salaryInputMode || (registrant.financial?.salaryInputMode === 'net' ? 'net' : 'base'),
+      baseSalary: prev.baseSalary || (registrant.financial?.baseSalary ? String(registrant.financial.baseSalary) : ''),
+      netSalary: prev.netSalary || (registrant.financial?.netSalary ? String(registrant.financial.netSalary) : ''),
     }));
-  }, [bankAccount, tin]);
+  }, [bankAccount, tin, registrant.financial?.baseSalary, registrant.financial?.netSalary, registrant.financial?.salaryInputMode]);
 
   const setFinancialValue = (key: keyof FinancialFormState) => (value: string) => {
     setFinancialForm(prev => ({ ...prev, [key]: value }));
   };
   const financialInfo = toApprovalFinancialInfo(financialForm);
   const isFinancialStep = drawerStep === 'financial';
-  const canApprove = financialInfo.baseSalary > 0 && (financialInfo.pensionableSalary ?? 0) >= 0 && !approving && !rejecting;
+  const calculationPreview = financialForm.salaryInputMode === 'net'
+    ? resolveEthiopianPreviewFromNet(financialNumber(financialForm.netSalary), financialForm)
+    : calculateEthiopianPreview(financialNumber(financialForm.baseSalary), financialForm);
+  const canApprove = (
+    financialForm.salaryInputMode === 'net'
+      ? Number(financialForm.netSalary) > 0
+      : Number(financialForm.baseSalary) > 0
+  ) && !approving && !rejecting;
   const submitApproval = () => {
     if (!canApprove) return;
     setApproveConfirmOpen(true);
@@ -493,14 +579,63 @@ function RegistrantDrawer({
               <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Income tax mode</p>
               <p className="text-xs font-bold text-emerald-900 mt-0.5">Ethiopian statutory PAYE with pension defaults</p>
             </div>
-            <FinancialField label="Basic salary" value={financialForm.baseSalary} onChange={setFinancialValue('baseSalary')} placeholder="15000" />
-            <FinancialField label="Pensionable salary" value={financialForm.baseSalary} onChange={setFinancialValue('pensionableSalary')} placeholder="Uses basic salary" />
+            <div className="col-span-2 grid grid-cols-2 gap-2 rounded-xl bg-slate-50 border border-slate-100 p-1">
+              {(['base', 'net'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setFinancialValue('salaryInputMode')(mode)}
+                  className={cn(
+                    'h-8 rounded-lg text-[11px] font-black transition-colors',
+                    financialForm.salaryInputMode === mode ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700',
+                  )}
+                >
+                  {mode === 'base' ? 'Base Salary' : 'Net Salary'}
+                </button>
+              ))}
+            </div>
+            {financialForm.salaryInputMode === 'net' ? (
+              <FinancialField label="Net salary" value={financialForm.netSalary} onChange={setFinancialValue('netSalary')} placeholder="15140" />
+            ) : (
+              <FinancialField label="Basic salary" value={financialForm.baseSalary} onChange={setFinancialValue('baseSalary')} placeholder="15000" />
+            )}
+            <FinancialField label="Pensionable salary" value={financialForm.pensionableSalary} onChange={setFinancialValue('pensionableSalary')} placeholder="Uses basic salary" />
             <FinancialField label="Transport allowance" value={financialForm.transportAllowance} onChange={setFinancialValue('transportAllowance')} placeholder="0" />
             <FinancialField label="Housing allowance" value={financialForm.housingAllowance} onChange={setFinancialValue('housingAllowance')} placeholder="0" />
             <FinancialField label="Meal allowance" value={financialForm.mealAllowance} onChange={setFinancialValue('mealAllowance')} placeholder="0" />
             <FinancialField label="Other allowances" value={financialForm.otherAllowance} onChange={setFinancialValue('otherAllowance')} placeholder="0" />
             <FinancialField label="Employee pension %" value={financialForm.employeePensionRate} onChange={setFinancialValue('employeePensionRate')} placeholder="7" />
             <FinancialField label="Employer pension %" value={financialForm.employerPensionRate} onChange={setFinancialValue('employerPensionRate')} placeholder="11" />
+            {calculationPreview && calculationPreview.baseSalary > 0 && (
+              <div className="col-span-2 rounded-xl border border-blue-100 bg-blue-50/60 overflow-hidden">
+                <div className="px-3 py-2.5 border-b border-blue-100 bg-white/70">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-blue-700">Live payroll calculation</p>
+                  <p className="text-xs font-bold text-slate-700 mt-0.5">
+                    {financialForm.salaryInputMode === 'net'
+                      ? `${money(financialNumber(financialForm.netSalary))} target net derives ${money(calculationPreview.baseSalary)} base salary`
+                      : `${money(calculationPreview.baseSalary)} base salary produces ${money(calculationPreview.netPay)} net pay`}
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-px bg-blue-100 text-xs">
+                  {[
+                    ['Base', calculationPreview.baseSalary],
+                    ['Gross', calculationPreview.grossPay],
+                    ['Taxable', calculationPreview.taxableIncome],
+                    ['PAYE', calculationPreview.incomeTax],
+                    ['Employee Pension', calculationPreview.employeePension],
+                    ['Deductions', calculationPreview.totalDeductions],
+                    ['Net Pay', calculationPreview.netPay],
+                    ['Employer Pension', calculationPreview.employerPension],
+                    ['Company Cost', calculationPreview.totalCostToCompany],
+                  ].map(([label, value]) => (
+                    <div key={label as string} className="bg-white/85 px-3 py-2">
+                      <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">{label}</p>
+                      <p className="text-xs font-black text-slate-800 mt-0.5">{money(value as number)}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <FinancialField label="TIN" value={financialForm.tin} onChange={setFinancialValue('tin')} placeholder="Tax ID" inputMode="text" />
             <FinancialField label="Bank account" value={financialForm.bankAccount} onChange={setFinancialValue('bankAccount')} placeholder="Account number" inputMode="text" />
             <label className="col-span-2 space-y-1.5">
