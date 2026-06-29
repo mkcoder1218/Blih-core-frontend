@@ -39,6 +39,25 @@ function dateText(value?: string | null) {
   return value ? new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 }
 
+function inputMoney(value?: number | null) {
+  const numeric = Number(value || 0);
+  return Number.isFinite(numeric) ? String(Math.round(numeric * 100) / 100) : "0";
+}
+
+function inputNumber(value: string, fallback = 0) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : fallback;
+}
+
+function incomeTaxBracket(taxableIncome: number) {
+  if (taxableIncome >= 2001 && taxableIncome <= 4000) return { rate: 0.15, deduction: 300 };
+  if (taxableIncome >= 4001 && taxableIncome <= 7000) return { rate: 0.20, deduction: 500 };
+  if (taxableIncome >= 7001 && taxableIncome <= 10000) return { rate: 0.25, deduction: 850 };
+  if (taxableIncome >= 10001 && taxableIncome <= 14000) return { rate: 0.30, deduction: 1350 };
+  if (taxableIncome > 14000) return { rate: 0.35, deduction: 2050 };
+  return { rate: 0, deduction: 0 };
+}
+
 function taxTreatmentLabel(value?: string) {
   if (!value) return "-";
   return value.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
@@ -536,10 +555,105 @@ function UpdateSalaryModal({
   showAlert: Props["showAlert"];
 }) {
   const [templateId, setTemplateId] = React.useState(row.templateId || templates[0]?.id || "");
-  const [salaryInputMode, setSalaryInputMode] = React.useState<"base" | "net">("base");
+  const [salaryInputMode, setSalaryInputMode] = React.useState<"base" | "net">(row.salaryInputMode === "net" ? "net" : "base");
   const [baseSalary, setBaseSalary] = React.useState(String(row.baseSalaryOverride ?? row.baseSalary ?? ""));
-  const [netSalary, setNetSalary] = React.useState(String(row.netPay || ""));
+  const [netSalary, setNetSalary] = React.useState(inputMoney(row.targetNetSalary ?? row.netPay));
+  const [pensionableSalary, setPensionableSalary] = React.useState(row.taxMeta?.pensionableSalary ? inputMoney(row.taxMeta.pensionableSalary) : "");
+  const [transportAllowance, setTransportAllowance] = React.useState(inputMoney(row.transportAllowance));
+  const [perDiemAllowance, setPerDiemAllowance] = React.useState(inputMoney(row.perDiemAllowance));
+  const [perDiemDays, setPerDiemDays] = React.useState(inputMoney(row.perDiemDays));
+  const [medicalBenefit, setMedicalBenefit] = React.useState(inputMoney(row.medicalBenefit));
+  const [telecomAllowance, setTelecomAllowance] = React.useState(inputMoney(row.telecomAllowance));
+  const [housingAllowance, setHousingAllowance] = React.useState(inputMoney(row.housingAllowance));
+  const [mealAllowance, setMealAllowance] = React.useState(inputMoney(row.mealAllowance));
+  const [otherAllowance, setOtherAllowance] = React.useState(inputMoney(row.otherAllowance));
+  const [employeePensionRate, setEmployeePensionRate] = React.useState(inputMoney(row.taxMeta?.employeePensionRate ?? 7));
+  const [employerPensionRate, setEmployerPensionRate] = React.useState(inputMoney(row.taxMeta?.employerPensionRate ?? 11));
   const linkEmployee = useLinkEmployee();
+  const calculatePreview = React.useCallback((base: number, pensionableOverride?: number | null) => {
+    const transport = inputNumber(transportAllowance);
+    const perDiem = inputNumber(perDiemAllowance);
+    const perDiemDaysValue = inputNumber(perDiemDays);
+    const medical = inputNumber(medicalBenefit);
+    const telecom = inputNumber(telecomAllowance);
+    const housing = inputNumber(housingAllowance);
+    const meal = inputNumber(mealAllowance);
+    const other = inputNumber(otherAllowance);
+    const salaryCap = base * 0.25;
+    const transportCap = Math.min(2200, salaryCap);
+    const perDiemDailyCap = Math.max(225, base * 0.04) * Math.max(perDiemDaysValue, 0);
+    const perDiemCap = Math.min(2200, salaryCap, perDiemDaysValue > 0 ? perDiemDailyCap : 2200);
+    const transportExempt = Math.min(transport, transportCap);
+    const perDiemExempt = Math.min(perDiem, perDiemCap);
+    const transportTaxable = Math.max(transport - transportExempt, 0);
+    const perDiemTaxable = Math.max(perDiem - perDiemExempt, 0);
+    const grossPay = base + transport + perDiem + medical + telecom + housing + meal + other;
+    const taxableIncomeBeforeFringe = base + housing + meal + transportTaxable + perDiemTaxable;
+    const fringeTaxable = telecom + other;
+    const taxableIncome = taxableIncomeBeforeFringe + fringeTaxable;
+    const baseTax = incomeTaxBracket(taxableIncomeBeforeFringe);
+    const fullTax = incomeTaxBracket(taxableIncome);
+    const incomeTaxBeforeFringe = Math.max(taxableIncomeBeforeFringe * baseTax.rate - baseTax.deduction, 0);
+    const fullIncomeTax = Math.max(taxableIncome * fullTax.rate - fullTax.deduction, 0);
+    const fringeTax = Math.min(Math.max(fullIncomeTax - incomeTaxBeforeFringe, 0), base * 0.1);
+    const incomeTax = incomeTaxBeforeFringe + fringeTax;
+    const pensionable = pensionableOverride && pensionableOverride > 0 ? pensionableOverride : base;
+    const employeePension = pensionable * (inputNumber(employeePensionRate, 7) / 100);
+    const employerPension = pensionable * (inputNumber(employerPensionRate, 11) / 100);
+    const totalDeductions = incomeTax + employeePension;
+    const netPay = Math.max(grossPay - totalDeductions, 0);
+    return {
+      baseSalary: base,
+      grossPay,
+      taxableIncome,
+      incomeTax,
+      employeePension,
+      employerPension,
+      totalDeductions,
+      netPay,
+      totalCostToCompany: grossPay + employerPension,
+      transportExempt,
+      transportTaxable,
+      perDiemExempt,
+      perDiemTaxable,
+      medicalExempt: medical,
+      fringeTax,
+    };
+  }, [
+    employeePensionRate,
+    employerPensionRate,
+    housingAllowance,
+    mealAllowance,
+    medicalBenefit,
+    otherAllowance,
+    perDiemAllowance,
+    perDiemDays,
+    telecomAllowance,
+    transportAllowance,
+  ]);
+  const calculationPreview = React.useMemo(() => {
+    const pensionableOverride = pensionableSalary ? inputNumber(pensionableSalary) : null;
+    if (salaryInputMode === "base") return calculatePreview(inputNumber(baseSalary), pensionableOverride);
+    const calculateBaseOnlyNet = (base: number) => {
+      const taxableIncome = base;
+      const tax = incomeTaxBracket(taxableIncome);
+      const incomeTax = Math.max(taxableIncome * tax.rate - tax.deduction, 0);
+      const employeePension = base * (inputNumber(employeePensionRate, 7) / 100);
+      return Math.max(base - incomeTax - employeePension, 0);
+    };
+    const targetNet = inputNumber(netSalary);
+    let lower = 0;
+    let upper = Math.max(targetNet * 2, 1000);
+    while (calculateBaseOnlyNet(upper) < targetNet && upper < 1_000_000_000) upper *= 2;
+    for (let i = 0; i < 70; i += 1) {
+      const mid = (lower + upper) / 2;
+      if (calculateBaseOnlyNet(mid) < targetNet) lower = mid;
+      else upper = mid;
+    }
+    const base = Math.round(upper * 100) / 100;
+    return calculatePreview(base, pensionableOverride ?? base);
+  }, [baseSalary, calculatePreview, employeePensionRate, netSalary, pensionableSalary, salaryInputMode]);
+  const effectivePensionableSalary = pensionableSalary || inputMoney(calculationPreview.baseSalary);
 
   React.useEffect(() => {
     if (!templateId && templates[0]?.id) setTemplateId(templates[0].id);
@@ -561,6 +675,17 @@ function UpdateSalaryModal({
       templateId,
       salaryInputMode,
       calculationMode: "ethiopian",
+      pensionableSalary: inputNumber(effectivePensionableSalary, calculationPreview.baseSalary),
+      transportAllowance: Number(transportAllowance || 0),
+      perDiemAllowance: Number(perDiemAllowance || 0),
+      perDiemDays: Number(perDiemDays || 0),
+      medicalBenefit: Number(medicalBenefit || 0),
+      telecomAllowance: Number(telecomAllowance || 0),
+      housingAllowance: Number(housingAllowance || 0),
+      mealAllowance: Number(mealAllowance || 0),
+      otherAllowance: Number(otherAllowance || 0),
+      employeePensionRate: Number(employeePensionRate || 7),
+      employerPensionRate: Number(employerPensionRate || 11),
       ...(salaryInputMode === "net" ? { netSalaryOverride: parsedSalary } : { baseSalaryOverride: parsedSalary }),
     });
     await onSaved();
@@ -580,6 +705,10 @@ function UpdateSalaryModal({
         </div>
         <div className="p-6 lg:p-8 space-y-4 max-w-2xl mx-auto">
           {templatesLoading ? <LoadingSpinner label="Loading templates..." /> : null}
+          <div className="rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
+            <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Income tax mode</p>
+            <p className="text-xs font-bold text-emerald-900 mt-0.5">Ethiopian statutory PAYE with pension defaults</p>
+          </div>
           <label className="block space-y-1.5">
             <span className="text-[10px] font-black uppercase text-slate-400">Payroll Template</span>
             <select value={templateId} onChange={(event) => setTemplateId(event.target.value)} className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500">
@@ -611,8 +740,80 @@ function UpdateSalaryModal({
               className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
             />
           </label>
-          <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-[11px] font-semibold text-slate-500">
-            Saving recalculates allowances, deductions, gross pay, and net pay from the selected template.
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              ["Pensionable salary", effectivePensionableSalary, setPensionableSalary, "Uses base salary"],
+              ["Transport allowance", transportAllowance, setTransportAllowance, "0"],
+              ["Per diem allowance", perDiemAllowance, setPerDiemAllowance, "0"],
+              ["Per diem travel days", perDiemDays, setPerDiemDays, "0"],
+              ["Medical benefit / insurance", medicalBenefit, setMedicalBenefit, "0"],
+              ["Telecom / phone / data", telecomAllowance, setTelecomAllowance, "0"],
+              ["Housing allowance", housingAllowance, setHousingAllowance, "0"],
+              ["Meal allowance", mealAllowance, setMealAllowance, "0"],
+              ["Other allowance", otherAllowance, setOtherAllowance, "0"],
+              ["Employee pension %", employeePensionRate, setEmployeePensionRate, "7"],
+              ["Employer pension %", employerPensionRate, setEmployerPensionRate, "11"],
+            ].map(([label, value, setter, placeholder]) => (
+              <label key={label as string} className="block space-y-1.5">
+                <span className="text-[10px] font-black uppercase text-slate-400">{label as string}</span>
+                <input
+                  value={value as string}
+                  onChange={(event) => (setter as React.Dispatch<React.SetStateAction<string>>)(event.target.value)}
+                  inputMode="decimal"
+                  placeholder={placeholder as string}
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                />
+              </label>
+            ))}
+          </div>
+          <div className="rounded-xl border border-blue-100 bg-blue-50/60 overflow-hidden">
+            <div className="px-3 py-2.5 border-b border-blue-100 bg-white/70">
+              <p className="text-[9px] font-black uppercase tracking-wider text-blue-700">Live payroll update note</p>
+              <p className="text-xs font-bold text-slate-700 mt-0.5">
+                {salaryInputMode === "net"
+                  ? `${money(inputNumber(netSalary), row.currency)} target net derives ${money(calculationPreview.baseSalary, row.currency)} base salary and ${money(calculationPreview.netPay, row.currency)} final net after allowances.`
+                  : `${money(calculationPreview.baseSalary, row.currency)} base salary produces ${money(calculationPreview.netPay, row.currency)} net pay.`}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-px bg-blue-100 text-xs">
+              {[
+                ["Base", calculationPreview.baseSalary],
+                ["Gross", calculationPreview.grossPay],
+                ["Taxable", calculationPreview.taxableIncome],
+                ["PAYE", calculationPreview.incomeTax],
+                ["Transport Exempt", calculationPreview.transportExempt],
+                ["Transport Taxable", calculationPreview.transportTaxable],
+                ["Per Diem Exempt", calculationPreview.perDiemExempt],
+                ["Per Diem Taxable", calculationPreview.perDiemTaxable],
+                ["Medical Exempt", calculationPreview.medicalExempt],
+                ["Fringe Tax", calculationPreview.fringeTax],
+                ["Employee Pension", calculationPreview.employeePension],
+                ["Deductions", calculationPreview.totalDeductions],
+                ["Net Pay", calculationPreview.netPay],
+                ["Employer Pension", calculationPreview.employerPension],
+                ["Company Cost", calculationPreview.totalCostToCompany],
+              ].map(([label, value]) => (
+                <div key={label as string} className="bg-white/85 px-3 py-2">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">{label}</p>
+                  <p className="text-xs font-black text-slate-800 mt-0.5">{money(value as number, row.currency)}</p>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-1 gap-px bg-blue-100 border-t border-blue-100 text-xs">
+              {[
+                ["Transportation allowance", "Partially exempt", "Exempt up to ETB 2,200/month or 25% of salary, lower amount applies"],
+                ["Per diem (official travel)", "Partially exempt", "Exempt up to ETB 225/day or 4% of salary per day, with ETB 2,200/month and 25% salary caps"],
+                ["Medical treatment / insurance", "Generally exempt", "Actual cost is treated as exempt in this preview"],
+                ["Housing and meal allowances", "Fully taxable", "Included in PAYE taxable income"],
+                ["Telecom and other allowances", "Fringe benefit", "Tax on combined fringe benefits capped at 10% of salary"],
+              ].map(([benefit, treatment, cap]) => (
+                <div key={benefit} className="grid grid-cols-[1fr_0.8fr_1.4fr] gap-2 bg-white/85 px-3 py-2">
+                  <p className="text-[10px] font-black text-slate-700">{benefit}</p>
+                  <p className="text-[10px] font-bold text-blue-700">{treatment}</p>
+                  <p className="text-[10px] font-semibold text-slate-500">{cap}</p>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
         <div className="sticky bottom-0 px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-2">

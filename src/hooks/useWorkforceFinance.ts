@@ -148,7 +148,25 @@ export function useUpdateEmployeeBaseSalary() {
 export function useLinkEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number; netSalaryOverride?: number; salaryInputMode?: "base" | "net"; calculationMode?: "ethiopian" | "template" }) =>
+    mutationFn: (data: {
+      employeeUserId: string;
+      templateId: string;
+      baseSalaryOverride?: number;
+      netSalaryOverride?: number;
+      salaryInputMode?: "base" | "net";
+      calculationMode?: "ethiopian" | "template";
+      pensionableSalary?: number;
+      transportAllowance?: number;
+      perDiemAllowance?: number;
+      perDiemDays?: number;
+      medicalBenefit?: number;
+      telecomAllowance?: number;
+      housingAllowance?: number;
+      mealAllowance?: number;
+      otherAllowance?: number;
+      employeePensionRate?: number;
+      employerPensionRate?: number;
+    }) =>
       linkEmployeeToTemplate(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
@@ -207,6 +225,10 @@ export interface LinkedEmployee {
   baseSalary: number;
   housingAllowance: number;
   transportAllowance: number;
+  perDiemAllowance: number;
+  perDiemDays?: number;
+  medicalBenefit: number;
+  telecomAllowance: number;
   mealAllowance: number;
   otherAllowance: number;
   grossPay: number;
@@ -253,8 +275,14 @@ export interface EmployeeSalaryRow {
   currency: string;
   baseSalary: number;
   baseSalaryOverride?: number | null;
+  targetNetSalary?: number | null;
+  salaryInputMode?: "base" | "net" | null;
   housingAllowance: number;
   transportAllowance: number;
+  perDiemAllowance: number;
+  perDiemDays?: number;
+  medicalBenefit: number;
+  telecomAllowance: number;
   mealAllowance: number;
   otherAllowance: number;
   grossPay: number;
@@ -265,6 +293,7 @@ export interface EmployeeSalaryRow {
   otherDeduction: number;
   totalDeductions: number;
   netPay: number;
+  computedNetPay?: number;
   taxableAmount?: number;
   employeePensionContribution?: number;
   employerPensionContribution?: number;
@@ -318,6 +347,8 @@ export interface EthiopianTaxMeta {
     perDiem?: EthiopianTaxAllowanceLine;
     medical?: EthiopianTaxAllowanceLine;
     housing?: EthiopianTaxAllowanceLine;
+    meal?: EthiopianTaxAllowanceLine;
+    telecom?: EthiopianTaxAllowanceLine;
     fringeBenefits?: EthiopianTaxAllowanceLine;
   };
 }

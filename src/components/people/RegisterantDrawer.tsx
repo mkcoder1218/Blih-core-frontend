@@ -140,12 +140,23 @@ function calculateEthiopianPreview(baseSalary: number, form: FinancialFormState)
 
 function resolveEthiopianPreviewFromNet(targetNetSalary: number, form: FinancialFormState) {
   if (!Number.isFinite(targetNetSalary) || targetNetSalary <= 0) return null;
+  const baseOnlyForm: FinancialFormState = {
+    ...form,
+    transportAllowance: '0',
+    perDiemAllowance: '0',
+    perDiemDays: '0',
+    medicalBenefit: '0',
+    telecomAllowance: '0',
+    housingAllowance: '0',
+    mealAllowance: '0',
+    otherAllowance: '0',
+  };
   let lower = 0;
   let upper = Math.max(targetNetSalary * 2, 1000);
-  while (calculateEthiopianPreview(upper, form).netPay < targetNetSalary && upper < 1_000_000_000) upper *= 2;
+  while (calculateEthiopianPreview(upper, baseOnlyForm).netPay < targetNetSalary && upper < 1_000_000_000) upper *= 2;
   for (let i = 0; i < 70; i += 1) {
     const mid = (lower + upper) / 2;
-    if (calculateEthiopianPreview(mid, form).netPay < targetNetSalary) lower = mid;
+    if (calculateEthiopianPreview(mid, baseOnlyForm).netPay < targetNetSalary) lower = mid;
     else upper = mid;
   }
   return calculateEthiopianPreview(Math.round(upper * 100) / 100, form);
