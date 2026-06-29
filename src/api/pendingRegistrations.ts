@@ -14,6 +14,11 @@ export interface PendingRegistrant {
   hireDate: string | null;
   department: { id: string; name: string } | null;
   position: { id: string; title: string } | null;
+  financial?: {
+    bankName?: string | null;
+    bankAccount?: string | null;
+    tin?: string | null;
+  };
   personal: {
     dateOfBirth: string | null;
     gender: string | null;
@@ -34,6 +39,22 @@ export interface PendingListResponse {
   pages: number;
 }
 
+export interface ApprovalFinancialInfo {
+  baseSalary: number;
+  pensionableSalary?: number;
+  currency?: string;
+  transportAllowance?: number;
+  housingAllowance?: number;
+  mealAllowance?: number;
+  otherAllowance?: number;
+  employeePensionRate?: number;
+  employerPensionRate?: number;
+  bankAccount?: string;
+  tin?: string;
+  paymentStatus?: string;
+  remarks?: string;
+}
+
 export const pendingRegistrationsApi = {
   list: (status: 'pending' | 'rejected' = 'pending', page = 1, size = 20) =>
     api.get<{ data: PendingListResponse }>(`/api/v1/hr/pending-registrations`, {
@@ -43,8 +64,11 @@ export const pendingRegistrationsApi = {
   getOne: (userId: string) =>
     api.get(`/api/v1/hr/pending-registrations/${userId}`),
 
-  approve: (userId: string) =>
-    api.post(`/api/v1/hr/pending-registrations/${userId}/approve`),
+  approve: (userId: string, financialInfo: ApprovalFinancialInfo) =>
+    api.post(`/api/v1/hr/pending-registrations/${userId}/approve`, {
+      financialInfo,
+      financialConfirmation: true,
+    }),
 
   reject: (userId: string, reason: string, templateMessage?: string) =>
     api.post(`/api/v1/hr/pending-registrations/${userId}/reject`, { reason, templateMessage }),

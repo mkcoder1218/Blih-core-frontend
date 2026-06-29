@@ -1,11 +1,10 @@
 import React from "react";
-import { AlertTriangle, Calculator, Check, Download, Eye, Filter, Pencil, RefreshCw, Search, X } from "lucide-react";
+import { Calculator, Check, Download, Eye, Filter, Pencil, Search, X } from "lucide-react";
 import { DataTable, LoadingSpinner, SectionCard, StatCard, StatCardGrid } from "@/components/ui/blih";
 import {
   useEmployeeSalaries,
   useLinkEmployee,
   usePayrollTemplates,
-  useSyncEthiopianSalaryTax,
   useUpdateEmployeeBaseSalary,
   type EthiopianTaxAllowanceLine,
   type EmployeeSalaryRow,
@@ -36,8 +35,8 @@ function initials(name: string) {
   return name.split(/\s+/).filter(Boolean).map((part) => part[0]).join("").slice(0, 2).toUpperCase() || "EM";
 }
 
-function payrollSetupLabel(status: EmployeeSalaryRow["payrollStatus"]) {
-  return status === "linked" ? "Configured" : "Needs setup";
+function dateText(value?: string | null) {
+  return value ? new Date(value).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "-";
 }
 
 function taxTreatmentLabel(value?: string) {
@@ -58,8 +57,9 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [editRow, setEditRow] = React.useState<EmployeeSalaryRow | null>(null);
   const [editingBaseUserId, setEditingBaseUserId] = React.useState<string | null>(null);
   const [baseDraft, setBaseDraft] = React.useState("");
-  const [showSyncWarning, setShowSyncWarning] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
+  const [showMoreDetails, setShowMoreDetails] = React.useState(false);
+  const [revealedBankAccounts, setRevealedBankAccounts] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     const id = window.setTimeout(() => {
@@ -86,20 +86,11 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const templates = usePayrollTemplates();
   const departments = useDepartments({ size: 200 });
   const updateBaseSalary = useUpdateEmployeeBaseSalary();
-  const syncEthiopianTax = useSyncEthiopianSalaryTax();
   const rows = salaries.data?.rows ?? [];
   const pagination = salaries.data?.pagination ?? {};
   const totals = salaries.data?.meta?.totals ?? {};
   const total = Number(pagination.total ?? pagination.count ?? 0);
   const totalPages = Math.max(Number((salaries.data?.meta?.totalPages ?? pagination.totalPages ?? Math.ceil(total / limit)) || 1), 1);
-  const syncFilters = React.useMemo(() => ({
-    q: search || undefined,
-    payrollStatus: payrollStatus || undefined,
-    templateId: templateId || undefined,
-    departmentId: departmentId || undefined,
-    employmentStatus: employmentStatus || undefined,
-  }), [search, payrollStatus, templateId, departmentId, employmentStatus]);
-
   const exportCsv = async () => {
     setExporting(true);
     try {
@@ -109,6 +100,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         templateId: templateId || undefined,
         departmentId: departmentId || undefined,
         employmentStatus: employmentStatus || undefined,
+        showMoreDetails,
       });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8" }));
       const link = document.createElement("a");
@@ -150,23 +142,6 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
     }
   };
 
-  const confirmSync = async () => {
-    try {
-      const res = await syncEthiopianTax.mutateAsync(syncFilters);
-      const data = res.data?.data;
-      const autoLinked = Number(data?.autoLinkedCount ?? 0);
-      showAlert(
-        autoLinked > 0
-          ? `Synced ${data?.syncedCount ?? 0} salary records and configured ${autoLinked}.`
-          : `Synced ${data?.syncedCount ?? 0} salary records.`,
-        "success"
-      );
-      setShowSyncWarning(false);
-    } catch (error: any) {
-      showAlert(error?.response?.data?.error || "Could not sync Ethiopian tax.", "error");
-    }
-  };
-
   return (
     <div className="space-y-6 animate-fade-in">
       <StatCardGrid cols={4}>
@@ -184,12 +159,11 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         action={
           <>
             <button
-              onClick={() => setShowSyncWarning(true)}
-              disabled={syncEthiopianTax.isPending}
-              className="h-9 px-3 rounded-lg border border-amber-200 bg-amber-50 text-amber-700 text-xs font-black hover:bg-amber-100 disabled:opacity-60 inline-flex items-center gap-2"
+              onClick={() => setShowMoreDetails((value) => !value)}
+              className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-black hover:bg-slate-50 inline-flex items-center gap-2"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              Sync Ethiopian Tax
+              <Filter className="w-3.5 h-3.5" />
+              {showMoreDetails ? "Hide More" : "Show More Details"}
             </button>
             <button
               onClick={exportCsv}
@@ -262,12 +236,47 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           </div>
 
           <DataTable
-            columns={["Employee", "Department", "Template", "Base", "Gross", "Deductions", "Net", "Payroll setup", "Actions"]}
+            columns={[
+              "Employee ID",
+              "Full Name",
+              "TIN",
+              "Pay Period",
+              "Payment Date",
+              "Basic Salary",
+              "Gross Salary",
+              "Taxable Amount",
+              "Income Tax (PAYE)",
+              "Employee Pension",
+              "Total Deductions",
+              "Net Salary",
+              "Employer Pension",
+              "Total Cost",
+              "Bank Account",
+              "Payment Status",
+              "Remarks",
+              ...(showMoreDetails ? [
+                "Housing",
+                "Transport",
+                "Other Allowances",
+                "Overtime",
+                "Bonus",
+                "Arrears",
+                "Loan",
+                "Other Deductions",
+                "Working Days",
+                "Days Paid",
+                "Generated By",
+                "Approved By",
+                "Last Updated",
+              ] : []),
+              "Actions",
+            ]}
             rows={rows}
             loading={salaries.isLoading}
             emptyMessage="No employee salary records match these filters."
             renderRow={(row) => (
               <tr key={row.userId} className="border-b border-slate-100 hover:bg-slate-50/70">
+                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.employeeCode || row.userId.slice(0, 8)}</td>
                 <td className="px-4 py-3 min-w-[230px]">
                   <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center text-xs font-black">
@@ -279,11 +288,9 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                     </div>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">
-                  {row.department?.name || "Unassigned"}
-                  <span className="block text-[10px] font-semibold text-slate-400 mt-0.5">{row.position?.title || row.employmentType || "Employee"}</span>
-                </td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.templateName || "Not linked"}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.tin || "-"}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.payPeriod || "-"}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{dateText(row.paymentDate)}</td>
                 <td className="px-4 py-3 text-xs font-black text-slate-900 whitespace-nowrap" onDoubleClick={() => startBaseEdit(row)}>
                   {editingBaseUserId === row.userId ? (
                     <div className="flex items-center gap-1.5">
@@ -318,14 +325,50 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                     <span className="cursor-text" title="Double-click to edit">{money(row.baseSalary, row.currency)}</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.payrollStatus === "linked" ? money(row.grossPay, row.currency) : "-"}</td>
-                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{row.payrollStatus === "linked" ? money(row.totalDeductions, row.currency) : "-"}</td>
-                <td className="px-4 py-3 text-xs font-black text-emerald-700 whitespace-nowrap">{row.payrollStatus === "linked" ? money(row.netPay, row.currency) : "-"}</td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className={`text-[10px] font-black px-2 py-1 rounded-full ${row.payrollStatus === "linked" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                    {payrollSetupLabel(row.payrollStatus)}
-                  </span>
+                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.grossPay, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.taxableAmount, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.taxDeduction, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.employeePensionContribution ?? row.pensionDeduction, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.totalDeductions, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-black text-emerald-700 whitespace-nowrap">{money(row.netPay, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.employerPensionContribution, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-black text-slate-900 whitespace-nowrap">{money(row.totalCostToCompany, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">
+                  <div className="inline-flex items-center gap-2">
+                    <span>{revealedBankAccounts[row.userId] ? (row.bankAccount || "-") : (row.bankAccountMasked || "-")}</span>
+                    {row.bankAccount && (
+                      <button
+                        type="button"
+                        onClick={() => setRevealedBankAccounts((current) => ({ ...current, [row.userId]: !current[row.userId] }))}
+                        className="w-7 h-7 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center"
+                        title={revealedBankAccounts[row.userId] ? "Hide bank account" : "View bank account"}
+                      >
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </td>
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-50 text-amber-700">{row.paymentStatus || "Pending"}</span>
+                </td>
+                <td className="px-4 py-3 text-xs font-semibold text-slate-500 min-w-[160px]">{row.remarks || "-"}</td>
+                {showMoreDetails && (
+                  <>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.housingAllowance, row.currency)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.transportAllowance, row.currency)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.otherAllowance, row.currency)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.overtimePay, row.currency)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.bonusIncentive, row.currency)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.arrearsAdjustments, row.currency)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.loanDeduction, row.currency)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.otherDeduction, row.currency)}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.workingDaysInPeriod || "-"}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.daysPaid || "-"}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.generatedBy || "-"}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.approvedBy || "-"}</td>
+                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{dateText(row.lastUpdated)}</td>
+                  </>
+                )}
                 <td className="px-4 py-3">
                   <div className="flex items-center gap-2">
                     <button onClick={() => setActiveRow(row)} className="w-8 h-8 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center" title="View calculation">
@@ -361,80 +404,6 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           showAlert={showAlert}
         />
       )}
-      {showSyncWarning && (
-        <EthiopianTaxWarningModal
-          loading={syncEthiopianTax.isPending}
-          onCancel={() => setShowSyncWarning(false)}
-          onConfirm={confirmSync}
-        />
-      )}
-    </div>
-  );
-}
-
-function EthiopianTaxWarningModal({
-  loading,
-  onCancel,
-  onConfirm,
-}: {
-  loading: boolean;
-  onCancel: () => void;
-  onConfirm: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-[10000] bg-white">
-      <div className="w-full h-full bg-white overflow-y-auto">
-        <div className="sticky top-0 z-10 px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-black text-slate-900">Sync Ethiopian Tax Deduction?</h3>
-            <p className="text-xs font-semibold text-slate-400 mt-0.5">Ethiopian proclamation tax policy</p>
-          </div>
-          <button onClick={onCancel} disabled={loading} className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center disabled:opacity-60">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        <div className="p-6 lg:p-8 max-w-3xl mx-auto space-y-4">
-          <div className="rounded-xl border border-amber-100 bg-amber-50/70 p-4 flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white text-amber-700 border border-amber-100 inline-flex items-center justify-center flex-shrink-0">
-              <AlertTriangle className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-sm font-black text-slate-900">This will replace template tax changes</h4>
-              <p className="text-xs font-semibold text-amber-800 mt-1 leading-relaxed">
-                This button is created for Ethiopian proclamation salary tax deduction. It recalculates taxable income, tax, total deductions, gross pay, and net pay using Ethiopian brackets plus transport, per-diem, and fringe benefit caps.
-              </p>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
-            <h4 className="text-xs font-black text-slate-900">What will happen</h4>
-            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
-              <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Configured and needs-setup employees in the current filters will be synced.</div>
-              <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Needs-setup employees will be linked to the default active payroll template.</div>
-              <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Transport exemption cap will be applied.</div>
-              <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Per-diem monthly cap will be applied.</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="sticky bottom-0 px-6 py-4 border-t border-slate-100 bg-white flex justify-end gap-2">
-          <button
-            onClick={onCancel}
-            disabled={loading}
-            className="px-3 py-2 rounded-lg border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 disabled:opacity-60"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={onConfirm}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg bg-amber-600 text-white text-xs font-black hover:bg-amber-700 disabled:opacity-60"
-          >
-            {loading ? "Syncing..." : "Yes, sync tax"}
-          </button>
-        </div>
-      </div>
     </div>
   );
 }

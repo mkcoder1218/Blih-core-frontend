@@ -11,7 +11,6 @@ import {
   getPayrollDashboard,
   listEmployeeSalaries,
   updateEmployeeBaseSalary,
-  syncEthiopianSalaryTax,
   linkEmployeeToTemplate,
   bulkLinkEmployeesToTemplate,
   unlinkEmployee,
@@ -146,17 +145,6 @@ export function useUpdateEmployeeBaseSalary() {
   });
 }
 
-export function useSyncEthiopianSalaryTax() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (filters: Record<string, unknown>) => syncEthiopianSalaryTax(filters),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
-      queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
-    },
-  });
-}
-
 export function useLinkEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
@@ -256,6 +244,9 @@ export interface EmployeeSalaryRow {
   employmentType?: string;
   employmentStatus?: string;
   hireDate?: string;
+  tin?: string;
+  payPeriod?: string;
+  paymentDate?: string | null;
   payrollStatus: "linked" | "pending";
   templateId?: string | null;
   templateName?: string | null;
@@ -274,6 +265,22 @@ export interface EmployeeSalaryRow {
   otherDeduction: number;
   totalDeductions: number;
   netPay: number;
+  taxableAmount?: number;
+  employeePensionContribution?: number;
+  employerPensionContribution?: number;
+  totalCostToCompany?: number;
+  bankAccount?: string;
+  bankAccountMasked?: string;
+  paymentStatus?: string;
+  remarks?: string;
+  overtimePay?: number;
+  bonusIncentive?: number;
+  arrearsAdjustments?: number;
+  workingDaysInPeriod?: string | number;
+  daysPaid?: string | number;
+  generatedBy?: string;
+  approvedBy?: string;
+  lastUpdated?: string | null;
   taxMeta?: EthiopianTaxMeta | null;
   linkedAt?: string | null;
 }
@@ -299,6 +306,12 @@ export interface EthiopianTaxMeta {
   incomeTaxBeforeFringe?: number;
   fringeTax?: number;
   fringeTaxCap?: number;
+  pensionableSalary?: number;
+  employeePensionRate?: number;
+  employerPensionRate?: number;
+  employeePensionContribution?: number;
+  employerPensionContribution?: number;
+  totalCostToCompany?: number;
   allowanceBreakdown?: {
     baseSalary?: EthiopianTaxAllowanceLine;
     transport?: EthiopianTaxAllowanceLine;

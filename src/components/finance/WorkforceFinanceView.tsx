@@ -108,6 +108,34 @@ function SalaryPayrollPanel({
             <StatCard label="Avg Increase"       value={pct(salary.totals?.avgIncreasePercent)}            icon={<TrendingUp className="w-4 h-4" />}  tone="emerald" />
           </StatCardGrid>
 
+          <SectionCard
+            title="Company Cost Analytics"
+            description="Employer-side payroll cost, statutory pension load, and other finance outflows."
+            icon={<Coins className="w-4 h-4 stroke-[3]" />}
+            accent="blue"
+          >
+            <StatCardGrid cols={4}>
+              <StatCard label="Employer Pension Cost" value={formatMoney(salary.totals?.employerPension, true)} icon={<ShieldCheck className="w-4 h-4" />} tone="amber" />
+              <StatCard label="Other Expenses This Month" value={formatMoney(salary.totals?.currentMonthOtherExpenses, true)} icon={<FileText className="w-4 h-4" />} tone="blue" />
+              <StatCard label="Total Company Outflow" value={formatMoney(salary.totals?.totalCompanyOutflow, true)} icon={<TrendingUp className="w-4 h-4" />} tone="blue" />
+              <StatCard label="Payroll Cost Load" value={pct(salary.totals?.payrollCostLoadPercent)} icon={<Percent className="w-4 h-4" />} tone="emerald" />
+            </StatCardGrid>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-4">
+              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Employee Deductions</span>
+                <p className="text-sm font-black text-rose-600 mt-1">{formatMoney(salary.totals?.employeeDeductions, true)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Employee Pension Withheld</span>
+                <p className="text-sm font-black text-slate-900 mt-1">{formatMoney(salary.totals?.employeePension, true)}</p>
+              </div>
+              <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Total Cost To Company</span>
+                <p className="text-sm font-black text-slate-900 mt-1">{formatMoney(salary.totals?.totalCostToCompany, true)}</p>
+              </div>
+            </div>
+          </SectionCard>
+
           {/* Salary Adjustment Requests */}
           <SectionCard
             title="Salary Adjustment Requests"

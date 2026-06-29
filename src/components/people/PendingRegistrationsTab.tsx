@@ -13,11 +13,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   pendingRegistrationsApi,
   REJECTION_TEMPLATES,
+  type ApprovalFinancialInfo,
   type PendingRegistrant,
 } from '../../api/pendingRegistrations';
 import {
   PageHeader, StatusBadge, UserAvatar, DataTable,
-  ConfirmDialog, FilterBar,
+  FilterBar,
 } from '@/components/ui/blih';
 import { Button } from '@/components/ui/button';
 import {
@@ -203,19 +204,148 @@ function RejectModal({
   );
 }
 
+type FinancialFormState = {
+  baseSalary: string;
+  pensionableSalary: string;
+  transportAllowance: string;
+  housingAllowance: string;
+  mealAllowance: string;
+  otherAllowance: string;
+  employeePensionRate: string;
+  employerPensionRate: string;
+  bankAccount: string;
+  tin: string;
+  remarks: string;
+};
+
+const createInitialFinancialForm = (prefill?: Partial<FinancialFormState>): FinancialFormState => ({
+  baseSalary: '',
+  pensionableSalary: '',
+  transportAllowance: '0',
+  housingAllowance: '0',
+  mealAllowance: '0',
+  otherAllowance: '0',
+  employeePensionRate: '7',
+  employerPensionRate: '11',
+  bankAccount: '',
+  tin: '',
+  remarks: '',
+  ...prefill,
+});
+
+const financialNumber = (value: string, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+};
+
+const toApprovalFinancialInfo = (form: FinancialFormState): ApprovalFinancialInfo => {
+  const baseSalary = financialNumber(form.baseSalary);
+  return {
+    baseSalary,
+    pensionableSalary: baseSalary,
+    currency: 'ETB',
+    transportAllowance: financialNumber(form.transportAllowance),
+    housingAllowance: financialNumber(form.housingAllowance),
+    mealAllowance: financialNumber(form.mealAllowance),
+    otherAllowance: financialNumber(form.otherAllowance),
+    employeePensionRate: financialNumber(form.employeePensionRate, 7),
+    employerPensionRate: financialNumber(form.employerPensionRate, 11),
+    bankAccount: form.bankAccount.trim(),
+    tin: form.tin.trim(),
+    paymentStatus: 'Pending',
+    remarks: form.remarks.trim(),
+  };
+};
+
+function FinancialField({
+  label, value, placeholder, inputMode = 'decimal', onChange,
+}: {
+  label: string;
+  value: string;
+  placeholder: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>['inputMode'];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="space-y-1.5">
+      <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">{label}</span>
+      <input
+        value={value}
+        onChange={event => onChange(event.target.value)}
+        inputMode={inputMode}
+        placeholder={placeholder}
+        className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500 focus:bg-white"
+      />
+    </label>
+  );
+}
+
+function ApproveConfirmationModal({
+  open, applicantName, loading, onClose, onConfirm,
+}: {
+  open: boolean;
+  applicantName: string;
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 8 }}
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-5 h-5 text-amber-600" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-slate-900">Confirm Financial Information</h3>
+            <p className="text-xs font-semibold text-slate-500 mt-1">
+              Are you sure you added the correct financial information for {applicantName}?
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2">
+          <Button variant="ghost" onClick={onClose} disabled={loading} className="h-8 text-xs px-4 rounded-lg">
+            Review
+          </Button>
+          <Button
+            onClick={onConfirm}
+            disabled={loading}
+            className="h-8 text-xs px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm shadow-emerald-600/20"
+          >
+            {loading ? 'Approving...' : 'Confirm approve'}
+          </Button>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
 // ── Detail drawer panel ───────────────────────────────────────────────────────
 function RegistrantDrawer({
   registrant, onClose, onApprove, onReject, approving, rejecting,
 }: {
   registrant: PendingRegistrant;
   onClose: () => void;
-  onApprove: () => void;
+  onApprove: (financialInfo: ApprovalFinancialInfo) => void;
   onReject: () => void;
   approving: boolean;
   rejecting: boolean;
 }) {
   const p = registrant.personal;
   const age = fmtAge(p.dateOfBirth);
+  const [drawerStep, setDrawerStep] = useState<'review' | 'financial'>('review');
+  const [approveConfirmOpen, setApproveConfirmOpen] = useState(false);
+  const [financialForm, setFinancialForm] = useState<FinancialFormState>(() => createInitialFinancialForm({
+    bankAccount: registrant.financial?.bankAccount || '',
+    tin: registrant.financial?.tin || '',
+  }));
 
   // Fetch full detail (EmployeeRecord metadata has the ID doc URLs)
   const [detail, setDetail] = useState<any>(null);
@@ -225,7 +355,9 @@ function RegistrantDrawer({
       .catch(() => null);
   }, [registrant.id]);
 
-  const empMeta  = detail?.EmployeeRecord?.metadata ?? detail?.EmployeeRecords?.[0]?.metadata ?? {};
+  const empRecord = detail?.EmployeeRecord ?? detail?.EmployeeRecords?.[0] ?? null;
+  const empMeta  = empRecord?.metadata ?? {};
+  const empSalaryInfo = empRecord?.salaryInfo ?? {};
   const frontUrl = empMeta.idDocumentFrontUrl ?? empMeta.idDocumentUrl ?? null;
   const backUrl  = empMeta.idDocumentBackUrl  ?? null;
 
@@ -238,8 +370,28 @@ function RegistrantDrawer({
   // Bank details — from metadata.bankDetails array
   const bankDetails = empMeta.bankDetails ?? [];
   const primaryBank = bankDetails[0] ?? null;
-  const bankName    = primaryBank?.bankName ?? null;
-  const bankAccount = primaryBank?.accountNumber ?? null;
+  const bankName    = primaryBank?.bankName ?? registrant.financial?.bankName ?? null;
+  const bankAccount = primaryBank?.accountNumber ?? empMeta.bankAccountNumber ?? empSalaryInfo.bankAccount ?? registrant.financial?.bankAccount ?? null;
+  const tin = empMeta.tin ?? empMeta.taxIdentificationNumber ?? empSalaryInfo.tin ?? registrant.financial?.tin ?? null;
+
+  useEffect(() => {
+    setFinancialForm(prev => ({
+      ...prev,
+      bankAccount: prev.bankAccount || bankAccount || '',
+      tin: prev.tin || tin || '',
+    }));
+  }, [bankAccount, tin]);
+
+  const setFinancialValue = (key: keyof FinancialFormState) => (value: string) => {
+    setFinancialForm(prev => ({ ...prev, [key]: value }));
+  };
+  const financialInfo = toApprovalFinancialInfo(financialForm);
+  const isFinancialStep = drawerStep === 'financial';
+  const canApprove = financialInfo.baseSalary > 0 && (financialInfo.pensionableSalary ?? 0) >= 0 && !approving && !rejecting;
+  const submitApproval = () => {
+    if (!canApprove) return;
+    setApproveConfirmOpen(true);
+  };
 
   return (
     <motion.div
@@ -274,8 +426,35 @@ function RegistrantDrawer({
         </div>
       )}
 
+      <div className="px-5 pt-4">
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-slate-50 p-1 border border-slate-100">
+          <button
+            type="button"
+            onClick={() => setDrawerStep('review')}
+            className={cn(
+              'h-9 rounded-xl text-[11px] font-black transition-colors',
+              !isFinancialStep ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700',
+            )}
+          >
+            1. Review
+          </button>
+          <button
+            type="button"
+            onClick={() => setDrawerStep('financial')}
+            className={cn(
+              'h-9 rounded-xl text-[11px] font-black transition-colors',
+              isFinancialStep ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700',
+            )}
+          >
+            2. Financial
+          </button>
+        </div>
+      </div>
+
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
+        {!isFinancialStep && (
+          <>
         <DetailSection title="Account" icon={User}>
           <DetailRow label="Full Name"  value={registrant.fullName} />
           <DetailRow label="Email"      value={registrant.email} />
@@ -305,6 +484,39 @@ function RegistrantDrawer({
           <DetailRow label="Position"         value={registrant.position?.title} />
         </DetailSection>
 
+          </>
+        )}
+
+        {isFinancialStep && (
+          <DetailSection title="Financial Information" icon={Landmark}>
+            <div className="col-span-2 rounded-xl border border-emerald-100 bg-emerald-50/70 px-3 py-2.5">
+              <p className="text-[9px] font-black uppercase tracking-wider text-emerald-700">Income tax mode</p>
+              <p className="text-xs font-bold text-emerald-900 mt-0.5">Ethiopian statutory PAYE with pension defaults</p>
+            </div>
+            <FinancialField label="Basic salary" value={financialForm.baseSalary} onChange={setFinancialValue('baseSalary')} placeholder="15000" />
+            <FinancialField label="Pensionable salary" value={financialForm.baseSalary} onChange={setFinancialValue('pensionableSalary')} placeholder="Uses basic salary" />
+            <FinancialField label="Transport allowance" value={financialForm.transportAllowance} onChange={setFinancialValue('transportAllowance')} placeholder="0" />
+            <FinancialField label="Housing allowance" value={financialForm.housingAllowance} onChange={setFinancialValue('housingAllowance')} placeholder="0" />
+            <FinancialField label="Meal allowance" value={financialForm.mealAllowance} onChange={setFinancialValue('mealAllowance')} placeholder="0" />
+            <FinancialField label="Other allowances" value={financialForm.otherAllowance} onChange={setFinancialValue('otherAllowance')} placeholder="0" />
+            <FinancialField label="Employee pension %" value={financialForm.employeePensionRate} onChange={setFinancialValue('employeePensionRate')} placeholder="7" />
+            <FinancialField label="Employer pension %" value={financialForm.employerPensionRate} onChange={setFinancialValue('employerPensionRate')} placeholder="11" />
+            <FinancialField label="TIN" value={financialForm.tin} onChange={setFinancialValue('tin')} placeholder="Tax ID" inputMode="text" />
+            <FinancialField label="Bank account" value={financialForm.bankAccount} onChange={setFinancialValue('bankAccount')} placeholder="Account number" inputMode="text" />
+            <label className="col-span-2 space-y-1.5">
+              <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Remarks / notes</span>
+              <textarea
+                value={financialForm.remarks}
+                onChange={event => setFinancialValue('remarks')(event.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500 focus:bg-white resize-none"
+              />
+            </label>
+          </DetailSection>
+        )}
+
+        {!isFinancialStep && (
+          <>
         {/* Emergency Contact */}
         {(emergencyName || emergencyPhone || emergencyRelationship) && (
           <DetailSection title="Emergency Contact" icon={HeartPulse}>
@@ -351,28 +563,57 @@ function RegistrantDrawer({
             <p className="text-[11px] font-semibold text-amber-700">No National ID documents uploaded.</p>
           </div>
         )}
+          </>
+        )}
       </div>
 
       {/* Action footer */}
       <div className="px-5 py-4 border-t border-slate-100 flex items-center gap-3">
         <Button
-          onClick={onReject}
+          onClick={isFinancialStep ? () => setDrawerStep('review') : onReject}
           disabled={approving || rejecting}
           variant="outline"
-          className="flex-1 h-9 text-xs border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300 rounded-xl font-bold"
+          className={cn(
+            'flex-1 h-9 text-xs rounded-xl font-bold',
+            isFinancialStep
+              ? 'border-slate-200 text-slate-600 hover:bg-slate-50'
+              : 'border-rose-200 text-rose-600 hover:bg-rose-50 hover:border-rose-300',
+          )}
         >
-          <XCircle className="w-3.5 h-3.5 mr-1.5" />
-          {rejecting ? 'Rejecting…' : 'Reject'}
+          {isFinancialStep ? (
+            <ChevronLeft className="w-3.5 h-3.5 mr-1.5" />
+          ) : (
+            <XCircle className="w-3.5 h-3.5 mr-1.5" />
+          )}
+          {isFinancialStep ? 'Back' : (rejecting ? 'Rejecting…' : 'Reject')}
         </Button>
         <Button
-          onClick={onApprove}
-          disabled={approving || rejecting}
-          className="flex-1 h-9 text-xs bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold shadow-sm shadow-emerald-600/20"
+          onClick={isFinancialStep ? submitApproval : () => setDrawerStep('financial')}
+          disabled={isFinancialStep ? !canApprove : approving || rejecting}
+          className={cn(
+            'flex-1 h-9 text-xs text-white rounded-xl font-bold shadow-sm',
+            isFinancialStep
+              ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'
+              : 'bg-blue-600 hover:bg-blue-700 shadow-blue-600/20',
+          )}
         >
-          <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
-          {approving ? 'Approving…' : 'Approve'}
+          {isFinancialStep ? (
+            <CheckCircle className="w-3.5 h-3.5 mr-1.5" />
+          ) : null}
+          {isFinancialStep ? (approving ? 'Approving…' : 'Approve') : 'Next'}
+          {!isFinancialStep ? <ChevronRight className="w-3.5 h-3.5 ml-1.5" /> : null}
         </Button>
       </div>
+
+      <AnimatePresence>
+        <ApproveConfirmationModal
+          open={approveConfirmOpen}
+          applicantName={registrant.fullName}
+          loading={approving}
+          onClose={() => setApproveConfirmOpen(false)}
+          onConfirm={() => onApprove(financialInfo)}
+        />
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -387,7 +628,6 @@ export default function PendingRegistrationsTab({ showAlert }: { showAlert: (msg
   const [pages, setPages]               = useState(1);
   const [loading, setLoading]           = useState(false);
   const [selected, setSelected]         = useState<PendingRegistrant | null>(null);
-  const [approveConfirm, setApproveConfirm] = useState(false);
   const [rejectOpen, setRejectOpen]     = useState(false);
   const [approving, setApproving]       = useState(false);
   const [rejecting, setRejecting]       = useState(false);
@@ -426,13 +666,12 @@ export default function PendingRegistrationsTab({ showAlert }: { showAlert: (msg
     setSnapshot(row);
   };
 
-  const handleApprove = async () => {
+  const handleApprove = async (financialInfo: ApprovalFinancialInfo) => {
     if (!snapshot) return;
     setApproving(true);
     try {
-      await pendingRegistrationsApi.approve(snapshot.id);
+      await pendingRegistrationsApi.approve(snapshot.id, financialInfo);
       showAlert(`${snapshot.fullName} has been approved`, 'success');
-      setApproveConfirm(false);
       setSelected(null);
       load(page);
     } catch {
@@ -581,7 +820,7 @@ export default function PendingRegistrationsTab({ showAlert }: { showAlert: (msg
             <RegistrantDrawer
               registrant={selected}
               onClose={() => setSelected(null)}
-              onApprove={() => setApproveConfirm(true)}
+              onApprove={handleApprove}
               onReject={() => setRejectOpen(true)}
               approving={approving}
               rejecting={rejecting}
@@ -589,18 +828,6 @@ export default function PendingRegistrationsTab({ showAlert }: { showAlert: (msg
           </>
         )}
       </AnimatePresence>
-
-      {/* Approve confirm dialog */}
-      <ConfirmDialog
-        open={approveConfirm}
-        onClose={() => setApproveConfirm(false)}
-        onConfirm={handleApprove}
-        title={`Approve ${snapshot?.fullName ?? ''}?`}
-        description="This will activate their account and assign their requested role. They will receive an email notification."
-        confirmLabel="Approve"
-        variant="success"
-        loading={approving}
-      />
 
       {/* Reject modal */}
       <AnimatePresence>
