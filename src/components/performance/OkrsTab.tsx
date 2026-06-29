@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Target, ChevronDown, ChevronUp, Sparkles, Check, Plus } from 'lucide-react';
-import { StatCardGrid, StatCard, FilterBar, EmptyState, SectionCard, FormField } from '@/components/ui/blih';
+import { StatCardGrid, StatCard, FilterBar, EmptyState, SectionCard, FormField, FormRow } from '@/components/ui/blih';
 
 interface KeyResult {
   id: string;

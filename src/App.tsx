@@ -363,6 +363,7 @@ export default function App() {
                   />
                 ) : currentRecruitmentTab === 'ready_to_post' ? (
                   <RecruitmentReadyToPost
+                    jobs={jobs.filter((job) => job.status === 'approved')}
                     onPostSuccess={handlePostSuccess}
                     onEditClick={(j) => setEditJobModal(j)}
                   />

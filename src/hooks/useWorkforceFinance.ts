@@ -148,7 +148,7 @@ export function useUpdateEmployeeBaseSalary() {
 export function useLinkEmployee() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number; netSalaryOverride?: number; salaryInputMode?: "base" | "net" }) =>
+    mutationFn: (data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number; netSalaryOverride?: number; salaryInputMode?: "base" | "net"; calculationMode?: "ethiopian" | "template" }) =>
       linkEmployeeToTemplate(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });

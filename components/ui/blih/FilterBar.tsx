@@ -90,7 +90,8 @@ export function FilterBar({
 
       {/* Filter selects */}
       {filters?.map((f, i) => (
-        <Select key={i} value={f.value} onValueChange={f.onChange}>
+        <React.Fragment key={i}>
+        <Select value={f.value} onValueChange={f.onChange}>
           <SelectTrigger
             className={cn(
               'bg-slate-50 border-slate-200 rounded-xl text-xs h-9 font-semibold',
@@ -107,6 +108,7 @@ export function FilterBar({
             ))}
           </SelectContent>
         </Select>
+        </React.Fragment>
       ))}
 
       {/* Right-side actions */}

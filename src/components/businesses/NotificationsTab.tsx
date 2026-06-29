@@ -87,9 +87,10 @@ function PreferenceRow({
   onToggle,
   isUpdating,
 }: {
+  key?: React.Key;
   moduleKey: string;
   preferences: NotifPreference[];
-  onToggle: (channel: string, moduleKey: string, enabled: boolean) => void;
+  onToggle: (channel: string, moduleKey: string, enabled: boolean) => void | Promise<void>;
   isUpdating: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);

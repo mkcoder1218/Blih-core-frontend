@@ -110,7 +110,9 @@ export function SkeletonBlock({
   return (
     <div className={cn('space-y-2.5', className)}>
       {Array.from({ length: rows }).map((_, i) => (
-        <SkeletonLine key={i} width={i % 3 === 2 ? '1/2' : i % 2 === 0 ? 'full' : '3/4'} />
+        <React.Fragment key={i}>
+          <SkeletonLine width={i % 3 === 2 ? '1/2' : i % 2 === 0 ? 'full' : '3/4'} />
+        </React.Fragment>
       ))}
     </div>
   );

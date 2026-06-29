@@ -329,6 +329,7 @@ export default function RecruitmentOffers({ showAlert: externalAlert }: Props) {
 
 // ─── Table row ────────────────────────────────────────────────────────────────
 function OfferRow({ offer, onSign, onView, onEdit, onOnboarding }: {
+  key?: React.Key;
   offer: OfferLetter;
   onSign: (o: OfferLetter) => void;
   onView: (o: OfferLetter) => void;

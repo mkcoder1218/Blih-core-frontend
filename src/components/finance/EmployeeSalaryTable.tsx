@@ -401,6 +401,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           templates={templates.data ?? []}
           templatesLoading={templates.isLoading}
           onClose={() => setEditRow(null)}
+          onSaved={() => salaries.refetch()}
           showAlert={showAlert}
         />
       )}
@@ -524,12 +525,14 @@ function UpdateSalaryModal({
   templates,
   templatesLoading,
   onClose,
+  onSaved,
   showAlert,
 }: {
   row: EmployeeSalaryRow;
   templates: { id: string; name: string; currency: string }[];
   templatesLoading: boolean;
   onClose: () => void;
+  onSaved: () => Promise<unknown>;
   showAlert: Props["showAlert"];
 }) {
   const [templateId, setTemplateId] = React.useState(row.templateId || templates[0]?.id || "");
@@ -557,8 +560,10 @@ function UpdateSalaryModal({
       employeeUserId: row.userId,
       templateId,
       salaryInputMode,
+      calculationMode: "ethiopian",
       ...(salaryInputMode === "net" ? { netSalaryOverride: parsedSalary } : { baseSalaryOverride: parsedSalary }),
     });
+    await onSaved();
     showAlert("Salary calculation updated.", "success");
     onClose();
   };

@@ -37,7 +37,7 @@ export default function CriticalDisciplineModal() {
   const { data, isLoading } = useCriticalDisciplinaryCases();
   const [open, setOpen] = useState(false);
   const cases = data?.rows ?? [];
-  const userRole = meRes?.data?.user?.role;
+  const userRole = (meRes?.data?.user as { role?: string } | undefined)?.role;
   const userId = meRes?.data?.user?.id || 'anonymous';
   const seenKey = `critical-discipline-seen:${userId}`;
   const sentCases = cases.filter((item) => canShowCaseForUser(item.metadata, userRole));
@@ -71,7 +71,7 @@ export default function CriticalDisciplineModal() {
   const openDiscipline = () => {
     markSeen();
     setOpen(false);
-    navigate(`/${roleSegment(meRes?.data?.user?.role)}/performance/discipline`);
+    navigate(`/${roleSegment(userRole)}/performance/discipline`);
   };
 
   const dismiss = () => {

@@ -22,6 +22,10 @@ export interface PendingRegistrant {
     baseSalary?: number | null;
     netSalary?: number | null;
     transportAllowance?: number | null;
+    perDiemAllowance?: number | null;
+    perDiemDays?: number | null;
+    medicalBenefit?: number | null;
+    telecomAllowance?: number | null;
     housingAllowance?: number | null;
     mealAllowance?: number | null;
     otherAllowance?: number | null;
@@ -56,6 +60,10 @@ export interface ApprovalFinancialInfo {
   pensionableSalary?: number;
   currency?: string;
   transportAllowance?: number;
+  perDiemAllowance?: number;
+  perDiemDays?: number;
+  medicalBenefit?: number;
+  telecomAllowance?: number;
   housingAllowance?: number;
   mealAllowance?: number;
   otherAllowance?: number;

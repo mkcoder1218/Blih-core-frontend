@@ -56,7 +56,7 @@ export async function updateEmployeeBaseSalary(userId: string, data: { baseSalar
   return api.patch(`/api/v1/finance/employee-salaries/${userId}/base-salary`, data);
 }
 
-export async function linkEmployeeToTemplate(data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number; netSalaryOverride?: number; salaryInputMode?: "base" | "net" }) {
+export async function linkEmployeeToTemplate(data: { employeeUserId: string; templateId: string; baseSalaryOverride?: number; netSalaryOverride?: number; salaryInputMode?: "base" | "net"; calculationMode?: "ethiopian" | "template" }) {
   return api.post("/api/v1/finance/payroll-links", data);
 }
 

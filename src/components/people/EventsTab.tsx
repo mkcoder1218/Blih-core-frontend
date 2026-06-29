@@ -3,7 +3,7 @@
  *   1. "Upcoming Events"  — visible to all (profiles.self / profiles.read)
  *   2. "Manage Events"    — visible to HR (hr.read / hr.write)
  */
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   Calendar, Plus, Edit2, Trash2, PartyPopper, Star, TrendingUp, Globe, Briefcase,
 } from 'lucide-react';
@@ -22,7 +22,7 @@ import type { HREvent, HREventType, CreateHREventPayload } from '../../api/hrEve
 import HolidayImportPanel from './HolidayImportPanel';
 
 // ── Event type config ──────────────────────────────────────────────────────────
-const EVENT_TYPE_CONFIG: Record<string, { label: string; emoji: string; gradient: string; icon: React.ReactNode }> = {
+const EVENT_TYPE_CONFIG: Record<string, { label: string; emoji: string; gradient: string; icon: ReactNode }> = {
   birthday:        { label: 'Birthday',        emoji: '🎂', gradient: 'from-sky-400 to-blue-600',     icon: <PartyPopper className="w-4 h-4" /> },
   work_anniversary:{ label: 'Work Anniversary', emoji: '🏆', gradient: 'from-purple-400 to-pink-500', icon: <Star className="w-4 h-4" /> },
   promotion:       { label: 'Promotion',        emoji: '🚀', gradient: 'from-amber-400 to-orange-500', icon: <TrendingUp className="w-4 h-4" /> },

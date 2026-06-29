@@ -483,7 +483,7 @@ export default function OfferLetterCreateModal({ isOpen, onClose, showAlert, onS
           previewData={previewData}
           formData={formData}
           showAlert={showAlert}
-          onSuccess={(draftId) => { setPreviewOpen(false); onSuccess?.(draftId); onClose(); }}
+          onSuccess={() => { setPreviewOpen(false); onSuccess?.(); onClose(); }}
         />
       )}
     </>

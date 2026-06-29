@@ -155,7 +155,9 @@ export default function EmployeeDetailPage({ user, onBack, onEdit, readOnly = fa
   const updateProfile = useMutation({
     mutationFn: async () => {
       const data = new FormData();
-      Object.entries(form).forEach(([key, value]) => data.append(key, value || ""));
+      Object.entries(form).forEach(([key, value]) => {
+        data.append(key, typeof value === "string" ? value : "");
+      });
       if (file) data.append("profileImage", file);
       const res = await api.patch("/api/v1/profiles/me", data, { headers: { "Content-Type": "multipart/form-data" } });
       return res.data.profile;

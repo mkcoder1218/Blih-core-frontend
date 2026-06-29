@@ -99,9 +99,10 @@ function BotForm({
   saving,
   testing
 }: {
+  key?: React.Key;
   setting: TelegramSetting;
-  onSave: (data: any) => void;
-  onTest: () => void;
+  onSave: (data: any) => void | Promise<void>;
+  onTest: () => void | Promise<void>;
   saving: boolean;
   testing: boolean;
 }) {

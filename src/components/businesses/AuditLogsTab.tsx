@@ -125,7 +125,7 @@ function DiffViewer({ before, after }: { before: any; after: any }) {
 }
 
 /* ─── row component ───────────────────────────────────────────────────────── */
-function AuditRow({ log }: { log: AuditLogEntry }) {
+function AuditRow({ log }: { key?: React.Key; log: AuditLogEntry }) {
   const [expanded, setExpanded] = useState(false);
   const cat = CATEGORY_CONFIG[log.category] ?? CATEGORY_CONFIG.success;
   const CatIcon = cat.icon;

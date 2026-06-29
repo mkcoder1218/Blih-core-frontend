@@ -124,7 +124,7 @@ function TopMatchCard({ app, onClick }: { app: any; onClick: () => void }) {
 
 // ── Candidate grid card (shortlisted / waitlisted) ────────────────────────────
 
-function CandidateGridCard({ app, onClick }: { app: any; onClick: () => void }) {
+function CandidateGridCard({ app, onClick }: { key?: React.Key; app: any; onClick: () => void }) {
   const name = app.fullName || 'Anonymous';
   const phone = app.phone || app.metadata?.phone || app.email || '—';
   const dateApplied = fmtDate(app.createdAt);

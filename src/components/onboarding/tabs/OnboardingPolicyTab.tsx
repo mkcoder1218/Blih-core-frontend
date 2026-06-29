@@ -148,7 +148,7 @@ export default function OnboardingPolicyTab({ showAlert }: OnboardingPolicyTabPr
         title={`Accept "${confirmPolicy?.title ?? 'Policy'}"`}
         description={`You are confirming that you have read and agree to the ${confirmPolicy?.title ?? 'policy'} (v${confirmPolicy?.version ?? 1}). This action cannot be undone.`}
         confirmLabel="I Accept"
-        variant="default"
+        variant="primary"
         loading={acceptPolicy.isPending}
       />
     </div>
@@ -158,6 +158,7 @@ export default function OnboardingPolicyTab({ showAlert }: OnboardingPolicyTabPr
 // ── PolicyCard ─────────────────────────────────────────────────────────────────
 
 interface PolicyCardProps {
+  key?: React.Key;
   policy: ActivePolicy;
   isExpanded: boolean;
   onToggle: () => void;

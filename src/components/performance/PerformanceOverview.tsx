@@ -55,7 +55,7 @@ export default function PerformanceOverview() {
 
   const projectTotals = summarizeProjects(filteredProjectRows);
   const weightedCompletion = projectTotals.assignedWeight ? Math.round((projectTotals.completedWeight / projectTotals.assignedWeight) * 100) : 0;
-  const distributionTotal = overview ? Object.values(overview.distribution).reduce((sum, value) => sum + value, 0) : 0;
+  const distributionTotal = overview ? Object.values(overview.distribution).reduce<number>((sum, value) => sum + Number(value || 0), 0) : 0;
 
   if (loading) {
     return <SectionCard><EmptyState icon={<Clock className="w-8 h-8" />} title="Loading performance analytics..." compact /></SectionCard>;
