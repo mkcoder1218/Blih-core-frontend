@@ -154,7 +154,13 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
     try {
       const res = await syncEthiopianTax.mutateAsync(syncFilters);
       const data = res.data?.data;
-      showAlert(`Synced ${data?.syncedCount ?? 0} salary records.`, "success");
+      const autoLinked = Number(data?.autoLinkedCount ?? 0);
+      showAlert(
+        autoLinked > 0
+          ? `Synced ${data?.syncedCount ?? 0} salary records and configured ${autoLinked}.`
+          : `Synced ${data?.syncedCount ?? 0} salary records.`,
+        "success"
+      );
       setShowSyncWarning(false);
     } catch (error: any) {
       showAlert(error?.response?.data?.error || "Could not sync Ethiopian tax.", "error");
@@ -404,10 +410,10 @@ function EthiopianTaxWarningModal({
           <div className="rounded-xl border border-slate-100 bg-slate-50/70 p-4">
             <h4 className="text-xs font-black text-slate-900">What will happen</h4>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-slate-600">
-              <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Configured employees in the current filters will be synced.</div>
+              <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Configured and needs-setup employees in the current filters will be synced.</div>
+              <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Needs-setup employees will be linked to the default active payroll template.</div>
               <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Transport exemption cap will be applied.</div>
               <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Per-diem monthly cap will be applied.</div>
-              <div className="rounded-lg bg-white border border-slate-100 px-3 py-2">Fringe benefit tax cap will be applied.</div>
             </div>
           </div>
         </div>
