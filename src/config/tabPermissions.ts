@@ -112,6 +112,7 @@ export const FINANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   salary_payroll:   { requires: ["finance.read", "finance.manage"] },
   payroll_template: { requires: ["finance.manage"] },
   budget:           { requires: ["finance.read", "finance.manage"] },
+  exports:          { requires: ["finance.read", "finance.manage"] },
   // Self-service tab — employees see only their own payslip / salary info
   my_payslip:       { requires: ["finance.mine"] },
   // Benefits — self-service (no company-expense access for finance.mine)

@@ -56,7 +56,7 @@ export default function App() {
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request'>('overview');
   const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture' | 'development'>('overview');
   const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding'>('offboarding');
-  const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits'>('overview');
+  const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits' | 'exports'>('overview');
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy'>('overview');
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<'overview' | 'performance_review' | 'okrs' | 'kpis' | 'discipline' | 'evaluation_form'>('overview');
   const [currentBusinessesTab, setCurrentBusinessesTab] = useState<BusinessesTab>('overview');

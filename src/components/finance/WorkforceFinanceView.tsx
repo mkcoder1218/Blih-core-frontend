@@ -52,11 +52,12 @@ import { exportWorkforceFinance } from '../../api/finance';
 import PayrollTemplatePanel from './PayrollTemplatePanel';
 import PayrollLinkPanel from './PayrollLinkPanel';
 import EmployeeSalaryTable from './EmployeeSalaryTable';
+import FinanceExportsPanel from './FinanceExportsPanel';
 import { StatCard, StatCardGrid, TabSwitcher, SectionCard, InfoAlert } from '@/components/ui/blih';
 import { useMyPermissions } from '../../hooks/usePermissions';
 
 interface WorkforceFinanceViewProps {
-  currentTab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'my_payslip' | 'benefits';
+  currentTab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'expense' | 'my_payslip' | 'benefits' | 'exports';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (message: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -376,7 +377,7 @@ export default function WorkforceFinanceView({
   const hasMineOnly = !canManageFinance && hasAny('finance.mine', 'expense.submit', 'benefits.read');
 
   // Protected tabs — block finance.mine-only users from seeing org-wide data
-  const MANAGER_ONLY_TABS = ['overview', 'salary_payroll', 'payroll_template', 'budget'];
+  const MANAGER_ONLY_TABS = ['overview', 'salary_payroll', 'payroll_template', 'budget', 'exports'];
   if (hasMineOnly && MANAGER_ONLY_TABS.includes(currentTab)) {
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -662,6 +663,10 @@ export default function WorkforceFinanceView({
       {/* 2b. PAY TEMPLATES */}
       {currentTab === 'payroll_template' && (
         <PayrollTemplatePanel showAlert={showAlert} />
+      )}
+
+      {currentTab === 'exports' && (
+        <FinanceExportsPanel showAlert={showAlert} />
       )}
 
       {/* 3. BUDGET TABS */}

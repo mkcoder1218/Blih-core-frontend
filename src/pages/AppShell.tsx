@@ -19,7 +19,7 @@ export default function AppShell() {
   >("overview");
   const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
   const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("offboarding");
-  const [currentFinanceTab, setCurrentFinanceTab] = useState<"overview" | "employee_salary" | "salary_payroll" | "payroll_template" | "budget" | "expense" | "benefits">("overview");
+  const [currentFinanceTab, setCurrentFinanceTab] = useState<"overview" | "employee_salary" | "salary_payroll" | "payroll_template" | "budget" | "expense" | "benefits" | "my_payslip" | "exports">("overview");
   const [currentProjectsTab, setCurrentProjectsTab] = useState<ProjectsTab>("overview");
   const [currentOnboardingTab, setCurrentOnboardingTab] = useState<"overview" | "contract" | "progress" | "probation" | "checklists" | "policy">("overview");
   const [currentPerformanceTab, setCurrentPerformanceTab] = useState<"overview" | "performance_review" | "okrs" | "kpis" | "discipline" | "evaluation_form">("overview");

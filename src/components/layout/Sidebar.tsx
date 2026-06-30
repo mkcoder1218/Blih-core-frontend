@@ -50,8 +50,8 @@ interface SidebarProps {
   setCurrentTalentTab: (tab: 'overview' | 'career' | 'training' | 'culture' | 'development') => void;
   currentExitTab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding';
   setCurrentExitTab: (tab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding') => void;
-  currentFinanceTab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits';
-  setCurrentFinanceTab: (tab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits') => void;
+  currentFinanceTab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits' | 'exports';
+  setCurrentFinanceTab: (tab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits' | 'exports') => void;
   currentProjectsTab?: ProjectsTab;
   setCurrentProjectsTab?: (tab: ProjectsTab) => void;
   currentOnboardingTab: 'overview' | 'contract' | 'progress' | 'probation' | 'checklists' | 'policy';
@@ -238,6 +238,7 @@ export default function Sidebar({
     { id: 'salary_payroll',  label: 'Salary & Payroll', badge: 0 },
     { id: 'payroll_template', label: 'Pay Templates',   badge: 0 },
     { id: 'budget',          label: 'Budget',           badge: 0 },
+    { id: 'exports',         label: 'Exports',          badge: 0 },
     { id: 'my_payslip',      label: 'My Payslip',       badge: 0 },
     { id: 'benefits',        label: 'Benefits',         badge: 0 },
   ] as const;
