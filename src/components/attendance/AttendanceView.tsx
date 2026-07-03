@@ -26,9 +26,10 @@ import AttendanceMemoLogTab from './AttendanceMemoLogTab';
 import AttendanceWfhTab from './AttendanceWfhTab';
 import AttendanceUnavailableTab from './AttendanceUnavailableTab';
 import ExitOffboardingView from '../offboarding/ExitOffboardingView';
+import AttendanceCalendarTab from './AttendanceCalendarTab';
 
 interface AttendanceViewProps {
-  currentAttendanceTab: 'overview' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request';
+  currentAttendanceTab: 'overview' | 'calendar' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
 }
@@ -195,6 +196,14 @@ export default function AttendanceView({
     return (
       <div className="h-full flex flex-col space-y-6">
         <EmployeeAttendanceHistoryPage />
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'calendar') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <AttendanceCalendarTab showAlert={showAlert} />
       </div>
     );
   }

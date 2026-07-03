@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { useState } from 'react';
 import { useMyPermissions } from '../../hooks/usePermissions';
 import { useCriticalDisciplinaryCases } from '../../hooks/useDisciplinary';
 import {
@@ -33,6 +34,8 @@ import {
   Building2,
   BriefcaseBusiness,
   Gem,
+  ChevronDown,
+  ChevronRight,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BusinessesTab, MainModule, ProjectsTab, RecruitmentTab } from '../../types';
@@ -46,8 +49,8 @@ interface SidebarProps {
   setCurrentProfilesTab: (tab: any) => void;
   currentAttendanceTab: string;
   setCurrentAttendanceTab: (tab: any) => void;
-  currentTalentTab: 'overview' | 'career' | 'training' | 'culture' | 'development';
-  setCurrentTalentTab: (tab: 'overview' | 'career' | 'training' | 'culture' | 'development') => void;
+  currentTalentTab: string;
+  setCurrentTalentTab: (tab: any) => void;
   currentExitTab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding';
   setCurrentExitTab: (tab: 'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding') => void;
   currentFinanceTab: 'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits' | 'exports';
@@ -62,7 +65,7 @@ interface SidebarProps {
   setCurrentBusinessesTab: (tab: BusinessesTab) => void;
   isDetailedView: boolean;
   setIsDetailedView: (val: boolean) => void;
-  user?: { name: string; email: string; role: string; departmentName?: string | null; employmentType?: string | null; employmentStatus?: string | null } | null;
+  user?: { name: string; email: string; role: string; positionTitle?: string | null; departmentName?: string | null; employmentType?: string | null; employmentStatus?: string | null } | null;
   onLogout?: () => void;
   onProfileClick?: () => void;
   mobileOpen?: boolean;
@@ -104,6 +107,16 @@ export default function Sidebar({
   const { hasAny, isSuperAdmin } = useMyPermissions();
   const { data: criticalDisciplineData } = useCriticalDisciplinaryCases();
   const criticalDisciplineCount = criticalDisciplineData?.total ?? criticalDisciplineData?.rows?.length ?? 0;
+  const [openTalentGroups, setOpenTalentGroups] = useState<Record<string, boolean>>({
+    Recruitment: true,
+    Onboarding: false,
+    People: false,
+  });
+  const [openAttendanceGroups, setOpenAttendanceGroups] = useState<Record<string, boolean>>({
+    Dashboard: true,
+    'Time & Records': false,
+    'Requests & Leave': false,
+  });
 
   // ── Helper: filter a tab list by the permission map ───────────────────────
   function allowedTabs<T extends { id: string }>(
@@ -127,6 +140,14 @@ export default function Sidebar({
       ? 'hr-manager'
       : 'employee';
   const isInternUser = user?.employmentType === 'intern';
+  const formatEmploymentType = (value?: string | null) =>
+    value ? value.replace(/_/g, ' ').replace(/\b\w/g, (char) => char.toUpperCase()) : '';
+  const sidebarRoleLabel =
+    user?.positionTitle ||
+    (user?.role && user.role !== 'Employee' ? user.role : '') ||
+    user?.departmentName ||
+    formatEmploymentType(user?.employmentType) ||
+    'Staff';
 
   const getInitials = (name: string) => {
     const parts = name.trim().split(/\s+/);
@@ -139,12 +160,9 @@ export default function Sidebar({
     { id: 'businesses',  label: 'Businesses',             icon: Building2,       badge: 0 },
     { id: 'permissions', label: 'Roles & Permissions',    icon: Shield,          badge: 0 },
     { id: 'subscription', label: 'Subscription & Billing', icon: Gem,             badge: 0 },
-    { id: 'recruitment', label: 'Recruitment & Hiring',   icon: UserPlus,        badge: 0 },
-    { id: 'onboarding',  label: 'Onboarding & Probation', icon: UserCheck,       badge: 0 },
-    { id: 'profiles',    label: 'People Profiles',        icon: Users,           badge: 0 },
+    { id: 'talent',      label: 'Talent Management',      icon: UserPlus,        badge: 0 },
     { id: 'attendance',  label: 'Attendance & Leave',     icon: Calendar,        badge: 0 },
     { id: 'performance', label: 'Performance',            icon: TrendingUp,      badge: criticalDisciplineCount },
-    { id: 'talent',      label: 'Career Management',      icon: GraduationCap,   badge: 0 },
     { id: 'exit',        label: 'Exit & Offboarding',     icon: LogOut,          badge: 0 },
     { id: 'finance',     label: 'Workforce Finance',      icon: CircleDollarSign,badge: 0 },
     { id: 'projects',    label: 'Projects',               icon: BriefcaseBusiness,badge: 0 },
@@ -199,6 +217,7 @@ export default function Sidebar({
 
   const ALL_ATTENDANCE_TABS = [
     { id: 'overview',       label: 'Overview',          badge: 0 },
+    { id: 'calendar',       label: 'Calendar',          badge: 0 },
     { id: 'check-in',       label: 'Check-ins',         badge: 0 },
     { id: 'check-me-in',    label: 'Check me in',       badge: 0 },
     { id: 'history',        label: 'History',           badge: 0 },
@@ -276,8 +295,96 @@ export default function Sidebar({
   const profilesTabs      = allowedTabs(ALL_PROFILES_TABS,     PROFILES_TAB_PERMISSIONS)
     .filter((tab) => !isInternUser || ['events'].includes(tab.id));
   const attendanceTabs    = allowedTabs(ALL_ATTENDANCE_TABS,   ATTENDANCE_TAB_PERMISSIONS)
-    .filter((tab) => !isInternUser || ['check-me-in', 'history', 'requests', 'leaves', 'overtime', 'unavailable', 'work-from-home', 'exit-request'].includes(tab.id));
-  const talentTabs        = allowedTabs(ALL_TALENT_TABS,       TALENT_TAB_PERMISSIONS);
+    .filter((tab) => !isInternUser || ['calendar', 'check-me-in', 'history', 'requests', 'leaves', 'overtime', 'unavailable', 'work-from-home', 'exit-request'].includes(tab.id));
+  type AttendanceTabId = typeof attendanceTabs[number]['id'];
+  const attendanceTabById = new Map(attendanceTabs.map((tab) => [tab.id, tab]));
+  const attendanceGroups  = ([
+    {
+      title: 'Dashboard',
+      ids: ['overview', 'calendar'],
+      labels: { overview: 'Overview', calendar: 'Calendar' },
+    },
+    {
+      title: 'Time & Records',
+      ids: ['check-in', 'check-me-in', 'history', 'timesheet', 'my-lateness-reason', 'manual-lateness-reason', 'late-reasons', 'memo-log'],
+      labels: {
+        'check-in': 'Check-ins',
+        'check-me-in': 'Check me in',
+        history: 'History',
+        timesheet: 'Timesheet',
+        'my-lateness-reason': 'My Lateness',
+        'manual-lateness-reason': 'Manual Lateness',
+        'late-reasons': 'Late Reasons',
+        'memo-log': 'Memo Log',
+      },
+    },
+    {
+      title: 'Requests & Leave',
+      ids: ['requests', 'leaves', 'overtime', 'unavailable', 'work-from-home', 'exit-request'],
+      labels: {
+        requests: 'Requests',
+        leaves: 'Leaves',
+        overtime: 'Overtime',
+        unavailable: 'Unavailable',
+        'work-from-home': 'Work-from-Home',
+        'exit-request': 'Exit Request',
+      },
+    },
+  ] as Array<{ title: string; ids: AttendanceTabId[]; labels: Partial<Record<AttendanceTabId, string>> }>).map((group) => ({
+    title: group.title,
+    items: group.ids
+      .map((id) => {
+        const tab = attendanceTabById.get(id);
+        return tab ? { ...tab, label: group.labels[id] ?? tab.label } : null;
+      })
+      .filter(Boolean) as typeof attendanceTabs,
+  })).filter((group) => group.items.length > 0);
+  const talentGroups      = [
+    {
+      title: 'Recruitment',
+      items: recruitmentTabs.map((tab) => ({
+        ...tab,
+        id: `recruitment-${tab.id}`,
+        label: ({
+          overview: 'Overview',
+          requests: 'Requests',
+          ready_to_post: 'Ready to Post',
+          active_posting: 'Active Posts',
+          closed_posts: 'Closed Posts',
+          ongoing_recruitment: 'Applicants',
+          my_interviews: 'Interviews',
+          offers: 'Offers',
+          offer_templates: 'Offer Templates',
+          applicant_forms: 'Forms',
+        } as Record<string, string>)[tab.id] ?? tab.label,
+      })),
+    },
+    {
+      title: 'Onboarding',
+      items: onboardingTabs.map((tab) => ({
+        ...tab,
+        id: `onboarding-${tab.id}`,
+        label: ({
+          overview: 'Overview',
+          contract: 'Contracts',
+          progress: 'Progress',
+          probation: 'Probation',
+          checklists: 'Checklists',
+          policy: 'Policies',
+        } as Record<string, string>)[tab.id] ?? tab.label,
+      })),
+    },
+    {
+      title: 'People',
+      items: profilesTabs
+        .filter((tab) => ['create', 'directory'].includes(tab.id))
+        .map((tab) => ({
+          ...tab,
+          id: `profiles-${tab.id}`,
+          label: tab.id === 'create' ? 'Create Profile' : 'Profiles',
+        })),
+    },
+  ].filter((group) => group.items.length > 0);
   const exitTabs          = allowedTabs(ALL_EXIT_TABS,         EXIT_TAB_PERMISSIONS);
   const financeTabs       = allowedTabs(ALL_FINANCE_TABS,      FINANCE_TAB_PERMISSIONS);
   const projectsTabs      = allowedTabs(ALL_PROJECTS_TABS,     PROJECTS_TAB_PERMISSIONS);
@@ -287,7 +394,6 @@ export default function Sidebar({
   const handleModuleClick = (moduleId: MainModule) => {
     setCurrentModule(moduleId);
     if (
-      moduleId === 'recruitment' || moduleId === 'onboarding' || moduleId === 'profiles' ||
       moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' ||
       moduleId === 'finance' || moduleId === 'projects' || moduleId === 'performance' || moduleId === 'businesses' ||
       moduleId === 'permissions'
@@ -295,7 +401,7 @@ export default function Sidebar({
     ) {
       setIsDetailedView(true);
       if (moduleId === 'businesses') setCurrentBusinessesTab('overview');
-      if (moduleId === 'profiles') setCurrentProfilesTab('directory');
+      if (moduleId === 'talent') setCurrentTalentTab('recruitment-overview');
     } else {
       setIsDetailedView(false);
     }
@@ -317,6 +423,13 @@ export default function Sidebar({
         : 'text-slate-600 hover:bg-slate-50/50 hover:text-slate-900'
     }`;
 
+  const groupedChildCls = (isActive: boolean) =>
+    `w-full flex items-center justify-between gap-2 py-2 pr-2.5 rounded-lg text-xs font-medium transition-all cursor-pointer min-w-0 ${
+      isActive
+        ? 'bg-slate-50 text-slate-900 font-bold border-l-2 border-blue-600 pl-5'
+        : 'text-slate-600 hover:bg-slate-50/50 hover:text-slate-900 pl-6'
+    }`;
+
   const Badge = ({ count, tone = 'blue' }: { count: number; tone?: 'blue' | 'red' }) =>
     count > 0 ? (
       <span className={`${tone === 'red' ? 'bg-red-600' : 'bg-blue-600'} text-[10px] text-white font-semibold px-1.5 py-0.5 rounded-full inline-flex items-center justify-center min-w-[18px]`}>
@@ -325,8 +438,8 @@ export default function Sidebar({
     ) : null;
 
   const portalTitle = isInternUser ? 'Intern Portal' : user?.departmentName ? `${user.departmentName} Portal` : `${user?.role || 'Employee'} Portal`;
-  const defaultModule = user?.role === 'Employee' ? 'attendance' : 'recruitment';
-  const defaultPath = user?.role === 'Employee' ? `/${roleSegment}/attendance/check-me-in` : `/${roleSegment}/recruitment`;
+  const defaultModule = user?.role === 'Employee' ? 'attendance' : 'talent';
+  const defaultPath = user?.role === 'Employee' ? `/${roleSegment}/attendance/check-me-in` : `/${roleSegment}/talent/recruitment-overview`;
 
   // ─── State 1: Detailed two-column sidebar ───────────────────────────────────
   if (isDetailedView) {
@@ -396,11 +509,11 @@ export default function Sidebar({
                 {currentModule === 'recruitment' ? portalTitle
                   : currentModule === 'profiles' ? 'People & Profiles'
                   : currentModule === 'attendance' ? 'Attendance'
-                  : currentModule === 'talent' ? 'Career Management'
+                  : currentModule === 'talent' ? 'Talent Management'
                   : currentModule === 'exit' ? 'Exit & Offboarding'
                   : mainModules.find((m: any) => m.id === currentModule)?.label}
               </h2>
-              <span className="text-[11px] font-medium text-blue-600 block leading-tight">{user?.role || 'Dashboard'}</span>
+              <span className="text-[11px] font-medium text-blue-600 block leading-tight">{sidebarRoleLabel}</span>
             </div>
 
             <div className="flex flex-col gap-1">
@@ -417,18 +530,102 @@ export default function Sidebar({
                 </button>
               ))}
 
-              {currentModule === 'attendance' && attendanceTabs.map((tab) => (
-                <button key={tab.id} onClick={() => { setCurrentAttendanceTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/attendance` : `/${roleSegment}/attendance/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentAttendanceTab === tab.id)}>
-                  <span>{tab.label}</span>
-                </button>
-              ))}
+              {currentModule === 'attendance' && attendanceGroups.map((group) => {
+                const hasActiveChild = group.items.some((tab) => tab.id === currentAttendanceTab);
+                const isOpen = hasActiveChild || openAttendanceGroups[group.title] !== false;
+                const Chevron = isOpen ? ChevronDown : ChevronRight;
 
-              {currentModule === 'talent' && talentTabs.map((tab) => (
-                <button key={tab.id} onClick={() => { setCurrentTalentTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/talent` : `/${roleSegment}/talent/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentTalentTab === tab.id)}>
-                  <span>{tab.label}</span>
-                  <Badge count={tab.badge} />
-                </button>
-              ))}
+                return (
+                  <div key={group.title} className="pt-1.5 first:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenAttendanceGroups((prev) => ({
+                          ...prev,
+                          [group.title]: !(prev[group.title] !== false),
+                        }));
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-extrabold transition-colors cursor-pointer ${
+                        hasActiveChild ? 'text-slate-950 bg-slate-50/70' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="truncate">{group.title}</span>
+                      <Chevron className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    </button>
+
+                    <div className={`grid transition-[grid-template-rows,opacity] duration-150 ease-out ${
+                      isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-70'
+                    }`}>
+                      <div className="overflow-hidden">
+                        <div className="mt-0.5 flex flex-col gap-0.5">
+                          {group.items.map((tab) => (
+                            <button
+                              key={tab.id}
+                              onClick={() => {
+                                setCurrentAttendanceTab(tab.id);
+                                navigate(tab.id === 'overview' ? `/${roleSegment}/attendance` : `/${roleSegment}/attendance/${tab.id}`);
+                                onMobileClose?.();
+                              }}
+                              className={groupedChildCls(currentAttendanceTab === tab.id)}
+                            >
+                              <span className="truncate">{tab.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+
+              {currentModule === 'talent' && talentGroups.map((group) => {
+                const hasActiveChild = group.items.some((tab) => tab.id === currentTalentTab);
+                const isOpen = hasActiveChild || openTalentGroups[group.title] !== false;
+                const Chevron = isOpen ? ChevronDown : ChevronRight;
+
+                return (
+                  <div key={group.title} className="pt-1.5 first:pt-0">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOpenTalentGroups((prev) => ({
+                          ...prev,
+                          [group.title]: !(prev[group.title] !== false),
+                        }));
+                      }}
+                      className={`w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-extrabold transition-colors cursor-pointer ${
+                        hasActiveChild ? 'text-slate-950 bg-slate-50/70' : 'text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="truncate">{group.title}</span>
+                      <Chevron className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                    </button>
+
+                    <div className={`grid transition-[grid-template-rows,opacity] duration-150 ease-out ${
+                      isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-70'
+                    }`}>
+                      <div className="overflow-hidden">
+                        <div className="mt-0.5 flex flex-col gap-0.5">
+                          {group.items.map((tab) => (
+                            <button
+                              key={tab.id}
+                              onClick={() => {
+                                setCurrentTalentTab(tab.id);
+                                navigate(`/${roleSegment}/talent/${tab.id}`);
+                                onMobileClose?.();
+                              }}
+                              className={groupedChildCls(currentTalentTab === tab.id)}
+                            >
+                              <span className="truncate">{tab.label}</span>
+                              <Badge count={tab.badge} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
 
               {currentModule === 'exit' && exitTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentExitTab(tab.id); navigate(tab.id === 'offboarding' ? `/${roleSegment}/exit` : `/${roleSegment}/exit/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentExitTab === tab.id)}>

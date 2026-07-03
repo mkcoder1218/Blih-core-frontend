@@ -9,6 +9,9 @@ export interface AppNotification {
   priority: string;
   moduleKey: string;
   type: string;
+  entityType?: string | null;
+  entityId?: string | null;
+  metadata?: Record<string, any> | null;
   createdAt: string;
   readAt: string | null;
 }

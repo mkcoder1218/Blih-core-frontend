@@ -4,6 +4,7 @@ export type LegacyUser = {
   name: string;
   email: string;
   role: string;
+  positionTitle?: string | null;
   departmentName?: string | null;
   employmentType?: string | null;
   employmentStatus?: string | null;

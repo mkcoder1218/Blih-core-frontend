@@ -34,6 +34,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { clearAuthTokens } from './api/storage';
 import { notifyAuthChanged } from './api/authState';
 import { setLegacyUser, useLegacyUser } from './api/legacyUserStore';
+import type { AppNotification } from './hooks/useNotifications';
 
 export default function App() {
   const activeUser = useLegacyUser();
@@ -53,7 +54,7 @@ export default function App() {
   });
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>('overview');
   const [currentProfilesTab, setCurrentProfilesTab] = useState<'create' | 'bulk_create' | 'organogram' | 'directory' | 'left' | 'interns' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations'>('directory');
-  const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request'>('overview');
+  const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'calendar' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request'>('overview');
   const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture' | 'development'>('overview');
   const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding'>('offboarding');
   const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits' | 'exports'>('overview');
@@ -212,6 +213,19 @@ export default function App() {
     handleTriggerAiGenerate(promptText, contextType);
   };
 
+  const handleOpenNotification = (notice: AppNotification) => {
+    if (notice.entityType === 'user_calendar_meeting_request' || notice.type === 'calendar_meeting_request') {
+      setIsDetailedView(true);
+      setCurrentModule('attendance');
+      setCurrentAttendanceTab('calendar');
+      window.setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('blih:open-calendar-meeting-requests', {
+          detail: { meetingRequestId: notice.entityId || null },
+        }));
+      }, 80);
+    }
+  };
+
   // RootApp handles login. If legacy user is missing briefly (me query still loading), render nothing.
   if (!activeUser) return null;
 
@@ -269,6 +283,7 @@ export default function App() {
           isDetailedView={isDetailedView}
           onOpenAiHelper={triggerGeneralAiHelp}
           onMobileMenuOpen={() => setMobileSidebarOpen(true)}
+          onOpenNotification={handleOpenNotification}
         />
 
         {/* Floating notifications */}

@@ -6,6 +6,8 @@ import { api } from "../api/client";
 export type LeaveStatus = "pending" | "approved" | "rejected" | "cancelled";
 export type LeaveApprovalStage = "dept_head" | "admin" | "approved" | "rejected" | "cancelled";
 export type LeaveType = "annual" | "sick" | "maternity" | "paternity" | "casual" | "unpaid" | string;
+export type LeaveDurationType = "FULL_DAY" | "HALF_DAY";
+export type LeaveHalfDayPeriod = "MORNING" | "AFTERNOON";
 
 export interface LeaveTemplate {
   id: string;
@@ -18,6 +20,8 @@ export interface LeaveTemplate {
   requiresEvidence?: boolean;
   evidenceInstructions?: string | null;
   isActive: boolean;
+  isVisibleForRequest?: boolean;
+  isDeprecated?: boolean;
   createdAt: string;
   creator?: { id: string; fullName: string } | null;
 }
@@ -31,6 +35,9 @@ export interface LeaveRequest {
   startDate: string;
   endDate: string;
   totalDays: number;
+  durationType?: LeaveDurationType;
+  halfDayPeriod?: LeaveHalfDayPeriod | null;
+  requestedDays?: number | string;
   reason: string;
   evidenceUrl?: string | null;
   evidenceNote?: string | null;
@@ -41,7 +48,7 @@ export interface LeaveRequest {
   rejectionReason?: string | null;
   createdAt: string;
   employee?: { id: string; fullName: string; email: string } | null;
-  template?: { id: string; name: string; leaveType: string; hasAmount?: boolean; totalDays: number; requiresEvidence?: boolean; evidenceInstructions?: string | null } | null;
+  template?: { id: string; name: string; leaveType: string; hasAmount?: boolean; totalDays: number; isVisibleForRequest?: boolean; isDeprecated?: boolean; requiresEvidence?: boolean; evidenceInstructions?: string | null } | null;
   deptHeadApprover?: { id: string; fullName: string } | null;
   businessAdminApprover?: { id: string; fullName: string } | null;
   adminApprover?: { id: string; fullName: string } | null;
@@ -176,6 +183,8 @@ export function useSubmitLeaveRequest() {
       leaveTemplateId: string;
       startDate: string;
       endDate: string;
+      durationType: LeaveDurationType;
+      halfDayPeriod?: LeaveHalfDayPeriod | null;
       reason: string;
       evidenceUrl?: string;
       evidenceNote?: string;

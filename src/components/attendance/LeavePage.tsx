@@ -90,6 +90,28 @@ const PIPELINE_STEPS = [
   { key: "approved",  label: "Approved"   },
 ];
 
+function isLegacyAnnualHalfDay(req: LeaveRequest) {
+  const templateName = req.template?.name ?? "";
+  return templateName.toLowerCase().replace(/\s/g, "") === "annual(halfday)";
+}
+
+function displayTemplateName(req: LeaveRequest) {
+  return isLegacyAnnualHalfDay(req) ? "Annual Leave" : req.template?.name ?? req.leaveType;
+}
+
+function displayDuration(req: LeaveRequest) {
+  const durationType = isLegacyAnnualHalfDay(req) ? "HALF_DAY" : req.durationType ?? "FULL_DAY";
+  if (durationType === "HALF_DAY") {
+    const period = req.halfDayPeriod ? ` (${req.halfDayPeriod.toLowerCase()})` : "";
+    return `Half day${period}`;
+  }
+  return "Full day";
+}
+
+function requestedDays(req: LeaveRequest) {
+  return Number(req.requestedDays ?? req.totalDays ?? 0);
+}
+
 // ── Small reusable pieces ─────────────────────────────────────────────────────
 
 function StageBadge({ stage }: { stage: string }) {
@@ -242,11 +264,11 @@ function LeaveCard({
         </div>
         <div>
           <span className="text-slate-400 font-medium block">Duration</span>
-          <span className="text-blue-600 font-black text-[11px]">{req.totalDays}d</span>
+          <span className="text-blue-600 font-black text-[11px]">{displayDuration(req)} · {requestedDays(req)}d</span>
         </div>
         <div>
           <span className="text-slate-400 font-medium block">Template</span>
-          <span className="text-slate-600 font-semibold text-[9.5px]">{req.template?.name ?? req.leaveType}</span>
+          <span className="text-slate-600 font-semibold text-[9.5px]">{displayTemplateName(req)}</span>
         </div>
       </div>
 
@@ -342,6 +364,8 @@ function SubmitModal({
 
   const [form, setForm] = useState({
     leaveTemplateId: "",
+    durationType: "FULL_DAY" as "FULL_DAY" | "HALF_DAY",
+    halfDayPeriod: null as "MORNING" | "AFTERNOON" | null,
     startDate: new Date().toISOString().slice(0, 10),
     endDate:   new Date().toISOString().slice(0, 10),
     reason: "",
@@ -350,19 +374,38 @@ function SubmitModal({
   });
 
   const selectedTemplate = activeTemplates.find((t) => t.id === form.leaveTemplateId);
+  const isAnnualLeave = selectedTemplate
+    ? selectedTemplate.leaveType === "annual" || selectedTemplate.name.toLowerCase().trim() === "annual leave"
+    : false;
   const balance = balances.find((b) => b.leaveType === selectedTemplate?.leaveType);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const durationType = isAnnualLeave ? form.durationType : "FULL_DAY";
+    const halfDayPeriod = isAnnualLeave && durationType === "HALF_DAY" ? form.halfDayPeriod : null;
+    const endDate = isAnnualLeave && durationType === "HALF_DAY" ? form.startDate : form.endDate;
     if (!form.leaveTemplateId) { showAlert("Please select a leave type", "error"); return; }
     if (!form.reason.trim())   { showAlert("Please provide a reason", "error"); return; }
-    if (form.endDate < form.startDate) { showAlert("End date cannot be before start date", "error"); return; }
+    if (endDate < form.startDate) { showAlert("End date cannot be before start date", "error"); return; }
+    if (durationType === "HALF_DAY" && !halfDayPeriod) {
+      showAlert("Please select morning or afternoon for half-day leave", "error");
+      return;
+    }
+    if (durationType === "HALF_DAY" && form.startDate !== endDate) {
+      showAlert("Half-day leave must start and end on the same date", "error");
+      return;
+    }
     if (selectedTemplate?.requiresEvidence && !form.evidenceUrl.trim() && !form.evidenceNote.trim()) {
       showAlert("Please provide evidence for this leave type", "error");
       return;
     }
     try {
-      await submit.mutateAsync(form);
+      await submit.mutateAsync({
+        ...form,
+        durationType,
+        halfDayPeriod,
+        endDate,
+      });
       showAlert("Leave request submitted successfully", "success");
       onClose();
     } catch (err: any) {
@@ -383,7 +426,7 @@ function SubmitModal({
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Template selector */}
           <div className="space-y-1.5">
-            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leave Type</label>
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leave Template</label>
             {activeTemplates.length === 0 ? (
               <div className="bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 text-[11px] text-amber-700 font-semibold">
                 No active leave types available. Please contact HR.
@@ -391,10 +434,22 @@ function SubmitModal({
             ) : (
               <Select
                 value={form.leaveTemplateId}
-              onValueChange={(val) => setForm((p) => ({ ...p, leaveTemplateId: val }))}
+                onValueChange={(val) => {
+                  const nextTemplate = activeTemplates.find((tpl) => tpl.id === val);
+                  const nextIsAnnual = nextTemplate
+                    ? nextTemplate.leaveType === "annual" || nextTemplate.name.toLowerCase().trim() === "annual leave"
+                    : false;
+                  setForm((p) => ({
+                    ...p,
+                    leaveTemplateId: val,
+                    durationType: nextIsAnnual ? p.durationType : "FULL_DAY",
+                    halfDayPeriod: nextIsAnnual && p.durationType === "HALF_DAY" ? p.halfDayPeriod ?? "MORNING" : null,
+                    endDate: nextIsAnnual && p.durationType === "HALF_DAY" ? p.startDate : p.endDate,
+                  }));
+                }}
               >
                 <SelectTrigger className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold h-9">
-                  <SelectValue placeholder="Select leave type..." />
+                  <SelectValue placeholder="Select leave template..." />
                 </SelectTrigger>
                 <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-[min(92vw,360px)]">
                   {activeTemplates.map((tpl) => {
@@ -443,6 +498,48 @@ function SubmitModal({
             </div>
           )}
 
+          {isAnnualLeave && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Duration</label>
+                <Select
+                  value={form.durationType}
+                  onValueChange={(val) => setForm((p) => ({
+                    ...p,
+                    durationType: val as "FULL_DAY" | "HALF_DAY",
+                    halfDayPeriod: val === "HALF_DAY" ? p.halfDayPeriod ?? "MORNING" : null,
+                    endDate: val === "HALF_DAY" ? p.startDate : p.endDate,
+                  }))}
+                >
+                  <SelectTrigger className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold h-9">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="FULL_DAY">Full day</SelectItem>
+                    <SelectItem value="HALF_DAY">Half day</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {form.durationType === "HALF_DAY" && (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Period</label>
+                  <Select
+                    value={form.halfDayPeriod ?? ""}
+                    onValueChange={(val) => setForm((p) => ({ ...p, halfDayPeriod: val as "MORNING" | "AFTERNOON" }))}
+                  >
+                    <SelectTrigger className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold h-9">
+                      <SelectValue placeholder="Select period..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MORNING">Morning</SelectItem>
+                      <SelectItem value="AFTERNOON">Afternoon</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
+
           {selectedTemplate?.requiresEvidence && (
             <div className="bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5 text-[11px] text-amber-700 font-semibold flex items-start gap-2">
               <Paperclip className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
@@ -461,7 +558,11 @@ function SubmitModal({
                 type="date"
                 required
                 value={form.startDate}
-                onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))}
+                onChange={(e) => setForm((p) => ({
+                  ...p,
+                  startDate: e.target.value,
+                  endDate: isAnnualLeave && p.durationType === "HALF_DAY" ? e.target.value : p.endDate,
+                }))}
                 className="bg-slate-50 border-slate-200 rounded-xl text-xs h-9 font-semibold"
               />
             </div>
@@ -470,10 +571,11 @@ function SubmitModal({
               <Input
                 type="date"
                 required
+                disabled={isAnnualLeave && form.durationType === "HALF_DAY"}
                 min={form.startDate}
                 value={form.endDate}
                 onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
-                className="bg-slate-50 border-slate-200 rounded-xl text-xs h-9 font-semibold"
+                className="bg-slate-50 border-slate-200 rounded-xl text-xs h-9 font-semibold disabled:text-slate-400"
               />
             </div>
           </div>
@@ -890,6 +992,18 @@ function TemplatesPanel({ showAlert }: { showAlert: (m: string, t?: "success" | 
                 <div>
                   <LeaveTypeBadge type={tpl.leaveType} />
                   <h4 className="text-[12px] font-extrabold text-slate-900 mt-2 leading-tight">{tpl.name}</h4>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {tpl.isDeprecated && (
+                      <span className="rounded-full bg-amber-50 border border-amber-100 px-2 py-0.5 text-[9px] font-bold text-amber-700">
+                        Deprecated
+                      </span>
+                    )}
+                    {tpl.isVisibleForRequest === false && (
+                      <span className="rounded-full bg-slate-100 border border-slate-200 px-2 py-0.5 text-[9px] font-bold text-slate-600">
+                        Hidden
+                      </span>
+                    )}
+                  </div>
                   {tpl.requiresEvidence && (
                     <div className="inline-flex items-center gap-1 mt-2 rounded-full bg-blue-50 border border-blue-100 px-2 py-0.5 text-[9px] font-bold text-blue-700">
                       <Paperclip className="w-3 h-3" />
@@ -969,7 +1083,7 @@ function TemplatesPanel({ showAlert }: { showAlert: (m: string, t?: "success" | 
               </div>
             </DialogHeader>
             <p className="text-xs text-slate-600 font-medium">
-              Are you sure you want to delete this template? Templates with pending requests cannot be deleted.
+              Referenced templates are hidden and deprecated instead of being removed.
             </p>
             <div className="flex gap-3">
               <Button variant="outline" onClick={() => setConfirmDelete(null)} className="flex-1 border-slate-200 text-slate-600 font-bold text-xs h-9 rounded-xl">
@@ -1060,7 +1174,7 @@ export default function LeavePage({ showAlert }: LeavePageProps) {
   const pending    = myRows.filter((r) => r.status === "pending").length;
   const totalDaysUsed = myRows
     .filter((r) => r.status === "approved")
-    .reduce((s, r) => s + r.totalDays, 0);
+    .reduce((s, r) => s + requestedDays(r), 0);
 
   const handleApprove = async (id: string) => {
     try {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Bell, Grid, Sparkles, Loader2, Menu } from 'lucide-react';
 import { MainModule, RecruitmentTab } from '../../types';
 import {
+  type AppNotification,
   useNotifications,
   useUnreadCount,
   useMarkNotificationRead,
@@ -18,6 +19,7 @@ interface HeaderProps {
   onOpenAiHelper: (suggestType: string) => void;
   /** Mobile: callback to open the sidebar drawer */
   onMobileMenuOpen?: () => void;
+  onOpenNotification?: (notification: AppNotification) => void;
 }
 
 export default function Header({
@@ -26,6 +28,7 @@ export default function Header({
   isDetailedView,
   onOpenAiHelper,
   onMobileMenuOpen,
+  onOpenNotification,
 }: HeaderProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -61,7 +64,7 @@ export default function Header({
     if (currentModule === 'profiles')   mainText = 'People Profiles';
     if (currentModule === 'attendance') mainText = 'Attendance & Leave';
     if (currentModule === 'performance') mainText = 'Performance';
-    if (currentModule === 'talent')     mainText = 'Career Management';
+    if (currentModule === 'talent')     mainText = 'Talent Management';
     if (currentModule === 'exit')       mainText = 'Exit & Off boarding';
     if (currentModule === 'finance')    mainText = 'Workforce Finance';
     if (currentModule === 'projects')   mainText = 'Projects';
@@ -70,6 +73,12 @@ export default function Header({
 
   const { main, sub } = getBreadcrumbTitle();
   const hasUnread = unreadCount > 0;
+
+  const handleNotificationClick = (notification: AppNotification) => {
+    if (notification.status === 'unread') markRead.mutate(notification.id);
+    onOpenNotification?.(notification);
+    setShowNotifications(false);
+  };
 
   return (
     <header className="h-[68px] bg-white border-b border-slate-100 px-4 sm:px-6 lg:px-8 flex items-center justify-between flex-shrink-0 relative z-30">
@@ -148,9 +157,7 @@ export default function Header({
                 {(notifications || []).map(n => (
                   <div
                     key={n.id}
-                    onClick={() => {
-                      if (n.status === 'unread') markRead.mutate(n.id);
-                    }}
+                    onClick={() => handleNotificationClick(n)}
                     className={`px-5 py-4 cursor-pointer transition-colors hover:bg-slate-50 ${
                       n.status === 'unread' ? 'bg-blue-50/30' : ''
                     }`}

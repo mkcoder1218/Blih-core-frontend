@@ -35,6 +35,323 @@
   animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+.blih-events-calendar {
+  --fc-border-color: #e2e8f0;
+  --fc-page-bg-color: #ffffff;
+  --fc-neutral-bg-color: #f8fafc;
+  --fc-today-bg-color: #eff6ff;
+  --fc-now-indicator-color: #2563eb;
+  --fc-small-font-size: 0.75rem;
+}
+
+.blih-events-calendar .fc {
+  color: #0f172a;
+  font-family: var(--font-sans);
+}
+
+.blih-events-calendar .fc .fc-toolbar {
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.blih-events-calendar .fc .fc-toolbar-title {
+  color: #0f172a;
+  font-size: 1rem;
+  font-weight: 850;
+  letter-spacing: 0;
+}
+
+.blih-events-calendar .fc .fc-button {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  box-shadow: none;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 800;
+  line-height: 1;
+  padding: 0.55rem 0.75rem;
+  text-transform: capitalize;
+}
+
+.blih-events-calendar .fc .fc-button:hover,
+.blih-events-calendar .fc .fc-button:focus {
+  background: #f8fafc;
+  border-color: #94a3b8;
+  color: #0f172a;
+}
+
+.blih-events-calendar .fc .fc-button-primary:not(:disabled).fc-button-active,
+.blih-events-calendar .fc .fc-button-primary:not(:disabled):active {
+  background: #1a56db;
+  border-color: #1a56db;
+  color: #ffffff;
+}
+
+.blih-events-calendar .fc .fc-col-header-cell {
+  background: #f8fafc;
+  padding: 0.5rem 0;
+}
+
+.blih-events-calendar .fc .fc-col-header-cell-cushion,
+.blih-events-calendar .fc .fc-daygrid-day-number {
+  color: #475569;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.blih-events-calendar .fc .fc-daygrid-day.fc-day-today .fc-daygrid-day-number {
+  color: #1d4ed8;
+}
+
+.blih-events-calendar .fc .fc-event {
+  border-radius: 0.45rem;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.12rem 0.3rem;
+}
+
+.blih-events-calendar .fc .fc-daygrid-event {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none;
+  color: #334155 !important;
+  margin: 1px 2px;
+  min-height: 1rem;
+  padding: 0;
+}
+
+.blih-events-calendar .fc .fc-daygrid-event .fc-event-main {
+  color: inherit !important;
+  min-width: 0;
+}
+
+.blih-month-event-indicator {
+  align-items: center;
+  display: flex;
+  gap: 0.3rem;
+  min-width: 0;
+  overflow: hidden;
+  padding: 0.05rem 0.15rem;
+  width: 100%;
+}
+
+.blih-month-event-dot {
+  border-radius: 999px;
+  flex: 0 0 auto;
+  height: 0.42rem;
+  width: 0.42rem;
+}
+
+.blih-month-event-title {
+  color: #334155;
+  display: block;
+  flex: 1 1 auto;
+  font-size: 0.68rem;
+  font-weight: 650;
+  line-height: 1.1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blih-events-calendar .fc .fc-daygrid-more-link {
+  color: #2563eb;
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1.1;
+  margin: 1px 2px;
+  max-width: calc(100% - 4px);
+  overflow: hidden;
+  padding: 0.05rem 0.15rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blih-events-calendar .fc .fc-more-popover {
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  box-shadow: 0 12px 28px rgb(15 23 42 / 0.14);
+  overflow: hidden;
+}
+
+.blih-events-calendar .fc .fc-more-popover .fc-popover-header {
+  background: #f8fafc;
+  color: #334155;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.blih-calendar-event-block {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.blih-calendar-event-time,
+.blih-calendar-event-title {
+  display: block;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.blih-calendar-event-time {
+  font-size: 0.68rem;
+  font-weight: 850;
+}
+
+.blih-calendar-event-title {
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.blih-layered-overlap-calendar .fc .fc-timegrid-event-harness,
+.blih-layered-overlap-calendar .fc .fc-timegrid-event-harness-inset {
+  left: 0 !important;
+  right: 4px !important;
+  width: auto !important;
+}
+
+.blih-layered-overlap-calendar .fc .fc-timegrid-event {
+  box-shadow: 0 2px 8px rgb(15 23 42 / 0.14);
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.blih-layered-overlap-calendar .fc .fc-timegrid-event.blih-overlap-offset-1 {
+  transform: translateX(4px);
+  width: calc(100% - 4px);
+}
+
+.blih-layered-overlap-calendar .fc .fc-timegrid-event.blih-overlap-offset-2 {
+  transform: translateX(8px);
+  width: calc(100% - 8px);
+}
+
+.blih-events-calendar .fc .fc-list-event-title,
+.blih-events-calendar .fc .fc-list-day-text,
+.blih-events-calendar .fc .fc-list-day-side-text {
+  font-weight: 800;
+  text-decoration: none;
+}
+
+@media (max-width: 640px) {
+  .blih-events-calendar {
+    --fc-small-font-size: 0.72rem;
+  }
+
+  .blih-events-calendar .fc .fc-toolbar {
+    align-items: stretch;
+    gap: 0.45rem;
+    flex-direction: column;
+    margin-bottom: 0.55rem;
+  }
+
+  .blih-events-calendar .fc .fc-toolbar-chunk {
+    display: flex;
+    justify-content: center;
+  }
+
+  .blih-events-calendar .fc .fc-toolbar-chunk:first-child {
+    justify-content: space-between;
+  }
+
+  .blih-events-calendar .fc .fc-toolbar-chunk:nth-child(2) {
+    order: -1;
+  }
+
+  .blih-events-calendar .fc .fc-toolbar-chunk:last-child .fc-button-group {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .blih-events-calendar .fc .fc-toolbar-title {
+    font-size: 0.9rem;
+    font-weight: 800;
+    line-height: 1.2;
+    text-align: center;
+  }
+
+  .blih-events-calendar .fc .fc-button {
+    border-radius: 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    min-height: 2rem;
+    padding: 0.4rem 0.55rem;
+  }
+
+  .blih-events-calendar .fc .fc-button-group {
+    gap: 0.25rem;
+  }
+
+  .blih-events-calendar .fc .fc-button-group > .fc-button {
+    border-radius: 0.5rem !important;
+  }
+
+  .blih-events-calendar .fc .fc-col-header-cell {
+    padding: 0.35rem 0;
+  }
+
+  .blih-events-calendar .fc .fc-col-header-cell-cushion,
+  .blih-events-calendar .fc .fc-daygrid-day-number {
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+
+  .blih-events-calendar .fc .fc-event {
+    border-radius: 0.38rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 0.08rem 0.22rem;
+  }
+
+  .blih-events-calendar .fc .fc-daygrid-event {
+    margin: 0 1px;
+    padding: 0;
+  }
+
+  .blih-month-event-indicator {
+    gap: 0.22rem;
+    padding: 0;
+  }
+
+  .blih-month-event-dot {
+    height: 0.38rem;
+    width: 0.38rem;
+  }
+
+  .blih-month-event-title,
+  .blih-events-calendar .fc .fc-daygrid-more-link {
+    font-size: 0.62rem;
+  }
+
+  .blih-events-calendar .fc .fc-timegrid-slot {
+    height: 1.85rem;
+  }
+
+  .blih-events-calendar .fc .fc-timegrid-axis-cushion,
+  .blih-events-calendar .fc .fc-timegrid-slot-label-cushion {
+    color: #64748b;
+    font-size: 0.68rem;
+    font-weight: 600;
+  }
+
+  .blih-events-calendar .fc .fc-scrollgrid {
+    border-radius: 0.5rem;
+    overflow: hidden;
+  }
+}
+
 /* Sidebar mobile drawer behavior */
 /* On mobile/tablet (<lg), sidebar is hidden off-screen by default */
 @media (max-width: 1023px) {

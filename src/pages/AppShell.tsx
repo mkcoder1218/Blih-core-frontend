@@ -15,9 +15,9 @@ export default function AppShell() {
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>("overview");
   const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "bulk_create" | "organogram" | "directory" | "left" | "interns" | "organization" | "devices" | "events" | "archive" | "pending_registrations">("overview");
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<
-    "overview" | "check-in" | "check-me-in" | "history" | "my-lateness-reason" | "manual-lateness-reason" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "unavailable" | "memo-log" | "work-from-home" | "exit-request"
+    "overview" | "calendar" | "check-in" | "check-me-in" | "history" | "my-lateness-reason" | "manual-lateness-reason" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "unavailable" | "memo-log" | "work-from-home" | "exit-request"
   >("overview");
-  const [currentTalentTab, setCurrentTalentTab] = useState<"overview" | "career" | "training" | "culture">("overview");
+  const [currentTalentTab, setCurrentTalentTab] = useState<string>("recruitment-overview");
   const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("offboarding");
   const [currentFinanceTab, setCurrentFinanceTab] = useState<"overview" | "employee_salary" | "salary_payroll" | "payroll_template" | "budget" | "expense" | "benefits" | "my_payslip" | "exports">("overview");
   const [currentProjectsTab, setCurrentProjectsTab] = useState<ProjectsTab>("overview");
@@ -41,9 +41,9 @@ export default function AppShell() {
   const currentModule = useMemo(() => {
     const p = location.pathname || "/";
     if (p.includes("/businesses")) return "businesses";
-    if (p.includes("/recruitment")) return "recruitment";
-    if (p.includes("/onboarding")) return "onboarding";
-    if (p.includes("/profiles")) return "profiles";
+    if (p.includes("/recruitment")) return "talent";
+    if (p.includes("/onboarding")) return "talent";
+    if (p.includes("/profiles")) return "talent";
     if (p.includes("/attendance")) return "attendance";
     if (p.includes("/performance")) return "performance";
     if (p.includes("/talent")) return "talent";
@@ -52,7 +52,7 @@ export default function AppShell() {
     if (p.includes("/projects")) return "projects";
     if (p.includes("/permissions")) return "permissions";
     if (p.includes("/subscription")) return "subscription";
-    return userRole === "Super Admin" ? "businesses" : userRole === "Employee" ? "attendance" : "recruitment";
+    return userRole === "Super Admin" ? "businesses" : userRole === "Employee" ? "attendance" : "talent";
   }, [location.pathname, userRole]);
 
   React.useEffect(() => {
@@ -65,14 +65,14 @@ export default function AppShell() {
     if (segments.length >= 3) {
       const module = segments[2];
       const tab = segments[3] || "overview";
-      if (module === "recruitment") setCurrentRecruitmentTab(tab as any);
-      if (module === "profiles") setCurrentProfilesTab(tab as any);
+      if (module === "recruitment") setCurrentTalentTab(`recruitment-${tab === "overview" ? "overview" : tab}`);
+      if (module === "profiles") setCurrentTalentTab(`profiles-${tab === "overview" ? "directory" : tab}`);
       if (module === "attendance") setCurrentAttendanceTab(tab as any);
-      if (module === "talent") setCurrentTalentTab(tab as any);
+      if (module === "talent") setCurrentTalentTab(tab === "overview" ? "recruitment-overview" : tab);
       if (module === "exit") setCurrentExitTab(tab as any);
       if (module === "finance") setCurrentFinanceTab(tab as any);
       if (module === "projects") setCurrentProjectsTab(tab as any);
-      if (module === "onboarding") setCurrentOnboardingTab(tab as any);
+      if (module === "onboarding") setCurrentTalentTab(`onboarding-${tab === "overview" ? "overview" : tab}`);
       if (module === "performance") setCurrentPerformanceTab(tab as any);
       if (module === "businesses") setCurrentBusinessesTab(tab as any);
     }

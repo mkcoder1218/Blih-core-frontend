@@ -18,11 +18,17 @@ import { useMe } from "../hooks/useMe";
 import { useQueryClient } from "@tanstack/react-query";
 import OfferLetterTemplatePage from "./OfferLetterTemplatePage";
 
-export default function RecruitmentPage() {
+interface RecruitmentPageProps {
+  currentTab?: string;
+  routeForTab?: (tab: string) => string;
+}
+
+export default function RecruitmentPage({ currentTab, routeForTab }: RecruitmentPageProps = {}) {
   const params = useParams();
   const navigate = useNavigate();
-  const tab = (params.tab as any) || "overview";
+  const tab = (currentTab || params.tab || "overview") as any;
   const queryClient = useQueryClient();
+  const getRouteForTab = routeForTab || ((newTab: string) => `/recruitment/${newTab}`);
 
   const pendingJobRequests = useJobRequests({ status: "pending" });
   const declinedJobRequests = useJobRequests({ status: "declined" });
@@ -89,7 +95,7 @@ export default function RecruitmentPage() {
   const renderTabContent = () => {
     switch (tab) {
       case "overview":
-        return <RecruitmentOverview onNavigateToTab={(newTab) => navigate(`/recruitment/${newTab}`)} />;
+        return <RecruitmentOverview onNavigateToTab={(newTab) => navigate(getRouteForTab(newTab))} />;
       case "requests":
         return (
           <RecruitmentRequests 
@@ -115,7 +121,7 @@ export default function RecruitmentPage() {
                     publishJob.mutate(id, {
                         onSuccess: () => {
                             console.log(`Job published: ${jobTitle}`);
-                            navigate('/recruitment/active_posting');
+                            navigate(getRouteForTab('active_posting'));
                         }
                     });
                 }
@@ -144,7 +150,7 @@ export default function RecruitmentPage() {
       case "my_interviews":
         return <InterviewManagementView showAlert={() => {}} />;
       default:
-        return <RecruitmentOverview onNavigateToTab={(newTab) => navigate(`/recruitment/${newTab}`)} />;
+        return <RecruitmentOverview onNavigateToTab={(newTab) => navigate(getRouteForTab(newTab))} />;
     }
   };
 

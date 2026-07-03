@@ -11,7 +11,6 @@ import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-
 import AppShell from "./pages/AppShell";
 import UnauthorizedPage from "./pages/UnauthorizedPage";
 import RoleGuard from "./components/RoleGuard";
-import RecruitmentPage from "./pages/RecruitmentPage";
 import BusinessesPage from "./pages/BusinessesPage";
 import ModulePage from "./pages/ModulePage";
 import PermissionManagement from "./pages/PermissionManagement";
@@ -38,6 +37,11 @@ function ProjectDetailsPageWrapper() {
   const { projectId } = useParams<{ projectId: string }>();
   if (!projectId) return <div>Invalid project link.</div>;
   return <ProjectDetailsPage projectId={projectId} />;
+}
+
+function TalentRecruitmentRedirect({ rolePrefix }: { rolePrefix: string }) {
+  const { tab } = useParams<{ tab?: string }>();
+  return <Navigate to={`/${rolePrefix}/talent/recruitment-${tab || "overview"}`} replace />;
 }
 
 export default function RootApp() {
@@ -93,7 +97,7 @@ export default function RootApp() {
                       path="hr-manager/recruitment"
                       element={
                         <RoleGuard allow="hr_manager">
-                          <RecruitmentPage />
+                          <TalentRecruitmentRedirect rolePrefix="hr-manager" />
                         </RoleGuard>
                       }
                     />
@@ -101,7 +105,7 @@ export default function RootApp() {
                       path="hr-manager/recruitment/:tab"
                       element={
                         <RoleGuard allow="hr_manager">
-                          <RecruitmentPage />
+                          <TalentRecruitmentRedirect rolePrefix="hr-manager" />
                         </RoleGuard>
                       }
                     />
@@ -141,7 +145,7 @@ export default function RootApp() {
                       path="business-admin/recruitment"
                       element={
                         <RoleGuard allow="business_admin">
-                          <RecruitmentPage />
+                          <TalentRecruitmentRedirect rolePrefix="business-admin" />
                         </RoleGuard>
                       }
                     />
@@ -149,7 +153,7 @@ export default function RootApp() {
                       path="business-admin/recruitment/:tab"
                       element={
                         <RoleGuard allow="business_admin">
-                          <RecruitmentPage />
+                          <TalentRecruitmentRedirect rolePrefix="business-admin" />
                         </RoleGuard>
                       }
                     />
@@ -226,8 +230,8 @@ export default function RootApp() {
                       }
                     />
                     <Route path="employee" element={<Navigate to="/employee/attendance/check-me-in" replace />} />
-                    <Route path="hr-manager" element={<Navigate to="/hr-manager/recruitment" replace />} />
-                    <Route path="business-admin" element={<Navigate to="/business-admin/recruitment" replace />} />
+                    <Route path="hr-manager" element={<Navigate to="/hr-manager/talent/recruitment-overview" replace />} />
+                    <Route path="business-admin" element={<Navigate to="/business-admin/talent/recruitment-overview" replace />} />
                     <Route path="super-admin" element={<Navigate to="/super-admin/businesses" replace />} />
                     <Route path="*" element={<HomeRedirect />} />
                   </Route>
@@ -255,12 +259,13 @@ function SyncLegacyUser() {
       name: u.fullName,
       email: u.email,
       role: u.isPlatformSuperAdmin ? "Super Admin" : isHrManager ? "HR Manager" : isBusinessAdmin ? "Business Admin" : "Employee",
+      positionTitle: profile?.position?.title || profile?.Position?.title || null,
       departmentName: profile?.department?.name || null,
       employmentType: u.employmentType || null,
       employmentStatus: u.employmentStatus || null,
     };
     setLegacyUser(legacy);
-  }, [u?.id, roles.join(","), profile?.department?.name, u?.employmentType, u?.employmentStatus]);
+  }, [u?.id, roles.join(","), profile?.department?.name, profile?.position?.title, profile?.Position?.title, u?.employmentType, u?.employmentStatus]);
 
   return null;
 }
@@ -272,7 +277,7 @@ function HomeRedirect() {
   const roles: string[] = (me.data as any)?.data?.roles || [];
   const isBusinessAdmin = roles.includes("BUSINESS_ADMIN");
   const isHrManager = roles.includes("HR_MANAGER");
-  return <Navigate to={isClientPortal ? "/client-portal" : isSuper ? "/super-admin/businesses" : isBusinessAdmin ? "/business-admin/recruitment" : isHrManager ? "/hr-manager/recruitment" : "/employee/attendance/check-me-in"} replace />;
+  return <Navigate to={isClientPortal ? "/client-portal" : isSuper ? "/super-admin/businesses" : isBusinessAdmin ? "/business-admin/talent/recruitment-overview" : isHrManager ? "/hr-manager/talent/recruitment-overview" : "/employee/attendance/check-me-in"} replace />;
 }
 
 function InternalUserModals() {

@@ -3,7 +3,13 @@
  *   1. "Upcoming Events"  — visible to all (profiles.self / profiles.read)
  *   2. "Manage Events"    — visible to HR (hr.read / hr.write)
  */
-import { useState, type ReactNode } from 'react';
+import { useMemo, useState, type ComponentType, type ReactNode } from 'react';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import listPlugin from '@fullcalendar/list';
+import interactionPlugin from '@fullcalendar/interaction';
+import type { EventClickArg } from '@fullcalendar/core';
 import {
   Calendar, Plus, Edit2, Trash2, PartyPopper, Star, TrendingUp, Globe, Briefcase,
 } from 'lucide-react';
@@ -21,6 +27,8 @@ import { useUpcomingEvents, useHREvents, useCreateHREvent, useUpdateHREvent, use
 import type { HREvent, HREventType, CreateHREventPayload } from '../../api/hrEvents';
 import HolidayImportPanel from './HolidayImportPanel';
 
+const FullCalendarView = FullCalendar as unknown as ComponentType<any>;
+
 // ── Event type config ──────────────────────────────────────────────────────────
 const EVENT_TYPE_CONFIG: Record<string, { label: string; emoji: string; gradient: string; icon: ReactNode }> = {
   birthday:        { label: 'Birthday',        emoji: '🎂', gradient: 'from-sky-400 to-blue-600',     icon: <PartyPopper className="w-4 h-4" /> },
@@ -29,6 +37,15 @@ const EVENT_TYPE_CONFIG: Record<string, { label: string; emoji: string; gradient
   holiday:         { label: 'Holiday',          emoji: '🗓️', gradient: 'from-emerald-400 to-teal-500', icon: <Globe className="w-4 h-4" /> },
   company_event:   { label: 'Company Event',   emoji: '🎉', gradient: 'from-violet-400 to-indigo-500', icon: <Briefcase className="w-4 h-4" /> },
   other:           { label: 'Other',            emoji: '📌', gradient: 'from-slate-400 to-slate-600',  icon: <Calendar className="w-4 h-4" /> },
+};
+
+const EVENT_TYPE_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  birthday:         { bg: '#0284c7', border: '#0369a1', text: '#ffffff' },
+  work_anniversary: { bg: '#9333ea', border: '#7e22ce', text: '#ffffff' },
+  promotion:        { bg: '#d97706', border: '#b45309', text: '#ffffff' },
+  holiday:          { bg: '#059669', border: '#047857', text: '#ffffff' },
+  company_event:    { bg: '#4f46e5', border: '#4338ca', text: '#ffffff' },
+  other:            { bg: '#64748b', border: '#475569', text: '#ffffff' },
 };
 
 const CATEGORY_FILTERS: { id: string; label: string; type: string | null }[] = [
@@ -55,7 +72,163 @@ function daysUntil(dateStr: string) {
   return Math.round((d.getTime() - today.getTime()) / 86400_000);
 }
 
+function addOneDay(dateStr?: string | null) {
+  if (!dateStr) return undefined;
+  const date = new Date(dateStr + 'T12:00:00');
+  date.setDate(date.getDate() + 1);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatFullDate(dateStr: string) {
+  return new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 // ── Upcoming Events sub-tab ────────────────────────────────────────────────────
+export function EventsCalendarPanel() {
+  const { data, isLoading } = useHREvents({ size: 500 });
+  const [selectedEvent, setSelectedEvent] = useState<HREvent | null>(null);
+
+  const calendarEvents = useMemo(() => {
+    return (data?.rows ?? []).map((ev) => {
+      const cfg = EVENT_TYPE_CONFIG[ev.eventType] ?? EVENT_TYPE_CONFIG.other;
+      const colors = EVENT_TYPE_COLORS[ev.eventType] ?? EVENT_TYPE_COLORS.other;
+
+      return {
+        id: ev.id,
+        title: `${ev.emoji || cfg.emoji} ${ev.title}`,
+        start: ev.eventDate,
+        end: addOneDay(ev.endDate),
+        allDay: true,
+        backgroundColor: ev.color || colors.bg,
+        borderColor: ev.color || colors.border,
+        textColor: colors.text,
+        extendedProps: { event: ev },
+      };
+    });
+  }, [data?.rows]);
+
+  const handleEventClick = (arg: EventClickArg) => {
+    setSelectedEvent(arg.event.extendedProps.event as HREvent);
+  };
+
+  const selectedConfig = selectedEvent
+    ? EVENT_TYPE_CONFIG[selectedEvent.eventType] ?? EVENT_TYPE_CONFIG.other
+    : null;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h4 className="text-sm font-bold text-slate-950 tracking-tight">Events Calendar</h4>
+          <p className="text-[11px] text-slate-500 font-medium">Company events, holidays, birthdays and milestones in one calendar.</p>
+        </div>
+        <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-slate-500 flex-wrap">
+          {Object.entries(EVENT_TYPE_CONFIG).slice(0, 6).map(([key, cfg]) => (
+            <span key={key} className="inline-flex items-center gap-1.5">
+              <span
+                className="h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: EVENT_TYPE_COLORS[key]?.bg ?? EVENT_TYPE_COLORS.other.bg }}
+              />
+              {cfg.label}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="blih-events-calendar rounded-2xl border border-slate-100 bg-white p-3 shadow-2xs sm:p-5">
+        {isLoading ? (
+          <LoadingSpinner label="Loading calendar..." />
+        ) : (
+          <FullCalendarView
+            plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,timeGridWeek,listMonth',
+            }}
+            buttonText={{
+              today: 'Today',
+              month: 'Month',
+              week: 'Week',
+              list: 'List',
+            }}
+            events={calendarEvents}
+            eventClick={handleEventClick}
+            height="auto"
+            dayMaxEvents={3}
+            nowIndicator
+            eventDisplay="block"
+            firstDay={1}
+          />
+        )}
+      </div>
+
+      <Dialog open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
+        <DialogContent className="max-w-md">
+          {selectedEvent && selectedConfig && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <span
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-base text-white"
+                    style={{ backgroundColor: selectedEvent.color || EVENT_TYPE_COLORS[selectedEvent.eventType]?.bg || EVENT_TYPE_COLORS.other.bg }}
+                  >
+                    {selectedEvent.emoji || selectedConfig.emoji}
+                  </span>
+                  {selectedEvent.title}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 pt-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-slate-600">
+                    {selectedConfig.label}
+                  </span>
+                  {selectedEvent.isRecurring && (
+                    <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-blue-600">
+                      Annual
+                    </span>
+                  )}
+                  <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[10px] font-black uppercase tracking-wide text-emerald-600">
+                    {selectedEvent.visibility}
+                  </span>
+                </div>
+
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Date</p>
+                  <p className="mt-1 font-semibold text-slate-800">
+                    {formatFullDate(selectedEvent.eventDate)}
+                    {selectedEvent.endDate ? ` to ${formatFullDate(selectedEvent.endDate)}` : ''}
+                  </p>
+                </div>
+
+                {selectedEvent.description && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Details</p>
+                    <p className="mt-1 leading-6 text-slate-600">{selectedEvent.description}</p>
+                  </div>
+                )}
+
+                {selectedEvent.employee && (
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Employee</p>
+                    <p className="mt-1 font-semibold text-slate-800">{selectedEvent.employee.fullName}</p>
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function UpcomingEventsPanel({ showAlert }: { showAlert: (m: string, t?: 'success' | 'info' | 'error') => void }) {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -324,7 +497,7 @@ function ManageEventsPanel({ showAlert }: { showAlert: (m: string, t?: 'success'
           <p className="text-[11px] text-slate-500 font-medium">Create, edit and delete company calendar events.</p>
         </div>
         <div className="flex items-center gap-3">
-          <select value={typeFilter} onChange={e => setTypeFilter(e.target.value)}
+          <select value={typeFilter} onChange={e => setTypeFilter(e.currentTarget.value)}
             className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-bold focus:outline-none cursor-pointer">
             <option value="all">All Types</option>
             {Object.entries(EVENT_TYPE_CONFIG).map(([k, v]) => (
@@ -422,35 +595,35 @@ function ManageEventsPanel({ showAlert }: { showAlert: (m: string, t?: 'success'
             </FormRow>
             <FormField label="Event Title" required>
               <Input placeholder="e.g. Adwa Victory Day" value={form.title}
-                onChange={e => setForm(p => ({ ...p, title: e.target.value }))} />
+                onChange={e => setForm(p => ({ ...p, title: e.currentTarget.value }))} />
             </FormField>
             <FormRow cols={2}>
               <FormField label="Event Date" required>
                 <Input type="date" value={form.eventDate}
-                  onChange={e => setForm(p => ({ ...p, eventDate: e.target.value }))} />
+                  onChange={e => setForm(p => ({ ...p, eventDate: e.currentTarget.value }))} />
               </FormField>
               <FormField label="End Date (optional)">
                 <Input type="date" value={form.endDate as string}
-                  onChange={e => setForm(p => ({ ...p, endDate: e.target.value }))} />
+                  onChange={e => setForm(p => ({ ...p, endDate: e.currentTarget.value }))} />
               </FormField>
             </FormRow>
             <FormRow cols={2}>
               <FormField label="Emoji (optional)">
                 <Input placeholder="e.g. 🎂" value={form.emoji as string}
-                  onChange={e => setForm(p => ({ ...p, emoji: e.target.value }))} />
+                  onChange={e => setForm(p => ({ ...p, emoji: e.currentTarget.value }))} />
               </FormField>
               <FormField label="Employee User ID (optional)">
                 <Input placeholder="For personal events" value={form.employeeUserId as string}
-                  onChange={e => setForm(p => ({ ...p, employeeUserId: e.target.value }))} />
+                  onChange={e => setForm(p => ({ ...p, employeeUserId: e.currentTarget.value }))} />
               </FormField>
             </FormRow>
             <FormField label="Description">
               <Textarea placeholder="Event details…" rows={3} value={form.description as string}
-                onChange={e => setForm(p => ({ ...p, description: e.target.value }))} />
+                onChange={e => setForm(p => ({ ...p, description: e.currentTarget.value }))} />
             </FormField>
             <label className="flex items-center gap-2 text-xs font-semibold text-slate-600 cursor-pointer">
               <input type="checkbox" checked={Boolean(form.isRecurring)}
-                onChange={e => setForm(p => ({ ...p, isRecurring: e.target.checked }))}
+                onChange={e => setForm(p => ({ ...p, isRecurring: e.currentTarget.checked }))}
                 className="rounded" />
               Recurring annually
             </label>
@@ -490,12 +663,13 @@ export default function EventsTab({ showAlert }: EventsTabProps) {
   const canManage  = hasAny('hr.read', 'hr.write') || isSuperAdmin;
 
   const tabs = [
+    { id: 'calendar', label: 'Calendar' },
     { id: 'upcoming', label: 'Upcoming Events' },
     ...(canManage ? [{ id: 'manage', label: 'Manage Events' }] : []),
     ...(isSuperAdmin || hasAny('settings.update', 'hr.write') ? [{ id: 'config', label: 'Holiday Config' }] : []),
   ];
 
-  const [activeTab, setActiveTab] = useState<string>(isSuperAdmin && !canManage ? 'config' : 'upcoming');
+  const [activeTab, setActiveTab] = useState<string>('calendar');
 
   return (
     <div className="space-y-6">
@@ -506,6 +680,7 @@ export default function EventsTab({ showAlert }: EventsTabProps) {
         variant="underline"
       />
 
+      {activeTab === 'calendar' && <EventsCalendarPanel />}
       {activeTab === 'upcoming' && <UpcomingEventsPanel showAlert={showAlert} />}
       {activeTab === 'manage'   && <ManageEventsPanel   showAlert={showAlert} />}
       {activeTab === 'config'   && <HolidayImportPanel  showAlert={showAlert} />}
