@@ -26,6 +26,7 @@ import {
   useRespondMeetingRequest,
   useSyncUserCalendarEventToGoogle,
   useSyncAllUserCalendarEventsToGoogle,
+  useSyncUserCalendarFromGoogle,
   useUpdateUserCalendarEvent,
   useUserAvailabilityStatus,
   useUserCalendar,
@@ -114,6 +115,25 @@ function CalendarEventBlock({ title, timeText }: { title: string; timeText?: str
   );
 }
 
+function googleSyncDisplay(item: UserCalendarEvent, connected?: boolean) {
+  if (item.googleSyncStatus === 'SYNC_CONFLICT') return { label: 'Sync conflict', className: 'bg-amber-50 text-amber-700' };
+  if (item.googleSyncStatus === 'DEAD') return { label: 'Sync retry stopped', className: 'bg-red-50 text-red-700' };
+  if (item.syncSource === 'GOOGLE') return { label: 'Imported from Google Calendar', className: 'bg-blue-50 text-blue-700' };
+  if (!connected && item.googleSyncStatus !== 'SYNCED') return { label: 'Not connected to Google Calendar', className: 'bg-slate-100 text-slate-600' };
+  if (item.googleSyncStatus === 'FAILED') return { label: 'Google sync failed', className: 'bg-red-50 text-red-700' };
+  if (item.googleSyncStatus === 'PENDING_RETRY') return { label: 'Pending retry', className: 'bg-amber-50 text-amber-700' };
+  if (item.googleSyncStatus === 'SYNCED' || item.lastGoogleSyncedAt || item.googleSyncedAt) return { label: 'Synced with Google Calendar', className: 'bg-blue-50 text-blue-700' };
+  return { label: 'Not synced to Google Calendar', className: 'bg-slate-100 text-slate-600' };
+}
+
+function googleConnectionLabel(status?: string) {
+  if (status === 'ACTIVE') return 'Sync active';
+  if (status === 'NEEDS_RECONNECT') return 'Sync needs reconnect';
+  if (status === 'WATCH_FAILED' || status === 'SYNC_FAILED') return 'Sync failed';
+  if (status === 'RESYNCING') return 'Sync resyncing';
+  return 'Connected';
+}
+
 export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title: string, type?: 'success' | 'info' | 'error') => void }) {
   const [surface, setSurface] = useState<Surface>('mine');
   const [searchQuery, setSearchQuery] = useState('');
@@ -131,6 +151,7 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
   const deleteEvent = useDeleteUserCalendarEvent();
   const syncGoogle = useSyncUserCalendarEventToGoogle();
   const syncAllGoogle = useSyncAllUserCalendarEventsToGoogle();
+  const syncFromGoogle = useSyncUserCalendarFromGoogle();
   const createMeeting = useCreateMeetingRequest();
   const respondMeeting = useRespondMeetingRequest();
 
@@ -302,20 +323,12 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
       projectId: form.itemType === 'TASK' ? form.projectId || null : null,
     };
     try {
-      let saved: UserCalendarEvent;
       if (form.id) {
-        saved = await updateEvent.mutateAsync({ id: form.id, payload });
+        await updateEvent.mutateAsync({ id: form.id, payload });
         showAlert('Calendar item updated.', 'success');
       } else {
-        saved = await createEvent.mutateAsync(payload);
+        await createEvent.mutateAsync(payload);
         showAlert(form.itemType === 'TASK' ? 'Task created and linked to Project Management.' : 'Calendar item created.', 'success');
-      }
-      if (google.data?.connected && saved?.id) {
-        try {
-          await syncGoogle.mutateAsync(saved.id);
-        } catch {
-          showAlert('Calendar item saved, but Google sync failed.', 'info');
-        }
       }
       setFormOpen(false);
     } catch (err: any) {
@@ -329,7 +342,7 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
       return;
     }
     try {
-      const saved = await createEvent.mutateAsync({
+      await createEvent.mutateAsync({
         title: quickCreate.title.trim(),
         startAt: quickCreate.startAt.toISOString(),
         endAt: quickCreate.endAt.toISOString(),
@@ -338,13 +351,6 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
         availabilityStatus: 'AVAILABLE',
         color: EMPTY_FORM.color,
       });
-      if (google.data?.connected && saved?.id) {
-        try {
-          await syncGoogle.mutateAsync(saved.id);
-        } catch {
-          showAlert('Event created, but Google sync failed.', 'info');
-        }
-      }
       setQuickCreate(null);
       showAlert('Event created.', 'success');
     } catch (err: any) {
@@ -380,6 +386,20 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
     } catch (err: any) {
       if (!quiet) showAlert(err?.response?.data?.message || 'Could not sync calendar to Google.', 'error');
       throw err;
+    }
+  };
+
+  const syncCalendarFromGoogle = async () => {
+    try {
+      const result = await syncFromGoogle.mutateAsync();
+      showAlert(
+        `Google sync complete: ${result.importedCount} imported, ${result.updatedCount} updated, ${result.deletedCount} deleted, ${result.skippedCount} skipped${result.failedCount ? `, ${result.failedCount} failed` : ''}.`,
+        result.failedCount ? 'info' : 'success'
+      );
+      calendar.refetch();
+      google.refetch();
+    } catch (err: any) {
+      showAlert(err?.response?.data?.message || 'Could not sync from Google Calendar.', 'error');
     }
   };
 
@@ -488,7 +508,7 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
       return;
     }
     try {
-      const saved = await updateEvent.mutateAsync({
+      await updateEvent.mutateAsync({
         id: item.id,
         payload: {
           startAt: info.event.start.toISOString(),
@@ -496,13 +516,6 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
           allDay: info.event.allDay,
         },
       });
-      if (google.data?.connected && saved?.id) {
-        try {
-          await syncGoogle.mutateAsync(saved.id);
-        } catch {
-          showAlert('Calendar item moved, but Google sync failed.', 'info');
-        }
-      }
       showAlert('Calendar item moved.', 'success');
     } catch (err: any) {
       info.revert?.();
@@ -511,6 +524,7 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
   };
 
   const selected = details?.event;
+  const selectedGoogleSync = selected ? googleSyncDisplay(selected, google.data?.connected) : null;
   const hasMeetingActivity = activeRequests.length > 0;
   const searchSuggestions = (people.data || []).slice(0, 8);
   const overlappingFormEvents = useMemo(() => {
@@ -637,16 +651,32 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
                     </span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={connectGoogle} className="cursor-pointer rounded-lg px-3 py-2.5 text-xs font-semibold">
-                    {google.data?.connected ? 'Google Connected' : 'Connect Google'}
+                    <span className="flex min-w-0 flex-1 items-center justify-between gap-3">
+                      <span>{google.data?.connected ? 'Google Connected' : 'Connect Google'}</span>
+                      {google.data?.connected && (
+                        <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold ${google.data.needsReconnect || google.data.watchStatus === 'WATCH_FAILED' || google.data.watchStatus === 'SYNC_FAILED' ? 'bg-red-50 text-red-700' : google.data.watchStatus === 'ACTIVE' ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}>
+                          {googleConnectionLabel(google.data.watchStatus)}
+                        </span>
+                      )}
+                    </span>
                   </DropdownMenuItem>
                   {google.data?.connected && (
-                    <DropdownMenuItem
-                      onClick={() => syncAllCalendarToGoogle()}
-                      disabled={syncAllGoogle.isPending}
-                      className="cursor-pointer rounded-lg px-3 py-2.5 text-xs font-semibold"
-                    >
-                      {syncAllGoogle.isPending ? 'Syncing to Google...' : 'Sync calendar to Google'}
-                    </DropdownMenuItem>
+                    <>
+                      <DropdownMenuItem
+                        onClick={syncCalendarFromGoogle}
+                        disabled={syncFromGoogle.isPending}
+                        className="cursor-pointer rounded-lg px-3 py-2.5 text-xs font-semibold"
+                      >
+                        {syncFromGoogle.isPending ? 'Syncing from Google...' : 'Sync from Google Calendar'}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => syncAllCalendarToGoogle()}
+                        disabled={syncAllGoogle.isPending}
+                        className="cursor-pointer rounded-lg px-3 py-2.5 text-xs font-semibold"
+                      >
+                        {syncAllGoogle.isPending ? 'Syncing to Google...' : 'Sync calendar to Google'}
+                      </DropdownMenuItem>
+                    </>
                   )}
                   <DropdownMenuSeparator className="my-1 bg-slate-100" />
                   <DropdownMenuItem onClick={() => openCreate(undefined, undefined, 'AVAILABILITY')} className="cursor-pointer rounded-lg px-3 py-2.5 text-xs font-semibold">
@@ -770,8 +800,10 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
                 <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">{typeLabel(selected.itemType)}</span>
                 <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${selected.availabilityStatus === 'UNAVAILABLE' ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>{selected.availabilityStatus}</span>
                 {selected.project && <span className="rounded-full bg-purple-50 px-2.5 py-1 text-[10px] font-black text-purple-700">{selected.project.title}</span>}
-                {selected.googleSyncedAt && <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-700"><Cloud className="h-3 w-3" /> Synced</span>}
+                {selectedGoogleSync && <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[10px] font-black ${selectedGoogleSync.className}`}><Cloud className="h-3 w-3" /> {selectedGoogleSync.label}</span>}
               </div>
+              {selected.googleSyncStatus === 'SYNC_CONFLICT' && <p className="mt-2 text-[11px] font-semibold text-amber-700">This event changed in Blih and Google before sync completed. Latest update wins for now.</p>}
+              {selected.googleSyncStatus === 'FAILED' && selected.googleSyncError && <p className="mt-2 text-[11px] font-semibold text-red-600">{selected.googleSyncError}</p>}
               {selected.description && <p className="mt-3 text-xs leading-5 text-slate-600">{selected.description}</p>}
             </>
           ) : (
@@ -796,7 +828,7 @@ export default function AttendanceCalendarTab({ showAlert }: { showAlert: (title
           {details.mode === 'details' && !isReadOnlyCalendar && !selected.readOnly && (
             <div className="mt-4 flex gap-2">
               <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => openEdit(selected)}><Edit2 className="h-3.5 w-3.5" /> Edit</Button>
-              <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => syncGoogle.mutate(selected.id)}><Cloud className="h-3.5 w-3.5" /> Sync</Button>
+              {(selected.googleSyncStatus === 'FAILED' || selected.googleSyncStatus === 'DEAD') && <Button size="sm" variant="outline" className="flex-1 gap-1" onClick={() => syncGoogle.mutate(selected.id)}><Cloud className="h-3.5 w-3.5" /> Retry</Button>}
               <Button size="sm" variant="destructive" onClick={() => removeEvent(selected.id)}><Trash2 className="h-3.5 w-3.5" /></Button>
             </div>
           )}

@@ -83,6 +83,14 @@ export function useSyncAllUserCalendarEventsToGoogle() {
   });
 }
 
+export function useSyncUserCalendarFromGoogle() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => calendarApi.syncFromGoogle(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
 export function useCreateMeetingRequest() {
   const qc = useQueryClient();
   return useMutation({

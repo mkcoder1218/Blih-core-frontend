@@ -3,6 +3,7 @@ import { api } from './client';
 export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE';
 export type CalendarItemType = 'TASK' | 'EVENT' | 'AVAILABILITY' | 'MEETING';
 export type MeetingRequestStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED';
+export type CalendarSyncSource = 'BLIH' | 'GOOGLE';
 
 export interface UserCalendarEvent {
   id: string;
@@ -24,6 +25,19 @@ export interface UserCalendarEvent {
   meetingRequestId?: string | null;
   googleEventId?: string | null;
   googleCalendarId?: string | null;
+  googleSyncStatus?: 'NOT_SYNCED' | 'SYNCED' | 'FAILED' | 'PENDING_RETRY' | 'SYNC_CONFLICT' | 'DEAD';
+  googleSyncError?: string | null;
+  lastGoogleSyncedAt?: string | null;
+  syncSource?: CalendarSyncSource;
+  googleUpdatedAt?: string | null;
+  googleETag?: string | null;
+  recurrenceRule?: string | null;
+  googleRecurringEventId?: string | null;
+  googleOriginalStartTime?: Record<string, any> | null;
+  isRecurring?: boolean;
+  isRecurringInstance?: boolean;
+  deletedSource?: 'BLIH' | 'GOOGLE' | null;
+  googleDeletedAt?: string | null;
   googleSyncedAt?: string | null;
   project?: { id: string; title: string; code?: string | null; status?: string | null } | null;
   metadata?: Record<string, any>;
@@ -71,6 +85,15 @@ export interface MeetingRequest {
   createdAt: string;
 }
 
+export interface GoogleImportSyncSummary {
+  importedCount: number;
+  updatedCount: number;
+  deletedCount: number;
+  skippedCount: number;
+  failedCount: number;
+  errors?: Array<{ googleEventId?: string; message: string }>;
+}
+
 export const calendarApi = {
   list: async (params?: { from?: string; to?: string; availabilityStatus?: AvailabilityStatus; userId?: string }) => {
     const res = await api.get('/api/v1/calendar', { params });
@@ -109,7 +132,14 @@ export const calendarApi = {
   },
   googleConnection: async () => {
     const res = await api.get('/api/v1/calendar/google');
-    return res.data as { connected: boolean; calendarId: string; connectedAt?: string | null };
+    return res.data as {
+      connected: boolean;
+      calendarId: string;
+      connectedAt?: string | null;
+      watchStatus?: 'ACTIVE' | 'NOT_CONFIGURED' | 'WATCH_FAILED' | 'NEEDS_RECONNECT' | 'SYNC_FAILED' | 'RESYNCING' | 'STOPPED';
+      watchExpiresAt?: string | null;
+      needsReconnect?: boolean;
+    };
   },
   googleAuthUrl: async () => {
     const res = await api.get('/api/v1/calendar/google/auth-url');
@@ -125,5 +155,9 @@ export const calendarApi = {
   syncAllGoogle: async () => {
     const res = await api.post('/api/v1/calendar/google-sync-all');
     return res.data as { syncedCount: number; failedCount: number; failed?: Array<{ id: string; title: string; message: string }> };
+  },
+  syncFromGoogle: async () => {
+    const res = await api.post('/api/v1/calendar/google/sync-from-google');
+    return res.data as GoogleImportSyncSummary;
   },
 };
