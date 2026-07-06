@@ -377,11 +377,15 @@ export default function Sidebar({
     {
       title: 'People',
       items: profilesTabs
-        .filter((tab) => ['create', 'directory'].includes(tab.id))
+        .filter((tab) => ['create', 'directory', 'pending_registrations'].includes(tab.id))
         .map((tab) => ({
           ...tab,
           id: `profiles-${tab.id}`,
-          label: tab.id === 'create' ? 'Create Profile' : 'Profiles',
+          label: ({
+            create: 'Create Profile',
+            directory: 'Profiles',
+            pending_registrations: 'Pending Registrations',
+          } as Record<string, string>)[tab.id] ?? tab.label,
         })),
     },
   ].filter((group) => group.items.length > 0);
