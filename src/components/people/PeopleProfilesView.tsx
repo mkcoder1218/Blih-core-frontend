@@ -1,6 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useOrganogram, useEmployees, useDeleteEmployee } from '../../hooks/useHrRecords';
+import {
+  useOrganogram,
+  useEmployees,
+  useDeleteEmployee,
+  useUpdateEmployeePassword,
+  useUpdateEmployeeRole,
+  useAllRoles,
+} from '../../hooks/useHrRecords';
 import {
   Users, Calendar, Plus, Search, Sparkles, Trash2, Copy, ChevronRight,
   ChevronLeft,
@@ -15,13 +22,16 @@ import {
   MoreVertical,
   Pencil,
   Trash,
-  Upload
+  Upload,
+  Lock,
+  UserCog
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
 import CreateEmployeeModal from './CreateEmployeeModal';
 import BulkEmployeeImportPage from '../../pages/BulkEmployeeImportPage';
 import { UserAvatar, ConfirmDialog } from '@/components/ui/blih';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import EventsTab from './EventsTab';
 import PendingRegistrationsTab from './PendingRegistrationsTab';
 import DepartmentsPositionsTab from './DepartmentsPositionsTab';
@@ -350,10 +360,17 @@ export default function PeopleProfilesView({
   const [updateEmployeeModalOpen, setUpdateEmployeeModalOpen] = useState(false);
   const [updateEmployeeUserId, setUpdateEmployeeUserId] = useState<string | null>(null);
   const [deleteEmployeeUserId, setDeleteEmployeeUserId] = useState<string | null>(null);
+  const [passwordEmployee, setPasswordEmployee] = useState<any | null>(null);
+  const [roleEmployee, setRoleEmployee] = useState<any | null>(null);
+  const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' });
+  const [passwordError, setPasswordError] = useState('');
+  const [selectedRoleKey, setSelectedRoleKey] = useState('');
+  const [roleError, setRoleError] = useState('');
   const [createInternModalOpen, setCreateInternModalOpen] = useState(false);
 
   const { data: orgResult, isLoading: loadingOrg, refetch: refetchOrg } = useOrganogram();
   const orgData: OrgNode[] = (orgResult as any) ?? [];
+  const { data: allRoles = [], isLoading: loadingRoles } = useAllRoles();
 
   const { data: empResult, isLoading: loadingEmployees, refetch: refetchEmployees } = useEmployees({
     limit: employeesPerPage,
@@ -377,6 +394,36 @@ export default function PeopleProfilesView({
   const totalLeftEmployees: number = leftResult?.total ?? 0;
 
   const deleteEmployeeMutation = useDeleteEmployee();
+  const updatePasswordMutation = useUpdateEmployeePassword();
+  const updateRoleMutation = useUpdateEmployeeRole();
+
+  const getEmployeeUserId = (employee: any) => employee?.userId || employee?.user?.id || employee?.id;
+  const getEmployeeRoles = (employee: any) => {
+    const roles =
+      employee?.user?.Roles ||
+      employee?.user?.roles ||
+      employee?.Roles ||
+      employee?.roles ||
+      employee?.User?.Roles ||
+      employee?.User?.roles ||
+      [];
+    if (Array.isArray(roles)) return roles;
+    return roles ? [roles] : [];
+  };
+  const getEmployeeRoleKey = (employee: any) => {
+    const role = getEmployeeRoles(employee)[0];
+    return typeof role === 'string'
+      ? role
+      : role?.key || employee?.roleKey || employee?.requestedRoleKey || employee?.user?.roleKey || '';
+  };
+  const getEmployeeRoleLabel = (employee: any) => {
+    const role = getEmployeeRoles(employee)[0];
+    const roleKey = getEmployeeRoleKey(employee);
+    const roleFromOptions = allRoles.find((item: any) => item.key === roleKey);
+    if (roleFromOptions) return roleFromOptions.name || roleFromOptions.key;
+    return typeof role === 'string' ? role : role?.name || role?.key || roleKey || 'No role assigned';
+  };
+  const selectedRoleLabel = allRoles.find((role: any) => role.key === selectedRoleKey)?.name || selectedRoleKey;
 
   const fetchOrganogram = () => refetchOrg();
   const fetchEmployees = (page: number = 1) => {
@@ -391,6 +438,71 @@ export default function PeopleProfilesView({
       showAlert("Employee record deleted successfully", "success");
     } catch (e: any) {
       showAlert(e.message || "Failed to delete record", "error");
+    }
+  };
+
+  const openPasswordModal = (employee: any) => {
+    setPasswordEmployee(employee);
+    setPasswordForm({ password: '', confirmPassword: '' });
+    setPasswordError('');
+  };
+
+  const openRoleModal = (employee: any) => {
+    setRoleEmployee(employee);
+    setSelectedRoleKey(getEmployeeRoleKey(employee));
+    setRoleError('');
+  };
+
+  const closePasswordModal = () => {
+    if (updatePasswordMutation.isPending) return;
+    setPasswordEmployee(null);
+    setPasswordForm({ password: '', confirmPassword: '' });
+    setPasswordError('');
+  };
+
+  const closeRoleModal = () => {
+    if (updateRoleMutation.isPending) return;
+    setRoleEmployee(null);
+    setSelectedRoleKey('');
+    setRoleError('');
+  };
+
+  const handlePasswordUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!passwordEmployee) return;
+    const password = passwordForm.password.trim();
+    if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.');
+      return;
+    }
+    if (password !== passwordForm.confirmPassword.trim()) {
+      setPasswordError('Passwords do not match.');
+      return;
+    }
+
+    try {
+      await updatePasswordMutation.mutateAsync({ userId: getEmployeeUserId(passwordEmployee), password });
+      closePasswordModal();
+      showAlert('Employee password updated successfully', 'success');
+    } catch (e: any) {
+      setPasswordError(e?.response?.data?.message || e?.message || 'Failed to update password.');
+    }
+  };
+
+  const handleRoleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!roleEmployee) return;
+    if (!selectedRoleKey) {
+      setRoleError('Select a role to continue.');
+      return;
+    }
+
+    try {
+      await updateRoleMutation.mutateAsync({ userId: getEmployeeUserId(roleEmployee), roleKey: selectedRoleKey });
+      closeRoleModal();
+      showAlert('Employee role updated successfully', 'success');
+    } catch (e: any) {
+      setRoleError(e?.response?.data?.message || e?.message || 'Failed to update role.');
     }
   };
   return (
@@ -712,6 +824,26 @@ export default function PeopleProfilesView({
                                         className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
                                       >
                                         <Pencil className="w-3.5 h-3.5" /> Update Record
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openPasswordModal(emp);
+                                          setActiveActionsMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                      >
+                                        <Lock className="w-3.5 h-3.5" /> Update Password
+                                      </button>
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          openRoleModal(emp);
+                                          setActiveActionsMenu(null);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                      >
+                                        <UserCog className="w-3.5 h-3.5" /> Change Role
                                       </button>
                                       <div className="h-[1px] bg-slate-50 my-1" />
                                       <button 
@@ -1366,6 +1498,188 @@ export default function PeopleProfilesView({
           refetchInterns();
         }}
       />
+
+      <AnimatePresence>
+        {passwordEmployee && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 px-4"
+            onClick={closePasswordModal}
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              onSubmit={handlePasswordUpdate}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-black text-slate-950 tracking-tight">Update Password</h4>
+                  <p className="mt-1 text-[11px] font-medium text-slate-500">
+                    Set a new password for {passwordEmployee.user?.fullName || 'this employee'}.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">New Password</span>
+                  <input
+                    type="password"
+                    value={passwordForm.password}
+                    onChange={(e) => {
+                      setPasswordForm((prev) => ({ ...prev, password: e.target.value }));
+                      setPasswordError('');
+                    }}
+                    className="w-full rounded-xl border border-slate-150 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-700 outline-none transition-colors hover:bg-slate-100 focus:bg-white focus:border-blue-200"
+                    placeholder="Enter new password"
+                    autoComplete="new-password"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Confirm Password</span>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(e) => {
+                      setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }));
+                      setPasswordError('');
+                    }}
+                    className="w-full rounded-xl border border-slate-150 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-700 outline-none transition-colors hover:bg-slate-100 focus:bg-white focus:border-blue-200"
+                    placeholder="Re-enter new password"
+                    autoComplete="new-password"
+                  />
+                </label>
+                {passwordError && (
+                  <p className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-600">
+                    {passwordError}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={closePasswordModal}
+                  disabled={updatePasswordMutation.isPending}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatePasswordMutation.isPending}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-blue-700 disabled:bg-slate-300"
+                >
+                  {updatePasswordMutation.isPending ? 'Saving...' : 'Update Password'}
+                </button>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {roleEmployee && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 px-4"
+            onClick={closeRoleModal}
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              onSubmit={handleRoleUpdate}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                  <UserCog className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-black text-slate-950 tracking-tight">Change Role</h4>
+                  <p className="mt-1 text-[11px] font-medium text-slate-500">
+                    Update the system role for {roleEmployee.user?.fullName || 'this employee'}.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Current Role</span>
+                  <span className="mt-1 block text-xs font-black text-slate-800">{getEmployeeRoleLabel(roleEmployee)}</span>
+                </div>
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">New Role</span>
+                  <Select
+                    value={selectedRoleKey}
+                    onValueChange={(value) => {
+                      setSelectedRoleKey(value);
+                      setRoleError('');
+                    }}
+                    disabled={loadingRoles || updateRoleMutation.isPending}
+                  >
+                    <SelectTrigger className="h-11 w-full rounded-xl border-slate-150 bg-slate-50 px-3.5 text-xs font-semibold text-slate-700 shadow-none hover:bg-slate-100 focus:bg-white focus:border-blue-200">
+                      <SelectValue placeholder={loadingRoles ? 'Loading roles...' : 'Select role'} />
+                    </SelectTrigger>
+                    <SelectContent
+                      align="start"
+                      sideOffset={6}
+                      className="max-h-64 rounded-xl border border-slate-100 bg-white p-1 shadow-2xl"
+                    >
+                      {allRoles.map((role: any) => (
+                        <SelectItem key={role.id || role.key} value={role.key} className="text-xs font-semibold">
+                          {role.name || role.key}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </label>
+                {selectedRoleKey && (
+                  <p className="text-[11px] font-semibold text-slate-500">
+                    This will assign {selectedRoleLabel} to the selected employee.
+                  </p>
+                )}
+                {roleError && (
+                  <p className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-600">
+                    {roleError}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={closeRoleModal}
+                  disabled={updateRoleMutation.isPending}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateRoleMutation.isPending || loadingRoles}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-blue-700 disabled:bg-slate-300"
+                >
+                  {updateRoleMutation.isPending ? 'Saving...' : 'Save Role'}
+                </button>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <ConfirmDialog
         open={!!deleteEmployeeUserId}
         onClose={() => setDeleteEmployeeUserId(null)}

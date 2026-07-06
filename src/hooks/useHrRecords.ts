@@ -33,6 +33,39 @@ export function useDeleteEmployee() {
 
 // ─── Organogram ───────────────────────────────────────────────────────────────
 
+export function useUpdateEmployeePassword() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, password }: { userId: string; password: string }) =>
+      api.patch(`/api/v1/users/${userId}`, { password }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+    },
+  });
+}
+
+export function useUpdateEmployeeRole() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, roleKey }: { userId: string; roleKey: string }) =>
+      api.patch(`/api/v1/users/${userId}`, { roleKeys: [roleKey] }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+      queryClient.invalidateQueries({ queryKey: ["me"] });
+    },
+  });
+}
+
+export function useAllRoles() {
+  return useQuery({
+    queryKey: ["roles", "all"],
+    queryFn: async () => {
+      const res = await api.get("/api/v1/roles");
+      return (res.data?.data?.roles || res.data?.roles || res.data?.data || []) as any[];
+    },
+  });
+}
+
 export function useOrganogram() {
   return useQuery({
     queryKey: ["organogram"],
