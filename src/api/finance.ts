@@ -52,6 +52,14 @@ export async function exportEmployeeSalaries(params?: Record<string, unknown>) {
   return api.get("/api/v1/finance/employee-salaries/export", { params, responseType: "blob" });
 }
 
+export async function listSalaryDeductions(payrollLinkId: string, params?: Record<string, unknown>) {
+  return api.get(`/api/v1/finance/employee-salaries/${payrollLinkId}/deductions`, { params });
+}
+
+export async function removeSalaryDeduction(deductionId: string, params?: Record<string, unknown>) {
+  return api.delete(`/api/v1/finance/employee-salaries/deductions/${deductionId}`, { params });
+}
+
 export async function updateEmployeeBaseSalary(userId: string, data: { baseSalary?: number; netSalary?: number; salaryInputMode?: "base" | "net" }) {
   return api.patch(`/api/v1/finance/employee-salaries/${userId}/base-salary`, data);
 }

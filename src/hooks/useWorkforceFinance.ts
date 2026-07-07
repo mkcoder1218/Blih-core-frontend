@@ -258,6 +258,7 @@ export interface PendingEmployee {
 export interface EmployeeSalaryRow {
   id: string;
   userId: string;
+  payrollLinkId?: string | null;
   employeeCode?: string;
   name: string;
   email?: string;
@@ -294,6 +295,10 @@ export interface EmployeeSalaryRow {
   totalDeductions: number;
   netPay: number;
   computedNetPay?: number;
+  deductionTotal?: number;
+  deductionCount?: number;
+  deductionItems?: SalaryDeductionItem[];
+  deductionGroups?: Record<string, { reasonType: string; label: string; total: number; rows: SalaryDeductionItem[] }>;
   taxableAmount?: number;
   employeePensionContribution?: number;
   employerPensionContribution?: number;
@@ -312,6 +317,25 @@ export interface EmployeeSalaryRow {
   lastUpdated?: string | null;
   taxMeta?: EthiopianTaxMeta | null;
   linkedAt?: string | null;
+}
+
+export interface SalaryDeductionItem {
+  id: string;
+  employeeUserId: string;
+  payrollLinkId?: string | null;
+  payrollRecordId?: string | null;
+  reasonType: string;
+  reasonLabel?: string;
+  sourceModule: string;
+  sourceTable?: string | null;
+  sourceRecordId?: string | null;
+  relatedDate?: string | null;
+  amount: number;
+  currency: string;
+  description: string;
+  status: "active" | "removed" | string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface EthiopianTaxAllowanceLine {

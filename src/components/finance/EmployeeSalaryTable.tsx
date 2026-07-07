@@ -1,5 +1,6 @@
 import React from "react";
-import { Calculator, Check, Download, Eye, Filter, Pencil, Search, X } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Calculator, Check, Download, Eye, Filter, Pencil, Search, Trash2, X } from "lucide-react";
 import { DataTable, LoadingSpinner, SectionCard, StatCard, StatCardGrid } from "@/components/ui/blih";
 import {
   useEmployeeSalaries,
@@ -8,16 +9,26 @@ import {
   useUpdateEmployeeBaseSalary,
   type EthiopianTaxAllowanceLine,
   type EmployeeSalaryRow,
+  type SalaryDeductionItem,
 } from "../../hooks/useWorkforceFinance";
 import { useDepartments } from "../../hooks/useDepartments";
 import { EMPLOYMENT_STATUS_OPTIONS } from "../../constants/employee";
-import { exportEmployeeSalaries } from "../../api/finance";
+import { exportEmployeeSalaries, removeSalaryDeduction } from "../../api/finance";
 
 type Props = {
   showAlert: (message: string, type?: "success" | "info" | "error") => void;
 };
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+
+function currentMonthStart() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+}
+
+function todayText() {
+  return new Date().toISOString().slice(0, 10);
+}
 
 function money(value?: number | null, currency = "ETB") {
   return new Intl.NumberFormat("en-US", {
@@ -63,6 +74,31 @@ function taxTreatmentLabel(value?: string) {
   return value.split("_").map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(" ");
 }
 
+function deductionGroupLabel(value?: string) {
+  const key = String(value || "other").toLowerCase();
+  if (key.includes("attendance")) return "Attendance deductions";
+  if (key.includes("leave")) return "Leave deductions";
+  if (key.includes("missed")) return "Missed day deductions";
+  if (key.includes("late")) return "Late arrival deductions";
+  if (key.includes("early")) return "Early checkout deductions";
+  if (key.includes("penalty")) return "Attendance penalty deductions";
+  if (key.includes("tax")) return "Income tax deductions";
+  if (key.includes("pension")) return "Pension deductions";
+  if (key.includes("loan")) return "Loan deductions";
+  return "Other deductions";
+}
+
+function groupDeductions(items: SalaryDeductionItem[] = []) {
+  return items
+    .filter((item) => item.status === "active")
+    .reduce((groups, item) => {
+      const label = deductionGroupLabel(item.reasonType);
+      groups[label] ||= [];
+      groups[label].push(item);
+      return groups;
+    }, {} as Record<string, SalaryDeductionItem[]>);
+}
+
 export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [page, setPage] = React.useState(1);
   const [limit, setLimit] = React.useState(10);
@@ -72,6 +108,8 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [templateId, setTemplateId] = React.useState("");
   const [departmentId, setDepartmentId] = React.useState("");
   const [employmentStatus, setEmploymentStatus] = React.useState("");
+  const [dateFrom, setDateFrom] = React.useState(currentMonthStart);
+  const [dateTo, setDateTo] = React.useState(todayText);
   const [activeRow, setActiveRow] = React.useState<EmployeeSalaryRow | null>(null);
   const [editRow, setEditRow] = React.useState<EmployeeSalaryRow | null>(null);
   const [editingBaseUserId, setEditingBaseUserId] = React.useState<string | null>(null);
@@ -79,6 +117,9 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [exporting, setExporting] = React.useState(false);
   const [showMoreDetails, setShowMoreDetails] = React.useState(false);
   const [revealedBankAccounts, setRevealedBankAccounts] = React.useState<Record<string, boolean>>({});
+  const [deductionRow, setDeductionRow] = React.useState<EmployeeSalaryRow | null>(null);
+  const [deductionToRemove, setDeductionToRemove] = React.useState<SalaryDeductionItem | null>(null);
+  const [removingDeduction, setRemovingDeduction] = React.useState(false);
 
   React.useEffect(() => {
     const id = window.setTimeout(() => {
@@ -97,8 +138,10 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
       templateId: templateId || undefined,
       departmentId: departmentId || undefined,
       employmentStatus: employmentStatus || undefined,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
     }),
-    [page, limit, search, payrollStatus, templateId, departmentId, employmentStatus]
+    [page, limit, search, payrollStatus, templateId, departmentId, employmentStatus, dateFrom, dateTo]
   );
 
   const salaries = useEmployeeSalaries(params);
@@ -110,6 +153,45 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const totals = salaries.data?.meta?.totals ?? {};
   const total = Number(pagination.total ?? pagination.count ?? 0);
   const totalPages = Math.max(Number((salaries.data?.meta?.totalPages ?? pagination.totalPages ?? Math.ceil(total / limit)) || 1), 1);
+  const columns = React.useMemo(
+    () => [
+      "Employee ID",
+      "Full Name",
+      "TIN",
+      "Pay Period",
+      "Payment Date",
+      "Basic Salary",
+      "Gross Salary",
+      "Taxable Amount",
+      "Income Tax (PAYE)",
+      "Employee Pension",
+      "Total Deductions",
+      "Net Salary",
+      "Employer Pension",
+      "Total Cost",
+      "Bank Account",
+      "Payment Status",
+      "Remarks",
+      ...(showMoreDetails ? [
+        "Housing",
+        "Transport",
+        "Other Allowances",
+        "Overtime",
+        "Bonus",
+        "Arrears",
+        "Loan",
+        "Other Deductions",
+        "Working Days",
+        "Days Paid",
+        "Generated By",
+        "Approved By",
+        "Last Updated",
+      ] : []),
+      "Actions",
+    ],
+    [showMoreDetails]
+  );
+
   const exportCsv = async () => {
     setExporting(true);
     try {
@@ -119,6 +201,8 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         templateId: templateId || undefined,
         departmentId: departmentId || undefined,
         employmentStatus: employmentStatus || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
         showMoreDetails,
       });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8" }));
@@ -133,6 +217,21 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
       showAlert("Could not export employee salaries.", "error");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const confirmRemoveDeduction = async () => {
+    if (!deductionToRemove) return;
+    setRemovingDeduction(true);
+    try {
+      await removeSalaryDeduction(deductionToRemove.id, { dateFrom, dateTo });
+      showAlert("Deduction reason removed and salary total recalculated.", "success");
+      setDeductionToRemove(null);
+      await salaries.refetch();
+    } catch (error: any) {
+      showAlert(error?.response?.data?.error || "Could not remove deduction reason.", "error");
+    } finally {
+      setRemovingDeduction(false);
     }
   };
 
@@ -196,7 +295,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         }
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_160px_160px_180px_200px_110px] gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_140px_150px_150px_170px_110px] gap-3">
             <label className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -235,6 +334,20 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
               <option value="linked">Configured</option>
               <option value="pending">Needs setup</option>
             </select>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => { setPage(1); setDateFrom(event.target.value); }}
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+              title="Deduction period start"
+            />
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => { setPage(1); setDateTo(event.target.value); }}
+              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+              title="Deduction period end"
+            />
             <select
               value={templateId}
               onChange={(event) => { setPage(1); setTemplateId(event.target.value); }}
@@ -255,46 +368,17 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           </div>
 
           <DataTable
-            columns={[
-              "Employee ID",
-              "Full Name",
-              "TIN",
-              "Pay Period",
-              "Payment Date",
-              "Basic Salary",
-              "Gross Salary",
-              "Taxable Amount",
-              "Income Tax (PAYE)",
-              "Employee Pension",
-              "Total Deductions",
-              "Net Salary",
-              "Employer Pension",
-              "Total Cost",
-              "Bank Account",
-              "Payment Status",
-              "Remarks",
-              ...(showMoreDetails ? [
-                "Housing",
-                "Transport",
-                "Other Allowances",
-                "Overtime",
-                "Bonus",
-                "Arrears",
-                "Loan",
-                "Other Deductions",
-                "Working Days",
-                "Days Paid",
-                "Generated By",
-                "Approved By",
-                "Last Updated",
-              ] : []),
-              "Actions",
-            ]}
+            columns={columns}
             rows={rows}
             loading={salaries.isLoading}
             emptyMessage="No employee salary records match these filters."
-            renderRow={(row) => (
-              <tr key={row.userId} className="border-b border-slate-100 hover:bg-slate-50/70">
+            renderRow={(row) => {
+              return (
+              <tr
+                key={row.userId}
+                className="border-b border-slate-100 hover:bg-slate-50/70 cursor-pointer"
+                onClick={() => setDeductionRow(row)}
+              >
                 <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.employeeCode || row.userId.slice(0, 8)}</td>
                 <td className="px-4 py-3 min-w-[230px]">
                   <div className="flex items-center gap-3">
@@ -312,7 +396,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                 <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{dateText(row.paymentDate)}</td>
                 <td className="px-4 py-3 text-xs font-black text-slate-900 whitespace-nowrap" onDoubleClick={() => startBaseEdit(row)}>
                   {editingBaseUserId === row.userId ? (
-                    <div className="flex items-center gap-1.5">
+                    <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
                       <input
                         value={baseDraft}
                         onChange={(event) => setBaseDraft(event.target.value)}
@@ -348,7 +432,12 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                 <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.taxableAmount, row.currency)}</td>
                 <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.taxDeduction, row.currency)}</td>
                 <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.employeePensionContribution ?? row.pensionDeduction, row.currency)}</td>
-                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.totalDeductions, row.currency)}</td>
+                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">
+                  <div className="inline-flex flex-col">
+                    <span>{money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>
+                    <span className="text-[10px] font-bold text-slate-400">{Number(row.deductionCount || 0)} reasons</span>
+                  </div>
+                </td>
                 <td className="px-4 py-3 text-xs font-black text-emerald-700 whitespace-nowrap">{money(row.netPay, row.currency)}</td>
                 <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.employerPensionContribution, row.currency)}</td>
                 <td className="px-4 py-3 text-xs font-black text-slate-900 whitespace-nowrap">{money(row.totalCostToCompany, row.currency)}</td>
@@ -358,7 +447,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                     {row.bankAccount && (
                       <button
                         type="button"
-                        onClick={() => setRevealedBankAccounts((current) => ({ ...current, [row.userId]: !current[row.userId] }))}
+                        onClick={(event) => { event.stopPropagation(); setRevealedBankAccounts((current) => ({ ...current, [row.userId]: !current[row.userId] })); }}
                         className="w-7 h-7 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center"
                         title={revealedBankAccounts[row.userId] ? "Hide bank account" : "View bank account"}
                       >
@@ -389,7 +478,10 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                   </>
                 )}
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
+                    <button onClick={() => setDeductionRow(row)} className="w-8 h-8 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center" title="Show deduction reasons">
+                      <Filter className="w-4 h-4" />
+                    </button>
                     <button onClick={() => setActiveRow(row)} className="w-8 h-8 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center" title="View calculation">
                       <Eye className="w-4 h-4" />
                     </button>
@@ -399,7 +491,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                   </div>
                 </td>
               </tr>
-            )}
+            );}}
           />
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-semibold text-slate-500">
@@ -414,6 +506,22 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
       </SectionCard>
 
       {activeRow && <CalculationModal row={activeRow} onClose={() => setActiveRow(null)} />}
+      {deductionRow && (
+        <DeductionDetailsModal
+          row={deductionRow}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onClose={() => setDeductionRow(null)}
+          onRemove={(item) => setDeductionToRemove(item)}
+        />
+      )}
+      {deductionToRemove && (
+        <DeductionRemoveConfirm
+          loading={removingDeduction}
+          onClose={() => setDeductionToRemove(null)}
+          onConfirm={confirmRemoveDeduction}
+        />
+      )}
       {editRow && (
         <UpdateSalaryModal
           row={editRow}
@@ -425,6 +533,146 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         />
       )}
     </div>
+  );
+}
+
+function DeductionRemoveConfirm({
+  loading,
+  onClose,
+  onConfirm,
+}: {
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return createPortal(
+    <div className="fixed inset-0 z-[10050] bg-slate-950/55 p-4 flex items-center justify-center">
+      <div className="w-full max-w-sm rounded-2xl bg-white shadow-2xl border border-slate-100 p-5">
+        <div className="flex items-start gap-3">
+          <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 inline-flex items-center justify-center flex-shrink-0">
+            <Trash2 className="w-4 h-4" />
+          </div>
+          <div>
+            <h3 className="text-sm font-black text-slate-900">Remove Deduction Reason</h3>
+            <p className="text-xs font-semibold text-slate-500 mt-1">Are you sure you want to remove this deduction reason?</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-3 mt-5">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={loading}
+            className="h-10 rounded-xl border border-slate-200 bg-white text-xs font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={loading}
+            className="h-10 rounded-xl bg-rose-600 text-xs font-black text-white hover:bg-rose-700 disabled:opacity-50"
+          >
+            {loading ? "Removing..." : "Remove"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+function DeductionDetailsModal({
+  row,
+  dateFrom,
+  dateTo,
+  onClose,
+  onRemove,
+}: {
+  row: EmployeeSalaryRow;
+  dateFrom: string;
+  dateTo: string;
+  onClose: () => void;
+  onRemove: (item: SalaryDeductionItem) => void;
+}) {
+  const deductionGroups = groupDeductions(row.deductionItems);
+  const activeDeductions = row.deductionItems?.filter((item) => item.status === "active") ?? [];
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-slate-950/50 p-4 sm:p-6 flex items-center justify-center">
+      <div className="w-full h-full max-w-[1600px] max-h-[94vh] rounded-2xl bg-white shadow-2xl overflow-hidden flex flex-col">
+        <div className="px-6 py-4 border-b border-slate-100 bg-white flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-black text-slate-900">Deduction Details</h3>
+            <p className="text-xs font-semibold text-slate-400 mt-0.5">{row.name} - {dateFrom || "-"} to {dateTo || "-"} - {activeDeductions.length} salary-impacting reason(s)</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-100 text-slate-500 inline-flex items-center justify-center"><X className="w-4 h-4" /></button>
+        </div>
+        <div className="flex-1 p-6 lg:p-8 space-y-6 overflow-y-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
+              <span className="text-[10px] font-black uppercase text-blue-500">Payroll Net Before These Deductions</span>
+              <p className="text-lg font-black text-blue-900 mt-1">{money(Number(row.netPay || 0) + Number(row.deductionTotal || 0), row.currency)}</p>
+            </div>
+            <div className="rounded-xl bg-rose-50 border border-rose-100 p-4">
+              <span className="text-[10px] font-black uppercase text-rose-600">Attendance / Leave Deductions</span>
+              <p className="text-lg font-black text-rose-900 mt-1">{money(row.deductionTotal, row.currency)}</p>
+            </div>
+            <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4">
+              <span className="text-[10px] font-black uppercase text-emerald-600">Final Net Salary</span>
+              <p className="text-lg font-black text-emerald-900 mt-1">{money(row.netPay, row.currency)}</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-100 bg-white overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <h4 className="text-xs font-black text-slate-900">Saved Deduction Snapshot</h4>
+              <p className="text-[11px] font-semibold text-slate-400 mt-0.5">Payroll deductions such as income tax and pension are not listed here because they are already included in the payroll net calculation.</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {Object.entries(deductionGroups).length ? Object.entries(deductionGroups).map(([label, items]) => (
+                <div key={label} className="p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <h5 className="text-[11px] font-black uppercase text-slate-500">{label}</h5>
+                    <span className="text-[11px] font-black text-rose-700">{money(items.reduce((sum, item) => sum + Number(item.amount || 0), 0), row.currency)}</span>
+                  </div>
+                  <div className="grid gap-2">
+                    {items.map((item) => (
+                      <div key={item.id} className="grid grid-cols-1 lg:grid-cols-[1fr_120px_120px_150px_90px] gap-3 rounded-lg border border-slate-100 bg-slate-50/60 px-3 py-2.5 text-xs">
+                        <div>
+                          <p className="font-black text-slate-800">{item.reasonLabel || item.reasonType}</p>
+                          <p className="font-semibold text-slate-500 mt-0.5">{item.description}</p>
+                        </div>
+                        <div>
+                          <span className="block text-[10px] font-black uppercase text-slate-400">Amount</span>
+                          <strong className="text-rose-700">{money(item.amount, item.currency || row.currency)}</strong>
+                        </div>
+                        <div>
+                          <span className="block text-[10px] font-black uppercase text-slate-400">Date</span>
+                          <span className="font-bold text-slate-700">{dateText(item.relatedDate)}</span>
+                        </div>
+                        <div>
+                          <span className="block text-[10px] font-black uppercase text-slate-400">Source</span>
+                          <span className="font-bold text-slate-700">{item.sourceModule}{item.sourceTable ? ` / ${item.sourceTable}` : ""}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-[10px] font-black px-2 py-1 rounded-full bg-emerald-50 text-emerald-700">{item.status}</span>
+                          <button type="button" onClick={() => onRemove(item)} className="w-8 h-8 rounded-lg border border-rose-100 text-rose-600 hover:bg-rose-50 inline-flex items-center justify-center" title="Remove deduction reason">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )) : (
+                <div className="px-4 py-8 text-xs font-bold text-slate-400">No attendance, leave, missed-day, late-arrival, early-checkout, or incomplete-attendance deduction has been saved for this salary row.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
   );
 }
 
