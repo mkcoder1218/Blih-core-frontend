@@ -136,7 +136,16 @@ export default function ModulePage() {
       />
     );
   }
-  if (module === "attendance") return <AttendanceView currentAttendanceTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
+  if (module === "attendance") {
+    return (
+      <AttendanceView
+        currentAttendanceTab={tab as any}
+        routeForTab={(nextTab) => `${rolePrefix}/attendance/${nextTab}`}
+        onDraftAiSuggestion={() => {}}
+        showAlert={() => {}}
+      />
+    );
+  }
   if (module === "onboarding") return <OnboardingView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "finance") return <WorkforceFinanceView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "projects") return <ProjectsPage currentTab={(tab === "my-projects" ? "mine" : tab) as any} />;

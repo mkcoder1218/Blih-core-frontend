@@ -267,6 +267,7 @@ export interface EmployeeSalaryRow {
   employmentType?: string;
   employmentStatus?: string;
   hireDate?: string;
+  createdAt?: string | null;
   tin?: string;
   payPeriod?: string;
   paymentDate?: string | null;

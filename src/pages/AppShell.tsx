@@ -15,7 +15,7 @@ export default function AppShell() {
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>("overview");
   const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "bulk_create" | "organogram" | "directory" | "left" | "interns" | "organization" | "devices" | "events" | "archive" | "pending_registrations">("overview");
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<
-    "overview" | "calendar" | "check-in" | "check-me-in" | "history" | "my-lateness-reason" | "manual-lateness-reason" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "unavailable" | "memo-log" | "work-from-home" | "exit-request"
+    "overview" | "calendar" | "check-in" | "check-me-in" | "history" | "my-lateness-reason" | "manual-lateness-reason" | "late-reasons" | "requests" | "timesheet" | "leaves" | "overtime" | "special-request" | "unavailable" | "memo-log" | "work-from-home" | "exit-request"
   >("overview");
   const [currentTalentTab, setCurrentTalentTab] = useState<string>("recruitment-overview");
   const [currentExitTab, setCurrentExitTab] = useState<"overview" | "resign" | "interviews" | "documents" | "clearance" | "forms" | "offboarding">("offboarding");

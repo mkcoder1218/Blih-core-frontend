@@ -115,7 +115,7 @@ export default function Sidebar({
   const [openAttendanceGroups, setOpenAttendanceGroups] = useState<Record<string, boolean>>({
     Dashboard: true,
     'Time & Records': false,
-    'Requests & Leave': false,
+    'Requests & Leave': true,
   });
 
   // ── Helper: filter a tab list by the permission map ───────────────────────
@@ -224,10 +224,11 @@ export default function Sidebar({
     { id: 'my-lateness-reason', label: 'My Lateness Reason', badge: 0 },
     { id: 'manual-lateness-reason', label: 'Manual Lateness', badge: 0 },
     { id: 'late-reasons',   label: 'Late Reasons',      badge: 0 },
-    { id: 'requests',       label: 'Requests',          badge: 0 },
+    { id: 'requests',       label: 'Punctuality',       badge: 0 },
     { id: 'timesheet',      label: 'Timesheet',         badge: 0 },
     { id: 'leaves',         label: 'Leaves',            badge: 0 },
     { id: 'overtime',       label: 'Overtime',          badge: 0 },
+    { id: 'special-request', label: 'Special Request',  badge: 0 },
     { id: 'unavailable',    label: 'Unavailable',       badge: 0 },
     { id: 'memo-log',       label: 'Memo Log',          badge: 0 },
     { id: 'work-from-home', label: 'Work-from-Home',    badge: 0 },
@@ -295,7 +296,7 @@ export default function Sidebar({
   const profilesTabs      = allowedTabs(ALL_PROFILES_TABS,     PROFILES_TAB_PERMISSIONS)
     .filter((tab) => !isInternUser || ['events'].includes(tab.id));
   const attendanceTabs    = allowedTabs(ALL_ATTENDANCE_TABS,   ATTENDANCE_TAB_PERMISSIONS)
-    .filter((tab) => !isInternUser || ['calendar', 'check-me-in', 'history', 'requests', 'leaves', 'overtime', 'unavailable', 'work-from-home', 'exit-request'].includes(tab.id));
+    .filter((tab) => !isInternUser || ['calendar', 'check-me-in', 'history', 'requests', 'leaves', 'overtime', 'special-request', 'unavailable', 'work-from-home', 'exit-request'].includes(tab.id));
   type AttendanceTabId = typeof attendanceTabs[number]['id'];
   const attendanceTabById = new Map(attendanceTabs.map((tab) => [tab.id, tab]));
   const attendanceGroups  = ([
@@ -320,11 +321,12 @@ export default function Sidebar({
     },
     {
       title: 'Requests & Leave',
-      ids: ['requests', 'leaves', 'overtime', 'unavailable', 'work-from-home', 'exit-request'],
+      ids: ['requests', 'leaves', 'overtime', 'special-request', 'unavailable', 'work-from-home', 'exit-request'],
       labels: {
-        requests: 'Requests',
+        requests: 'Punctuality',
         leaves: 'Leaves',
         overtime: 'Overtime',
+        'special-request': 'Special Request',
         unavailable: 'Unavailable',
         'work-from-home': 'Work-from-Home',
         'exit-request': 'Exit Request',

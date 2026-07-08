@@ -5,6 +5,7 @@
 
 import React, { useState } from 'react';
 import { AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 import { useLegacyUser } from '../../api/legacyUserStore';
 import { useAttendanceHrReport } from '../../hooks/useAttendanceHrReport';
 import { useMyPermissions } from '../../hooks/usePermissions';
@@ -25,25 +26,35 @@ import AttendanceTimesheetTab from './AttendanceTimesheetTab';
 import AttendanceMemoLogTab from './AttendanceMemoLogTab';
 import AttendanceWfhTab from './AttendanceWfhTab';
 import AttendanceUnavailableTab from './AttendanceUnavailableTab';
+import SpecialRequestPage from './SpecialRequestPage';
 import ExitOffboardingView from '../offboarding/ExitOffboardingView';
 import AttendanceCalendarTab from './AttendanceCalendarTab';
 
 interface AttendanceViewProps {
-  currentAttendanceTab: 'overview' | 'calendar' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request';
+  currentAttendanceTab: 'overview' | 'calendar' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'special-request' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request';
+  setCurrentAttendanceTab?: (tab: AttendanceViewProps['currentAttendanceTab']) => void;
+  routeForTab?: (tab: AttendanceViewProps['currentAttendanceTab']) => string;
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
 }
 
 export default function AttendanceView({
   currentAttendanceTab,
+  setCurrentAttendanceTab,
+  routeForTab,
   onDraftAiSuggestion,
   showAlert,
 }: AttendanceViewProps) {
+  const navigate = useNavigate();
   const legacyUser = useLegacyUser();
   const perms = useMyPermissions();
   const role = legacyUser?.role || 'Employee';
   const isHr = role === 'HR Manager' || role === 'Business Admin' || role === 'Super Admin';
   const canViewLateReasons = perms.hasAny('attendance.late_reason.read', 'attendance.manage');
+  const navigateToSpecialRequest = () => {
+    setCurrentAttendanceTab?.('special-request');
+    if (routeForTab) navigate(routeForTab('special-request'));
+  };
 
   // --- Shared date/format helpers ---
   const todayYmd = new Date().toISOString().slice(0, 10);
@@ -171,7 +182,7 @@ export default function AttendanceView({
   if (currentAttendanceTab === 'overview') {
     return (
       <div className="h-full flex flex-col space-y-6">
-        {isHr ? <HrAttendanceCheckInsPage /> : <EmployeeAttendancePage />}
+        {isHr ? <HrAttendanceCheckInsPage /> : <EmployeeAttendancePage onSpecialRequest={() => navigateToSpecialRequest()} />}
       </div>
     );
   }
@@ -187,7 +198,7 @@ export default function AttendanceView({
   if (currentAttendanceTab === 'check-me-in') {
     return (
       <div className="h-full flex flex-col space-y-6">
-        <EmployeeAttendancePage />
+        <EmployeeAttendancePage onSpecialRequest={() => navigateToSpecialRequest()} />
       </div>
     );
   }
@@ -244,6 +255,14 @@ export default function AttendanceView({
     return (
       <div className="h-full flex flex-col space-y-6">
         <LeavePage showAlert={showAlert} />
+      </div>
+    );
+  }
+
+  if (currentAttendanceTab === 'special-request') {
+    return (
+      <div className="h-full flex flex-col space-y-6">
+        <SpecialRequestPage showAlert={showAlert} />
       </div>
     );
   }

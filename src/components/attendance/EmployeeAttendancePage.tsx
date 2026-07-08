@@ -15,6 +15,7 @@ import {
   Link2,
   Copy,
   Check,
+  ShieldCheck,
 } from "lucide-react";
 import { useMyAttendanceToday } from "../../hooks/useMyAttendanceToday";
 import { useCreateMyAttendanceEvent } from "../../hooks/useCreateMyAttendanceEvent";
@@ -40,7 +41,7 @@ type Coords = { latitude: number; longitude: number } | null;
 // Main component
 // ---------------------------------------------------------------------------
 
-export default function EmployeeAttendancePage() {
+export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecialRequest?: () => void }) {
   const today = useMyAttendanceToday();
   const createEvent = useCreateMyAttendanceEvent();
   const revertEvent = useRevertMyAttendanceEvent();
@@ -330,12 +331,24 @@ export default function EmployeeAttendancePage() {
             </div>
           </div>
 
-          <button
-            onClick={requestLocation}
-            className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl shrink-0"
-          >
-            Refresh location
-          </button>
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            {onSpecialRequest ? (
+              <button
+                type="button"
+                onClick={onSpecialRequest}
+                className="inline-flex items-center gap-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl shrink-0"
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                Special Request
+              </button>
+            ) : null}
+            <button
+              onClick={requestLocation}
+              className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl shrink-0"
+            >
+              Refresh location
+            </button>
+          </div>
         </div>
 
         {/* ── Status + Action grid ── */}
@@ -391,12 +404,22 @@ export default function EmployeeAttendancePage() {
               />
             </div>
 
-            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800 flex items-start gap-2">
+            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800 flex flex-col sm:flex-row sm:items-center gap-2">
               <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-              <span>
+              <span className="flex-1">
                 Do not forget lunch checkout or final checkout. Missed final checkout gives half-day credit, and missed lunch checkout with final checkout deducts 2h.
                 {penaltyReason ? <span className="block mt-1 text-amber-900">Applied penalty: {penaltyReason}</span> : null}
               </span>
+              {onSpecialRequest ? (
+                <button
+                  type="button"
+                  onClick={onSpecialRequest}
+                  className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/70 hover:bg-white px-2.5 py-1.5 text-[11px] font-black text-amber-900"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  Request lunch-time approval
+                </button>
+              ) : null}
             </div>
 
             {/* Progress bar */}

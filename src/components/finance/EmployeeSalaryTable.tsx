@@ -1,7 +1,7 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Calculator, Check, Download, Eye, Filter, Pencil, Search, Trash2, X } from "lucide-react";
-import { DataTable, LoadingSpinner, SectionCard, StatCard, StatCardGrid } from "@/components/ui/blih";
+import { Calculator, Check, Download, Filter, MoreHorizontal, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { LoadingSpinner, SectionCard, StatCard, StatCardGrid } from "@/components/ui/blih";
 import {
   useEmployeeSalaries,
   useLinkEmployee,
@@ -20,15 +20,96 @@ type Props = {
 };
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const COLUMN_STORAGE_KEY = "employee-salaries-visible-columns";
+const REQUIRED_COLUMN_IDS = ["employee", "salarySummary", "actions"];
+const DEFAULT_COLUMN_IDS = ["employee", "payPeriod", "salarySummary", "status", "actions"];
+const OLD_DEFAULT_COLUMN_IDS = ["employee", "payPeriod", "grossSalary", "totalDeductions", "netSalary", "status", "actions"];
+const MORE_DETAIL_COLUMN_IDS = [
+  "employee",
+  "payPeriod",
+  "department",
+  "employmentType",
+  "salaryTemplate",
+  "salarySummary",
+  "basicSalary",
+  "grossSalary",
+  "taxableAmount",
+  "incomeTaxPaye",
+  "employeePension",
+  "totalDeductions",
+  "deductionReasonsCount",
+  "attendanceDeduction",
+  "overtime",
+  "netSalary",
+  "status",
+  "actions",
+];
 
-function currentMonthStart() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
-}
+type SalaryColumnGroup = "Default View" | "Employee Details" | "Salary Details" | "Tax and Pension" | "Deductions" | "Metadata";
+type SalaryColumnId =
+  | "employee"
+  | "payPeriod"
+  | "salarySummary"
+  | "grossSalary"
+  | "totalDeductions"
+  | "netSalary"
+  | "status"
+  | "actions"
+  | "employeeId"
+  | "tin"
+  | "paymentDate"
+  | "basicSalary"
+  | "taxableAmount"
+  | "incomeTaxPaye"
+  | "employeePension"
+  | "employerPension"
+  | "deductionReasonsCount"
+  | "department"
+  | "employmentType"
+  | "salaryTemplate"
+  | "approvedLeave"
+  | "attendanceDeduction"
+  | "overtime"
+  | "createdAt"
+  | "updatedAt";
 
-function todayText() {
-  return new Date().toISOString().slice(0, 10);
-}
+type SalaryColumnConfig = {
+  id: SalaryColumnId;
+  label: string;
+  group: SalaryColumnGroup;
+  required?: boolean;
+  cellClassName?: string;
+};
+
+const SALARY_COLUMNS: SalaryColumnConfig[] = [
+  { id: "employee", label: "Employee", group: "Default View", required: true, cellClassName: "min-w-[240px]" },
+  { id: "payPeriod", label: "Pay Period", group: "Default View" },
+  { id: "salarySummary", label: "Salary Summary", group: "Default View", required: true, cellClassName: "min-w-[360px]" },
+  { id: "grossSalary", label: "Gross Salary", group: "Default View" },
+  { id: "totalDeductions", label: "Total Deductions", group: "Default View" },
+  { id: "netSalary", label: "Net Salary", group: "Default View" },
+  { id: "status", label: "Status", group: "Default View" },
+  { id: "actions", label: "Actions", group: "Default View", required: true },
+  { id: "employeeId", label: "Employee ID", group: "Employee Details" },
+  { id: "tin", label: "TIN", group: "Employee Details" },
+  { id: "department", label: "Department", group: "Employee Details" },
+  { id: "employmentType", label: "Employment Type", group: "Employee Details" },
+  { id: "salaryTemplate", label: "Salary Template", group: "Employee Details" },
+  { id: "paymentDate", label: "Payment Date", group: "Salary Details" },
+  { id: "basicSalary", label: "Basic Salary", group: "Salary Details" },
+  { id: "taxableAmount", label: "Taxable Amount", group: "Salary Details" },
+  { id: "overtime", label: "Overtime", group: "Salary Details" },
+  { id: "incomeTaxPaye", label: "Income Tax PAYE", group: "Tax and Pension" },
+  { id: "employeePension", label: "Employee Pension", group: "Tax and Pension" },
+  { id: "employerPension", label: "Employer Pension", group: "Tax and Pension" },
+  { id: "deductionReasonsCount", label: "Deduction Reasons Count", group: "Deductions" },
+  { id: "approvedLeave", label: "Approved Leave", group: "Deductions" },
+  { id: "attendanceDeduction", label: "Attendance Deduction", group: "Deductions" },
+  { id: "createdAt", label: "Created At", group: "Metadata" },
+  { id: "updatedAt", label: "Updated At", group: "Metadata" },
+];
+const SALARY_COLUMN_IDS = SALARY_COLUMNS.map((column) => column.id);
+const SALARY_COLUMN_GROUPS: SalaryColumnGroup[] = ["Default View", "Employee Details", "Salary Details", "Tax and Pension", "Deductions", "Metadata"];
 
 function money(value?: number | null, currency = "ETB") {
   return new Intl.NumberFormat("en-US", {
@@ -106,6 +187,42 @@ function isUnpaidSalaryMarker(row: EmployeeSalaryRow) {
   return base === 1 && gross === 1 && taxable === 1;
 }
 
+function normalizeColumnIds(value: unknown): SalaryColumnId[] {
+  const source = Array.isArray(value) ? value : DEFAULT_COLUMN_IDS;
+  const seen = new Set<string>();
+  const ids = source
+    .filter((id): id is SalaryColumnId => typeof id === "string" && SALARY_COLUMN_IDS.includes(id as SalaryColumnId))
+    .filter((id) => {
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  REQUIRED_COLUMN_IDS.forEach((id) => {
+    if (!seen.has(id)) ids.push(id as SalaryColumnId);
+  });
+  return SALARY_COLUMN_IDS.filter((id) => ids.includes(id));
+}
+
+function loadVisibleColumnIds() {
+  if (typeof window === "undefined") return normalizeColumnIds(DEFAULT_COLUMN_IDS);
+  try {
+    const saved = window.localStorage.getItem(COLUMN_STORAGE_KEY);
+    const parsed = saved ? JSON.parse(saved) : DEFAULT_COLUMN_IDS;
+    if (Array.isArray(parsed) && parsed.join(",") === OLD_DEFAULT_COLUMN_IDS.join(",")) return normalizeColumnIds(DEFAULT_COLUMN_IDS);
+    return normalizeColumnIds(parsed);
+  } catch {
+    return normalizeColumnIds(DEFAULT_COLUMN_IDS);
+  }
+}
+
+function activeDeductionItems(row: EmployeeSalaryRow, matcher: (item: SalaryDeductionItem) => boolean) {
+  return (row.deductionItems ?? []).filter((item) => item.status === "active" && matcher(item));
+}
+
+function deductionAmount(row: EmployeeSalaryRow, matcher: (item: SalaryDeductionItem) => boolean) {
+  return activeDeductionItems(row, matcher).reduce((sum, item) => sum + Number(item.amount || 0), 0);
+}
+
 export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [page, setPage] = React.useState(1);
   const [limit, setLimit] = React.useState(10);
@@ -115,15 +232,18 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [templateId, setTemplateId] = React.useState("");
   const [departmentId, setDepartmentId] = React.useState("");
   const [employmentStatus, setEmploymentStatus] = React.useState("");
-  const [dateFrom, setDateFrom] = React.useState(currentMonthStart);
-  const [dateTo, setDateTo] = React.useState(todayText);
+  const [dateFrom, setDateFrom] = React.useState("");
+  const [dateTo, setDateTo] = React.useState("");
   const [activeRow, setActiveRow] = React.useState<EmployeeSalaryRow | null>(null);
   const [editRow, setEditRow] = React.useState<EmployeeSalaryRow | null>(null);
   const [editingBaseUserId, setEditingBaseUserId] = React.useState<string | null>(null);
   const [baseDraft, setBaseDraft] = React.useState("");
   const [exporting, setExporting] = React.useState(false);
   const [showMoreDetails, setShowMoreDetails] = React.useState(false);
-  const [revealedBankAccounts, setRevealedBankAccounts] = React.useState<Record<string, boolean>>({});
+  const [columnMenuOpen, setColumnMenuOpen] = React.useState(false);
+  const [filterPanelOpen, setFilterPanelOpen] = React.useState(false);
+  const [actionMenuUserId, setActionMenuUserId] = React.useState<string | null>(null);
+  const [visibleColumnIds, setVisibleColumnIds] = React.useState<SalaryColumnId[]>(loadVisibleColumnIds);
   const [deductionRow, setDeductionRow] = React.useState<EmployeeSalaryRow | null>(null);
   const [deductionToRemove, setDeductionToRemove] = React.useState<SalaryDeductionItem | null>(null);
   const [removingDeduction, setRemovingDeduction] = React.useState(false);
@@ -135,6 +255,10 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
     }, 300);
     return () => window.clearTimeout(id);
   }, [searchInput]);
+
+  React.useEffect(() => {
+    window.localStorage.setItem(COLUMN_STORAGE_KEY, JSON.stringify(visibleColumnIds));
+  }, [visibleColumnIds]);
 
   const params = React.useMemo(
     () => ({
@@ -160,44 +284,190 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const totals = salaries.data?.meta?.totals ?? {};
   const total = Number(pagination.total ?? pagination.count ?? 0);
   const totalPages = Math.max(Number((salaries.data?.meta?.totalPages ?? pagination.totalPages ?? Math.ceil(total / limit)) || 1), 1);
-  const columns = React.useMemo(
-    () => [
-      "Employee ID",
-      "Full Name",
-      "TIN",
-      "Pay Period",
-      "Payment Date",
-      "Basic Salary",
-      "Gross Salary",
-      "Taxable Amount",
-      "Income Tax (PAYE)",
-      "Employee Pension",
-      "Total Deductions",
-      "Net Salary",
-      "Employer Pension",
-      "Total Cost",
-      "Bank Account",
-      "Payment Status",
-      "Remarks",
-      ...(showMoreDetails ? [
-        "Housing",
-        "Transport",
-        "Other Allowances",
-        "Overtime",
-        "Bonus",
-        "Arrears",
-        "Loan",
-        "Other Deductions",
-        "Working Days",
-        "Days Paid",
-        "Generated By",
-        "Approved By",
-        "Last Updated",
-      ] : []),
-      "Actions",
-    ],
-    [showMoreDetails]
+  const visibleColumns = React.useMemo(
+    () => SALARY_COLUMNS.filter((column) => visibleColumnIds.includes(column.id)),
+    [visibleColumnIds]
   );
+  const activeFilters = React.useMemo(() => {
+    const chips: Array<{ key: string; label: string }> = [];
+    const department = (departments.data?.departments ?? []).find((item) => item.id === departmentId);
+    const template = (templates.data ?? []).find((item) => item.id === templateId);
+    const employment = EMPLOYMENT_STATUS_OPTIONS.find((item) => item.value === employmentStatus);
+    if (departmentId) chips.push({ key: "department", label: `Department: ${department?.name || "Selected"}` });
+    if (employmentStatus) chips.push({ key: "employment", label: `Employment: ${employment?.label || employmentStatus}` });
+    if (payrollStatus) chips.push({ key: "status", label: `Status: ${payrollStatus === "linked" ? "Configured" : "Needs setup"}` });
+    if (dateFrom || dateTo) chips.push({ key: "period", label: `Period: ${dateFrom || "-"} to ${dateTo || "-"}` });
+    if (templateId) chips.push({ key: "template", label: `Template: ${template?.name || "Selected"}` });
+    if (limit !== 10) chips.push({ key: "limit", label: `${limit}/page` });
+    return chips;
+  }, [departmentId, departments.data?.departments, employmentStatus, payrollStatus, dateFrom, dateTo, templateId, templates.data, limit]);
+
+  const setColumns = (ids: string[]) => setVisibleColumnIds(normalizeColumnIds(ids));
+
+  const resetColumns = () => {
+    setShowMoreDetails(false);
+    setColumns(DEFAULT_COLUMN_IDS);
+  };
+
+  const clearFilters = () => {
+    setPage(1);
+    setDepartmentId("");
+    setEmploymentStatus("");
+    setPayrollStatus("");
+    setTemplateId("");
+    setDateFrom("");
+    setDateTo("");
+    setLimit(10);
+  };
+
+  const toggleShowMoreDetails = () => {
+    setShowMoreDetails((current) => {
+      const next = !current;
+      setColumns(next ? MORE_DETAIL_COLUMN_IDS : DEFAULT_COLUMN_IDS);
+      return next;
+    });
+  };
+
+  const toggleColumn = (id: SalaryColumnId) => {
+    if (REQUIRED_COLUMN_IDS.includes(id)) return;
+    setVisibleColumnIds((current) => {
+      const next = current.includes(id) ? current.filter((columnId) => columnId !== id) : [...current, id];
+      return normalizeColumnIds(next);
+    });
+  };
+
+  const renderActions = (row: EmployeeSalaryRow) => (
+    <div className="relative inline-flex" onClick={(event) => event.stopPropagation()}>
+      <button
+        type="button"
+        onClick={() => setActionMenuUserId((current) => current === row.userId ? null : row.userId)}
+        className="w-8 h-8 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center"
+        title="Row actions"
+      >
+        <MoreHorizontal className="w-4 h-4" />
+      </button>
+      {actionMenuUserId === row.userId && (
+        <div className="absolute right-0 top-9 z-20 w-44 rounded-xl border border-slate-100 bg-white shadow-xl py-1 text-xs font-bold text-slate-700">
+          <button type="button" onClick={() => { setActiveRow(row); setActionMenuUserId(null); }} className="w-full px-3 py-2 text-left hover:bg-slate-50">View Details</button>
+          <button type="button" onClick={() => { setDeductionRow(row); setActionMenuUserId(null); }} className="w-full px-3 py-2 text-left hover:bg-slate-50">View Deductions</button>
+          <button type="button" onClick={() => { setEditRow(row); setActionMenuUserId(null); }} className="w-full px-3 py-2 text-left hover:bg-slate-50">Edit Salary</button>
+          {String(row.paymentStatus || "").toLowerCase() !== "paid" && (
+            <button type="button" onClick={() => { setEditRow(row); setActionMenuUserId(null); }} className="w-full px-3 py-2 text-left hover:bg-slate-50">Mark Paid</button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderCell = (row: EmployeeSalaryRow, columnId: SalaryColumnId) => {
+    const approvedLeaveCount = activeDeductionItems(row, (item) => item.reasonType === "leave").length;
+    const attendanceTotal = deductionAmount(row, (item) => item.sourceModule === "attendance");
+    switch (columnId) {
+      case "employee":
+        return (
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded-full bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center text-[11px] font-black">
+              {initials(row.name)}
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-black text-slate-900 truncate">{row.name}</p>
+              <p className="text-[9px] font-semibold text-slate-400 truncate">{row.email || row.employeeCode || "No email"}</p>
+            </div>
+          </div>
+        );
+      case "employeeId":
+        return row.employeeCode || row.userId.slice(0, 8);
+      case "tin":
+        return row.tin || "-";
+      case "payPeriod":
+        return row.payPeriod || "-";
+      case "paymentDate":
+        return dateText(row.paymentDate);
+      case "salarySummary":
+        return (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
+            <span className="font-black text-slate-900">Gross: {money(row.grossPay, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-rose-600">Deduct: {money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-emerald-700">Net: {money(row.netPay, row.currency)}</span>
+          </div>
+        );
+      case "basicSalary":
+        return (
+          <div onDoubleClick={(event) => { event.stopPropagation(); startBaseEdit(row); }}>
+            {editingBaseUserId === row.userId ? (
+              <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
+                <input
+                  value={baseDraft}
+                  onChange={(event) => setBaseDraft(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") saveBaseEdit(row);
+                    if (event.key === "Escape") cancelBaseEdit();
+                  }}
+                  autoFocus
+                  inputMode="decimal"
+                  className="w-28 h-8 rounded-lg border border-blue-200 bg-white px-2 text-xs font-black text-slate-900 outline-none focus:border-blue-500"
+                />
+                <button onClick={() => saveBaseEdit(row)} disabled={updateBaseSalary.isPending} className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 inline-flex items-center justify-center disabled:opacity-50" title="Save base salary">
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button onClick={cancelBaseEdit} className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 inline-flex items-center justify-center" title="Cancel">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <span className="cursor-text" title="Double-click to edit">{money(row.baseSalary, row.currency)}</span>
+            )}
+          </div>
+        );
+      case "grossSalary":
+        return money(row.grossPay, row.currency);
+      case "taxableAmount":
+        return money(row.taxableAmount, row.currency);
+      case "incomeTaxPaye":
+        return money(row.taxDeduction, row.currency);
+      case "employeePension":
+        return money(row.employeePensionContribution ?? row.pensionDeduction, row.currency);
+      case "employerPension":
+        return money(row.employerPensionContribution, row.currency);
+      case "totalDeductions":
+        return money(row.deductionTotal ?? row.totalDeductions, row.currency);
+      case "deductionReasonsCount":
+        return `${Number(row.deductionCount || 0)} reasons`;
+      case "approvedLeave":
+        return approvedLeaveCount ? `${approvedLeaveCount} record${approvedLeaveCount === 1 ? "" : "s"}` : "-";
+      case "attendanceDeduction":
+        return money(attendanceTotal, row.currency);
+      case "netSalary":
+        return money(row.netPay, row.currency);
+      case "department":
+        return row.department?.name || "-";
+      case "employmentType":
+        return row.employmentType || "-";
+      case "salaryTemplate":
+        return row.templateName || "-";
+      case "overtime":
+        return money(row.overtimePay, row.currency);
+      case "createdAt":
+        return dateText(row.createdAt || row.linkedAt || row.hireDate);
+      case "updatedAt":
+        return dateText(row.lastUpdated);
+      case "status":
+        return <span className="text-[9px] font-black px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">{row.paymentStatus || "Pending"}</span>;
+      case "actions":
+        return renderActions(row);
+      default:
+        return "-";
+    }
+  };
+
+  const cellTone = (columnId: SalaryColumnId) => {
+    if (["totalDeductions", "incomeTaxPaye", "employeePension", "attendanceDeduction"].includes(columnId)) return "text-rose-600 font-bold";
+    if (columnId === "netSalary") return "text-emerald-700 font-black";
+    if (["grossSalary", "basicSalary", "salarySummary"].includes(columnId)) return "text-slate-900 font-black";
+    return "text-slate-700 font-bold";
+  };
 
   const exportCsv = async () => {
     setExporting(true);
@@ -210,7 +480,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         employmentStatus: employmentStatus || undefined,
         dateFrom: dateFrom || undefined,
         dateTo: dateTo || undefined,
-        showMoreDetails,
+        columns: visibleColumnIds.join(","),
       });
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8" }));
       const link = document.createElement("a");
@@ -283,8 +553,29 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         accent="blue"
         action={
           <>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setColumnMenuOpen((value) => !value)}
+                className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-black hover:bg-slate-50 inline-flex items-center gap-2"
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                Configure Columns
+              </button>
+              {columnMenuOpen && (
+                <ColumnConfigPopover
+                  columns={SALARY_COLUMNS}
+                  groups={SALARY_COLUMN_GROUPS}
+                  visibleColumnIds={visibleColumnIds}
+                  requiredColumnIds={REQUIRED_COLUMN_IDS}
+                  onToggle={toggleColumn}
+                  onReset={resetColumns}
+                  onClose={() => setColumnMenuOpen(false)}
+                />
+              )}
+            </div>
             <button
-              onClick={() => setShowMoreDetails((value) => !value)}
+              onClick={toggleShowMoreDetails}
               className="h-9 px-3 rounded-lg border border-slate-200 bg-white text-slate-700 text-xs font-black hover:bg-slate-50 inline-flex items-center gap-2"
             >
               <Filter className="w-3.5 h-3.5" />
@@ -301,8 +592,9 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           </>
         }
       >
-        <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_140px_150px_150px_170px_110px] gap-3">
+        <div className="space-y-3">
+          <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
             <label className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
               <input
@@ -312,194 +604,163 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                 className="w-full h-10 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
               />
             </label>
-            <select
-              value={departmentId}
-              onChange={(event) => { setPage(1); setDepartmentId(event.target.value); }}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="">All departments</option>
-              {(departments.data?.departments ?? []).map((department) => (
-                <option key={department.id} value={department.id}>{department.name}</option>
-              ))}
-            </select>
-            <select
-              value={employmentStatus}
-              onChange={(event) => { setPage(1); setEmploymentStatus(event.target.value); }}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="">All employment</option>
-              {EMPLOYMENT_STATUS_OPTIONS.filter((option) => option.value !== "terminated").map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
-            <select
-              value={payrollStatus}
-              onChange={(event) => { setPage(1); setPayrollStatus(event.target.value); }}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="">All statuses</option>
-              <option value="linked">Configured</option>
-              <option value="pending">Needs setup</option>
-            </select>
-            <input
-              type="date"
-              value={dateFrom}
-              onChange={(event) => { setPage(1); setDateFrom(event.target.value); }}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-              title="Deduction period start"
-            />
-            <input
-              type="date"
-              value={dateTo}
-              onChange={(event) => { setPage(1); setDateTo(event.target.value); }}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-              title="Deduction period end"
-            />
-            <select
-              value={templateId}
-              onChange={(event) => { setPage(1); setTemplateId(event.target.value); }}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              <option value="">All templates</option>
-              {(templates.data ?? []).map((template) => (
-                <option key={template.id} value={template.id}>{template.name}</option>
-              ))}
-            </select>
-            <select
-              value={limit}
-              onChange={(event) => { setPage(1); setLimit(Number(event.target.value)); }}
-              className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-            >
-              {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option}/page</option>)}
-            </select>
+              <button
+                type="button"
+                onClick={() => setFilterPanelOpen((value) => !value)}
+                className="h-10 px-3 rounded-xl border border-slate-200 bg-white text-slate-700 text-xs font-black hover:bg-slate-50 inline-flex items-center justify-center gap-2"
+              >
+                <Filter className="w-4 h-4" />
+                Filters
+                {activeFilters.length > 0 && <span className="min-w-5 h-5 px-1 rounded-full bg-blue-600 text-white text-[10px] inline-flex items-center justify-center">{activeFilters.length}</span>}
+              </button>
+            </div>
+
+            {filterPanelOpen && (
+              <div className="absolute right-0 top-12 z-20 w-[min(94vw,760px)] rounded-2xl border border-slate-100 bg-white shadow-2xl p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                  <select
+                    value={departmentId}
+                    onChange={(event) => { setPage(1); setDepartmentId(event.target.value); }}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                  >
+                    <option value="">All departments</option>
+                    {(departments.data?.departments ?? []).map((department) => (
+                      <option key={department.id} value={department.id}>{department.name}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={employmentStatus}
+                    onChange={(event) => { setPage(1); setEmploymentStatus(event.target.value); }}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                  >
+                    <option value="">All employment</option>
+                    {EMPLOYMENT_STATUS_OPTIONS.filter((option) => option.value !== "terminated").map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={payrollStatus}
+                    onChange={(event) => { setPage(1); setPayrollStatus(event.target.value); }}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                  >
+                    <option value="">All statuses</option>
+                    <option value="linked">Configured</option>
+                    <option value="pending">Needs setup</option>
+                  </select>
+                  <select
+                    value={templateId}
+                    onChange={(event) => { setPage(1); setTemplateId(event.target.value); }}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                  >
+                    <option value="">All templates</option>
+                    {(templates.data ?? []).map((template) => (
+                      <option key={template.id} value={template.id}>{template.name}</option>
+                    ))}
+                  </select>
+                  <input
+                    type="date"
+                    value={dateFrom}
+                    onChange={(event) => { setPage(1); setDateFrom(event.target.value); }}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                    title="Salary calculation period start"
+                  />
+                  <input
+                    type="date"
+                    value={dateTo}
+                    onChange={(event) => { setPage(1); setDateTo(event.target.value); }}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                    title="Salary calculation period end"
+                  />
+                  <select
+                    value={limit}
+                    onChange={(event) => { setPage(1); setLimit(Number(event.target.value)); }}
+                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((option) => <option key={option} value={option}>{option}/page</option>)}
+                  </select>
+                  <button type="button" onClick={clearFilters} className="h-10 rounded-xl border border-slate-200 bg-slate-50 text-xs font-black text-slate-700 hover:bg-slate-100">
+                    Clear filters
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
-          <DataTable
-            columns={columns}
-            rows={rows}
-            loading={salaries.isLoading}
-            emptyMessage="No employee salary records match these filters."
-            renderRow={(row) => {
-              return (
-              <tr
-                key={row.userId}
-                className="border-b border-slate-100 hover:bg-slate-50/70 cursor-pointer"
-                onClick={() => setDeductionRow(row)}
-              >
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.employeeCode || row.userId.slice(0, 8)}</td>
-                <td className="px-4 py-3 min-w-[230px]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-700 border border-blue-100 flex items-center justify-center text-xs font-black">
-                      {initials(row.name)}
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-xs font-black text-slate-900 truncate">{row.name}</p>
-                      <p className="text-[10px] font-semibold text-slate-400 truncate">{row.email || row.employeeCode || "No email"}</p>
-                    </div>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.tin || "-"}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.payPeriod || "-"}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{dateText(row.paymentDate)}</td>
-                <td className="px-4 py-3 text-xs font-black text-slate-900 whitespace-nowrap" onDoubleClick={() => startBaseEdit(row)}>
-                  {editingBaseUserId === row.userId ? (
-                    <div className="flex items-center gap-1.5" onClick={(event) => event.stopPropagation()}>
-                      <input
-                        value={baseDraft}
-                        onChange={(event) => setBaseDraft(event.target.value)}
-                        onKeyDown={(event) => {
-                          if (event.key === "Enter") saveBaseEdit(row);
-                          if (event.key === "Escape") cancelBaseEdit();
-                        }}
-                        autoFocus
-                        inputMode="decimal"
-                        className="w-28 h-8 rounded-lg border border-blue-200 bg-white px-2 text-xs font-black text-slate-900 outline-none focus:border-blue-500"
-                      />
-                      <button
-                        onClick={() => saveBaseEdit(row)}
-                        disabled={updateBaseSalary.isPending}
-                        className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 inline-flex items-center justify-center disabled:opacity-50"
-                        title="Save base salary"
-                      >
-                        <Check className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={cancelBaseEdit}
-                        className="w-7 h-7 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 inline-flex items-center justify-center"
-                        title="Cancel"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="cursor-text" title="Double-click to edit">{money(row.baseSalary, row.currency)}</span>
-                  )}
-                </td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.grossPay, row.currency)}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.taxableAmount, row.currency)}</td>
-                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.taxDeduction, row.currency)}</td>
-                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.employeePensionContribution ?? row.pensionDeduction, row.currency)}</td>
-                <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">
-                  <div className="inline-flex flex-col">
-                    <span>{money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>
-                    <span className="text-[10px] font-bold text-slate-400">{Number(row.deductionCount || 0)} reasons</span>
-                  </div>
-                </td>
-                <td className="px-4 py-3 text-xs font-black text-emerald-700 whitespace-nowrap">{money(row.netPay, row.currency)}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.employerPensionContribution, row.currency)}</td>
-                <td className="px-4 py-3 text-xs font-black text-slate-900 whitespace-nowrap">{money(row.totalCostToCompany, row.currency)}</td>
-                <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">
-                  <div className="inline-flex items-center gap-2">
-                    <span>{revealedBankAccounts[row.userId] ? (row.bankAccount || "-") : (row.bankAccountMasked || "-")}</span>
-                    {row.bankAccount && (
-                      <button
-                        type="button"
-                        onClick={(event) => { event.stopPropagation(); setRevealedBankAccounts((current) => ({ ...current, [row.userId]: !current[row.userId] })); }}
-                        className="w-7 h-7 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center"
-                        title={revealedBankAccounts[row.userId] ? "Hide bank account" : "View bank account"}
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </td>
-                <td className="px-4 py-3 whitespace-nowrap">
-                  <span className="text-[10px] font-black px-2 py-1 rounded-full bg-amber-50 text-amber-700">{row.paymentStatus || "Pending"}</span>
-                </td>
-                <td className="px-4 py-3 text-xs font-semibold text-slate-500 min-w-[160px]">{row.remarks || "-"}</td>
-                {showMoreDetails && (
-                  <>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.housingAllowance, row.currency)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.transportAllowance, row.currency)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.otherAllowance, row.currency)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.overtimePay, row.currency)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.bonusIncentive, row.currency)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{money(row.arrearsAdjustments, row.currency)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.loanDeduction, row.currency)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-rose-600 whitespace-nowrap">{money(row.otherDeduction, row.currency)}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.workingDaysInPeriod || "-"}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.daysPaid || "-"}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.generatedBy || "-"}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{row.approvedBy || "-"}</td>
-                    <td className="px-4 py-3 text-xs font-bold text-slate-700 whitespace-nowrap">{dateText(row.lastUpdated)}</td>
-                  </>
+          {activeFilters.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              {activeFilters.map((chip) => (
+                <span key={chip.key} className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">{chip.label}</span>
+              ))}
+              <button type="button" onClick={clearFilters} className="text-[10px] font-black text-blue-700 hover:text-blue-800">
+                Clear filters
+              </button>
+            </div>
+          )}
+
+          <div className="hidden md:block rounded-2xl border border-slate-100 overflow-x-auto">
+            <table className="min-w-full text-left">
+              <thead className="bg-slate-50 border-b border-slate-100">
+                <tr>
+                  {visibleColumns.map((column) => (
+                    <th key={column.id} className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 whitespace-nowrap">
+                      {column.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-slate-100">
+                {salaries.isLoading ? (
+                  <tr>
+                    <td className="px-4 py-10 text-center" colSpan={visibleColumns.length}>
+                      <LoadingSpinner />
+                    </td>
+                  </tr>
+                ) : rows.length ? rows.map((row) => (
+                  <tr key={row.userId} className="hover:bg-slate-50/70 cursor-pointer" onClick={() => setDeductionRow(row)}>
+                    {visibleColumns.map((column) => (
+                      <td key={column.id} className={`px-3 py-2 text-xs whitespace-nowrap ${column.cellClassName || ""} ${cellTone(column.id)}`}>
+                        {renderCell(row, column.id)}
+                      </td>
+                    ))}
+                  </tr>
+                )) : (
+                  <tr>
+                    <td className="px-4 py-10 text-center text-xs font-bold text-slate-400" colSpan={visibleColumns.length}>
+                      No employee salary records match these filters.
+                    </td>
+                  </tr>
                 )}
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2" onClick={(event) => event.stopPropagation()}>
-                    <button onClick={() => setDeductionRow(row)} className="w-8 h-8 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center" title="Show deduction reasons">
-                      <Filter className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setActiveRow(row)} className="w-8 h-8 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center" title="View calculation">
-                      <Eye className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setEditRow(row)} className="w-8 h-8 rounded-lg border border-slate-200 hover:border-blue-200 hover:bg-blue-50 text-slate-500 hover:text-blue-700 inline-flex items-center justify-center" title="Update salary calculation">
-                      <Pencil className="w-4 h-4" />
-                    </button>
+              </tbody>
+            </table>
+          </div>
+
+          <div className="md:hidden grid gap-3">
+            {salaries.isLoading ? (
+              <div className="rounded-2xl border border-slate-100 bg-white p-6 flex justify-center"><LoadingSpinner /></div>
+            ) : rows.length ? rows.map((row) => (
+              <div key={row.userId} role="button" tabIndex={0} onClick={() => setDeductionRow(row)} onKeyDown={(event) => { if (event.key === "Enter") setDeductionRow(row); }} className="text-left rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  {renderCell(row, "employee")}
+                  {renderActions(row)}
+                </div>
+                <div className="mt-3 grid gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] font-black uppercase text-slate-400">Pay Period</span>
+                    <span className="text-xs font-bold text-slate-700">{renderCell(row, "payPeriod")}</span>
                   </div>
-                </td>
-              </tr>
-            );}}
-          />
+                  <div>{renderCell(row, "salarySummary")}</div>
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-[10px] font-black uppercase text-slate-400">Status</span>
+                    <span>{renderCell(row, "status")}</span>
+                  </div>
+                </div>
+              </div>
+            )) : (
+              <div className="rounded-2xl border border-slate-100 bg-white p-6 text-center text-xs font-bold text-slate-400">
+                No employee salary records match these filters.
+              </div>
+            )}
+          </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-semibold text-slate-500">
             <span>{total ? `${(page - 1) * limit + 1}-${Math.min(page * limit, total)} of ${total} employees` : "No employees"}</span>
@@ -539,6 +800,75 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           showAlert={showAlert}
         />
       )}
+    </div>
+  );
+}
+
+function ColumnConfigPopover({
+  columns,
+  groups,
+  visibleColumnIds,
+  requiredColumnIds,
+  onToggle,
+  onReset,
+  onClose,
+}: {
+  columns: SalaryColumnConfig[];
+  groups: SalaryColumnGroup[];
+  visibleColumnIds: SalaryColumnId[];
+  requiredColumnIds: string[];
+  onToggle: (id: SalaryColumnId) => void;
+  onReset: () => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="absolute right-0 top-11 z-30 w-[min(92vw,360px)] rounded-2xl border border-slate-100 bg-white shadow-2xl overflow-hidden">
+      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+        <div>
+          <h3 className="text-xs font-black text-slate-900">Configure Columns</h3>
+          <p className="text-[10px] font-semibold text-slate-400 mt-0.5">{visibleColumnIds.length} visible columns</p>
+        </div>
+        <button type="button" onClick={onClose} className="w-8 h-8 rounded-lg hover:bg-slate-50 text-slate-500 inline-flex items-center justify-center">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <div className="max-h-[420px] overflow-y-auto p-3 space-y-3">
+        {groups.map((group) => {
+          const groupedColumns = columns.filter((column) => column.group === group);
+          if (!groupedColumns.length) return null;
+          return (
+            <div key={group}>
+              <p className="px-1 pb-1 text-[10px] font-black uppercase text-slate-400">{group}</p>
+              <div className="grid gap-1">
+                {groupedColumns.map((column) => {
+                  const checked = visibleColumnIds.includes(column.id);
+                  const required = column.required || requiredColumnIds.includes(column.id);
+                  return (
+                    <label key={column.id} className={`flex items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs font-bold ${required ? "bg-slate-50 text-slate-400" : "hover:bg-blue-50 text-slate-700 cursor-pointer"}`}>
+                      <span>{column.label}</span>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={required}
+                        onChange={() => onToggle(column.id)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between gap-3">
+        <button type="button" onClick={onReset} className="text-xs font-black text-blue-700 hover:text-blue-800">
+          Reset to Default
+        </button>
+        <button type="button" onClick={onClose} className="h-8 px-3 rounded-lg bg-slate-900 text-white text-xs font-black hover:bg-slate-800">
+          Done
+        </button>
+      </div>
     </div>
   );
 }

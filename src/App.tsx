@@ -54,7 +54,7 @@ export default function App() {
   });
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>('overview');
   const [currentProfilesTab, setCurrentProfilesTab] = useState<'create' | 'bulk_create' | 'organogram' | 'directory' | 'left' | 'interns' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations'>('directory');
-  const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'calendar' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request'>('overview');
+  const [currentAttendanceTab, setCurrentAttendanceTab] = useState<'overview' | 'calendar' | 'check-in' | 'check-me-in' | 'history' | 'my-lateness-reason' | 'manual-lateness-reason' | 'late-reasons' | 'requests' | 'timesheet' | 'leaves' | 'overtime' | 'special-request' | 'unavailable' | 'memo-log' | 'work-from-home' | 'exit-request'>('overview');
   const [currentTalentTab, setCurrentTalentTab] = useState<'overview' | 'career' | 'training' | 'culture' | 'development'>('overview');
   const [currentExitTab, setCurrentExitTab] = useState<'overview' | 'resign' | 'interviews' | 'documents' | 'clearance' | 'forms' | 'offboarding'>('offboarding');
   const [currentFinanceTab, setCurrentFinanceTab] = useState<'overview' | 'employee_salary' | 'salary_payroll' | 'payroll_template' | 'budget' | 'my_payslip' | 'benefits' | 'exports'>('overview');
@@ -442,6 +442,7 @@ export default function App() {
                 /* 4. High Fidelity Attendance Tabs */
                 <AttendanceView
                   currentAttendanceTab={currentAttendanceTab}
+                  setCurrentAttendanceTab={setCurrentAttendanceTab}
                   onDraftAiSuggestion={(ctx) => handleTriggerAiGenerate(ctx, 'attendance')}
                   showAlert={showAlert}
                 />

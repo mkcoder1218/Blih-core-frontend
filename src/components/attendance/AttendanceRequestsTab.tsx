@@ -19,7 +19,7 @@ interface AttendanceRequestsTabProps {
 export default function AttendanceRequestsTab({ showAlert }: AttendanceRequestsTabProps) {
   const legacyUser = useLegacyUser();
   const perms = useMyPermissions();
-  const canApprove = legacyUser?.role === 'Business Admin' || perms.isSuperAdmin || perms.hasAny('attendance.checkin_correction.approve');
+  const canApprove = legacyUser?.role === 'Business Admin' || legacyUser?.role === 'HR Manager' || perms.isSuperAdmin || perms.hasAny('attendance.manage', 'attendance.checkin_correction.approve');
   const pending = useAttendanceRequests({ requestType: 'check_in_correction', status: 'pending', size: 50 });
   const archive = useAttendanceRequests({ requestType: 'check_in_correction', status: 'all', size: 1 });
   const approve = useApproveAttendanceRequest();
