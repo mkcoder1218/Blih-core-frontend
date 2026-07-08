@@ -296,7 +296,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
     if (departmentId) chips.push({ key: "department", label: `Department: ${department?.name || "Selected"}` });
     if (employmentStatus) chips.push({ key: "employment", label: `Employment: ${employment?.label || employmentStatus}` });
     if (payrollStatus) chips.push({ key: "status", label: `Status: ${payrollStatus === "linked" ? "Configured" : "Needs setup"}` });
-    if (dateFrom || dateTo) chips.push({ key: "period", label: `Period: ${dateFrom || "-"} to ${dateTo || "-"}` });
+    if (dateFrom || dateTo) chips.push({ key: "createdAt", label: `Account created: ${dateFrom || "-"} to ${dateTo || "-"}` });
     if (templateId) chips.push({ key: "template", label: `Template: ${template?.name || "Selected"}` });
     if (limit !== 10) chips.push({ key: "limit", label: `${limit}/page` });
     return chips;
@@ -609,14 +609,14 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                 value={dateFrom}
                 onChange={(event) => { setPage(1); setDateFrom(event.target.value); }}
                 className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-                title="Salary calculation period start"
+                title="Account created from"
               />
               <input
                 type="date"
                 value={dateTo}
                 onChange={(event) => { setPage(1); setDateTo(event.target.value); }}
                 className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-                title="Salary calculation period end"
+                title="Account created to"
               />
               <button
                 type="button"
