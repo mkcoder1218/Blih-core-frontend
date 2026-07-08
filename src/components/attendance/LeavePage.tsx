@@ -1156,6 +1156,7 @@ export default function LeavePage({ showAlert }: LeavePageProps) {
   const pendingQuery = usePendingLeaveRequests( { page, size: 9 });
   const allQuery     = useAllLeaveRequests(    { page, size: 9 });
   const balancesQuery = useMyLeaveBalances();
+  const activeTemplatesQuery = useLeaveTemplates(true);
 
   const activeQuery =
     view === "my"         ? myQuery :
@@ -1172,8 +1173,9 @@ export default function LeavePage({ showAlert }: LeavePageProps) {
   const myRows     = myQuery.data?.rows ?? [];
   const approved   = myRows.filter((r) => r.status === "approved").length;
   const pending    = myRows.filter((r) => r.status === "pending").length;
-  const annualBalance = (balancesQuery.data ?? []).find((bal) => bal.leaveType === "annual" || String(bal.name || "").toLowerCase().includes("annual"));
-  const annualRemaining = annualBalance?.remainingDays ?? 0;
+  const annualTemplate = (activeTemplatesQuery.data ?? []).find((tpl) => tpl.leaveType === "annual" || tpl.name.toLowerCase().trim() === "annual leave");
+  const annualBalance = (balancesQuery.data ?? []).find((bal) => bal.leaveType === (annualTemplate?.leaveType || "annual"));
+  const annualRemaining = annualBalance?.remainingDays ?? annualTemplate?.totalDays ?? 0;
 
   const handleApprove = async (id: string) => {
     try {
