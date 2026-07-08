@@ -321,7 +321,35 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
     data?.telegram?.linked ||
     data?.telegramAccount?.isActive
   );
-  const showAttendanceWarning = Boolean(penaltyReason || penaltyMins > 0 || currentStatus === "ON_BREAK");
+  const latestEventType = timeline.length ? String(timeline[timeline.length - 1]?.type || "") : "";
+  const hasCheckedIn = Boolean(day?.checkInAtUtc || timeline.some((event: any) => event.type === "CHECK_IN"));
+  const hasLunchOut = Boolean(day?.lunchOutAtUtc || timeline.some((event: any) => event.type === "LUNCH_OUT"));
+  const hasLunchIn = Boolean(day?.lunchInAtUtc || timeline.some((event: any) => event.type === "LUNCH_IN"));
+  const hasCheckedOut = Boolean(day?.checkOutAtUtc || timeline.some((event: any) => event.type === "CHECK_OUT"));
+  const missingLunchCheckout = Boolean(lunch?.lunchBreakEnabled && hasCheckedIn && !hasLunchOut && !hasCheckedOut);
+  const missingLunchReturn = Boolean(hasLunchOut && !hasLunchIn && !hasCheckedOut);
+  const missingFinalCheckout = Boolean(hasCheckedIn && !hasCheckedOut && latestEventType !== "CHECK_OUT");
+  const incompleteOrRiskyStatus = ["IN_PROGRESS", "ON_BREAK", "LATE", "MISSED"].includes(currentStatus);
+  const showAttendanceWarning = Boolean(
+    missingLunchCheckout ||
+    missingLunchReturn ||
+    missingFinalCheckout ||
+    penaltyMins > 0 ||
+    penaltyReason ||
+    withinRadius === false ||
+    incompleteOrRiskyStatus
+  );
+  const showLunchApprovalAction = Boolean(
+    onSpecialRequest &&
+    (missingLunchCheckout || missingLunchReturn || penaltyMins > 0 || penaltyReason || withinRadius === false)
+  );
+  const locationStatusText =
+    withinRadius === true
+      ? "Inside workplace"
+      : withinRadius === false
+        ? "Outside workplace"
+        : geoBadgeText(geo, coords);
+  const overtimeMins = Math.max(0, localWorkedMins - expectedMins);
   const cleanPage = (
     <div className="mx-auto w-full max-w-5xl space-y-3">
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-xs sm:p-5">
@@ -407,20 +435,24 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
           ) : null}
 
           {showAttendanceWarning ? (
-            <div className="mt-3 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800 sm:flex-row sm:items-center">
-              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              <span className="flex-1">
-                Lunch checkout issue detected. Request approval if needed.
-                {penaltyReason ? <span className="block text-amber-900">Applied penalty: {penaltyReason}</span> : null}
-              </span>
-              {onSpecialRequest ? (
+            <div className="mt-3 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] text-amber-800 sm:flex-row sm:items-center">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+              <div className="flex-1">
+                <div className="font-black text-amber-900">Attendance reminder</div>
+                <div className="font-semibold">
+                  Do not forget lunch checkout or final checkout. Missing final checkout may reduce credited time.
+                  {withinRadius === false ? <span className="block">You are currently outside the workplace radius.</span> : null}
+                  {penaltyReason ? <span className="block">Applied penalty: {penaltyReason}</span> : null}
+                </div>
+              </div>
+              {showLunchApprovalAction ? (
                 <button
                   type="button"
                   onClick={onSpecialRequest}
                   className="inline-flex items-center gap-1.5 self-start rounded-lg border border-amber-300 bg-white/80 px-2.5 py-1.5 text-[11px] font-black text-amber-900 hover:bg-white sm:self-auto"
                 >
                   <ShieldCheck className="h-3.5 w-3.5" />
-                  Request approval
+                  Request lunch-time approval
                 </button>
               ) : null}
             </div>
@@ -533,14 +565,15 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 <MiniStat label="Credited time" value={fmtMins(localWorkedMins)} />
                 <MiniStat label="Full worked" value={fmtMins(backendRawWorkedMins)} />
-                <MiniStat label="Penalty" value={penaltyMins > 0 ? fmtMins(penaltyMins) : "0m"} />
-                <MiniStat label="Distance" value={distanceMeters !== null ? `${Math.round(distanceMeters)} m` : "-"} />
+                <MiniStat label="Break time" value={fmtMins(backendBreakMins)} />
+                <MiniStat label="Penalty time" value={fmtMins(penaltyMins)} />
+                <MiniStat label="Expected work time" value={fmtMins(expectedMins)} />
+                <MiniStat label="Remaining time" value={remainingMins > 0 ? fmtMins(remainingMins) : "0m"} />
+                <MiniStat label="Overtime time" value={fmtMins(overtimeMins)} />
+                <MiniStat label="Location status" value={locationStatusText} />
+                <MiniStat label="Distance from workplace" value={distanceMeters !== null ? `${Math.round(distanceMeters)} m` : "-"} />
                 <MiniStat label="Workplace radius" value={office ? `${office.radius} m` : "-"} />
-                <MiniStat label="Location" value={withinRadius === true ? "Inside" : withinRadius === false ? "Outside" : geoBadgeText(geo, coords)} />
               </div>
-              <pre className="mt-3 max-h-40 overflow-auto rounded-lg bg-slate-950 p-3 text-[10px] leading-relaxed text-slate-100">
-                {JSON.stringify(calculation || {}, null, 2)}
-              </pre>
             </div>
           ) : null}
         </div>
