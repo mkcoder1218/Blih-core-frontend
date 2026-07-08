@@ -279,6 +279,7 @@ export interface EmployeeSalaryRow {
   baseSalaryOverride?: number | null;
   targetNetSalary?: number | null;
   salaryInputMode?: "base" | "net" | null;
+  salaryInfo?: Record<string, any>;
   housingAllowance: number;
   transportAllowance: number;
   perDiemAllowance: number;

@@ -181,10 +181,29 @@ function groupDeductions(items: SalaryDeductionItem[] = []) {
 }
 
 function isUnpaidSalaryMarker(row: EmployeeSalaryRow) {
-  const base = Math.round(Number(row.baseSalary || 0));
-  const gross = Math.round(Number(row.grossPay || 0));
-  const taxable = Math.round(Number(row.taxableAmount || 0));
-  return base === 1 && gross === 1 && taxable === 1;
+  const salaryInfo = row.salaryInfo || {};
+  const originalSalaryValues = [
+    salaryInfo.baseSalary,
+    salaryInfo.monthlySalary,
+    salaryInfo.salary,
+    salaryInfo.netSalary,
+    salaryInfo.targetNetSalary,
+    salaryInfo.targetNetPay,
+    salaryInfo.netPay,
+    row.targetNetSalary,
+  ].map((value) => Number(value || 0)).filter((value) => value > 0);
+  const hasUnpaidOriginalSalary = originalSalaryValues.some((value) => value <= 1);
+  const hasTokenPayroll = [
+    row.baseSalary,
+    row.grossPay,
+    row.taxableAmount,
+    row.netPay,
+    row.totalCostToCompany,
+  ].some((value) => {
+    const numeric = Number(value || 0);
+    return numeric > 0 && numeric <= 2;
+  });
+  return hasUnpaidOriginalSalary || hasTokenPayroll;
 }
 
 function normalizeColumnIds(value: unknown): SalaryColumnId[] {
@@ -296,7 +315,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
     if (departmentId) chips.push({ key: "department", label: `Department: ${department?.name || "Selected"}` });
     if (employmentStatus) chips.push({ key: "employment", label: `Employment: ${employment?.label || employmentStatus}` });
     if (payrollStatus) chips.push({ key: "status", label: `Status: ${payrollStatus === "linked" ? "Configured" : "Needs setup"}` });
-    if (dateFrom || dateTo) chips.push({ key: "createdAt", label: `Account created: ${dateFrom || "-"} to ${dateTo || "-"}` });
+    if (dateFrom || dateTo) chips.push({ key: "period", label: `Salary period: ${dateFrom || "-"} to ${dateTo || "-"}` });
     if (templateId) chips.push({ key: "template", label: `Template: ${template?.name || "Selected"}` });
     if (limit !== 10) chips.push({ key: "limit", label: `${limit}/page` });
     return chips;
