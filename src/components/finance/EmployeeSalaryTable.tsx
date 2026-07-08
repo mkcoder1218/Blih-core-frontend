@@ -347,12 +347,12 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         <MoreHorizontal className="w-4 h-4" />
       </button>
       {actionMenuUserId === row.userId && (
-        <div className="absolute right-0 top-9 z-20 w-44 rounded-xl border border-slate-100 bg-white shadow-xl py-1 text-xs font-bold text-slate-700">
-          <button type="button" onClick={() => { setActiveRow(row); setActionMenuUserId(null); }} className="w-full px-3 py-2 text-left hover:bg-slate-50">View Details</button>
-          <button type="button" onClick={() => { setDeductionRow(row); setActionMenuUserId(null); }} className="w-full px-3 py-2 text-left hover:bg-slate-50">View Deductions</button>
-          <button type="button" onClick={() => { setEditRow(row); setActionMenuUserId(null); }} className="w-full px-3 py-2 text-left hover:bg-slate-50">Edit Salary</button>
+        <div className="absolute right-0 top-9 z-30 w-44 rounded-xl border border-slate-100 bg-white shadow-xl py-1 text-xs font-bold text-slate-700 flex flex-col overflow-hidden">
+          <button type="button" onClick={() => { setActiveRow(row); setActionMenuUserId(null); }} className="block w-full px-3 py-2 text-left hover:bg-slate-50">View Details</button>
+          <button type="button" onClick={() => { setDeductionRow(row); setActionMenuUserId(null); }} className="block w-full px-3 py-2 text-left hover:bg-slate-50">View Deductions</button>
+          <button type="button" onClick={() => { setEditRow(row); setActionMenuUserId(null); }} className="block w-full px-3 py-2 text-left hover:bg-slate-50">Edit Salary</button>
           {String(row.paymentStatus || "").toLowerCase() !== "paid" && (
-            <button type="button" onClick={() => { setEditRow(row); setActionMenuUserId(null); }} className="w-full px-3 py-2 text-left hover:bg-slate-50">Mark Paid</button>
+            <button type="button" onClick={() => { setEditRow(row); setActionMenuUserId(null); }} className="block w-full px-3 py-2 text-left hover:bg-slate-50">Mark Paid</button>
           )}
         </div>
       )}
