@@ -594,16 +594,30 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
       >
         <div className="space-y-3">
           <div className="relative">
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-3">
-            <label className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_150px_150px_auto] gap-3">
+              <label className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder="Search by employee name or email"
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+                />
+              </label>
               <input
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search by employee name or email"
-                className="w-full h-10 rounded-xl border border-slate-200 bg-white pl-9 pr-3 text-xs font-semibold text-slate-700 outline-none focus:border-blue-500"
+                type="date"
+                value={dateFrom}
+                onChange={(event) => { setPage(1); setDateFrom(event.target.value); }}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                title="Salary calculation period start"
               />
-            </label>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(event) => { setPage(1); setDateTo(event.target.value); }}
+                className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
+                title="Salary calculation period end"
+              />
               <button
                 type="button"
                 onClick={() => setFilterPanelOpen((value) => !value)}
@@ -616,8 +630,8 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
             </div>
 
             {filterPanelOpen && (
-              <div className="absolute right-0 top-12 z-20 w-[min(94vw,760px)] rounded-2xl border border-slate-100 bg-white shadow-2xl p-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="absolute right-0 top-12 z-20 w-[min(94vw,560px)] rounded-2xl border border-slate-100 bg-white shadow-2xl p-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <select
                     value={departmentId}
                     onChange={(event) => { setPage(1); setDepartmentId(event.target.value); }}
@@ -657,20 +671,6 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                       <option key={template.id} value={template.id}>{template.name}</option>
                     ))}
                   </select>
-                  <input
-                    type="date"
-                    value={dateFrom}
-                    onChange={(event) => { setPage(1); setDateFrom(event.target.value); }}
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-                    title="Salary calculation period start"
-                  />
-                  <input
-                    type="date"
-                    value={dateTo}
-                    onChange={(event) => { setPage(1); setDateTo(event.target.value); }}
-                    className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-500"
-                    title="Salary calculation period end"
-                  />
                   <select
                     value={limit}
                     onChange={(event) => { setPage(1); setLimit(Number(event.target.value)); }}
