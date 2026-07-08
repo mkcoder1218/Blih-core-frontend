@@ -100,9 +100,10 @@ function groupDeductions(items: SalaryDeductionItem[] = []) {
 }
 
 function isUnpaidSalaryMarker(row: EmployeeSalaryRow) {
-  return Number(row.baseSalary || 0) === 1
-    && Number(row.grossPay || 0) === 1
-    && Number(row.taxableAmount || 0) === 1;
+  const base = Math.round(Number(row.baseSalary || 0));
+  const gross = Math.round(Number(row.grossPay || 0));
+  const taxable = Math.round(Number(row.taxableAmount || 0));
+  return base === 1 && gross === 1 && taxable === 1;
 }
 
 export default function EmployeeSalaryTable({ showAlert }: Props) {
