@@ -46,8 +46,8 @@ export default function SpecialRequestPage({ showAlert }: SpecialRequestPageProp
       showAlert('Please add the date and reason.', 'error');
       return;
     }
-    if (form.lunchUsageType === 'PARTIAL' && (!form.requestedMinutes || form.requestedMinutes < 1)) {
-      showAlert('Please enter the number of minutes.', 'error');
+    if (form.lunchUsageType === 'PARTIAL' && (!form.requestedMinutes || form.requestedMinutes < 1 || form.requestedMinutes > 60)) {
+      showAlert('Please enter a number of minutes between 1 and 60.', 'error');
       return;
     }
 
@@ -127,9 +127,9 @@ export default function SpecialRequestPage({ showAlert }: SpecialRequestPageProp
               <input
                 type="number"
                 min={1}
-                max={240}
+                max={60}
                 value={form.requestedMinutes}
-                onChange={(e) => setForm((current) => ({ ...current, requestedMinutes: Number(e.target.value) }))}
+                onChange={(e) => setForm((current) => ({ ...current, requestedMinutes: Math.min(60, Math.max(1, Number(e.target.value) || 1)) }))}
                 className="w-full h-10 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-50"
               />
             </label>
