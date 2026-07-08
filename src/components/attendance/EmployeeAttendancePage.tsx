@@ -308,6 +308,10 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
     : null;
   const cooldownActionLabel =
     cooldown?.action === "LUNCH_IN" ? "Return from lunch" : "Check in";
+  const cooldownRequiredMinutes = Number(cooldown?.requiredMinutes || 60);
+  const cooldownTitle = cooldown?.action === "LUNCH_IN"
+    ? `${cooldownRequiredMinutes} minute break required`
+    : "1 hour break required";
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -498,9 +502,7 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
                 <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
                   <Clock3 className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                   <div className="min-w-0">
-                    <div className="text-sm font-extrabold text-slate-900">
-                      1 hour break required
-                    </div>
+                    <div className="text-sm font-extrabold text-slate-900">{cooldownTitle}</div>
                     <div className="text-[11px] text-amber-800 font-semibold mt-1 leading-relaxed">
                       {cooldownActionLabel} will be available
                       {cooldownAvailableAt ? ` at ${cooldownAvailableAt}` : " after the break"}
