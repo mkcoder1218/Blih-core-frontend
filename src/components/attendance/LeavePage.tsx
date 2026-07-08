@@ -1172,9 +1172,8 @@ export default function LeavePage({ showAlert }: LeavePageProps) {
   const myRows     = myQuery.data?.rows ?? [];
   const approved   = myRows.filter((r) => r.status === "approved").length;
   const pending    = myRows.filter((r) => r.status === "pending").length;
-  const totalDaysUsed = myRows
-    .filter((r) => r.status === "approved")
-    .reduce((s, r) => s + requestedDays(r), 0);
+  const annualBalance = (balancesQuery.data ?? []).find((bal) => bal.leaveType === "annual" || String(bal.name || "").toLowerCase().includes("annual"));
+  const annualRemaining = annualBalance?.remainingDays ?? 0;
 
   const handleApprove = async (id: string) => {
     try {
@@ -1263,7 +1262,7 @@ export default function LeavePage({ showAlert }: LeavePageProps) {
             { label: "Total Requests",  val: total,         icon: FileText,    color: "text-slate-600",   bg: "bg-slate-50"   },
             { label: "Pending",         val: pending,       icon: Clock,       color: "text-amber-600",   bg: "bg-amber-50"   },
             { label: "Approved",        val: approved,      icon: CheckCircle2,color: "text-emerald-600", bg: "bg-emerald-50" },
-            { label: "Days Used",       val: `${totalDaysUsed}d`, icon: Calendar, color: "text-blue-600", bg: "bg-blue-50"   },
+            { label: "Annual Remaining", val: `${annualRemaining}d`, icon: Calendar, color: "text-blue-600", bg: "bg-blue-50"   },
           ].map(({ label, val, icon: Icon, color, bg }) => (
             <div key={label} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between shadow-[0_2px_10px_rgba(0,0,0,0.01)]">
               <div>
