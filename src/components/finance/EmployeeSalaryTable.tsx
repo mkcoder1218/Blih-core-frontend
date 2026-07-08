@@ -99,6 +99,12 @@ function groupDeductions(items: SalaryDeductionItem[] = []) {
     }, {} as Record<string, SalaryDeductionItem[]>);
 }
 
+function isUnpaidSalaryMarker(row: EmployeeSalaryRow) {
+  return Number(row.baseSalary || 0) === 1
+    && Number(row.grossPay || 0) === 1
+    && Number(row.taxableAmount || 0) === 1;
+}
+
 export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [page, setPage] = React.useState(1);
   const [limit, setLimit] = React.useState(10);
@@ -148,7 +154,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const templates = usePayrollTemplates();
   const departments = useDepartments({ size: 200 });
   const updateBaseSalary = useUpdateEmployeeBaseSalary();
-  const rows = salaries.data?.rows ?? [];
+  const rows = (salaries.data?.rows ?? []).filter((row) => !isUnpaidSalaryMarker(row));
   const pagination = salaries.data?.pagination ?? {};
   const totals = salaries.data?.meta?.totals ?? {};
   const total = Number(pagination.total ?? pagination.count ?? 0);
