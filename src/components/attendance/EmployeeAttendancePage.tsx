@@ -49,6 +49,7 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   const unlinkTelegram = useUnlinkMyTelegram();
   const [telegramCode, setTelegramCode] = React.useState<{ code: string; expiresAt: string } | null>(null);
   const [telegramCodeCopied, setTelegramCodeCopied] = React.useState(false);
+  const [detailsOpen, setDetailsOpen] = React.useState(false);
 
   // ── Data from backend ──────────────────────────────────────────────────
   const data = today.data?.data as any;
@@ -58,6 +59,7 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   const disabledReason: string | null = data?.disabledReason || null;
   const calculation: any = data?.calculation;
   const lunch: any = data?.lunch;
+  const day: any = data?.day;
   const cooldown: any = data?.cooldown || null;
   const serverNowUtc: string | undefined = data?.serverNowUtc;
 
@@ -312,198 +314,135 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   const cooldownTitle = cooldown?.action === "LUNCH_IN"
     ? `${cooldownRequiredMinutes} minute break required`
     : "1 hour break required";
-
-  // ── Render ─────────────────────────────────────────────────────────────
-  return (
-    <div className="space-y-5">
-
-      {/* ── Header card ── */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 sm:p-6">
-        <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Attendance</div>
-            <div className="text-[16px] sm:text-[18px] font-black text-slate-900 tracking-tight mt-1">
-              Self Check-In
-            </div>
-            <div className="text-[12px] text-slate-600 font-semibold mt-1 flex items-center gap-2 flex-wrap">
-              <Clock3 className="w-4 h-4 text-slate-400 shrink-0" />
-              <span>{dateDisplay}</span>
-              <span className="text-slate-300">•</span>
-              <span className="font-mono tabular-nums">{nowDisplay}</span>
-              <span className="text-slate-300">•</span>
-              <span className="text-slate-500 text-[11px]">{tz}</span>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {onSpecialRequest ? (
-              <button
-                type="button"
-                onClick={onSpecialRequest}
-                className="inline-flex items-center gap-1.5 text-xs font-bold bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-xl shrink-0"
-              >
-                <ShieldCheck className="w-3.5 h-3.5" />
-                Special Request
-              </button>
-            ) : null}
-            <button
-              onClick={requestLocation}
-              className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl shrink-0"
-            >
-              Refresh location
-            </button>
+  const checkedInTime = day?.checkInAtUtc ? formatTime(new Date(day.checkInAtUtc), tz) : null;
+  const telegramLinked = Boolean(
+    data?.telegramLinked ||
+    data?.telegramAccountLinked ||
+    data?.telegram?.linked ||
+    data?.telegramAccount?.isActive
+  );
+  const showAttendanceWarning = Boolean(penaltyReason || penaltyMins > 0 || currentStatus === "ON_BREAK");
+  const cleanPage = (
+    <div className="mx-auto w-full max-w-5xl space-y-3">
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-xs sm:p-5">
+        <div className="mb-4">
+          <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Attendance</div>
+          <div className="mt-1 text-[18px] font-black tracking-tight text-slate-900">Self Check-In</div>
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-[12px] font-semibold text-slate-600">
+            <Clock3 className="h-4 w-4 shrink-0 text-slate-400" />
+            <span>{dateDisplay}</span>
+            <span className="text-slate-300">-</span>
+            <span className="font-mono tabular-nums">{nowDisplay}</span>
+            <span className="text-slate-300">-</span>
+            <span className="text-[11px] text-slate-500">{tz}</span>
           </div>
         </div>
 
-        {/* ── Status + Action grid ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-5">
-
-          {/* Status panel */}
-          <div className="lg:col-span-7 bg-slate-50/60 border border-slate-200/70 rounded-2xl p-4">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-                  Current status
-                </div>
-                <div className="text-sm font-extrabold text-slate-900 mt-1">
-                  {isSaturdayTrackingOnly ? "Saturday tracking only" : humanStatus(currentStatus, disabledReason, office, geo, coords, withinRadius)}
-                </div>
-                <div className="text-[11px] text-slate-600 font-semibold mt-1 flex items-center gap-1.5">
-                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="truncate">
-                    {office ? settings?.locationName || "Primary workplace" : "Workplace location not configured"}
-                  </span>
-                  {office ? (
-                    <span className="text-slate-300 shrink-0">• {office.radius} m radius</span>
-                  ) : null}
-                </div>
+        <div className="rounded-2xl border border-slate-200/70 bg-slate-50/60 p-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Current status</div>
+              <div className="mt-1 text-xl font-black text-slate-950">
+                {isSaturdayTrackingOnly ? "Saturday tracking only" : humanStatus(currentStatus, disabledReason, office, geo, coords, withinRadius)}
               </div>
+              <div className="mt-1 flex min-w-0 items-center gap-1.5 text-[11px] font-semibold text-slate-600">
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-slate-400" />
+                <span className="truncate">
+                  {office ? settings?.locationName || "Primary workplace" : "Workplace location not configured"}
+                </span>
+                {office ? <span className="shrink-0 text-slate-300">- {office.radius} m radius</span> : null}
+              </div>
+            </div>
 
+            <div className="flex flex-wrap items-center gap-2">
               {withinRadius === true ? (
-                <Badge tone="good" icon={<CheckCircle2 className="w-4 h-4" />} text="Inside location" />
+                <Badge tone="good" icon={<CheckCircle2 className="h-4 w-4" />} text="Inside workplace" />
               ) : withinRadius === false ? (
-                <Badge tone="bad" icon={<XCircle className="w-4 h-4" />} text="Outside location" />
+                <Badge tone="bad" icon={<XCircle className="h-4 w-4" />} text="Outside workplace" />
               ) : (
-                <Badge tone="neutral" icon={<ShieldAlert className="w-4 h-4" />} text={geoBadgeText(geo, coords)} />
+                <Badge tone="neutral" icon={<ShieldAlert className="h-4 w-4" />} text="Location unavailable" />
               )}
+              <button
+                onClick={requestLocation}
+                className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-black text-slate-600 hover:bg-slate-50"
+              >
+                Refresh location
+              </button>
             </div>
+          </div>
 
-            {/* Mini stats */}
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 mt-4">
-              <MiniStat
-                label="Credited"
-                value={fmtMins(localWorkedMins)}
-                highlight={currentStatus === "IN_PROGRESS"}
-              />
-              <MiniStat label="Full worked" value={fmtMins(backendRawWorkedMins)} />
-              <MiniStat label="Penalty" value={penaltyMins > 0 ? fmtMins(penaltyMins) : "0m"} />
-              <MiniStat label="Break" value={fmtMins(backendBreakMins)} />
-              <MiniStat
-                label="Remaining"
-                value={remainingMins > 0 ? fmtMins(remainingMins) : "—"}
-              />
-              <MiniStat
-                label="Your distance"
-                value={distanceMeters !== null ? `${Math.round(distanceMeters)} m` : "—"}
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <MiniStat label="Worked today" value={fmtMins(localWorkedMins)} highlight={currentStatus === "IN_PROGRESS"} />
+            <MiniStat label="Remaining" value={remainingMins > 0 ? fmtMins(remainingMins) : "Done"} />
+            <MiniStat label="Break" value={fmtMins(backendBreakMins)} />
+          </div>
+
+          <div className="mt-3 grid grid-cols-1 gap-2 text-[11px] font-semibold text-slate-500 sm:grid-cols-3">
+            <div>Checked in: <span className="font-black text-slate-800">{checkedInTime || "Not yet"}</span></div>
+            <div>Worked: <span className="font-black text-slate-800">{fmtMins(localWorkedMins)}</span></div>
+            <div>Remaining: <span className="font-black text-slate-800">{remainingMins > 0 ? fmtMins(remainingMins) : "Done"}</span></div>
+          </div>
+
+          <div className="mt-3">
+            <div className="mb-1 flex justify-between text-[10px] font-bold text-slate-400">
+              <span>Daily progress</span>
+              <span>{progressPct}% of {fmtMins(expectedMins)}</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-200">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${progressPct >= 100 ? "bg-emerald-500" : "bg-[#1a56db]"}`}
+                style={{ width: `${progressPct}%` }}
               />
             </div>
+          </div>
 
-            <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800 flex flex-col sm:flex-row sm:items-center gap-2">
-              <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+          {lunch?.lunchBreakEnabled && lunch?.lunchMode === "FIXED" && lunch?.fixedLunchStartTime && lunch?.fixedLunchEndTime ? (
+            <div className={`mt-3 flex items-center gap-1.5 text-[11px] font-semibold ${isLunchWindowActive ? "text-emerald-700" : "text-slate-500"}`}>
+              <Coffee className="h-3.5 w-3.5 shrink-0" />
+              <span>Fixed lunch: {lunch.fixedLunchStartTime} - {lunch.fixedLunchEndTime}</span>
+              <span className={isLunchWindowActive ? "font-bold text-emerald-600" : "text-slate-400"}>
+                {isLunchWindowActive === true ? "Open" : "Not yet open"}
+              </span>
+            </div>
+          ) : null}
+
+          {showAttendanceWarning ? (
+            <div className="mt-3 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-800 sm:flex-row sm:items-center">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
               <span className="flex-1">
-                Do not forget lunch checkout or final checkout. Missed final checkout gives half-day credit, and missed lunch checkout with final checkout deducts 2h.
-                {penaltyReason ? <span className="block mt-1 text-amber-900">Applied penalty: {penaltyReason}</span> : null}
+                Lunch checkout issue detected. Request approval if needed.
+                {penaltyReason ? <span className="block text-amber-900">Applied penalty: {penaltyReason}</span> : null}
               </span>
               {onSpecialRequest ? (
                 <button
                   type="button"
                   onClick={onSpecialRequest}
-                  className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white/70 hover:bg-white px-2.5 py-1.5 text-[11px] font-black text-amber-900"
+                  className="inline-flex items-center gap-1.5 self-start rounded-lg border border-amber-300 bg-white/80 px-2.5 py-1.5 text-[11px] font-black text-amber-900 hover:bg-white sm:self-auto"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Request lunch-time approval
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Request approval
                 </button>
               ) : null}
             </div>
+          ) : null}
 
-            {/* Progress bar */}
-            <div className="mt-4">
-              <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-1">
-                <span>Daily progress</span>
-                <span>
-                  {progressPct}% of {fmtMins(expectedMins)}
-                </span>
-              </div>
-              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-500 ${
-                    progressPct >= 100 ? "bg-emerald-500" : "bg-[#1a56db]"
-                  }`}
-                  style={{ width: `${progressPct}%` }}
-                />
-              </div>
-            </div>
-
-            {/* Fixed lunch window indicator */}
-            {lunch?.lunchBreakEnabled &&
-             lunch?.lunchMode === "FIXED" &&
-             lunch?.fixedLunchStartTime &&
-             lunch?.fixedLunchEndTime ? (
-              <div
-                className={`mt-3 text-[11px] font-semibold flex items-center gap-1.5 ${
-                  isLunchWindowActive ? "text-emerald-700" : "text-slate-500"
-                }`}
-              >
-                <Coffee className="w-3.5 h-3.5 shrink-0" />
-                <span>
-                  Fixed lunch: {lunch.fixedLunchStartTime} – {lunch.fixedLunchEndTime}
-                </span>
-                {isLunchWindowActive === true ? (
-                  <span className="ml-1 text-emerald-600 font-bold">• Open</span>
-                ) : (
-                  <span className="ml-1 text-slate-400">• Not yet open</span>
-                )}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Action panel */}
-          <div className="lg:col-span-5 bg-white border border-slate-100 rounded-2xl p-4 flex flex-col">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Actions
-            </div>
-
-            {/* ── Completed-day banner (no action buttons) ── */}
+          <div className="mt-4">
             {isDayComplete ? (
-              <div className="flex-1 flex flex-col items-center justify-center py-6 gap-3">
-                <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center">
-                  <CheckCircle2 className="w-6 h-6 text-emerald-500" />
-                </div>
-                <div className="text-center">
-                  <div className="text-sm font-extrabold text-slate-900">Day complete</div>
-                  <div className="text-[11px] text-slate-500 font-semibold mt-1">
-                    You've checked out for the day.
-                  </div>
-                </div>
+              <div className="flex items-center gap-2 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">
+                <CheckCircle2 className="h-4 w-4" />
+                Day complete
               </div>
-
             ) : disabledReason ? (
-              /* ── Attendance unavailable banner ── */
-              <div className="flex-1 flex flex-col items-center justify-center py-6 gap-3">
-                <AlertTriangle className="w-6 h-6 text-amber-500" />
-                <div className="text-center">
-                  <div className="text-sm font-extrabold text-slate-900">Unavailable</div>
-                  <div className="text-[11px] text-slate-500 font-semibold mt-1">{disabledReason}</div>
-                </div>
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800">
+                {disabledReason}
               </div>
-
             ) : cooldown?.active ? (
-              <div className="flex-1 flex flex-col justify-center gap-3">
-                <div className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3">
-                  <Clock3 className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="space-y-2">
+                <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2">
+                  <Clock3 className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
                   <div className="min-w-0">
-                    <div className="text-sm font-extrabold text-slate-900">{cooldownTitle}</div>
-                    <div className="text-[11px] text-amber-800 font-semibold mt-1 leading-relaxed">
+                    <div className="text-xs font-extrabold text-slate-900">{cooldownTitle}</div>
+                    <div className="mt-0.5 text-[11px] font-semibold leading-relaxed text-amber-800">
                       {cooldownActionLabel} will be available
                       {cooldownAvailableAt ? ` at ${cooldownAvailableAt}` : " after the break"}
                       {cooldown?.remainingMinutes ? ` (${cooldown.remainingMinutes} min remaining).` : "."}
@@ -512,129 +451,115 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
                 </div>
                 <button
                   disabled
-                  className="w-full rounded-2xl py-3 px-4 text-xs font-extrabold tracking-wide flex items-center justify-center gap-2 bg-slate-100 text-slate-400 cursor-not-allowed"
+                  className="flex w-full cursor-not-allowed items-center justify-center gap-2 rounded-xl bg-slate-100 px-4 py-3 text-xs font-extrabold tracking-wide text-slate-400"
                 >
-                  <Clock3 className="w-4 h-4" />
+                  <Clock3 className="h-4 w-4" />
                   {cooldownActionLabel}
                 </button>
               </div>
-
             ) : (
-              /* ── Context-aware action buttons (one per nextAllowed entry) ── */
-              <div className="flex-1 flex flex-col gap-2">
+              <div className="space-y-2">
                 {nextAllowed.length === 0 ? (
-                  <div className="text-[12px] text-slate-500 font-semibold mt-2">
-                    No attendance action available right now.
-                  </div>
+                  <div className="text-[12px] font-semibold text-slate-500">No attendance action available right now.</div>
                 ) : null}
 
-                {/* Late check-in notice */}
                 {nextAllowed.includes("CHECK_IN") && computeLateByMinutes() > 0 ? (
-                  <div className="flex items-start gap-2 text-[11px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    <span>
-                      You are <span className="font-black">{computeLateByMinutes()} min late</span>. Submit your reason separately in My Lateness Reason before 08:30 AM.
-                    </span>
+                  <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-semibold text-amber-700">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    <span>You are <span className="font-black">{computeLateByMinutes()} min late</span>. Submit your reason separately in My Lateness Reason before 08:30 AM.</span>
                   </div>
                 ) : null}
 
-                {nextAllowed.map((type) => {
-                  // Per-button disabled logic
-                  const isLunchOutFixed =
-                    type === "LUNCH_OUT" && lunch?.lunchMode === "FIXED";
-                  const lunchWindowClosed = isLunchOutFixed && isLunchWindowActive === false;
-                  const btnDisabled = Boolean(baseDisabledReason) || lunchWindowClosed;
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  {nextAllowed.map((type, index) => {
+                    const isLunchOutFixed = type === "LUNCH_OUT" && lunch?.lunchMode === "FIXED";
+                    const lunchWindowClosed = isLunchOutFixed && isLunchWindowActive === false;
+                    const btnDisabled = Boolean(baseDisabledReason) || lunchWindowClosed;
+                    const disabledTitle = lunchWindowClosed
+                      ? `Lunch window: ${lunch?.fixedLunchStartTime} - ${lunch?.fixedLunchEndTime}`
+                      : baseDisabledReason ?? undefined;
 
-                  const disabledTitle = lunchWindowClosed
-                    ? `Lunch window: ${lunch?.fixedLunchStartTime} – ${lunch?.fixedLunchEndTime}`
-                    : baseDisabledReason ?? undefined;
+                    return (
+                      <button
+                        key={type}
+                        disabled={btnDisabled}
+                        onClick={() => handleAction(type)}
+                        title={btnDisabled && disabledTitle ? disabledTitle : undefined}
+                        className={[
+                          "flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-xs font-extrabold tracking-wide transition-all",
+                          index === 0 ? "flex-1" : "sm:w-auto",
+                          btnDisabled
+                            ? "cursor-not-allowed bg-slate-100 text-slate-400"
+                            : index === 0
+                              ? actionBtnClass(type)
+                              : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                        ].join(" ")}
+                      >
+                        {createEvent.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : actionIcon(type)}
+                        {createEvent.isPending ? "Processing..." : toActionLabel(type)}
+                      </button>
+                    );
+                  })}
+                </div>
 
-                  return (
-                    <button
-                      key={type}
-                      disabled={btnDisabled}
-                      onClick={() => handleAction(type)}
-                      title={btnDisabled && disabledTitle ? disabledTitle : undefined}
-                      className={[
-                        "w-full rounded-2xl py-3 px-4 text-xs font-extrabold tracking-wide transition-all",
-                        "flex items-center justify-center gap-2",
-                        btnDisabled
-                          ? "bg-slate-100 text-slate-400 cursor-not-allowed"
-                          : actionBtnClass(type),
-                      ].join(" ")}
-                    >
-                      {createEvent.isPending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        actionIcon(type)
-                      )}
-                      {createEvent.isPending ? "Processing…" : toActionLabel(type)}
-                    </button>
-                  );
-                })}
-
-                {/* Prompt location access if needed */}
                 {geo.status === "prompt" && !coords && !isSaturdayTrackingOnly ? (
                   <button
                     onClick={requestLocation}
-                    className="w-full mt-1 rounded-2xl py-2.5 px-4 text-[11px] font-bold bg-slate-900 hover:bg-slate-800 text-white"
+                    className="w-full rounded-xl bg-slate-900 px-4 py-2.5 text-[11px] font-bold text-white hover:bg-slate-800"
                   >
                     Allow location access
                   </button>
                 ) : null}
               </div>
             )}
-
-            {/* Inline submit error */}
-            {submitError ? (
-              <div className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3">
-                {submitError}
-              </div>
-            ) : null}
           </div>
+
+          {submitError ? (
+            <div className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+              {submitError}
+            </div>
+          ) : null}
+
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((open) => !open)}
+            className="mt-3 text-left text-[11px] font-black text-slate-500 hover:text-slate-800"
+          >
+            {detailsOpen ? "Hide details" : "View details"}
+          </button>
+
+          {detailsOpen ? (
+            <div className="mt-2 rounded-xl border border-slate-200 bg-white px-3 py-3">
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <MiniStat label="Credited time" value={fmtMins(localWorkedMins)} />
+                <MiniStat label="Full worked" value={fmtMins(backendRawWorkedMins)} />
+                <MiniStat label="Penalty" value={penaltyMins > 0 ? fmtMins(penaltyMins) : "0m"} />
+                <MiniStat label="Distance" value={distanceMeters !== null ? `${Math.round(distanceMeters)} m` : "-"} />
+                <MiniStat label="Workplace radius" value={office ? `${office.radius} m` : "-"} />
+                <MiniStat label="Location" value={withinRadius === true ? "Inside" : withinRadius === false ? "Outside" : geoBadgeText(geo, coords)} />
+              </div>
+              <pre className="mt-3 max-h-40 overflow-auto rounded-lg bg-slate-950 p-3 text-[10px] leading-relaxed text-slate-100">
+                {JSON.stringify(calculation || {}, null, 2)}
+              </pre>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 sm:p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-          <div className="min-w-0">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Telegram</div>
-            <div className="text-[14px] font-extrabold text-slate-900 mt-1">Personal attendance bot</div>
-            <div className="text-[11px] text-slate-500 font-semibold mt-1">
-              Generate a one-time code here, then send <span className="font-mono text-slate-700">/link CODE</span> to the company attendance bot.
+      {!telegramLinked || telegramCode ? (
+        <div className="rounded-2xl border border-slate-100 bg-white p-3 shadow-xs sm:p-4">
+          <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+            <div className="min-w-0">
+              <div className="text-[12px] font-extrabold text-slate-900">Link Telegram to use the attendance bot.</div>
+              {telegramCode ? (
+                <div className="mt-1 text-[11px] font-semibold text-slate-500">
+                  Send <span className="font-mono text-slate-800">/link {telegramCode.code}</span> to the company attendance bot.
+                  <span className="ml-1">Expires at {new Date(telegramCode.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                </div>
+              ) : null}
             </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={async () => {
-                const res = await generateTelegramCode.mutateAsync();
-                setTelegramCode(res.data.telegramLinkCode);
-                setTelegramCodeCopied(false);
-              }}
-              disabled={generateTelegramCode.isPending}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#1a56db] px-3 py-2 text-[11px] font-black text-white disabled:bg-slate-200 disabled:text-slate-400"
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              {generateTelegramCode.isPending ? "Generating..." : "Link Telegram Account"}
-            </button>
-            <button
-              onClick={async () => {
-                await unlinkTelegram.mutateAsync();
-                setTelegramCode(null);
-              }}
-              disabled={unlinkTelegram.isPending}
-              className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-black text-slate-600 disabled:opacity-50"
-            >
-              Unlink
-            </button>
-          </div>
-        </div>
-        {telegramCode ? (
-          <div className="mt-4 rounded-2xl bg-slate-50 border border-slate-100 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">One-time code</div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <div className="font-mono text-lg font-black text-slate-900 tracking-wider">{telegramCode.code}</div>
+            <div className="flex flex-wrap items-center gap-2">
+              {telegramCode ? (
                 <button
                   type="button"
                   onClick={async () => {
@@ -642,90 +567,94 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
                     setTelegramCodeCopied(true);
                     window.setTimeout(() => setTelegramCodeCopied(false), 1800);
                   }}
-                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-[11px] font-black text-slate-600 hover:bg-slate-50"
+                  className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-black text-slate-600 hover:bg-slate-50"
                 >
-                  {telegramCodeCopied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                  {telegramCodeCopied ? "Copied" : "Copy"}
+                  {telegramCodeCopied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
+                  {telegramCodeCopied ? "Copied" : "Copy code"}
                 </button>
-              </div>
-            </div>
-            <div className="text-[11px] font-semibold text-slate-500">
-              Expires at {new Date(telegramCode.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+              ) : null}
+              <button
+                onClick={async () => {
+                  const res = await generateTelegramCode.mutateAsync();
+                  setTelegramCode(res.data.telegramLinkCode);
+                  setTelegramCodeCopied(false);
+                }}
+                disabled={generateTelegramCode.isPending}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-[#1a56db] px-3 py-2 text-[11px] font-black text-white disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                <Link2 className="h-3.5 w-3.5" />
+                {generateTelegramCode.isPending ? "Generating..." : "Link Telegram"}
+              </button>
+              {telegramLinked ? (
+                <button
+                  onClick={async () => {
+                    await unlinkTelegram.mutateAsync();
+                    setTelegramCode(null);
+                  }}
+                  disabled={unlinkTelegram.isPending}
+                  className="rounded-xl border border-slate-200 px-3 py-2 text-[11px] font-black text-slate-600 disabled:opacity-50"
+                >
+                  Unlink
+                </button>
+              ) : null}
             </div>
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : null}
 
-      {/* ── Late check-in modal ── */}
-      {/* ── Timeline card ── */}
-      <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-5 sm:p-6">
+      <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-xs sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <div>
             <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Today</div>
-            <div className="text-[14px] font-extrabold text-slate-900 mt-1">Attendance timeline</div>
+            <div className="mt-0.5 text-[14px] font-extrabold text-slate-900">Attendance timeline</div>
           </div>
           <div className="flex items-center gap-2">
             {timeline.length > 0 ? (
               <button
                 onClick={() => setConfirmRevertOpen(true)}
                 disabled={revertEvent.isPending || createEvent.isPending}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-black text-amber-700 hover:bg-amber-100 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[11px] font-black text-amber-700 hover:bg-amber-100 disabled:opacity-50"
               >
-                <Undo2 className="w-3.5 h-3.5" />
+                <Undo2 className="h-3.5 w-3.5" />
                 Revert last
               </button>
             ) : null}
             <button
               onClick={() => today.refetch()}
               disabled={today.isFetching}
-              className="text-xs font-bold bg-slate-100 hover:bg-slate-200 disabled:bg-slate-100 text-slate-700 px-3 py-2 rounded-xl"
+              className="rounded-lg bg-slate-100 px-2.5 py-1.5 text-[11px] font-bold text-slate-700 hover:bg-slate-200 disabled:bg-slate-100"
             >
-              {today.isFetching ? "Refreshing…" : "Refresh"}
+              {today.isFetching ? "Refreshing..." : "Refresh"}
             </button>
           </div>
         </div>
 
         {today.isError ? (
-          <div className="mt-4 text-xs text-red-700 bg-red-50 border border-red-200 rounded-xl p-3 flex items-center justify-between">
+          <div className="mt-3 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700">
             <span>Failed to load attendance data.</span>
-            <button
-              onClick={() => today.refetch()}
-              className="underline font-bold ml-2"
-            >
+            <button onClick={() => today.refetch()} className="ml-2 font-bold underline">
               Retry
             </button>
           </div>
         ) : null}
 
-        <div className="mt-4 space-y-2">
+        <div className="mt-3 divide-y divide-slate-100">
           {timeline.length === 0 ? (
-            <div className="text-[12px] text-slate-600 font-semibold">
-              No attendance events recorded yet today.
-            </div>
+            <div className="text-[12px] font-semibold text-slate-600">No attendance events recorded yet today.</div>
           ) : (
             timeline.map((e: any) => (
-              <div
-                key={e.id}
-                className="flex items-center gap-3 bg-slate-50 rounded-xl border border-slate-100 px-4 py-3"
-              >
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${timelineIconBg(e.type)}`}
-                >
-                  {timelineIconEl(e.type)}
+              <div key={e.id} className="grid grid-cols-[72px_1fr_auto_auto] items-center gap-3 py-2.5">
+                <div className="font-mono text-[11px] font-black tabular-nums text-slate-700">
+                  {formatTime(new Date(e.timestampUtc), tz)}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <div className="text-[12px] font-extrabold text-slate-900">{e.label}</div>
-                  <div className="text-[11px] text-slate-500 font-semibold">
-                    {formatTime(new Date(e.timestampUtc), tz)}
-                  </div>
-                </div>
-                <div className="text-[11px] font-bold text-slate-400">
-                  {Math.round(e.distanceMeters)} m
+                <div className="min-w-0 text-[12px] font-extrabold text-slate-900">{e.label}</div>
+                <div className="text-right text-[11px] font-bold text-slate-500">
+                  {e.withinAllowedRadius ? "Inside workplace" : `${Math.round(e.distanceMeters)} m away`}
                 </div>
                 {e.withinAllowedRadius ? (
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                  <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-500" />
                 ) : (
-                  <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                  <XCircle className="h-4 w-4 shrink-0 text-rose-400" />
                 )}
               </div>
             ))
@@ -735,17 +664,17 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
 
       {confirmRevertOpen ? (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white border border-slate-200 shadow-xl p-5 space-y-4">
+          <div className="w-full max-w-sm rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
             <div>
               <h3 className="text-sm font-black text-slate-950">Revert last action?</h3>
-              <p className="text-[11px] font-semibold text-slate-500 mt-1">
+              <p className="mt-1 text-[11px] font-semibold text-slate-500">
                 This removes your latest attendance event today. Use it only if you clicked accidentally.
               </p>
             </div>
-            <div className="rounded-xl bg-slate-50 border border-slate-100 px-3 py-2 text-xs font-bold text-slate-700">
+            <div className="mt-4 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
               Last action: {timeline[timeline.length - 1]?.label || "Attendance action"}
             </div>
-            <div className="flex justify-end gap-2">
+            <div className="mt-4 flex justify-end gap-2">
               <button onClick={() => setConfirmRevertOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-black text-slate-600">Cancel</button>
               <button
                 onClick={handleRevertLast}
@@ -760,6 +689,9 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
       ) : null}
     </div>
   );
+
+  // ── Render ─────────────────────────────────────────────────────────────
+  return cleanPage;
 }
 
 // ---------------------------------------------------------------------------
