@@ -350,6 +350,28 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
         ? "Outside workplace"
         : geoBadgeText(geo, coords);
   const overtimeMins = Math.max(0, localWorkedMins - expectedMins);
+  const attendanceExemption = data?.attendanceExemption;
+
+  if (attendanceExemption) {
+    return (
+      <div className="mx-auto flex min-h-[420px] w-full max-w-3xl items-center justify-center px-4">
+        <div className="w-full rounded-3xl border border-emerald-100 bg-white p-8 text-center shadow-xs">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <h3 className="mt-4 text-lg font-black tracking-tight text-slate-950">Attendance Check-In Hidden</h3>
+          <p className="mx-auto mt-2 max-w-xl text-sm font-semibold leading-6 text-slate-600">
+            You are exempted from check-in and check-out. Attendance penalties will not be applied to your account.
+          </p>
+          <div className="mt-5 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3 text-left">
+            <div className="text-[10px] font-black uppercase tracking-widest text-slate-400">Approved Reason</div>
+            <div className="mt-1 text-xs font-bold leading-5 text-slate-700">{attendanceExemption.reason}</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const cleanPage = (
     <div className="mx-auto w-full max-w-5xl space-y-3">
       <div className="rounded-2xl border border-slate-100 bg-white p-4 shadow-xs sm:p-5">

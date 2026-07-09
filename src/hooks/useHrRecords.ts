@@ -66,6 +66,88 @@ export function useAllRoles() {
   });
 }
 
+export type UserExemptionStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export interface UserExemption {
+  id: string;
+  userId: string;
+  reason: string;
+  excludeFromPayroll: boolean;
+  status: UserExemptionStatus;
+  requestedBy: string;
+  approvedBy?: string | null;
+  rejectedBy?: string | null;
+  approvedAt?: string | null;
+  rejectedAt?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+  user?: { id: string; fullName: string; email?: string };
+  requester?: { id: string; fullName: string; email?: string };
+  approver?: { id: string; fullName: string; email?: string };
+  rejecter?: { id: string; fullName: string; email?: string };
+}
+
+export function useUserExemptions(params?: { status?: string; userId?: string; page?: number; size?: number; search?: string }) {
+  return useQuery({
+    queryKey: ["user-exemptions", params],
+    queryFn: async () => {
+      const qs = new URLSearchParams();
+      if (params?.status) qs.set("status", params.status);
+      if (params?.userId) qs.set("userId", params.userId);
+      if (params?.search) qs.set("search", params.search);
+      qs.set("page", String(params?.page ?? 1));
+      qs.set("size", String(params?.size ?? 20));
+      const res = await api.get(`/api/v1/user-exemptions?${qs.toString()}`);
+      return {
+        rows: (res.data?.rows ?? []) as UserExemption[],
+        total: res.data?.total ?? 0,
+        page: res.data?.page ?? 1,
+        totalPages: res.data?.totalPages ?? 1,
+      };
+    },
+  });
+}
+
+export function useCreateUserExemption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { userId: string; reason: string; excludeFromPayroll: boolean }) =>
+      api.post("/api/v1/user-exemptions", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-exemptions"] });
+      queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
+    },
+  });
+}
+
+export function useApproveUserExemption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/user-exemptions/${id}/approve`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-exemptions"] });
+      queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance-hr"] });
+      queryClient.invalidateQueries({ queryKey: ["my-attendance-today"] });
+    },
+  });
+}
+
+export function useRejectUserExemption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.post(`/api/v1/user-exemptions/${id}/reject`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-exemptions"] });
+      queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+    },
+  });
+}
+
 export function useOrganogram() {
   return useQuery({
     queryKey: ["organogram"],

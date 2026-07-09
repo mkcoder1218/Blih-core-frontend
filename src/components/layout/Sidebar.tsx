@@ -213,6 +213,7 @@ export default function Sidebar({
     { id: 'events',                 label: 'Events',                badge: 0 },
     { id: 'archive',                label: 'Archive',               badge: 0 },
     { id: 'pending_registrations',  label: 'Pending Registrations', badge: 0 },
+    { id: 'exemption_requests',     label: 'Exemption Requests',    badge: 0 },
   ] as const;
 
   const ALL_ATTENDANCE_TABS = [
@@ -379,7 +380,7 @@ export default function Sidebar({
     {
       title: 'People',
       items: profilesTabs
-        .filter((tab) => ['create', 'directory', 'pending_registrations'].includes(tab.id))
+        .filter((tab) => ['create', 'directory', 'pending_registrations', 'exemption_requests'].includes(tab.id))
         .map((tab) => ({
           ...tab,
           id: `profiles-${tab.id}`,
@@ -387,6 +388,7 @@ export default function Sidebar({
             create: 'Create Profile',
             directory: 'Profiles',
             pending_registrations: 'Pending Registrations',
+            exemption_requests: 'Exemption Requests',
           } as Record<string, string>)[tab.id] ?? tab.label,
         })),
     },

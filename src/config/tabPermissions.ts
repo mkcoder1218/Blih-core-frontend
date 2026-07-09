@@ -53,6 +53,7 @@ export const PROFILES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   events:                { requires: ["profiles.read", "hr.read", "profiles.self"] },
   archive:               { requires: ["hr.write"] },
   pending_registrations: { requires: ["hr.read", "hr.write"] },
+  exemption_requests:    { requires: ["hr.read", "hr.write", "user.update", "attendance.manage"] },
 };
 
 // ─── Attendance & Leave ──────────────────────────────────────────────────────

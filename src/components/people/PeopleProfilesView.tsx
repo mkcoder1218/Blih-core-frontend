@@ -7,6 +7,11 @@ import {
   useUpdateEmployeePassword,
   useUpdateEmployeeRole,
   useAllRoles,
+  useCreateUserExemption,
+  useUserExemptions,
+  useApproveUserExemption,
+  useRejectUserExemption,
+  type UserExemption,
 } from '../../hooks/useHrRecords';
 import {
   Users, Calendar, Plus, Search, Sparkles, Trash2, Copy, ChevronRight,
@@ -24,7 +29,11 @@ import {
   Trash,
   Upload,
   Lock,
-  UserCog
+  UserCog,
+  ShieldOff,
+  ShieldCheck,
+  Clock3,
+  XCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
@@ -36,6 +45,8 @@ import EventsTab from './EventsTab';
 import PendingRegistrationsTab from './PendingRegistrationsTab';
 import DepartmentsPositionsTab from './DepartmentsPositionsTab';
 import EmployeeDevicesTab from './EmployeeDevicesTab';
+import { useMyPermissions } from '../../hooks/usePermissions';
+import { useLegacyUser } from '../../api/legacyUserStore';
 
 interface OrgNode {
   id: string;
@@ -324,7 +335,7 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 }
 
 interface PeopleProfilesViewProps {
-  currentProfilesTab: 'create' | 'bulk_create' | 'organogram' | 'directory' | 'left' | 'interns' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations';
+  currentProfilesTab: 'create' | 'bulk_create' | 'organogram' | 'directory' | 'left' | 'interns' | 'organization' | 'devices' | 'events' | 'archive' | 'pending_registrations' | 'exemption_requests';
   onDraftAiSuggestion: (context: string) => void;
   showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
   onViewProfile?: (employee: any) => void;
@@ -362,11 +373,16 @@ export default function PeopleProfilesView({
   const [deleteEmployeeUserId, setDeleteEmployeeUserId] = useState<string | null>(null);
   const [passwordEmployee, setPasswordEmployee] = useState<any | null>(null);
   const [roleEmployee, setRoleEmployee] = useState<any | null>(null);
+  const [exemptionEmployee, setExemptionEmployee] = useState<any | null>(null);
+  const [exemptionForm, setExemptionForm] = useState({ reason: '', excludeFromPayroll: false });
+  const [exemptionError, setExemptionError] = useState('');
   const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' });
   const [passwordError, setPasswordError] = useState('');
   const [selectedRoleKey, setSelectedRoleKey] = useState('');
   const [roleError, setRoleError] = useState('');
   const [createInternModalOpen, setCreateInternModalOpen] = useState(false);
+  const perms = useMyPermissions();
+  const legacyUser = useLegacyUser();
 
   const { data: orgResult, isLoading: loadingOrg, refetch: refetchOrg } = useOrganogram();
   const orgData: OrgNode[] = (orgResult as any) ?? [];
@@ -396,6 +412,13 @@ export default function PeopleProfilesView({
   const deleteEmployeeMutation = useDeleteEmployee();
   const updatePasswordMutation = useUpdateEmployeePassword();
   const updateRoleMutation = useUpdateEmployeeRole();
+  const createExemptionMutation = useCreateUserExemption();
+  const approveExemptionMutation = useApproveUserExemption();
+  const rejectExemptionMutation = useRejectUserExemption();
+  const exemptionRequests = useUserExemptions({
+    status: currentProfilesTab === 'exemption_requests' ? 'PENDING' : 'all',
+    size: currentProfilesTab === 'exemption_requests' ? 50 : 100,
+  });
 
   const getEmployeeUserId = (employee: any) => employee?.userId || employee?.user?.id || employee?.id;
   const getEmployeeRoles = (employee: any) => {
@@ -424,6 +447,16 @@ export default function PeopleProfilesView({
     return typeof role === 'string' ? role : role?.name || role?.key || roleKey || 'No role assigned';
   };
   const selectedRoleLabel = allRoles.find((role: any) => role.key === selectedRoleKey)?.name || selectedRoleKey;
+  const canRequestExemption = perms.hasAny('hr.write', 'user.update', 'attendance.manage');
+  const canApproveExemption = perms.isSuperAdmin || legacyUser?.role === 'Business Admin';
+  const exemptionsByUserId = React.useMemo(() => {
+    const map = new Map<string, UserExemption>();
+    for (const row of exemptionRequests.data?.rows || []) {
+      const existing = map.get(row.userId);
+      if (!existing || row.status === 'APPROVED' || existing.status !== 'APPROVED') map.set(row.userId, row);
+    }
+    return map;
+  }, [exemptionRequests.data?.rows]);
 
   const fetchOrganogram = () => refetchOrg();
   const fetchEmployees = (page: number = 1) => {
@@ -453,6 +486,12 @@ export default function PeopleProfilesView({
     setRoleError('');
   };
 
+  const openExemptionModal = (employee: any) => {
+    setExemptionEmployee(employee);
+    setExemptionForm({ reason: '', excludeFromPayroll: false });
+    setExemptionError('');
+  };
+
   const closePasswordModal = () => {
     if (updatePasswordMutation.isPending) return;
     setPasswordEmployee(null);
@@ -465,6 +504,13 @@ export default function PeopleProfilesView({
     setRoleEmployee(null);
     setSelectedRoleKey('');
     setRoleError('');
+  };
+
+  const closeExemptionModal = () => {
+    if (createExemptionMutation.isPending) return;
+    setExemptionEmployee(null);
+    setExemptionForm({ reason: '', excludeFromPayroll: false });
+    setExemptionError('');
   };
 
   const handlePasswordUpdate = async (e: React.FormEvent) => {
@@ -503,6 +549,49 @@ export default function PeopleProfilesView({
       showAlert('Employee role updated successfully', 'success');
     } catch (e: any) {
       setRoleError(e?.response?.data?.message || e?.message || 'Failed to update role.');
+    }
+  };
+
+  const handleExemptionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!exemptionEmployee) return;
+    const reason = exemptionForm.reason.trim();
+    if (!reason) {
+      setExemptionError('Exemption reason is required.');
+      return;
+    }
+    if (reason.length < 8) {
+      setExemptionError('Please provide a clearer exemption reason.');
+      return;
+    }
+    try {
+      await createExemptionMutation.mutateAsync({
+        userId: getEmployeeUserId(exemptionEmployee),
+        reason,
+        excludeFromPayroll: exemptionForm.excludeFromPayroll,
+      });
+      closeExemptionModal();
+      showAlert('Exemption request submitted for Business Admin approval', 'success');
+    } catch (e: any) {
+      setExemptionError(e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Failed to submit exemption request.');
+    }
+  };
+
+  const handleApproveExemption = async (id: string) => {
+    try {
+      await approveExemptionMutation.mutateAsync(id);
+      showAlert('Exemption request approved', 'success');
+    } catch (e: any) {
+      showAlert(e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Failed to approve exemption', 'error');
+    }
+  };
+
+  const handleRejectExemption = async (id: string) => {
+    try {
+      await rejectExemptionMutation.mutateAsync(id);
+      showAlert('Exemption request rejected', 'info');
+    } catch (e: any) {
+      showAlert(e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Failed to reject exemption', 'error');
     }
   };
   return (
@@ -723,6 +812,7 @@ export default function PeopleProfilesView({
                           emp.metadata?.positionTitle ||
                           emp.metadata?.positionName ||
                           'Position not set';
+                        const exemption = exemptionsByUserId.get(getEmployeeUserId(emp));
                         return (
                           <tr
                             key={emp.id}
@@ -740,6 +830,18 @@ export default function PeopleProfilesView({
                               <div>
                                 <span className="font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">{emp.user?.fullName}</span>
                                 <span className="text-[10.5px] text-slate-400 block mt-0.5">{emp.employeeCode || emp.user?.email}</span>
+                                {exemption && (
+                                  <span className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${
+                                    exemption.status === 'APPROVED'
+                                      ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                                      : exemption.status === 'PENDING'
+                                        ? 'border-amber-100 bg-amber-50 text-amber-700'
+                                        : 'border-slate-100 bg-slate-50 text-slate-500'
+                                  }`}>
+                                    {exemption.status === 'APPROVED' ? <ShieldCheck className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}
+                                    {exemption.status === 'APPROVED' ? 'Exempted' : exemption.status === 'PENDING' ? 'Exemption pending' : 'Exemption rejected'}
+                                  </span>
+                                )}
                               </div>
                             </td>
 
@@ -845,6 +947,18 @@ export default function PeopleProfilesView({
                                       >
                                         <UserCog className="w-3.5 h-3.5" /> Change Role
                                       </button>
+                                      {canRequestExemption && (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            openExemptionModal(emp);
+                                            setActiveActionsMenu(null);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                        >
+                                          <ShieldOff className="w-3.5 h-3.5" /> Exempt User
+                                        </button>
+                                      )}
                                       <div className="h-[1px] bg-slate-50 my-1" />
                                       <button 
                                         onClick={(e) => {
@@ -1472,6 +1586,96 @@ export default function PeopleProfilesView({
         <PendingRegistrationsTab showAlert={showAlert} />
       )}
 
+      {currentProfilesTab === 'exemption_requests' && (
+        <motion.div
+          key="exemption_requests"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
+          className="space-y-5"
+        >
+          <div className="flex items-end justify-between">
+            <div>
+              <h4 className="text-sm font-black text-slate-950 tracking-tight">User Exemption Requests</h4>
+              <p className="text-[11px] text-slate-500 font-medium">Pending requests awaiting Business Admin approval.</p>
+            </div>
+            <button
+              onClick={() => exemptionRequests.refetch()}
+              disabled={exemptionRequests.isLoading}
+              className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-[11px] font-black text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {exemptionRequests.isLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+
+          <div className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-xs">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-100 bg-slate-50/70 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                <tr>
+                  <th className="px-5 py-3">Employee</th>
+                  <th className="px-5 py-3">Reason</th>
+                  <th className="px-5 py-3">Payroll</th>
+                  <th className="px-5 py-3">Requested By</th>
+                  <th className="px-5 py-3 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {exemptionRequests.isLoading ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400">Loading requests...</td>
+                  </tr>
+                ) : (exemptionRequests.data?.rows || []).length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-5 py-10 text-center text-[11px] font-bold uppercase tracking-widest text-slate-400">No pending exemption requests.</td>
+                  </tr>
+                ) : (
+                  (exemptionRequests.data?.rows || []).map((request) => (
+                    <tr key={request.id} className="align-top">
+                      <td className="px-5 py-4">
+                        <div className="font-black text-slate-900">{request.user?.fullName || 'Unknown user'}</div>
+                        <div className="mt-0.5 text-[10.5px] font-semibold text-slate-400">{request.user?.email || 'No email'}</div>
+                      </td>
+                      <td className="max-w-md px-5 py-4 text-[11px] font-semibold leading-5 text-slate-600">{request.reason}</td>
+                      <td className="px-5 py-4">
+                        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black ${
+                          request.excludeFromPayroll
+                            ? 'border-rose-100 bg-rose-50 text-rose-600'
+                            : 'border-emerald-100 bg-emerald-50 text-emerald-700'
+                        }`}>
+                          {request.excludeFromPayroll ? 'Excluded' : 'Included'}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="font-bold text-slate-700">{request.requester?.fullName || 'Unknown'}</div>
+                        <div className="mt-0.5 text-[10.5px] font-semibold text-slate-400">{request.createdAt ? new Date(request.createdAt).toLocaleDateString() : ''}</div>
+                      </td>
+                      <td className="px-5 py-4 text-right">
+                        <div className="inline-flex items-center gap-2">
+                          <button
+                            onClick={() => handleRejectExemption(request.id)}
+                            disabled={!canApproveExemption || rejectExemptionMutation.isPending || approveExemptionMutation.isPending}
+                            className="inline-flex items-center gap-1.5 rounded-xl border border-rose-100 bg-white px-3 py-2 text-[11px] font-black text-rose-600 hover:bg-rose-50 disabled:opacity-50"
+                          >
+                            <XCircle className="h-3.5 w-3.5" /> Reject
+                          </button>
+                          <button
+                            onClick={() => handleApproveExemption(request.id)}
+                            disabled={!canApproveExemption || rejectExemptionMutation.isPending || approveExemptionMutation.isPending}
+                            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-[11px] font-black text-white hover:bg-blue-700 disabled:bg-slate-300"
+                          >
+                            <ShieldCheck className="h-3.5 w-3.5" /> Approve
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
+      )}
+
       <CreateEmployeeModal
         isOpen={createInternModalOpen}
         onClose={() => setCreateInternModalOpen(false)}
@@ -1579,6 +1783,92 @@ export default function PeopleProfilesView({
                   className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-blue-700 disabled:bg-slate-300"
                 >
                   {updatePasswordMutation.isPending ? 'Saving...' : 'Update Password'}
+                </button>
+              </div>
+            </motion.form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {exemptionEmployee && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-40 flex items-center justify-center bg-slate-950/40 px-4"
+            onClick={closeExemptionModal}
+          >
+            <motion.form
+              initial={{ opacity: 0, scale: 0.96, y: 16 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.96, y: 16 }}
+              onSubmit={handleExemptionSubmit}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl"
+            >
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-blue-50 text-blue-600">
+                  <ShieldOff className="h-4 w-4" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="text-sm font-black text-slate-950 tracking-tight">Exempt User</h4>
+                  <p className="mt-1 text-[11px] font-medium text-slate-500">
+                    Submit an exemption request for {exemptionEmployee.user?.fullName || 'this employee'}.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 space-y-4">
+                <label className="block space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Exemption Reason</span>
+                  <textarea
+                    value={exemptionForm.reason}
+                    onChange={(e) => {
+                      setExemptionForm((prev) => ({ ...prev, reason: e.target.value }));
+                      setExemptionError('');
+                    }}
+                    rows={5}
+                    className="w-full resize-none rounded-xl border border-slate-150 bg-slate-50 px-3.5 py-2.5 text-xs font-semibold text-slate-700 outline-none transition-colors hover:bg-slate-100 focus:bg-white focus:border-blue-200"
+                    placeholder="Explain why this user should be exempted"
+                  />
+                </label>
+                <label className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={exemptionForm.excludeFromPayroll}
+                    onChange={(e) => setExemptionForm((prev) => ({ ...prev, excludeFromPayroll: e.target.checked }))}
+                    className="mt-0.5 h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-200"
+                  />
+                  <span>
+                    <span className="block text-xs font-black text-slate-800">Exclude from payroll calculation</span>
+                    <span className="mt-1 block text-[11px] font-medium text-slate-500">
+                      Leave unchecked to exempt attendance penalties while keeping salary generation active.
+                    </span>
+                  </span>
+                </label>
+                {exemptionError && (
+                  <p className="rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-[11px] font-bold text-rose-600">
+                    {exemptionError}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2 border-t border-slate-100 pt-4">
+                <button
+                  type="button"
+                  onClick={closeExemptionModal}
+                  disabled={createExemptionMutation.isPending}
+                  className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createExemptionMutation.isPending}
+                  className="rounded-xl bg-blue-600 px-4 py-2 text-xs font-black text-white transition-colors hover:bg-blue-700 disabled:bg-slate-300"
+                >
+                  {createExemptionMutation.isPending ? 'Submitting...' : 'Submit Request'}
                 </button>
               </div>
             </motion.form>
