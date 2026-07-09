@@ -65,6 +65,7 @@ export default function HrAttendanceCheckInsPage() {
   const [useCustomExportDateRange, setUseCustomExportDateRange] = React.useState(false);
   const [dailyExportStartDate, setDailyExportStartDate] = React.useState(today);
   const [dailyExportEndDate, setDailyExportEndDate] = React.useState(today);
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = React.useState<Set<string>>(new Set());
 
   const summary = useAttendanceHrSummary({ date: filters.date, departmentId: filters.departmentId || undefined });
   const daily = useAttendanceHrDaily({
@@ -77,7 +78,15 @@ export default function HrAttendanceCheckInsPage() {
   });
 
   const tz = daily.data?.data?.timezone || summary.data?.data?.timezone || "UTC";
-  const rows = daily.data?.data?.rows || [];
+  const rows: AttendanceHrDailyRow[] = daily.data?.data?.rows || [];
+
+  React.useEffect(() => {
+    const visibleEmployeeIds = new Set(rows.map((row) => row.employeeId));
+    setSelectedEmployeeIds((current) => {
+      const next = new Set(Array.from(current).filter((employeeId) => visibleEmployeeIds.has(employeeId)));
+      return next.size === current.size ? current : next;
+    });
+  }, [rows]);
 
   const penaltyMessage = useMutation({
     mutationFn: ({ employeeId, date }: { employeeId: string; date: string }) =>
@@ -86,10 +95,12 @@ export default function HrAttendanceCheckInsPage() {
 
   const handleExport = async () => {
     const selectedWeek = weekRangeFromDate(filters.date);
+    const selectedEmployeeIdParam = selectedEmployeeIds.size ? Array.from(selectedEmployeeIds).join(",") : undefined;
     const commonParams = {
       departmentId: filters.departmentId || undefined,
       status: filters.status || undefined,
       search: filters.search || undefined,
+      employeeIds: selectedEmployeeIdParam,
       format: "csv" as const,
     };
     const res =
@@ -167,6 +178,27 @@ export default function HrAttendanceCheckInsPage() {
     } finally {
       setPenaltyMessageEmployeeId(null);
     }
+  };
+
+  const handleToggleEmployeeSelection = (employeeId: string) => {
+    setSelectedEmployeeIds((current) => {
+      const next = new Set(current);
+      if (next.has(employeeId)) {
+        next.delete(employeeId);
+      } else {
+        next.add(employeeId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleAllVisible = () => {
+    setSelectedEmployeeIds((current) => {
+      const visibleEmployeeIds = rows.map((row) => row.employeeId);
+      const allVisibleSelected = visibleEmployeeIds.length > 0 && visibleEmployeeIds.every((employeeId) => current.has(employeeId));
+      if (allVisibleSelected) return new Set();
+      return new Set(visibleEmployeeIds);
+    });
   };
 
   const dailyExportDateFilterInvalid =
@@ -279,6 +311,9 @@ export default function HrAttendanceCheckInsPage() {
           onRequestCorrection={canRequestCorrection ? setCorrectionRow : undefined}
           onSendPenaltyMessage={handleSendPenaltyMessage}
           sendingPenaltyEmployeeId={penaltyMessageEmployeeId}
+          selectedEmployeeIds={selectedEmployeeIds}
+          onToggleEmployeeSelection={handleToggleEmployeeSelection}
+          onToggleAllVisible={handleToggleAllVisible}
         />
       )}
 

@@ -78,6 +78,7 @@ export async function downloadAttendanceDailyReportExport(params: {
   endDate?: string;
   departmentId?: string;
   employeeId?: string;
+  employeeIds?: string;
   employmentCategory?: "Managerial" | "Non-Managerial";
   status?: string;
   search?: string;
@@ -95,6 +96,7 @@ export async function downloadAttendanceWeeklyReportExport(params: {
   endDate: string;
   departmentId?: string;
   employeeId?: string;
+  employeeIds?: string;
   employmentCategory?: "Managerial" | "Non-Managerial";
   status?: string;
   search?: string;
@@ -111,6 +113,7 @@ export async function downloadAttendanceMonthlyReportExport(params: {
   month: string;
   departmentId?: string;
   employeeId?: string;
+  employeeIds?: string;
   employmentCategory?: "Managerial" | "Non-Managerial";
   status?: string;
   search?: string;

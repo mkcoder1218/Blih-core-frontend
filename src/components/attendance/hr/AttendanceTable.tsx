@@ -4,6 +4,7 @@ import { DataTable, UserAvatar, StatusBadge } from "@/components/ui/blih";
 import { Button } from "@/components/ui/button";
 
 const COLUMNS = [
+  "Select",
   "Employee",
   "Department",
   "Morning",
@@ -25,6 +26,9 @@ export default function AttendanceTable({
   onRequestCorrection,
   onSendPenaltyMessage,
   sendingPenaltyEmployeeId,
+  selectedEmployeeIds,
+  onToggleEmployeeSelection,
+  onToggleAllVisible,
 }: {
   rows: AttendanceHrDailyRow[];
   timezone: string;
@@ -32,20 +36,51 @@ export default function AttendanceTable({
   onRequestCorrection?: (row: AttendanceHrDailyRow) => void;
   onSendPenaltyMessage?: (row: AttendanceHrDailyRow) => void | Promise<void>;
   sendingPenaltyEmployeeId?: string | null;
+  selectedEmployeeIds?: Set<string>;
+  onToggleEmployeeSelection?: (employeeId: string) => void;
+  onToggleAllVisible?: () => void;
 }) {
+  const selectedCount = rows.filter((row) => selectedEmployeeIds?.has(row.employeeId)).length;
+  const allVisibleSelected = rows.length > 0 && selectedCount === rows.length;
+
   return (
     <DataTable
       title="Daily check-ins"
-      subtitle={`${rows.length} employees`}
+      subtitle={selectedCount ? `${selectedCount} of ${rows.length} selected` : `${rows.length} employees`}
       columns={COLUMNS}
       rows={rows}
       emptyMessage="No employees match the current filters."
+      headerAction={
+        onToggleAllVisible ? (
+          <label className="inline-flex items-center gap-2 text-[11px] font-extrabold text-slate-600">
+            <input
+              type="checkbox"
+              checked={allVisibleSelected}
+              onChange={onToggleAllVisible}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+            />
+            Select visible
+          </label>
+        ) : undefined
+      }
       renderRow={(r) => (
         <tr
           key={r.employeeId}
           onClick={() => onSelectEmployee(r.employeeId)}
           className="border-b border-slate-100 hover:bg-slate-50/60 cursor-pointer"
         >
+          <td className="px-4 py-3">
+            <input
+              type="checkbox"
+              checked={Boolean(selectedEmployeeIds?.has(r.employeeId))}
+              onChange={(e) => {
+                e.stopPropagation();
+                onToggleEmployeeSelection?.(r.employeeId);
+              }}
+              onClick={(e) => e.stopPropagation()}
+              className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+            />
+          </td>
           <td className="px-4 py-3">
             <UserAvatar
               name={r.employeeName}
