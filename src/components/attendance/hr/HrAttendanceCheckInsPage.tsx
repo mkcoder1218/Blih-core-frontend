@@ -23,6 +23,19 @@ function todayYmd() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function weekRangeFromDate(dateYmd: string) {
+  const date = new Date(`${dateYmd}T00:00:00.000Z`);
+  const day = date.getUTCDay() || 7;
+  const start = new Date(date);
+  start.setUTCDate(date.getUTCDate() - day + 1);
+  const end = new Date(start);
+  end.setUTCDate(start.getUTCDate() + 6);
+  return {
+    startDate: start.toISOString().slice(0, 10),
+    endDate: end.toISOString().slice(0, 10),
+  };
+}
+
 export default function HrAttendanceCheckInsPage() {
   const perms = useMyPermissions();
   const canRequestCorrection = perms.hasAny("attendance.checkin_correction.request", "attendance.manage");
@@ -49,6 +62,9 @@ export default function HrAttendanceCheckInsPage() {
   const [correctionReason, setCorrectionReason] = React.useState("");
   const [penaltyMessageEmployeeId, setPenaltyMessageEmployeeId] = React.useState<string | null>(null);
   const [penaltyMessageStatus, setPenaltyMessageStatus] = React.useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [useCustomExportDateRange, setUseCustomExportDateRange] = React.useState(false);
+  const [dailyExportStartDate, setDailyExportStartDate] = React.useState(today);
+  const [dailyExportEndDate, setDailyExportEndDate] = React.useState(today);
 
   const summary = useAttendanceHrSummary({ date: filters.date, departmentId: filters.departmentId || undefined });
   const daily = useAttendanceHrDaily({
@@ -69,6 +85,7 @@ export default function HrAttendanceCheckInsPage() {
   });
 
   const handleExport = async () => {
+    const selectedWeek = weekRangeFromDate(filters.date);
     const commonParams = {
       departmentId: filters.departmentId || undefined,
       status: filters.status || undefined,
@@ -79,17 +96,24 @@ export default function HrAttendanceCheckInsPage() {
       filters.range === "weekly"
         ? await downloadAttendanceWeeklyReportExport({
             ...commonParams,
-            startDate: filters.startDate,
-            endDate: filters.endDate,
+            startDate: selectedWeek.startDate,
+            endDate: selectedWeek.endDate,
           })
         : filters.range === "monthly"
           ? await downloadAttendanceMonthlyReportExport({
               ...commonParams,
-              month: (filters.startDate || filters.date).slice(0, 7),
+              month: filters.date.slice(0, 7),
             })
           : await downloadAttendanceDailyReportExport({
               ...commonParams,
               date: filters.date,
+              ...(useCustomExportDateRange
+                ? {
+                    enableDateFilter: true,
+                    startDate: dailyExportStartDate,
+                    endDate: dailyExportEndDate,
+                  }
+                : {}),
             });
     const contentType = res.headers["content-type"];
     const blob = new Blob([res.data], { type: typeof contentType === "string" ? contentType : "text/csv" });
@@ -145,6 +169,11 @@ export default function HrAttendanceCheckInsPage() {
     }
   };
 
+  const dailyExportDateFilterInvalid =
+    filters.range === "daily" &&
+    useCustomExportDateRange &&
+    (!dailyExportStartDate || !dailyExportEndDate || dailyExportStartDate > dailyExportEndDate);
+
   return (
     <div className="space-y-4">
       <PageHeader
@@ -165,6 +194,7 @@ export default function HrAttendanceCheckInsPage() {
             )}
             <Button
               onClick={handleExport}
+              disabled={dailyExportDateFilterInvalid}
               className="bg-slate-900 hover:bg-slate-800 text-white font-extrabold text-xs px-4 h-9 rounded-xl"
             >
               <Download className="w-3.5 h-3.5 mr-1.5" />
@@ -190,6 +220,50 @@ export default function HrAttendanceCheckInsPage() {
       <AttendanceSummaryCards data={summary.data?.data} />
 
       <AttendanceFilters value={filters} onChange={setFilters} />
+
+      {filters.range === "daily" && (
+        <div className="bg-slate-50 rounded-xl border border-slate-200 px-4 py-3">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
+            <div className="lg:col-span-4">
+              <h3 className="text-xs font-black text-slate-700">Export Options</h3>
+            </div>
+            <label className="lg:col-span-4 inline-flex items-center gap-2 text-xs font-extrabold text-slate-700">
+              <input
+                type="checkbox"
+                checked={useCustomExportDateRange}
+                onChange={(e) => setUseCustomExportDateRange(e.currentTarget.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-600"
+              />
+              Use custom export date range
+            </label>
+            {useCustomExportDateRange && (
+              <div className="lg:col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Export start date</label>
+                  <input
+                    type="date"
+                    value={dailyExportStartDate}
+                    onChange={(e) => setDailyExportStartDate(e.currentTarget.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Export end date</label>
+                  <input
+                    type="date"
+                    value={dailyExportEndDate}
+                    onChange={(e) => setDailyExportEndDate(e.currentTarget.value)}
+                    className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+          {dailyExportDateFilterInvalid && (
+            <p className="mt-2 text-xs font-semibold text-red-600">Choose a valid export date range.</p>
+          )}
+        </div>
+      )}
 
       {daily.isError && (
         <InfoAlert variant="error" message="Failed to load daily attendance." />
@@ -227,7 +301,7 @@ export default function HrAttendanceCheckInsPage() {
             <div className="space-y-3">
               <label className="block">
                 <span className="text-[11px] font-black uppercase text-slate-400">Correction type</span>
-                <select value={correctionType} onChange={(e) => setCorrectionType(e.target.value)} className="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3 text-xs font-bold">
+                <select value={correctionType} onChange={(e) => setCorrectionType(e.currentTarget.value)} className="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3 text-xs font-bold">
                   <option value="CHECK_IN">Check in</option>
                   <option value="LUNCH_OUT">Lunch out</option>
                   <option value="LUNCH_IN">Lunch in</option>
@@ -236,11 +310,11 @@ export default function HrAttendanceCheckInsPage() {
               </label>
               <label className="block">
                 <span className="text-[11px] font-black uppercase text-slate-400">Time</span>
-                <input type="time" value={correctionTime} onChange={(e) => setCorrectionTime(e.target.value)} className="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3 text-xs font-bold" />
+                <input type="time" value={correctionTime} onChange={(e) => setCorrectionTime(e.currentTarget.value)} className="mt-1 w-full h-10 rounded-xl border border-slate-200 px-3 text-xs font-bold" />
               </label>
               <label className="block">
                 <span className="text-[11px] font-black uppercase text-slate-400">Reason</span>
-                <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)} required rows={4} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold" placeholder="Explain why this manual correction is needed." />
+                <textarea value={correctionReason} onChange={(e) => setCorrectionReason(e.currentTarget.value)} required rows={4} className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-xs font-semibold" placeholder="Explain why this manual correction is needed." />
               </label>
             </div>
             <div className="flex justify-end gap-2">

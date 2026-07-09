@@ -73,6 +73,9 @@ export async function downloadAttendanceHrExport(params: {
 
 export async function downloadAttendanceDailyReportExport(params: {
   date: string;
+  enableDateFilter?: boolean;
+  startDate?: string;
+  endDate?: string;
   departmentId?: string;
   employeeId?: string;
   employmentCategory?: "Managerial" | "Non-Managerial";

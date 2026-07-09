@@ -25,36 +25,40 @@ export default function AttendanceFilters({
   const deptList = departments.data?.departments || [];
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-100 shadow-xs p-4">
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-end">
-        <div className="lg:col-span-4">
+    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-4">
+      <div className="mb-3">
+        <h3 className="text-sm font-black text-slate-950">Data Filters</h3>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-12 gap-3 items-end">
+        <div className="xl:col-span-3">
           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Search employee</label>
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               value={value.search}
-              onChange={(e) => onChange({ ...value, search: e.target.value })}
+              onChange={(e) => onChange({ ...value, search: e.currentTarget.value })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
-              placeholder="Name or email…"
+              placeholder="Name or email..."
             />
           </div>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-2">
           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Date</label>
           <input
             type="date"
             value={value.date}
-            onChange={(e) => onChange({ ...value, date: e.target.value })}
+            onChange={(e) => onChange({ ...value, date: e.currentTarget.value })}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
           />
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-2">
           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Department</label>
           <select
             value={value.departmentId}
-            onChange={(e) => onChange({ ...value, departmentId: e.target.value })}
+            onChange={(e) => onChange({ ...value, departmentId: e.currentTarget.value })}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
           >
             <option value="">All</option>
@@ -66,11 +70,11 @@ export default function AttendanceFilters({
           </select>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-2">
           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Status</label>
           <select
             value={value.status}
-            onChange={(e) => onChange({ ...value, status: e.target.value })}
+            onChange={(e) => onChange({ ...value, status: e.currentTarget.value })}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
           >
             <option value="">All</option>
@@ -85,11 +89,11 @@ export default function AttendanceFilters({
           </select>
         </div>
 
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-1">
           <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Range</label>
           <select
             value={value.range}
-            onChange={(e) => onChange({ ...value, range: e.target.value as any })}
+            onChange={(e) => onChange({ ...value, range: e.currentTarget.value as AttendanceFiltersValue["range"] })}
             className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
           >
             <option value="daily">Daily</option>
@@ -97,50 +101,32 @@ export default function AttendanceFilters({
             <option value="monthly">Monthly</option>
           </select>
         </div>
-      </div>
 
-      {value.range !== "daily" ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Start date</label>
-            <input
-              type="date"
-              value={value.startDate}
-              onChange={(e) => onChange({ ...value, startDate: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
-            />
-          </div>
-          <div>
-            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">End date</label>
-            <input
-              type="date"
-              value={value.endDate}
-              onChange={(e) => onChange({ ...value, endDate: e.target.value })}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
-            />
-          </div>
+        <div className="xl:col-span-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Sort</label>
+          <select
+            value={value.sortBy}
+            onChange={(e) => onChange({ ...value, sortBy: e.currentTarget.value })}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
+          >
+            <option value="name">Name</option>
+            <option value="checkInTime">Check-in time</option>
+            <option value="workedMinutes">Worked duration</option>
+            <option value="status">Status</option>
+          </select>
         </div>
-      ) : null}
 
-      <div className="flex flex-wrap gap-2 mt-3">
-        <select
-          value={value.sortBy}
-          onChange={(e) => onChange({ ...value, sortBy: e.target.value })}
-          className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700"
-        >
-          <option value="name">Sort: Name</option>
-          <option value="checkInTime">Sort: Check-in time</option>
-          <option value="workedMinutes">Sort: Worked duration</option>
-          <option value="status">Sort: Status</option>
-        </select>
-        <select
-          value={value.sortOrder}
-          onChange={(e) => onChange({ ...value, sortOrder: e.target.value })}
-          className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700"
-        >
-          <option value="asc">Order: Asc</option>
-          <option value="desc">Order: Desc</option>
-        </select>
+        <div className="xl:col-span-1">
+          <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">Order</label>
+          <select
+            value={value.sortOrder}
+            onChange={(e) => onChange({ ...value, sortOrder: e.currentTarget.value })}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db]"
+          >
+            <option value="asc">Asc</option>
+            <option value="desc">Desc</option>
+          </select>
+        </div>
       </div>
     </div>
   );
