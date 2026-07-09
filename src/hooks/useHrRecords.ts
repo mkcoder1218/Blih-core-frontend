@@ -148,6 +148,21 @@ export function useRejectUserExemption() {
   });
 }
 
+export function useRevokeUserExemption() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.delete(`/api/v1/user-exemptions/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["user-exemptions"] });
+      queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+      queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
+      queryClient.invalidateQueries({ queryKey: ["payroll-dashboard"] });
+      queryClient.invalidateQueries({ queryKey: ["attendance-hr"] });
+      queryClient.invalidateQueries({ queryKey: ["my-attendance-today"] });
+    },
+  });
+}
+
 export function useOrganogram() {
   return useQuery({
     queryKey: ["organogram"],

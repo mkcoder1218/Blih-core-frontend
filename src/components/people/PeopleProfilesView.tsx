@@ -11,6 +11,7 @@ import {
   useUserExemptions,
   useApproveUserExemption,
   useRejectUserExemption,
+  useRevokeUserExemption,
   type UserExemption,
 } from '../../hooks/useHrRecords';
 import {
@@ -374,6 +375,7 @@ export default function PeopleProfilesView({
   const [passwordEmployee, setPasswordEmployee] = useState<any | null>(null);
   const [roleEmployee, setRoleEmployee] = useState<any | null>(null);
   const [exemptionEmployee, setExemptionEmployee] = useState<any | null>(null);
+  const [unexemptTarget, setUnexemptTarget] = useState<{ employee: any; exemption: UserExemption } | null>(null);
   const [exemptionForm, setExemptionForm] = useState({ reason: '', excludeFromPayroll: false });
   const [exemptionError, setExemptionError] = useState('');
   const [passwordForm, setPasswordForm] = useState({ password: '', confirmPassword: '' });
@@ -415,6 +417,7 @@ export default function PeopleProfilesView({
   const createExemptionMutation = useCreateUserExemption();
   const approveExemptionMutation = useApproveUserExemption();
   const rejectExemptionMutation = useRejectUserExemption();
+  const revokeExemptionMutation = useRevokeUserExemption();
   const exemptionRequests = useUserExemptions({
     status: currentProfilesTab === 'exemption_requests' ? 'PENDING' : 'all',
     size: currentProfilesTab === 'exemption_requests' ? 50 : 100,
@@ -592,6 +595,17 @@ export default function PeopleProfilesView({
       showAlert('Exemption request rejected', 'info');
     } catch (e: any) {
       showAlert(e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Failed to reject exemption', 'error');
+    }
+  };
+
+  const handleUnexemptUser = async () => {
+    if (!unexemptTarget) return;
+    try {
+      await revokeExemptionMutation.mutateAsync(unexemptTarget.exemption.id);
+      showAlert('User exemption removed', 'success');
+      setUnexemptTarget(null);
+    } catch (e: any) {
+      showAlert(e?.response?.data?.message || e?.response?.data?.error || e?.message || 'Failed to remove exemption', 'error');
     }
   };
   return (
@@ -947,7 +961,18 @@ export default function PeopleProfilesView({
                                       >
                                         <UserCog className="w-3.5 h-3.5" /> Change Role
                                       </button>
-                                      {canRequestExemption && (
+                                      {exemption?.status === 'APPROVED' && canApproveExemption ? (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setUnexemptTarget({ employee: emp, exemption });
+                                            setActiveActionsMenu(null);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                        >
+                                          <ShieldCheck className="w-3.5 h-3.5" /> Unexempt User
+                                        </button>
+                                      ) : canRequestExemption && (
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -1979,6 +2004,16 @@ export default function PeopleProfilesView({
         confirmLabel="Delete"
         variant="destructive"
         loading={deleteEmployeeMutation.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!unexemptTarget}
+        onClose={() => setUnexemptTarget(null)}
+        onConfirm={handleUnexemptUser}
+        title="Unexempt User"
+        description={`Remove the active exemption for ${unexemptTarget?.employee?.user?.fullName || 'this user'}? They will return to attendance check-in requirements and payroll handling based on their normal employee setup.`}
+        confirmLabel="Unexempt"
+        loading={revokeExemptionMutation.isPending}
       />
     </div>
   );
