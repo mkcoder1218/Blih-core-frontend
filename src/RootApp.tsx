@@ -23,7 +23,6 @@ import MyProfilePage from "./pages/MyProfilePage";
 import BulkEmployeeImportPage from "./pages/BulkEmployeeImportPage";
 import ClientPortalPage from "./pages/ClientPortalPage";
 import { ProjectDetailsPage, ProjectsPage } from "./features/projects";
-import SubscriptionPage from "./pages/SubscriptionPage";
 import OfferLetterTemplatePage from "./pages/OfferLetterTemplatePage";
 
 // Wrapper to extract :onboardingId param and pass as prop
@@ -167,7 +166,15 @@ export default function RootApp() {
                     />
                     <Route
                       path="business-admin/subscription"
-                      element={<RoleGuard allow="business_admin"><SubscriptionPage /></RoleGuard>}
+                      element={<RoleGuard allow="business_admin"><Navigate to="/business-admin/settings/subscription" replace /></RoleGuard>}
+                    />
+                    <Route
+                      path="business-admin/settings"
+                      element={<RoleGuard allow="business_admin"><ModulePage /></RoleGuard>}
+                    />
+                    <Route
+                      path="business-admin/settings/:tab"
+                      element={<RoleGuard allow="business_admin"><ModulePage /></RoleGuard>}
                     />
                     <Route
                       path="business-admin/:module"
@@ -195,7 +202,15 @@ export default function RootApp() {
                     />
                     <Route
                       path="super-admin/subscription"
-                      element={<RoleGuard allow="platform_super_admin"><SubscriptionPage /></RoleGuard>}
+                      element={<RoleGuard allow="platform_super_admin"><Navigate to="/super-admin/settings/subscription" replace /></RoleGuard>}
+                    />
+                    <Route
+                      path="super-admin/settings"
+                      element={<RoleGuard allow="platform_super_admin"><ModulePage /></RoleGuard>}
+                    />
+                    <Route
+                      path="super-admin/settings/:tab"
+                      element={<RoleGuard allow="platform_super_admin"><ModulePage /></RoleGuard>}
                     />
                     <Route
                       path="super-admin/businesses"

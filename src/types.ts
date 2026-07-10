@@ -15,6 +15,7 @@ export type MainModule =
   | 'exit'
   | 'finance'
   | 'projects'
+  | 'subscription-settings'
   | 'businesses'
   | 'permissions'
   | 'subscription';
@@ -31,7 +32,7 @@ export type RecruitmentTab =
   | 'closed_posts'
   | 'applicant_forms';
 
-export type BusinessesTab = 'overview' | 'plans' | 'sector_focus' | 'integrations' | 'security' | 'audit_logs' | 'notifications';
+export type BusinessesTab = 'overview' | 'plans' | 'sector_focus' | 'smtp_providers' | 'integrations' | 'security' | 'audit_logs' | 'notifications';
 export type ProjectsTab = 'overview' | 'all' | 'mine' | 'my-tasks' | 'board';
 
 export interface JobRequest {

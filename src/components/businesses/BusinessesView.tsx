@@ -48,6 +48,7 @@ import HolidayImportPanel from '../people/HolidayImportPanel';
 import PublicRegistrationConfigPanel from './PublicRegistrationConfigPanel';
 import { ConfirmDialog } from '@/components/ui/blih';
 import TelegramAttendanceIntegrationsPanel from './TelegramAttendanceIntegrationsPanel';
+import SmtpProvidersTab from './SmtpProvidersTab';
 
 type ViewBusiness = ApiBusiness & {
   legalName: string;
@@ -361,6 +362,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
   if (currentTab === 'plans') return <PlansTab showAlert={showAlert} />;
   if (currentTab === 'sector_focus') return <SectorFocusTab showAlert={showAlert} />;
+  if (currentTab === 'smtp_providers') return <SmtpProvidersTab showAlert={showAlert} />;
   if (currentTab === 'audit_logs') return <AuditLogsTab showAlert={showAlert} />;
   if (currentTab === 'notifications') return <NotificationsTab showAlert={showAlert} />;
   if (currentTab === 'integrations') return (

@@ -135,6 +135,7 @@ export const BUSINESSES_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   overview:     { requires: ["settings.read", "settings.update"], superAdminOnly: true },
   plans:        { requires: ["module.manage"], superAdminOnly: true },
   sector_focus: { requires: ["settings.update"], superAdminOnly: true },
+  smtp_providers: { requires: ["settings.update"], superAdminOnly: true },
   integrations: { requires: ["settings.update"], superAdminOnly: true },
   security:     { requires: ["settings.update"], superAdminOnly: true },
   audit_logs:   { requires: ["settings.read"], superAdminOnly: true },
@@ -160,6 +161,8 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   exit:        ["hr.read", "hr.write", "exit.self"],
   finance:     ["finance.read", "finance.manage", "finance.mine", "salary_employee_read"],
   projects:    ["project.read", "project.manage", "project.self", "project.task"],
+  "subscription-settings": ["settings.read", "settings.update"],
+  settings:    ["settings.read", "settings.update"],
   // Platform-level modules — super admin only. No regular permission key unlocks these.
   businesses:  [],
   permissions: [],

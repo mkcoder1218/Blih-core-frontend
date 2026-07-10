@@ -25,6 +25,7 @@ import WorkforceFinanceView from './components/finance/WorkforceFinanceView';
 import OnboardingView from './components/onboarding/OnboardingView';
 import PerformanceView from './components/performance/PerformanceView';
 import BusinessesView from './components/businesses/BusinessesView';
+import BusinessSettingsView from './components/settings/BusinessSettingsView';
 import PermissionManagement from './pages/PermissionManagement';
 import { mockJobRequests, activeReadyToPostJob } from './mockData';
 import { MainModule, RecruitmentTab, JobRequest } from './types';
@@ -343,7 +344,7 @@ export default function App() {
                 <RootDashboard
                   onNavigateToModule={(mod) => {
                     setCurrentModule(mod);
-                    if (mod === 'recruitment' || mod === 'onboarding' || mod === 'profiles' || mod === 'attendance' || mod === 'talent' || mod === 'exit' || mod === 'finance' || mod === 'performance' || mod === 'businesses' || mod === 'permissions') {
+                    if (mod === 'recruitment' || mod === 'onboarding' || mod === 'profiles' || mod === 'attendance' || mod === 'talent' || mod === 'exit' || mod === 'finance' || mod === 'performance' || mod === 'businesses' || mod === 'permissions' || mod === 'subscription-settings') {
                       setIsDetailedView(true);
                       if (mod === 'recruitment') setCurrentRecruitmentTab('overview');
                       if (mod === 'onboarding') setCurrentOnboardingTab('overview');
@@ -488,6 +489,8 @@ export default function App() {
                   showAlert={showAlert}
                   currentTab={currentBusinessesTab}
                 />
+              ) : currentModule === 'subscription-settings' ? (
+                <BusinessSettingsView showAlert={showAlert} />
               ) : currentModule === 'permissions' ? (
                 <PermissionManagement />
               ) : (

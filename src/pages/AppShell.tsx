@@ -51,7 +51,7 @@ export default function AppShell() {
     if (p.includes("/finance")) return "finance";
     if (p.includes("/projects")) return "projects";
     if (p.includes("/permissions")) return "permissions";
-    if (p.includes("/subscription")) return "subscription";
+    if (p.includes("/settings") || p.includes("/subscription")) return "subscription-settings";
     return userRole === "Super Admin" ? "businesses" : userRole === "Employee" ? "attendance" : "talent";
   }, [location.pathname, userRole]);
 

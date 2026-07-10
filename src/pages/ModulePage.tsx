@@ -1,5 +1,5 @@
 import React from "react";
-import { Navigate, useNavigate, useParams, useLocation } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useLocation, useOutletContext } from "react-router-dom";
 import PeopleProfilesView from "../components/people/PeopleProfilesView";
 import AttendanceView from "../components/attendance/AttendanceView";
 import OnboardingView from "../components/onboarding/OnboardingView";
@@ -11,15 +11,18 @@ import EmployeeDetailPage from "../components/people/EmployeeDetailPage";
 import CreateEmployeeModal from "../components/people/CreateEmployeeModal";
 import { ProjectDetailsPage, ProjectsPage } from "../features/projects";
 import RecruitmentPage from "./RecruitmentPage";
+import BusinessSettingsView from "../components/settings/BusinessSettingsView";
 
-const ALLOWED = new Set(["onboarding", "profiles", "attendance", "performance", "talent", "exit", "finance", "projects"]);
+const ALLOWED = new Set(["onboarding", "profiles", "attendance", "performance", "talent", "exit", "finance", "projects", "settings"]);
 
 export default function ModulePage() {
   const params = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const outlet = useOutletContext<{ showAlert?: (msg: string, type?: "success" | "info" | "error") => void } | null>();
+  const showAlert = outlet?.showAlert || (() => {});
   const [updateEmployeeUserId, setUpdateEmployeeUserId] = React.useState<string | null>(null);
-  const module = String(params.module || "");
+  const module = String(params.module || (location.pathname.includes("/settings") ? "settings" : ""));
   const tab = String(params.tab || (module === "exit" ? "offboarding" : module === "profiles" ? "directory" : "overview"));
   const projectUuid = module === "projects" && /^[0-9a-fA-F-]{36}$/.test(tab) ? tab : "";
   const rolePrefix = location.pathname.startsWith("/super-admin") ? "/super-admin" :
@@ -149,6 +152,7 @@ export default function ModulePage() {
   if (module === "onboarding") return <OnboardingView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "finance") return <WorkforceFinanceView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "projects") return <ProjectsPage currentTab={(tab === "my-projects" ? "mine" : tab) as any} />;
+  if (module === "settings") return <BusinessSettingsView showAlert={showAlert} />;
   if (module === "exit") return <ExitOffboardingView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
   if (module === "performance") return <PerformanceView currentTab={tab as any} onDraftAiSuggestion={() => {}} showAlert={() => {}} />;
 

@@ -29,6 +29,16 @@ export async function sendTelegramSettingTest(businessId: string, botType: Teleg
   return res.data;
 }
 
+export async function sendCurrentBusinessTelegramTest(botType: TelegramBotType) {
+  const res = await api.post<ApiEnvelope<{ sent: boolean }>>(`/api/v1/attendance/telegram/business/${botType}/test`);
+  return res.data;
+}
+
+export async function sendCurrentBusinessTelegramGroupMessageTest(message: string) {
+  const res = await api.post<ApiEnvelope<{ sent: boolean }>>("/api/v1/attendance/telegram/business/group-message-test", { message });
+  return res.data;
+}
+
 export async function generateTelegramLinkCode() {
   const res = await api.post<ApiEnvelope<{ telegramLinkCode: { code: string; expiresAt: string } }>>("/api/v1/attendance/telegram/me/link-code");
   return res.data;

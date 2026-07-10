@@ -33,11 +33,12 @@ import {
   Shield,
   Building2,
   BriefcaseBusiness,
-  Gem,
+  Settings,
+  SlidersHorizontal,
   ChevronDown,
   ChevronRight,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BusinessesTab, MainModule, ProjectsTab, RecruitmentTab } from '../../types';
 
 interface SidebarProps {
@@ -104,6 +105,7 @@ export default function Sidebar({
   onMobileClose,
 }: SidebarProps) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { hasAny, isSuperAdmin } = useMyPermissions();
   const { data: criticalDisciplineData } = useCriticalDisciplinaryCases();
   const criticalDisciplineCount = criticalDisciplineData?.total ?? criticalDisciplineData?.rows?.length ?? 0;
@@ -159,19 +161,19 @@ export default function Sidebar({
   const ALL_MODULES = [
     { id: 'businesses',  label: 'Businesses',             icon: Building2,       badge: 0 },
     { id: 'permissions', label: 'Roles & Permissions',    icon: Shield,          badge: 0 },
-    { id: 'subscription', label: 'Subscription & Billing', icon: Gem,             badge: 0 },
     { id: 'talent',      label: 'Talent Management',      icon: UserPlus,        badge: 0 },
     { id: 'attendance',  label: 'Attendance & Leave',     icon: Calendar,        badge: 0 },
     { id: 'performance', label: 'Performance',            icon: TrendingUp,      badge: criticalDisciplineCount },
     { id: 'exit',        label: 'Exit & Offboarding',     icon: LogOut,          badge: 0 },
     { id: 'finance',     label: 'Workforce Finance',      icon: CircleDollarSign,badge: 0 },
     { id: 'projects',    label: 'Projects',               icon: BriefcaseBusiness,badge: 0 },
+    { id: 'subscription-settings', label: 'Subscription & Settings', icon: SlidersHorizontal, badge: 0 },
   ] as const;
 
   const internModuleIds = new Set(['attendance']);
   const mainModules = ALL_MODULES.filter((m) => {
     if (isInternUser && !internModuleIds.has(m.id)) return false;
-    if (m.id === 'subscription') return user?.role === 'Business Admin' || user?.role === 'Super Admin';
+    if (m.id === 'subscription-settings') return user?.role === 'Business Admin' || user?.role === 'Super Admin' || hasAny(...MODULE_PERMISSIONS.settings);
     const required = MODULE_PERMISSIONS[m.id];
     if (!required) return false;
     return hasAny(...required);
@@ -285,6 +287,7 @@ export default function Sidebar({
     { id: 'overview',      label: 'Overview',      badge: 0 },
     { id: 'plans',         label: 'Plans',         badge: 0 },
     { id: 'sector_focus',  label: 'Sector Focus',  badge: 0 },
+    { id: 'smtp_providers', label: 'SMTP Providers', badge: 0 },
     { id: 'integrations',  label: 'Integrations',  badge: 0 },
     { id: 'security',      label: 'Security & SSO',badge: 0 },
     { id: 'audit_logs',    label: 'Audit Logs',    badge: 0 },
@@ -398,6 +401,19 @@ export default function Sidebar({
   const projectsTabs      = allowedTabs(ALL_PROJECTS_TABS,     PROJECTS_TAB_PERMISSIONS);
   const performanceTabs   = allowedTabs(ALL_PERFORMANCE_TABS,  PERFORMANCE_TAB_PERMISSIONS);
   const businessesTabs    = allowedTabs(ALL_BUSINESSES_TABS,   BUSINESSES_TAB_PERMISSIONS);
+  const settingsTabs = [
+    { id: 'general', label: 'Business Settings', path: `/${roleSegment}/settings/general` },
+    { id: 'smtp', label: 'SMTP Settings', path: `/${roleSegment}/settings/smtp` },
+    { id: 'punctuality-messages', label: 'Punctuality Messages', path: `/${roleSegment}/settings/punctuality-messages` },
+    { id: 'subscription', label: 'Subscription', path: `/${roleSegment}/settings/subscription` },
+  ] as const;
+  const pathname = location.pathname;
+  const isSubscriptionSettingsRoute = pathname.includes('/settings') || pathname.endsWith('/subscription');
+  const activeSettingsTab =
+    pathname.includes('/settings/smtp') ? 'smtp' :
+    pathname.includes('/settings/punctuality-messages') ? 'punctuality-messages' :
+    pathname.includes('/settings/subscription') || pathname.endsWith('/subscription') ? 'subscription' :
+    'general';
 
   const handleModuleClick = (moduleId: MainModule) => {
     setCurrentModule(moduleId);
@@ -405,7 +421,7 @@ export default function Sidebar({
       moduleId === 'attendance' || moduleId === 'talent' || moduleId === 'exit' ||
       moduleId === 'finance' || moduleId === 'projects' || moduleId === 'performance' || moduleId === 'businesses' ||
       moduleId === 'permissions'
-      || moduleId === 'subscription'
+      || moduleId === 'subscription-settings'
     ) {
       setIsDetailedView(true);
       if (moduleId === 'businesses') setCurrentBusinessesTab('overview');
@@ -413,7 +429,7 @@ export default function Sidebar({
     } else {
       setIsDetailedView(false);
     }
-    navigate(`/${roleSegment}/${moduleId}`);
+    navigate(moduleId === 'subscription-settings' ? `/${roleSegment}/settings/general` : `/${roleSegment}/${moduleId}`);
     onMobileClose?.();
   };
 
@@ -480,7 +496,7 @@ export default function Sidebar({
             <div className="flex flex-col gap-3 w-full px-2 mt-4">
               {mainModules.map((m: any) => {
                 const Icon = m.icon;
-                const isActive = currentModule === m.id;
+                const isActive = m.id === 'subscription-settings' ? isSubscriptionSettingsRoute : currentModule === m.id;
                 return (
                   <button
                     key={m.id}
@@ -680,12 +696,16 @@ export default function Sidebar({
                 </button>
               )}
 
-              {currentModule === 'subscription' && (
-                <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold bg-slate-50 text-slate-900 border-l-2 border-blue-600 pl-2.5 cursor-pointer">
-                  <span>Plan & Billing</span>
-                  <Gem className="w-3.5 h-3.5 text-blue-600" />
+              {(currentModule === 'subscription-settings' || isSubscriptionSettingsRoute) && settingsTabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => { navigate(tab.path); onMobileClose?.(); }}
+                  className={tabCls(activeSettingsTab === tab.id)}
+                >
+                  <span>{tab.label}</span>
+                  {tab.id === 'smtp' ? <Settings className="w-3.5 h-3.5 text-blue-600" /> : null}
                 </button>
-              )}
+              ))}
 
               {currentModule === 'businesses' && businessesTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentBusinessesTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/businesses` : `/${roleSegment}/businesses/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentBusinessesTab === tab.id)}>
@@ -693,7 +713,7 @@ export default function Sidebar({
                 </button>
               ))}
 
-              {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','projects','performance','permissions','businesses','subscription'].includes(currentModule) && (
+              {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','projects','performance','permissions','businesses','subscription-settings'].includes(currentModule) && (
                 <div className="py-2 text-slate-500 font-medium text-xs text-center border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50">
                   <span className="block mb-1">Standard Mode</span>
                   <button onClick={() => { setCurrentModule(defaultModule as MainModule); navigate(defaultPath); onMobileClose?.(); }} className="text-blue-600 hover:underline text-[11px] font-semibold">
@@ -760,7 +780,7 @@ export default function Sidebar({
         <div className="flex flex-col gap-1 px-1">
           {mainModules.map((m: any) => {
             const Icon = m.icon;
-            const isActive = currentModule === m.id;
+            const isActive = m.id === 'subscription-settings' ? isSubscriptionSettingsRoute : currentModule === m.id;
             return (
               <button
                 key={m.id}
