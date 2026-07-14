@@ -1,4 +1,4 @@
-name: Deploy Frontend to Hostinger VPS
+name: Deploy HR Frontend
 
 on:
   push:
@@ -7,107 +7,25 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: hostinger-frontend-production
+  group: hr-frontend-production
   cancel-in-progress: true
 
 jobs:
-  validate:
-    name: Validate frontend
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Use Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22.12.0
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build frontend
-        run: npm run build
-        env:
-          VITE_API_BASE_URL: ${{ vars.VITE_API_BASE_URL || 'http://localhost:4000' }}
-          VITE_POLICIES_API_BASE_URL: ${{ vars.VITE_POLICIES_API_BASE_URL || 'https://blih-knowledge-base-backend.onrender.com/api/v1' }}
-
   deploy:
     name: Deploy to Hostinger VPS
-    needs: validate
     runs-on: ubuntu-latest
     environment: production
 
     steps:
-      - name: Test whether VPS SSH port is reachable
-        env:
-          SSH_HOST: ${{ secrets.HOSTINGER_HOST }}
-          SSH_PORT: ${{ secrets.HOSTINGER_PORT || '22' }}
-        run: |
-          set -e
-
-          echo "Testing TCP connection to VPS SSH port..."
-
-          if timeout 10 bash -c "</dev/tcp/$SSH_HOST/$SSH_PORT"; then
-            echo "SUCCESS: VPS SSH port is reachable."
-          else
-            echo "FAILED: GitHub runner cannot reach VPS SSH port."
-            exit 1
-          fi
-
-      - name: Deploy over SSH
+      - name: Trigger VPS deploy script
         uses: appleboy/ssh-action@v1
-        env:
-          DEPLOY_PATH: ${{ secrets.HOSTINGER_FRONTEND_DEPLOY_PATH }}
-          REPOSITORY: ${{ github.repository }}
-          BRANCH: ${{ github.ref_name }}
-          ENV_PRODUCTION_B64: ${{ secrets.FRONTEND_ENV_PRODUCTION_B64 }}
-
         with:
           host: ${{ secrets.HOSTINGER_HOST }}
           username: ${{ secrets.HOSTINGER_USER }}
           key: ${{ secrets.HOSTINGER_SSH_KEY }}
           port: ${{ secrets.HOSTINGER_PORT || '22' }}
-
-          timeout: 30s
-          command_timeout: 30m
-
-          envs: DEPLOY_PATH,REPOSITORY,BRANCH,ENV_PRODUCTION_B64
-
           script: |
             set -eu
-
-            if [ -z "$DEPLOY_PATH" ]; then
-              echo "HOSTINGER_FRONTEND_DEPLOY_PATH secret is required"
-              exit 1
-            fi
-
-            if [ -z "$ENV_PRODUCTION_B64" ]; then
-              echo "FRONTEND_ENV_PRODUCTION_B64 secret is required"
-              exit 1
-            fi
-
-            mkdir -p "$DEPLOY_PATH"
-
-            if [ ! -d "$DEPLOY_PATH/.git" ]; then
-              git clone --branch "$BRANCH" "https://github.com/$REPOSITORY.git" "$DEPLOY_PATH"
-            fi
-
-            cd "$DEPLOY_PATH"
-
-            git fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-            git reset --hard "origin/$BRANCH"
-
-            if [ ! -f deploy.sh ]; then
-              echo "deploy.sh was not found in $DEPLOY_PATH"
-              exit 1
-            fi
-
-            printf '%s' "$ENV_PRODUCTION_B64" | base64 -d > .env.production
-            chmod 600 .env.production
-            chmod +x deploy.sh
-
-            ./deploy.sh
+            cd "${{ secrets.HOSTINGER_FRONTEND_DEPLOY_PATH }}"
+            chmod +x .deploy.sh
+            ./.deploy.sh

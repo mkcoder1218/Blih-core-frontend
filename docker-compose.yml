@@ -1,0 +1,18 @@
+services:
+  hr-frontend:
+    build:
+      context: .
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_POLICIES_API_BASE_URL: ${VITE_POLICIES_API_BASE_URL}
+    image: ${APP_IMAGE:-blih-hr-frontend}:latest
+    container_name: ${APP_CONTAINER:-blih-hr-frontend}
+    restart: unless-stopped
+    env_file:
+      - .env.production
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: ${PORT:-3000}
+    ports:
+      - "${HOST_PORT:-3000}:${PORT:-3000}"

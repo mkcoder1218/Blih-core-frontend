@@ -1,0 +1,14 @@
+node_modules
+dist
+coverage
+.git
+.github
+.vercel
+.kiro
+*.log
+.env
+.env.*
+!.env.example
+!.env.production.example
+Dockerfile
+docker-compose*.yml
