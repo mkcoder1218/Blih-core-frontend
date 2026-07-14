@@ -28,5 +28,5 @@ jobs:
           script: |
             set -eu
             cd "${{ secrets.HOSTINGER_FRONTEND_DEPLOY_PATH }}"
-            chmod +x .deploy.sh
-            ./.deploy.sh
+            chmod +x deploy.sh
+            ./deploy.sh
