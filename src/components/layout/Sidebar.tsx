@@ -21,7 +21,6 @@ import {
 } from '../../config/tabPermissions';
 import {
   Brain,
-  Search,
   UserPlus,
   UserCheck,
   Users,
@@ -40,6 +39,7 @@ import {
 } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { BusinessesTab, MainModule, ProjectsTab, RecruitmentTab } from '../../types';
+import GlobalSubtabSearch from './GlobalSubtabSearch';
 
 interface SidebarProps {
   currentModule: MainModule;
@@ -489,9 +489,16 @@ export default function Sidebar({
               <Brain className="w-7 h-7" />
             </button>
 
-            <button className="p-2 rounded-lg hover:bg-white/10 transition-colors cursor-pointer text-blue-100 mt-2">
-              <Search className="w-5 h-5" />
-            </button>
+            <div className="mt-2">
+              <GlobalSubtabSearch
+                user={user}
+                variant="rail"
+                onSelect={() => {
+                  setIsDetailedView(true);
+                  onMobileClose?.();
+                }}
+              />
+            </div>
 
             <div className="flex flex-col gap-3 w-full px-2 mt-4">
               {mainModules.map((m: any) => {
@@ -766,15 +773,13 @@ export default function Sidebar({
           </div>
         </div>
 
-        {/* Search */}
-        <div className="relative px-2 mb-6">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-100/70" />
-          <input
-            type="text"
-            placeholder="Search..."
-            className="w-full bg-white/10 hover:bg-white/15 focus:bg-white/20 border-none rounded-xl py-2 pl-9 pr-4 text-xs text-white placeholder-blue-100/60 focus:outline-none transition-all shadow-inner"
-          />
-        </div>
+        <GlobalSubtabSearch
+          user={user}
+          onSelect={() => {
+            setIsDetailedView(true);
+            onMobileClose?.();
+          }}
+        />
 
         {/* Module list */}
         <div className="flex flex-col gap-1 px-1">
