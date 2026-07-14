@@ -6,14 +6,14 @@ import RecruitmentRequests from "../components/recruitment/RecruitmentRequests";
 import RecruitmentReadyToPost from "../components/recruitment/RecruitmentReadyToPost";
 import RecruitmentClosedPosts from "../components/recruitment/RecruitmentClosedPosts";
 import RecruitmentApplicantForms from "../components/recruitment/RecruitmentApplicantForms";
-import RecruitmentOffers from "../components/recruitment/RecruitmentOffers";
+import JobRecruitmentWorkspace from "../components/recruitment/JobRecruitmentWorkspace";
 import RecruitmentActivePosting from "../components/recruitment/RecruitmentActivePosting";
 import RecruitmentOngoingRecruitment from "../components/recruitment/RecruitmentOngoingRecruitment";
 import InterviewManagementView from "../components/recruitment/InterviewManagementView";
 import CreateJobModal from "../components/recruitment/create-job/CreateJobModal";
 import TemplateSelectionModal from "../components/recruitment/create-job/TemplateSelectionModal";
 import { api } from "../api/client";
-import { useJobRequests, useApproveJobRequest, usePublishJobRequest } from "../hooks/useJobRequests";
+import { useJobRequests, useApproveJobRequest, usePublishJobRequest, useDeclineJobRequest } from "../hooks/useJobRequests";
 import { useMe } from "../hooks/useMe";
 import { useQueryClient } from "@tanstack/react-query";
 import OfferLetterTemplatePage from "./OfferLetterTemplatePage";
@@ -37,6 +37,7 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
   const approvedJobRequests = useJobRequests({ status: "approved" });
   
   const approveJob = useApproveJobRequest();
+  const declineJob = useDeclineJobRequest();
   const publishJob = usePublishJobRequest();
   
   const { data: meRes } = useMe();
@@ -106,10 +107,11 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
               ...(declinedJobRequests.data?.rows || []),
             ]} 
             onApproveJob={(id) => approveJob.mutate(id)} 
+            onRejectJob={(id, reason) => declineJob.mutate({ id, reason })}
             onJustifyJob={() => {}} 
             onOpenNewJobModal={() => openCreateModal("job")} 
             onSuggestJustification={() => {}} 
-            currentUser={me ? { id: me.user.id, role: (me.roles?.[0] || 'GUEST'), name: me.user.fullName } : undefined}
+            currentUser={me ? { id: me.user.id, role: (me.roles?.[0] || 'GUEST'), roles: me.roles || [], permissions: me.permissions || [], name: me.user.fullName } : undefined}
           />
         );
       case "ready_to_post":
@@ -140,7 +142,7 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
           />
         );
       case "offers":
-        return <RecruitmentOffers showAlert={() => {}} />;
+        return <JobRecruitmentWorkspace initialTab="offers" showAlert={() => {}} />;
       case "offer_templates":
         return <OfferLetterTemplatePage />;
       case "active_posting":
@@ -156,7 +158,7 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
 
   return (
     <div className="space-y-6">
-      {tab === "requests" && (
+      {tab === "requests" && (me?.roles || []).some((role: string) => ["DEPARTMENT_HEAD", "DEPT_HEAD"].includes(role.toUpperCase())) && (
         <div className="flex justify-end">
           <button
             onClick={() => openCreateModal("job")}

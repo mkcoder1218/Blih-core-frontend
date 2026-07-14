@@ -41,9 +41,11 @@ export function useJobRequests(params?: {
 export function useApproveJobRequest() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (vars: string | { id: string; comment?: string }) => {
+      const id = typeof vars === "string" ? vars : vars.id;
       const res = await api.post(
         `/api/v1/hr/recruitment/job-requests/${id}/approve`,
+        typeof vars === "string" ? undefined : { comment: vars.comment },
       );
       return res.data;
     },
@@ -73,6 +75,19 @@ export function useCloseJob() {
   return useMutation({
     mutationFn: async (id: string) => {
       const res = await api.post(`/api/v1/hr/recruitment/job-requests/${id}/close`);
+      return res.data;
+    },
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({ queryKey: ["job-requests"] });
+    },
+  });
+}
+
+export function usePauseJob() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post(`/api/v1/hr/recruitment/job-requests/${id}/pause`);
       return res.data;
     },
     onSuccess: async () => {

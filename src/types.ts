@@ -63,7 +63,24 @@ export interface JobRequest {
   approvals?: {
     role: string;
     userId: string;
+    userName?: string;
+    stage?: string;
     approvedAt: string;
+  }[];
+  approvalStage?: 'hr_review' | 'final_approval' | 'approved' | 'rejected' | string;
+  approvalStageLabel?: string;
+  currentReviewer?: string;
+  rejectionReason?: string | null;
+  rejectedByUserId?: string | null;
+  rejectedAt?: string | null;
+  approvalHistory?: {
+    stage: string;
+    action: 'submitted' | 'approved' | 'rejected' | string;
+    role?: string;
+    userId?: string;
+    userName?: string;
+    at?: string;
+    reason?: string | null;
   }[];
 }
 

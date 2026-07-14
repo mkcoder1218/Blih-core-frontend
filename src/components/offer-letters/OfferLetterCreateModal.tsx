@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, ChevronDown, ChevronUp, FileText, Eye, Loader2 } from 'lucide-react';
 import { api } from '../../api/client';
-import { getOfferLetterTemplates, createOfferLetter, previewOfferLetter } from '../../api/offerLetters';
+import { getOfferLetterTemplates, createOfferLetter, previewOfferLetter, updateOfferLetter } from '../../api/offerLetters';
 import OfferLetterPreviewModal from './OfferLetterPreviewModal';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
@@ -68,6 +68,29 @@ export default function OfferLetterCreateModal({ isOpen, onClose, showAlert, onS
     reportingManagerId: initialData?.reportingManagerId || '',
     companyName: 'Blih',
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setFormData({
+      templateId: initialData?.templateId || '',
+      candidateName: initialData?.candidateName || '',
+      candidateEmail: initialData?.candidateEmail || '',
+      candidatePhone: initialData?.candidatePhone || '',
+      departmentId: initialData?.departmentId || '',
+      roleId: initialData?.roleId || '',
+      positionId: initialData?.positionId || '',
+      salary: initialData?.salary || '',
+      startDate: initialData?.startDate || '',
+      employmentType: initialData?.employmentType || 'Permanent',
+      workLocation: initialData?.workLocation || '',
+      reportingManager: initialData?.reportingManager || '',
+      reportingManagerId: initialData?.reportingManagerId || '',
+      companyName: initialData?.companyName || 'Blih',
+    });
+    setTemplateDirty(false);
+    setTemplateBody('');
+    setTemplateSubject('');
+  }, [initialData, isOpen]);
 
   useEffect(() => {
     if (isOpen) {
@@ -178,12 +201,15 @@ export default function OfferLetterCreateModal({ isOpen, onClose, showAlert, onS
     if (!formData.templateId) return showAlert('Select a template', 'error');
     setLoading(true);
     try {
-      const resp = await createOfferLetter({
+      const payload = {
         ...formData,
         overrideBodyHtml: templateDirty ? templateBody : undefined,
         overrideSubject:  templateDirty ? templateSubject : undefined,
-      });
-      showAlert('Draft saved successfully', 'success');
+      };
+      const resp = initialData?.id
+        ? await updateOfferLetter(initialData.id, payload)
+        : await createOfferLetter(payload);
+      showAlert(initialData?.id ? 'Draft updated successfully' : 'Draft saved successfully', 'success');
       onSuccess?.(resp.data?.data?.id);
       onClose();
     } catch (e: any) {
