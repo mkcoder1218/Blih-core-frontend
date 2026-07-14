@@ -3,6 +3,7 @@ name: Deploy HR Frontend
 on:
   push:
     branches:
+      - integration
       - master
   workflow_dispatch:
 
