@@ -20,11 +20,12 @@ import {
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useEmployees } from '../../../hooks/useHrRecords';
-import { useGenerateOfferLetterPdf, useSendOfferLetter, useUpdateOfferLetter } from '../../../hooks/useOfferLetters';
+import { useGenerateOfferLetterPdf, useSendOfferLetter } from '../../../hooks/useOfferLetters';
 import type { EmployeeRecord } from '../../../api/types';
 import CreateEmployeeModal from '../../people/CreateEmployeeModal';
 import OfferLetterCreateModal from '../../offer-letters/OfferLetterCreateModal';
-import { getOfferLetters } from '../../../api/offerLetters';
+import { getOfferLetters, terminateOfferLetter } from '../../../api/offerLetters';
+import { api } from '../../../api/client';
 
 type ContractStatus = 'Draft' | 'Pending Signature' | 'Active' | 'Expiring Soon' | 'Expired' | 'Terminated' | 'Renewed';
 type SignatureStatus = 'Not Sent' | 'Sent' | 'Viewed' | 'Signed' | 'Declined';
@@ -126,6 +127,15 @@ const money = (value?: string | number | null, currency = 'ETB') => {
   const numeric = typeof value === 'number' ? value : Number(String(value).replace(/[^\d.-]/g, ''));
   if (Number.isFinite(numeric)) return `${currency} ${numeric.toLocaleString()}`;
   return String(value);
+};
+
+const nowDateTimeParts = () => {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return {
+    date: local.toISOString().slice(0, 10),
+    time: local.toISOString().slice(11, 16),
+  };
 };
 
 const getEmployeeName = (employee: EmployeeRecord) => employee.user?.fullName || employee.metadata?.fullName || employee.employeeCode || 'Unnamed Employee';
@@ -353,20 +363,32 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
   const [editingOffer, setEditingOffer] = useState<any | null>(null);
   const [createOfferOpen, setCreateOfferOpen] = useState(false);
   const [busyAction, setBusyAction] = useState<string | null>(null);
+  const [terminationNotice, setTerminationNotice] = useState<string | null>(null);
+  const [terminationTarget, setTerminationTarget] = useState<ContractRecord | null>(null);
+  const [terminationDate, setTerminationDate] = useState(() => nowDateTimeParts().date);
+  const [terminationTime, setTerminationTime] = useState(() => nowDateTimeParts().time);
   const [page, setPage] = useState(1);
   const pageSize = 20;
   const sourcePageSize = pageSize / 2;
   const offset = (page - 1) * sourcePageSize;
+  const explicitTerminatedFilter = statusFilter === 'Terminated';
+  const employeeStatusParam = explicitTerminatedFilter ? 'terminated' : undefined;
+  const offerStatusParam = explicitTerminatedFilter ? 'REJECTED' : undefined;
 
-  const { data: employeeData, isLoading: loadingEmployees } = useEmployees({ limit: sourcePageSize, offset });
+  const { data: employeeData, isLoading: loadingEmployees } = useEmployees({ limit: sourcePageSize, offset, employmentStatus: employeeStatusParam });
   const {
     data: offerPage = { offers: [], total: 0 },
     isLoading: loadingOffers,
     refetch: refetchOffers,
   } = useQuery({
-    queryKey: ['offer-letters', 'contracts-page', sourcePageSize, offset],
+    queryKey: ['offer-letters', 'contracts-page', sourcePageSize, offset, offerStatusParam, !explicitTerminatedFilter],
     queryFn: async () => {
-      const response = await getOfferLetters({ limit: sourcePageSize, offset });
+      const response = await getOfferLetters({
+        limit: sourcePageSize,
+        offset,
+        status: offerStatusParam,
+        excludeRejected: !explicitTerminatedFilter,
+      });
       return {
         offers: (response.data?.data as any[]) ?? [],
         total: response.data?.meta?.total ?? 0,
@@ -374,7 +396,6 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
     },
   });
   const sendOfferLetter = useSendOfferLetter();
-  const updateOfferLetter = useUpdateOfferLetter();
   const generatePdf = useGenerateOfferLetterPdf();
 
   const employees = employeeData?.employees ?? [];
@@ -384,7 +405,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
 
   useEffect(() => {
     setPage(1);
-  }, [attentionFilter, dateFilter, departmentFilter, probationFilter, searchQuery, statusFilter, typeFilter]);
+  }, [dateFilter, departmentFilter, probationFilter, searchQuery, statusFilter, typeFilter]);
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -649,12 +670,27 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
 
   const handleTerminate = async (contract: ContractRecord) => {
     closeMenu();
+    const now = nowDateTimeParts();
+    setTerminationDate(now.date);
+    setTerminationTime(now.time);
+    setTerminationTarget(contract);
+  };
+
+  const confirmTermination = async () => {
+    const contract = terminationTarget;
+    if (!contract) return;
+    const effectiveDate = terminationDate || nowDateTimeParts().date;
+    const effectiveTime = terminationTime || "00:00";
+    const effectiveAt = `${effectiveDate}T${effectiveTime}:00`;
     if (contract.rawOffer && contract.offerId && contract.source === 'offer') {
       setBusyAction(`terminate-${contract.id}`);
       try {
-        await updateOfferLetter.mutateAsync({ id: contract.offerId, data: { status: 'REJECTED' } });
-        showAlert(`Contract draft for ${contract.employeeName} was marked declined`, 'success');
+        await terminateOfferLetter(contract.offerId, { effectiveAt });
+        setTerminationNotice(`${contract.employeeName}'s contract was terminated`);
+        setTerminationTarget(null);
+        showAlert(`Contract draft for ${contract.employeeName} was terminated`, 'success');
         await refreshData();
+        window.setTimeout(() => setTerminationNotice(null), 2400);
       } catch (error: any) {
         showAlert(error.response?.data?.message || 'Unable to terminate this contract draft.', 'error');
       } finally {
@@ -663,8 +699,24 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
       return;
     }
     if (contract.rawEmployee?.userId || contract.employeeId) {
-      setEditingEmployeeUserId(contract.rawEmployee?.userId || contract.employeeId || null);
-      showAlert('Update the employee status to terminated in the employee profile form.', 'info');
+      const employeeUserId = contract.rawEmployee?.userId || contract.employeeId;
+      setBusyAction(`terminate-${contract.id}`);
+      try {
+        await api.post(`/api/v1/hr/records/${employeeUserId}/terminate-contract`, {
+          effectiveDate,
+          effectiveAt,
+          reason: 'Contract terminated from Contracts page',
+        });
+        setTerminationNotice(`${contract.employeeName}'s contract was terminated`);
+        setTerminationTarget(null);
+        showAlert(`${contract.employeeName}'s contract was terminated and the account was disabled`, 'success');
+        await refreshData();
+        window.setTimeout(() => setTerminationNotice(null), 2400);
+      } catch (error: any) {
+        showAlert(error.response?.data?.message || 'Unable to terminate this employee contract.', 'error');
+      } finally {
+        setBusyAction(null);
+      }
       return;
     }
     showAlert('This contract has no editable source record to terminate.', 'info');
@@ -672,6 +724,85 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
 
   return (
     <div id="tab-contract-pane" className="w-full space-y-5 px-0 pb-8 font-sans">
+      {terminationTarget && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-rose-600">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-950">Terminate contract?</h3>
+                <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
+                  This will terminate {terminationTarget.employeeName}'s contract, disable the account, and remove the employee from standard exports unless Terminated is explicitly filtered.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="grid gap-1 text-xs font-black text-slate-600">
+                Termination date
+                <input
+                  type="date"
+                  value={terminationDate}
+                  onChange={(event) => setTerminationDate(event.currentTarget.value)}
+                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+              <label className="grid gap-1 text-xs font-black text-slate-600">
+                Termination time
+                <input
+                  type="time"
+                  value={terminationTime}
+                  onChange={(event) => setTerminationTime(event.currentTarget.value)}
+                  className="h-10 rounded-lg border border-slate-200 px-3 text-sm font-semibold text-slate-800 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                />
+              </label>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">
+              Are you sure? This action immediately changes the employment status to terminated.
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setTerminationTarget(null)}
+                className="h-10 rounded-lg border border-slate-200 px-4 text-xs font-black text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busyAction === `terminate-${terminationTarget.id}` || !terminationDate || !terminationTime}
+                onClick={confirmTermination}
+                className="h-10 rounded-lg bg-rose-600 px-4 text-xs font-black text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busyAction === `terminate-${terminationTarget.id}` ? 'Terminating...' : 'Yes, terminate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {terminationNotice && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/35 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-rose-100 bg-white p-6 text-center shadow-2xl">
+            <div className="relative mx-auto flex h-20 w-20 items-center justify-center">
+              <span className="absolute h-20 w-20 animate-ping rounded-full bg-rose-100" />
+              <span className="relative flex h-16 w-16 items-center justify-center rounded-full bg-rose-50 text-rose-600">
+                <X className="h-8 w-8" />
+              </span>
+            </div>
+            <h3 className="mt-4 text-base font-black text-slate-950">Contract terminated</h3>
+            <p className="mt-1 text-sm font-semibold text-slate-500">{terminationNotice}</p>
+            <p className="mt-3 text-xs font-medium text-slate-400">
+              Hidden from standard lists and exports unless Terminated is explicitly filtered.
+            </p>
+          </div>
+        </div>
+      )}
+
       <header className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-xl font-black tracking-tight text-slate-950">Employment Contracts</h1>

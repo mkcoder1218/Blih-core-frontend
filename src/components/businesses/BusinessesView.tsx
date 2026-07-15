@@ -144,6 +144,8 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
       fixedLunchStartTime: '12:00',
       fixedLunchEndTime: '13:00',
       allowMultipleLunchBreaks: false,
+      saturdayWorkMode: 'PAID_DAY_OFF',
+      sundayWorkMode: 'PAID_DAY_OFF',
     }),
     []
   );
@@ -221,6 +223,8 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
       fixedLunchStartTime: s.fixedLunchStartTime || '12:00',
       fixedLunchEndTime: s.fixedLunchEndTime || '13:00',
       allowMultipleLunchBreaks: s.allowMultipleLunchBreaks ?? false,
+      saturdayWorkMode: s.saturdayWorkMode || 'PAID_DAY_OFF',
+      sundayWorkMode: s.sundayWorkMode || 'PAID_DAY_OFF',
     });
   }, [editingBusiness?.id, attendanceSettingsQuery.data?.data?.attendanceSettings?.id]);
 
@@ -292,6 +296,8 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
       fixedLunchStartTime: attendanceDraft.lunchMode === "FIXED" ? attendanceDraft.fixedLunchStartTime : null,
       fixedLunchEndTime: attendanceDraft.lunchMode === "FIXED" ? attendanceDraft.fixedLunchEndTime : null,
       allowMultipleLunchBreaks: attendanceDraft.allowMultipleLunchBreaks,
+      saturdayWorkMode: attendanceDraft.saturdayWorkMode || "PAID_DAY_OFF",
+      sundayWorkMode: attendanceDraft.sundayWorkMode || "PAID_DAY_OFF",
     };
 
     try {

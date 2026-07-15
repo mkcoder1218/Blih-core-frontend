@@ -13,6 +13,8 @@ export async function getAttendanceHrDaily(params: {
   search?: string;
   sortBy?: string;
   sortOrder?: string;
+  page?: number;
+  size?: number;
 } = {}) {
   const res = await api.get<ApiEnvelope<AttendanceHrDailyResponse>>("/api/v1/attendance/hr/daily", { params });
   return res.data;

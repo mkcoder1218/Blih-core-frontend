@@ -58,9 +58,9 @@ export function useDeleteOfferLetterTemplate() {
 
 // ─── Offer Letters ────────────────────────────────────────────────────────────
 
-export function useOfferLetters(params?: { limit?: number; offset?: number }) {
+export function useOfferLetters(params?: { limit?: number; offset?: number; status?: string; excludeRejected?: boolean }) {
   return useQuery({
-    queryKey: ["offer-letters", params?.limit, params?.offset],
+    queryKey: ["offer-letters", params?.limit, params?.offset, params?.status, params?.excludeRejected],
     queryFn: async () => {
       const res = await getOfferLetters(params ?? {});
       return (res.data?.data as any[]) ?? [];

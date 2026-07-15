@@ -56,9 +56,13 @@ export type BusinessAttendanceSettings = {
   fixedLunchStartTime?: string | null;
   fixedLunchEndTime?: string | null;
   allowMultipleLunchBreaks?: boolean;
+  saturdayWorkMode?: WeekendWorkMode | null;
+  sundayWorkMode?: WeekendWorkMode | null;
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type WeekendWorkMode = "PAID_DAY_OFF" | "HALF_WORKING_DAY" | "FULL_WORKING_DAY";
 
 export type UpsertBusinessAttendanceSettingsRequest = {
   attendanceEnabled: boolean;
@@ -78,6 +82,8 @@ export type UpsertBusinessAttendanceSettingsRequest = {
   fixedLunchStartTime?: string | null;
   fixedLunchEndTime?: string | null;
   allowMultipleLunchBreaks?: boolean;
+  saturdayWorkMode?: WeekendWorkMode;
+  sundayWorkMode?: WeekendWorkMode;
 };
 
 export type AttendanceEventType = "CHECK_IN" | "LUNCH_OUT" | "LUNCH_IN" | "CHECK_OUT";
@@ -187,6 +193,10 @@ export type AttendanceHrDailyResponse = {
   date: string;
   timezone: string;
   rows: AttendanceHrDailyRow[];
+  total?: number;
+  page?: number;
+  size?: number;
+  totalPages?: number;
 };
 
 export type AttendanceHrReportRow = {
@@ -204,6 +214,11 @@ export type AttendanceHrReportRow = {
   penaltyMinutes?: number;
   penaltyReason?: string | null;
   expectedMinutes: number;
+  scheduledDayUnits?: number;
+  fullWorkingDayUnits?: number;
+  halfWorkingDayUnits?: number;
+  paidDayOffUnits?: number;
+  approvedLeaveDays?: number;
   overtimeMinutes: number;
   missingMinutes: number;
   lateByMinutes: number;
