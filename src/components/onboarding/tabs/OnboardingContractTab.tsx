@@ -358,6 +358,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
   const [dateFilter, setDateFilter] = useState('all');
   const [attentionFilter, setAttentionFilter] = useState<AttentionFilter>('all');
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number } | null>(null);
   const [selectedContract, setSelectedContract] = useState<ContractRecord | null>(null);
   const [editingEmployeeUserId, setEditingEmployeeUserId] = useState<string | null>(null);
   const [editingOffer, setEditingOffer] = useState<any | null>(null);
@@ -365,6 +366,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [terminationNotice, setTerminationNotice] = useState<string | null>(null);
   const [terminationTarget, setTerminationTarget] = useState<ContractRecord | null>(null);
+  const [returnTarget, setReturnTarget] = useState<ContractRecord | null>(null);
   const [terminationDate, setTerminationDate] = useState(() => nowDateTimeParts().date);
   const [terminationTime, setTerminationTime] = useState(() => nowDateTimeParts().time);
   const [page, setPage] = useState(1);
@@ -374,6 +376,17 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
   const explicitTerminatedFilter = statusFilter === 'Terminated';
   const employeeStatusParam = explicitTerminatedFilter ? 'terminated' : undefined;
   const offerStatusParam = explicitTerminatedFilter ? 'REJECTED' : undefined;
+
+  useEffect(() => {
+    if (!openMenuId) return;
+    const close = () => closeMenu();
+    window.addEventListener('resize', close);
+    window.addEventListener('scroll', close, true);
+    return () => {
+      window.removeEventListener('resize', close);
+      window.removeEventListener('scroll', close, true);
+    };
+  }, [openMenuId]);
 
   const { data: employeeData, isLoading: loadingEmployees } = useEmployees({ limit: sourcePageSize, offset, employmentStatus: employeeStatusParam });
   const {
@@ -642,7 +655,26 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                      location.pathname.startsWith('/hr-manager') ? '/hr-manager' :
                      location.pathname.startsWith('/business-admin') ? '/business-admin' : '/employee';
 
-  const closeMenu = () => setOpenMenuId(null);
+  const closeMenu = () => {
+    setOpenMenuId(null);
+    setMenuPosition(null);
+  };
+
+  const toggleMenu = (contractId: string, event: React.MouseEvent<HTMLButtonElement>) => {
+    if (openMenuId === contractId) {
+      closeMenu();
+      return;
+    }
+    const rect = event.currentTarget.getBoundingClientRect();
+    const menuWidth = 208;
+    const menuHeight = 330;
+    const left = Math.min(Math.max(8, rect.right - menuWidth), window.innerWidth - menuWidth - 8);
+    const top = rect.bottom + menuHeight > window.innerHeight - 8
+      ? Math.max(8, rect.top - menuHeight - 6)
+      : rect.bottom + 6;
+    setMenuPosition({ top, left });
+    setOpenMenuId(contractId);
+  };
 
   const openEditableRecord = (contract: ContractRecord) => {
     closeMenu();
@@ -674,6 +706,36 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
     setTerminationDate(now.date);
     setTerminationTime(now.time);
     setTerminationTarget(contract);
+  };
+
+  const handleReturnEmployee = (contract: ContractRecord) => {
+    closeMenu();
+    if (!contract.rawEmployee?.userId && !contract.employeeId) {
+      showAlert('This terminated contract has no employee account to return.', 'info');
+      return;
+    }
+    setReturnTarget(contract);
+  };
+
+  const confirmReturnEmployee = async () => {
+    const contract = returnTarget;
+    if (!contract) return;
+    const employeeUserId = contract.rawEmployee?.userId || contract.employeeId;
+    if (!employeeUserId) return;
+    setBusyAction(`return-${contract.id}`);
+    try {
+      await api.post(`/api/v1/hr/records/${employeeUserId}/return-contract`, {
+        reason: 'Employee returned from Contracts page',
+      });
+      setReturnTarget(null);
+      showAlert(`${contract.employeeName} was returned and the account was reactivated`, 'success');
+      setStatusFilter('all');
+      await refreshData();
+    } catch (error: any) {
+      showAlert(error.response?.data?.message || 'Unable to return this employee.', 'error');
+    } finally {
+      setBusyAction(null);
+    }
   };
 
   const confirmTermination = async () => {
@@ -779,6 +841,46 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                 className="h-10 rounded-lg bg-rose-600 px-4 text-xs font-black text-white hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {busyAction === `terminate-${terminationTarget.id}` ? 'Terminating...' : 'Yes, terminate'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {returnTarget && (
+        <div className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/45 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-600">
+                <RefreshCw className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-black text-slate-950">Return terminated employee?</h3>
+                <p className="mt-1 text-sm font-semibold leading-5 text-slate-500">
+                  This will reactivate {returnTarget.employeeName}'s account, restore the employee to active status, and include the employee in standard lists and exports again.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 rounded-xl border border-emerald-100 bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-700">
+              Are you sure this terminated employee should be returned?
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setReturnTarget(null)}
+                className="h-10 rounded-lg border border-slate-200 px-4 text-xs font-black text-slate-700 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={busyAction === `return-${returnTarget.id}`}
+                onClick={confirmReturnEmployee}
+                className="h-10 rounded-lg bg-emerald-600 px-4 text-xs font-black text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {busyAction === `return-${returnTarget.id}` ? 'Returning...' : 'Yes, return employee'}
               </button>
             </div>
           </div>
@@ -935,12 +1037,15 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                               <Eye className="h-3.5 w-3.5" />
                               View
                             </button>
-                            <button onClick={() => setOpenMenuId(openMenuId === contract.id ? null : contract.id)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
+                            <button onClick={(event) => toggleMenu(contract.id, event)} className="rounded-lg border border-slate-200 p-2 text-slate-500 hover:bg-slate-50">
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
-                            {openMenuId === contract.id && (
-                              <div className="absolute right-0 top-9 z-40 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
-                                <button onClick={() => { setSelectedContract(contract); setOpenMenuId(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">
+                            {openMenuId === contract.id && menuPosition && (
+                              <div
+                                className="fixed z-[80] max-h-[min(330px,calc(100vh-16px))] w-52 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
+                                style={{ top: menuPosition.top, left: menuPosition.left }}
+                              >
+                                <button onClick={() => { setSelectedContract(contract); closeMenu(); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">
                                   <Eye className="h-3.5 w-3.5" /> View Contract
                                 </button>
                                 <button onClick={() => openEditableRecord(contract)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">
@@ -958,9 +1063,15 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                                 <button onClick={() => openEditableRecord(contract)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">
                                   <Clock className="h-3.5 w-3.5" /> Extend Probation
                                 </button>
-                                <button disabled={busyAction === `terminate-${contract.id}`} onClick={() => handleTerminate(contract)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-50">
-                                  <X className="h-3.5 w-3.5" /> Terminate Contract
-                                </button>
+                                {contract.contractStatus === 'Terminated' && contract.source === 'employee' ? (
+                                  <button disabled={busyAction === `return-${contract.id}`} onClick={() => handleReturnEmployee(contract)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-emerald-700 hover:bg-emerald-50 disabled:opacity-50">
+                                    <RefreshCw className="h-3.5 w-3.5" /> Return Employee
+                                  </button>
+                                ) : (
+                                  <button disabled={busyAction === `terminate-${contract.id}`} onClick={() => handleTerminate(contract)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-rose-600 hover:bg-rose-50 disabled:opacity-50">
+                                    <X className="h-3.5 w-3.5" /> Terminate Contract
+                                  </button>
+                                )}
                                 <button onClick={() => openEmployeeProfile(contract)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">
                                   <UserRound className="h-3.5 w-3.5" /> View Employee Profile
                                 </button>
