@@ -403,6 +403,7 @@ export default function Sidebar({
   const businessesTabs    = allowedTabs(ALL_BUSINESSES_TABS,   BUSINESSES_TAB_PERMISSIONS);
   const settingsTabs = [
     { id: 'general', label: 'Business Settings', path: `/${roleSegment}/settings/general` },
+    { id: 'attendance', label: 'Attendance Settings', path: `/${roleSegment}/settings/attendance` },
     { id: 'smtp', label: 'SMTP Settings', path: `/${roleSegment}/settings/smtp` },
     { id: 'punctuality-messages', label: 'Punctuality Messages', path: `/${roleSegment}/settings/punctuality-messages` },
     { id: 'subscription', label: 'Subscription', path: `/${roleSegment}/settings/subscription` },
@@ -410,10 +411,12 @@ export default function Sidebar({
   const pathname = location.pathname;
   const isSubscriptionSettingsRoute = pathname.includes('/settings') || pathname.endsWith('/subscription');
   const activeSettingsTab =
+    pathname.includes('/settings/attendance') ? 'attendance' :
     pathname.includes('/settings/smtp') ? 'smtp' :
     pathname.includes('/settings/punctuality-messages') ? 'punctuality-messages' :
     pathname.includes('/settings/subscription') || pathname.endsWith('/subscription') ? 'subscription' :
     'general';
+  const displayModule = isSubscriptionSettingsRoute ? 'subscription-settings' : currentModule;
 
   const handleModuleClick = (moduleId: MainModule) => {
     setCurrentModule(moduleId);
@@ -503,7 +506,7 @@ export default function Sidebar({
             <div className="flex flex-col gap-3 w-full px-2 mt-4">
               {mainModules.map((m: any) => {
                 const Icon = m.icon;
-                const isActive = m.id === 'subscription-settings' ? isSubscriptionSettingsRoute : currentModule === m.id;
+                const isActive = m.id === displayModule;
                 return (
                   <button
                     key={m.id}
@@ -537,31 +540,31 @@ export default function Sidebar({
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <div className="mb-6 px-2">
               <h2 className="text-sm font-semibold text-slate-900 tracking-tight">
-                {currentModule === 'recruitment' ? portalTitle
-                  : currentModule === 'profiles' ? 'People & Profiles'
-                  : currentModule === 'attendance' ? 'Attendance'
-                  : currentModule === 'talent' ? 'Talent Management'
-                  : currentModule === 'exit' ? 'Exit & Offboarding'
-                  : mainModules.find((m: any) => m.id === currentModule)?.label}
+                {displayModule === 'recruitment' ? portalTitle
+                  : displayModule === 'profiles' ? 'People & Profiles'
+                  : displayModule === 'attendance' ? 'Attendance'
+                  : displayModule === 'talent' ? 'Talent Management'
+                  : displayModule === 'exit' ? 'Exit & Offboarding'
+                  : mainModules.find((m: any) => m.id === displayModule)?.label}
               </h2>
               <span className="text-[11px] font-medium text-blue-600 block leading-tight">{sidebarRoleLabel}</span>
             </div>
 
             <div className="flex flex-col gap-1">
-              {currentModule === 'recruitment' && recruitmentTabs.map((tab) => (
+              {displayModule === 'recruitment' && recruitmentTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentRecruitmentTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/recruitment` : `/${roleSegment}/recruitment/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentRecruitmentTab === tab.id)}>
                   <span>{tab.label}</span>
                   <Badge count={tab.badge} />
                 </button>
               ))}
 
-              {currentModule === 'profiles' && profilesTabs.map((tab) => (
+              {displayModule === 'profiles' && profilesTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentProfilesTab(tab.id); navigate(`/${roleSegment}/profiles/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentProfilesTab === tab.id)}>
                   <span>{tab.label}</span>
                 </button>
               ))}
 
-              {currentModule === 'attendance' && attendanceGroups.map((group) => {
+              {displayModule === 'attendance' && attendanceGroups.map((group) => {
                 const hasActiveChild = group.items.some((tab) => tab.id === currentAttendanceTab);
                 const isOpen = hasActiveChild || openAttendanceGroups[group.title] !== false;
                 const Chevron = isOpen ? ChevronDown : ChevronRight;
@@ -609,7 +612,7 @@ export default function Sidebar({
                 );
               })}
 
-              {currentModule === 'talent' && talentGroups.map((group) => {
+              {displayModule === 'talent' && talentGroups.map((group) => {
                 const hasActiveChild = group.items.some((tab) => tab.id === currentTalentTab);
                 const isOpen = hasActiveChild || openTalentGroups[group.title] !== false;
                 const Chevron = isOpen ? ChevronDown : ChevronRight;
@@ -658,27 +661,27 @@ export default function Sidebar({
                 );
               })}
 
-              {currentModule === 'exit' && exitTabs.map((tab) => (
+              {displayModule === 'exit' && exitTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentExitTab(tab.id); navigate(tab.id === 'offboarding' ? `/${roleSegment}/exit` : `/${roleSegment}/exit/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentExitTab === tab.id)}>
                   <span>{tab.label}</span>
                   <Badge count={tab.badge} />
                 </button>
               ))}
 
-              {currentModule === 'onboarding' && onboardingTabs.map((tab) => (
+              {displayModule === 'onboarding' && onboardingTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentOnboardingTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/onboarding` : `/${roleSegment}/onboarding/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentOnboardingTab === tab.id)}>
                   <span>{tab.label}</span>
                 </button>
               ))}
 
-              {currentModule === 'finance' && financeTabs.map((tab) => (
+              {displayModule === 'finance' && financeTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentFinanceTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/finance` : `/${roleSegment}/finance/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentFinanceTab === tab.id)}>
                   <span>{tab.label}</span>
                   <Badge count={tab.badge} />
                 </button>
               ))}
 
-              {currentModule === 'projects' && projectsTabs.map((tab) => (
+              {displayModule === 'projects' && projectsTabs.map((tab) => (
                 <button key={tab.id} onClick={() => {
                   setCurrentProjectsTab(tab.id);
                   const path = tab.id === 'overview' ? '/projects' : tab.id === 'all' ? '/projects/all' : tab.id === 'mine' ? '/projects/my-projects' : tab.id === 'my-tasks' ? '/projects/my-tasks' : '/projects/board';
@@ -689,24 +692,24 @@ export default function Sidebar({
                 </button>
               ))}
 
-              {currentModule === 'performance' && performanceTabs.map((tab) => (
+              {displayModule === 'performance' && performanceTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentPerformanceTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/performance` : `/${roleSegment}/performance/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentPerformanceTab === tab.id)}>
                   <span>{tab.label}</span>
                   <Badge count={tab.badge} tone={tab.id === 'discipline' ? 'red' : 'blue'} />
                 </button>
               ))}
 
-              {currentModule === 'permissions' && (
+              {displayModule === 'permissions' && (
                 <button className="w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-bold bg-slate-50 text-slate-900 border-l-2 border-blue-600 pl-2.5 cursor-pointer">
                   <span>Manage Permissions</span>
                   <Shield className="w-3.5 h-3.5 text-blue-600" />
                 </button>
               )}
 
-              {(currentModule === 'subscription-settings' || isSubscriptionSettingsRoute) && settingsTabs.map((tab) => (
+              {displayModule === 'subscription-settings' && settingsTabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => { navigate(tab.path); onMobileClose?.(); }}
+                  onClick={() => { setCurrentModule('subscription-settings'); navigate(tab.path); onMobileClose?.(); }}
                   className={tabCls(activeSettingsTab === tab.id)}
                 >
                   <span>{tab.label}</span>
@@ -714,13 +717,13 @@ export default function Sidebar({
                 </button>
               ))}
 
-              {currentModule === 'businesses' && businessesTabs.map((tab) => (
+              {displayModule === 'businesses' && businessesTabs.map((tab) => (
                 <button key={tab.id} onClick={() => { setCurrentBusinessesTab(tab.id); navigate(tab.id === 'overview' ? `/${roleSegment}/businesses` : `/${roleSegment}/businesses/${tab.id}`); onMobileClose?.(); }} className={tabCls(currentBusinessesTab === tab.id)}>
                   <span>{tab.label}</span>
                 </button>
               ))}
 
-              {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','projects','performance','permissions','businesses','subscription-settings'].includes(currentModule) && (
+              {!['recruitment','profiles','attendance','talent','exit','onboarding','finance','projects','performance','permissions','businesses','subscription-settings'].includes(displayModule) && (
                 <div className="py-2 text-slate-500 font-medium text-xs text-center border border-dashed border-slate-200 rounded-lg p-3 bg-slate-50/50">
                   <span className="block mb-1">Standard Mode</span>
                   <button onClick={() => { setCurrentModule(defaultModule as MainModule); navigate(defaultPath); onMobileClose?.(); }} className="text-blue-600 hover:underline text-[11px] font-semibold">
@@ -785,7 +788,7 @@ export default function Sidebar({
         <div className="flex flex-col gap-1 px-1">
           {mainModules.map((m: any) => {
             const Icon = m.icon;
-            const isActive = m.id === 'subscription-settings' ? isSubscriptionSettingsRoute : currentModule === m.id;
+            const isActive = m.id === displayModule;
             return (
               <button
                 key={m.id}

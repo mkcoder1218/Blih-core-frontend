@@ -929,7 +929,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                         <td className="px-4 py-3 text-xs font-bold text-slate-700">{contract.salary}</td>
                         <td className="px-4 py-3"><Badge>{contract.contractStatus}</Badge></td>
                         <td className="px-4 py-3"><Badge>{contract.signatureStatus}</Badge></td>
-                        <td className="sticky right-0 z-10 bg-white px-4 py-3 shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.35)]">
+                        <td className={`sticky right-0 bg-white px-4 py-3 shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.35)] ${openMenuId === contract.id ? 'z-30' : 'z-10'}`}>
                           <div className="relative flex items-center justify-end gap-2">
                             <button onClick={() => setSelectedContract(contract)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-black text-white hover:bg-blue-700">
                               <Eye className="h-3.5 w-3.5" />
@@ -939,7 +939,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                               <MoreHorizontal className="h-4 w-4" />
                             </button>
                             {openMenuId === contract.id && (
-                              <div className="absolute right-0 top-9 z-20 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                              <div className="absolute right-0 top-9 z-40 w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
                                 <button onClick={() => { setSelectedContract(contract); setOpenMenuId(null); }} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-bold text-slate-700 hover:bg-slate-50">
                                   <Eye className="h-3.5 w-3.5" /> View Contract
                                 </button>

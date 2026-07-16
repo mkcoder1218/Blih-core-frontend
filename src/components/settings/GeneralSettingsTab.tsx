@@ -62,6 +62,7 @@ export default function GeneralSettingsTab({ showAlert }: Props) {
             <Info label="Language" value="English" />
           </div>
         </section>
+
       </div>
     </div>
   );

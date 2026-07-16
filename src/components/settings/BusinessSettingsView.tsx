@@ -1,6 +1,7 @@
 import { Navigate, useLocation, useParams } from "react-router-dom";
 import BusinessSmtpSettingsPanel from "../businesses/BusinessSmtpSettingsPanel";
 import SubscriptionPage from "../../pages/SubscriptionPage";
+import AttendanceSettingsTab from "./AttendanceSettingsTab";
 import GeneralSettingsTab from "./GeneralSettingsTab";
 import PunctualityMessagesTab from "./PunctualityMessagesTab";
 
@@ -8,7 +9,7 @@ type Props = {
   showAlert: (msg: string, type?: "success" | "info" | "error") => void;
 };
 
-const validTabs = ["general", "smtp", "punctuality-messages", "subscription"] as const;
+const validTabs = ["general", "attendance", "smtp", "punctuality-messages", "subscription"] as const;
 
 export default function BusinessSettingsView({ showAlert }: Props) {
   const { tab } = useParams<{ tab?: string }>();
@@ -19,8 +20,9 @@ export default function BusinessSettingsView({ showAlert }: Props) {
   if (!tab) return <Navigate to={`${prefix}/settings/general`} replace />;
 
   return (
-    <div className="mx-auto max-w-7xl space-y-5 pb-10 text-slate-900 dark:text-slate-100">
+    <div className="w-full max-w-none space-y-5 pb-10 text-slate-900 dark:text-slate-100">
       {activeTab === "general" ? <GeneralSettingsTab showAlert={showAlert} /> : null}
+      {activeTab === "attendance" ? <AttendanceSettingsTab showAlert={showAlert} /> : null}
       {activeTab === "smtp" ? <BusinessSmtpSettingsPanel showAlert={showAlert} /> : null}
       {activeTab === "punctuality-messages" ? <PunctualityMessagesTab showAlert={showAlert} /> : null}
       {activeTab === "subscription" ? <SubscriptionPage /> : null}

@@ -18,6 +18,22 @@ export const initializeOnboarding = (data: {
 export const listOnboardings = (params?: { limit?: number; offset?: number }) =>
   api.get('/api/v1/hr/onboarding', { params });
 
+export interface OnboardingAnalyticsParams {
+  dateFrom?: string;
+  dateTo?: string;
+  departmentId?: string;
+  managerId?: string;
+  status?: string;
+  search?: string;
+  interval?: 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  attentionPage?: number;
+  activePage?: number;
+  pageSize?: number;
+}
+
+export const getOnboardingAnalytics = (params?: OnboardingAnalyticsParams) =>
+  api.get('/api/v1/hr/onboarding/analytics', { params });
+
 export const listAvailableOnboardingPolicies = () =>
   api.get('/api/v1/hr/onboarding/available-policies');
 

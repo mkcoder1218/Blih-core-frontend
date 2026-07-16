@@ -11,6 +11,7 @@ import {
 } from '../../hooks/useNotifications';
 import { useInterviewNotifications } from '../../hooks/useSocket';
 import { useQueryClient } from '@tanstack/react-query';
+import { useLocation } from 'react-router-dom';
 
 interface HeaderProps {
   currentModule: MainModule;
@@ -33,6 +34,7 @@ export default function Header({
   const [showNotifications, setShowNotifications] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
   const qc = useQueryClient();
+  const location = useLocation();
 
   const { data: notifications, isLoading } = useNotifications();
   const { data: unreadCount = 0 } = useUnreadCount();
@@ -59,6 +61,9 @@ export default function Header({
 
   const getBreadcrumbTitle = () => {
     if (!isDetailedView) return { main: 'HR Dashboard', sub: 'Overview' };
+    if (location.pathname.includes('/settings') || location.pathname.endsWith('/subscription')) {
+      return { main: 'Subscription & Settings', sub: 'HR Dashboard' };
+    }
     let mainText = 'Recruitment & Hiring';
     if (currentModule === 'onboarding') mainText = 'Onboarding & Probation';
     if (currentModule === 'profiles')   mainText = 'People Profiles';
