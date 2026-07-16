@@ -884,7 +884,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
             </div>
           ) : (
             <>
-              <div className="hidden overflow-x-auto lg:block">
+              <div className="block max-w-full overflow-x-auto overscroll-x-contain">
                 <table className="w-full min-w-[1120px] text-left">
                   <thead className="bg-slate-50 text-[10px] font-black uppercase tracking-wide text-slate-400">
                     <tr>
@@ -898,7 +898,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                       <th className="px-4 py-3">Salary</th>
                       <th className="px-4 py-3">Contract Status</th>
                       <th className="px-4 py-3">Signature</th>
-                      <th className="px-4 py-3 text-right">Actions</th>
+                      <th className="sticky right-0 z-10 bg-slate-50 px-4 py-3 text-right shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.35)]">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -929,7 +929,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                         <td className="px-4 py-3 text-xs font-bold text-slate-700">{contract.salary}</td>
                         <td className="px-4 py-3"><Badge>{contract.contractStatus}</Badge></td>
                         <td className="px-4 py-3"><Badge>{contract.signatureStatus}</Badge></td>
-                        <td className="px-4 py-3">
+                        <td className="sticky right-0 z-10 bg-white px-4 py-3 shadow-[-8px_0_12px_-12px_rgba(15,23,42,0.35)]">
                           <div className="relative flex items-center justify-end gap-2">
                             <button onClick={() => setSelectedContract(contract)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-[11px] font-black text-white hover:bg-blue-700">
                               <Eye className="h-3.5 w-3.5" />
@@ -974,7 +974,7 @@ export default function OnboardingContractTab({ onDraftAiSuggestion, showAlert }
                 </table>
               </div>
 
-              <div className="space-y-3 p-3 lg:hidden">
+              <div className="hidden">
                 {filtered.map(contract => (
                   <div key={contract.id} className="rounded-xl border border-slate-200 p-3">
                     <div className="flex items-start justify-between gap-3">
