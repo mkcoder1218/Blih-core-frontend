@@ -41,7 +41,7 @@ export async function sendLateNoReasonPenaltyMessage(employeeId: string, payload
   return res.data;
 }
 
-export async function removeAutoAddedAttendance(employeeId: string, payload: { date: string }) {
+export async function removeAutoAddedAttendance(employeeId: string, payload: { date: string; eventTypes?: string[] }) {
   const res = await api.post<ApiEnvelope<{ removed: number; message: string; removedTypes?: string[] }>>(
     `/api/v1/attendance/hr/employees/${employeeId}/remove-auto-added-attendance`,
     payload

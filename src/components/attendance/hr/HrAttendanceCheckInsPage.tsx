@@ -137,6 +137,7 @@ export default function HrAttendanceCheckInsPage() {
   const [penaltyMessageEmployeeId, setPenaltyMessageEmployeeId] = React.useState<string | null>(null);
   const [penaltyMessageStatus, setPenaltyMessageStatus] = React.useState<{ type: "success" | "error"; message: string } | null>(null);
   const [removeAutoAttendanceEmployeeId, setRemoveAutoAttendanceEmployeeId] = React.useState<string | null>(null);
+  const [removeAutoAttendanceRow, setRemoveAutoAttendanceRow] = React.useState<AttendanceHrDailyRow | null>(null);
   const [exportOpen, setExportOpen] = React.useState(false);
   const [exportPeriod, setExportPeriod] = React.useState<ExportPeriod>("day");
   const [exportStartDate, setExportStartDate] = React.useState(today);
@@ -204,8 +205,8 @@ export default function HrAttendanceCheckInsPage() {
   });
 
   const removeAutoAttendance = useMutation({
-    mutationFn: ({ employeeId, date }: { employeeId: string; date: string }) =>
-      removeAutoAddedAttendance(employeeId, { date }),
+    mutationFn: ({ employeeId, date, eventTypes }: { employeeId: string; date: string; eventTypes: string[] }) =>
+      removeAutoAddedAttendance(employeeId, { date, eventTypes }),
   });
 
   const handleExport = async () => {
@@ -318,19 +319,32 @@ export default function HrAttendanceCheckInsPage() {
   };
 
   const handleRemoveAutoAddedAttendance = async (row: AttendanceHrDailyRow) => {
-    const confirmed = window.confirm(
-      `Remove auto-added attendance entries for ${row.employeeName} on ${filters.date}? Normal employee punch records will not be removed.`
-    );
-    if (!confirmed) return;
+    setRemoveAutoAttendanceRow(row);
+  };
 
-    setRemoveAutoAttendanceEmployeeId(row.employeeId);
+  const confirmRemoveAutoAddedAttendance = async () => {
+    if (!removeAutoAttendanceRow) return;
+    const eventTypes = [
+      removeAutoAttendanceRow.events.checkInAtUtc ? "CHECK_IN" : null,
+      removeAutoAttendanceRow.events.lunchOutAtUtc ? "LUNCH_OUT" : null,
+      removeAutoAttendanceRow.events.lunchInAtUtc ? "LUNCH_IN" : null,
+      removeAutoAttendanceRow.events.checkOutAtUtc ? "CHECK_OUT" : null,
+    ].filter(Boolean) as string[];
+    if (!eventTypes.length) {
+      setPenaltyMessageStatus({ type: "error", message: "There are no recorded attendance entries to remove for this row." });
+      setRemoveAutoAttendanceRow(null);
+      return;
+    }
+
+    setRemoveAutoAttendanceEmployeeId(removeAutoAttendanceRow.employeeId);
     setPenaltyMessageStatus(null);
     try {
-      const result = await removeAutoAttendance.mutateAsync({ employeeId: row.employeeId, date: filters.date });
+      const result = await removeAutoAttendance.mutateAsync({ employeeId: removeAutoAttendanceRow.employeeId, date: filters.date, eventTypes });
       setPenaltyMessageStatus({
         type: "success",
-        message: result.data?.message || `Auto-added attendance reviewed for ${row.employeeName}.`,
+        message: result.data?.message || `Auto-added attendance reviewed for ${removeAutoAttendanceRow.employeeName}.`,
       });
+      setRemoveAutoAttendanceRow(null);
       await Promise.all([daily.refetch(), summary.refetch()]);
     } catch (error: any) {
       setPenaltyMessageStatus({
@@ -625,6 +639,43 @@ export default function HrAttendanceCheckInsPage() {
                 onClick={handleExport}
               >
                 Export CSV
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {removeAutoAttendanceRow && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-slate-200 bg-white p-5 shadow-xl">
+            <div>
+              <h3 className="text-base font-semibold text-slate-950">Remove auto-added attendance?</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-600">
+                This will remove the recorded attendance entries shown for{" "}
+                <span className="font-semibold text-slate-900">{removeAutoAttendanceRow.employeeName}</span> on{" "}
+                <span className="font-semibold text-slate-900">{filters.date}</span>.
+              </p>
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800">
+                Only recorded entries visible in this row will be removed. Missing punches are ignored.
+              </p>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9 rounded-lg"
+                disabled={removeAutoAttendance.isPending}
+                onClick={() => setRemoveAutoAttendanceRow(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                className="h-9 rounded-lg bg-rose-600 px-4 text-white hover:bg-rose-700 disabled:bg-slate-200 disabled:text-slate-400"
+                disabled={removeAutoAttendance.isPending}
+                onClick={confirmRemoveAutoAddedAttendance}
+              >
+                {removeAutoAttendance.isPending ? "Removing..." : "Remove entries"}
               </Button>
             </div>
           </div>
