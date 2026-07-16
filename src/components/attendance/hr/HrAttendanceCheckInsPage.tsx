@@ -18,6 +18,7 @@ import {
   downloadAttendanceDailyReportExport,
   downloadAttendanceMonthlyReportExport,
   downloadAttendanceWeeklyReportExport,
+  removeAutoAddedAttendance,
   sendLateNoReasonPenaltyMessage,
 } from "../../../api/attendanceHr";
 import { InfoAlert, LoadingSpinner } from "@/components/ui/blih";
@@ -135,6 +136,7 @@ export default function HrAttendanceCheckInsPage() {
   const [correctionReason, setCorrectionReason] = React.useState("");
   const [penaltyMessageEmployeeId, setPenaltyMessageEmployeeId] = React.useState<string | null>(null);
   const [penaltyMessageStatus, setPenaltyMessageStatus] = React.useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [removeAutoAttendanceEmployeeId, setRemoveAutoAttendanceEmployeeId] = React.useState<string | null>(null);
   const [exportOpen, setExportOpen] = React.useState(false);
   const [exportPeriod, setExportPeriod] = React.useState<ExportPeriod>("day");
   const [exportStartDate, setExportStartDate] = React.useState(today);
@@ -199,6 +201,11 @@ export default function HrAttendanceCheckInsPage() {
   const penaltyMessage = useMutation({
     mutationFn: ({ employeeId, date }: { employeeId: string; date: string }) =>
       sendLateNoReasonPenaltyMessage(employeeId, { date }),
+  });
+
+  const removeAutoAttendance = useMutation({
+    mutationFn: ({ employeeId, date }: { employeeId: string; date: string }) =>
+      removeAutoAddedAttendance(employeeId, { date }),
   });
 
   const handleExport = async () => {
@@ -307,6 +314,31 @@ export default function HrAttendanceCheckInsPage() {
       });
     } finally {
       setPenaltyMessageEmployeeId(null);
+    }
+  };
+
+  const handleRemoveAutoAddedAttendance = async (row: AttendanceHrDailyRow) => {
+    const confirmed = window.confirm(
+      `Remove auto-added attendance entries for ${row.employeeName} on ${filters.date}? Normal employee punch records will not be removed.`
+    );
+    if (!confirmed) return;
+
+    setRemoveAutoAttendanceEmployeeId(row.employeeId);
+    setPenaltyMessageStatus(null);
+    try {
+      const result = await removeAutoAttendance.mutateAsync({ employeeId: row.employeeId, date: filters.date });
+      setPenaltyMessageStatus({
+        type: "success",
+        message: result.data?.message || `Auto-added attendance reviewed for ${row.employeeName}.`,
+      });
+      await Promise.all([daily.refetch(), summary.refetch()]);
+    } catch (error: any) {
+      setPenaltyMessageStatus({
+        type: "error",
+        message: error?.response?.data?.message || error?.message || "Failed to remove auto-added attendance.",
+      });
+    } finally {
+      setRemoveAutoAttendanceEmployeeId(null);
     }
   };
 
@@ -467,7 +499,9 @@ export default function HrAttendanceCheckInsPage() {
             onSelectEmployee={setSelectedEmployeeId}
             onRequestCorrection={canRequestCorrection ? openCorrectionModal : undefined}
             onSendPenaltyMessage={handleSendPenaltyMessage}
+            onRemoveAutoAddedAttendance={handleRemoveAutoAddedAttendance}
             sendingPenaltyEmployeeId={penaltyMessageEmployeeId}
+            removingAutoAttendanceEmployeeId={removeAutoAttendanceEmployeeId}
             selectedEmployeeIds={selectedEmployeeIds}
             onToggleEmployeeSelection={handleToggleEmployeeSelection}
             onToggleAllVisible={handleToggleAllVisible}

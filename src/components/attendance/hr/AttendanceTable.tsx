@@ -89,7 +89,9 @@ export default function AttendanceTable({
   onSelectEmployee,
   onRequestCorrection,
   onSendPenaltyMessage,
+  onRemoveAutoAddedAttendance,
   sendingPenaltyEmployeeId,
+  removingAutoAttendanceEmployeeId,
   selectedEmployeeIds,
   onToggleEmployeeSelection,
   onToggleAllVisible,
@@ -101,7 +103,9 @@ export default function AttendanceTable({
   onSelectEmployee: (employeeId: string) => void;
   onRequestCorrection?: (row: AttendanceHrDailyRow) => void;
   onSendPenaltyMessage?: (row: AttendanceHrDailyRow) => void | Promise<void>;
+  onRemoveAutoAddedAttendance?: (row: AttendanceHrDailyRow) => void | Promise<void>;
   sendingPenaltyEmployeeId?: string | null;
+  removingAutoAttendanceEmployeeId?: string | null;
   selectedEmployeeIds?: Set<string>;
   onToggleEmployeeSelection?: (employeeId: string) => void;
   onToggleAllVisible?: () => void;
@@ -220,6 +224,19 @@ export default function AttendanceTable({
                         className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-amber-700 hover:bg-amber-50 disabled:opacity-50"
                       >
                         {sendingPenaltyEmployeeId === row.employeeId ? "Sending..." : "Send penalty notice"}
+                      </button>
+                    )}
+                    {onRemoveAutoAddedAttendance && (
+                      <button
+                        type="button"
+                        disabled={removingAutoAttendanceEmployeeId === row.employeeId}
+                        onClick={() => {
+                          setOpenMenuId(null);
+                          onRemoveAutoAddedAttendance(row);
+                        }}
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                      >
+                        {removingAutoAttendanceEmployeeId === row.employeeId ? "Removing..." : "Remove auto-added attendance"}
                       </button>
                     )}
                     <button
