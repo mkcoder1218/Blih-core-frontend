@@ -1,376 +1,561 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
+
 import { api } from "../api/client";
 
-export function useExitRequests(options?: { enabled?: boolean }) {
+export type ExitInitiator =
+  | "employee"
+  | "employer";
+
+export type ExitMode =
+  | "immediate"
+  | "urgent"
+  | "standard_notice";
+
+export type EmployerExitType =
+  | "termination"
+  | "redundancy";
+
+export interface EmployeeExitPayload {
+  exitMode: ExitMode;
+
+  exitReasonId: string;
+  reason?: string;
+
+  effectiveDate: string;
+  noticePeriodDays: number;
+
+  letterHtml: string;
+
+  templateId?: string;
+  templateSnapshot?: unknown;
+  formValues?: Record<string, unknown>;
+}
+
+export interface EmployerExitPayload {
+  employeeUserId: string;
+
+  exitType: EmployerExitType;
+  exitMode: ExitMode;
+
+  exitReasonId: string;
+  reason?: string;
+
+  effectiveDate: string;
+  noticePeriodDays: number;
+
+  letterHtml: string;
+
+  templateId?: string;
+  templateSnapshot?: unknown;
+  formValues?: Record<string, unknown>;
+}
+
+export interface ExitApprovalPayload {
+  effectiveDate?: string;
+  approvalNote?: string;
+}
+
+export interface ExitFinalPayPayload {
+  status:
+    | "pending"
+    | "processing"
+    | "settled";
+
+  grossAmount?: number;
+  deductions?: number;
+  netAmount?: number;
+
+  settledAt?: string;
+  settledByUserId?: string;
+  notes?: string;
+}
+
+const EXIT_REQUEST_KEYS = [
+  ["exit-requests"],
+  ["exit-request-me"],
+  ["exit-analytics"],
+];
+
+function invalidateExitQueries(
+  queryClient: ReturnType<
+    typeof useQueryClient
+  >,
+) {
+  for (const queryKey of EXIT_REQUEST_KEYS) {
+    queryClient.invalidateQueries({
+      queryKey,
+    });
+  }
+
+  queryClient.invalidateQueries({
+    queryKey: ["exit-request"],
+  });
+
+  queryClient.invalidateQueries({
+    queryKey: ["exit-clearance"],
+  });
+
+  queryClient.invalidateQueries({
+    queryKey: ["exit-timeline"],
+  });
+}
+
+export function useExitRequests(options?: {
+  enabled?: boolean;
+}) {
   return useQuery({
     queryKey: ["exit-requests"],
-    enabled: options?.enabled ?? true,
+
+    enabled:
+      options?.enabled ?? true,
+
     queryFn: async () => {
-      const res = await api.get("/api/v1/hr/exit");
-      const raw = res.data?.data;
-      return (Array.isArray(raw?.rows) ? raw.rows : Array.isArray(raw) ? raw : []) as any[];
+      const response = await api.get(
+        "/api/v1/hr/exit",
+      );
+
+      const raw =
+        response.data?.data;
+
+      if (Array.isArray(raw?.rows)) {
+        return raw.rows;
+      }
+
+      return Array.isArray(raw)
+        ? raw
+        : [];
     },
   });
 }
 
-export function useExitAnalytics(params?: { from?: string; to?: string }) {
-  return useQuery({
-    queryKey: ["exit-analytics", params?.from, params?.to],
-    queryFn: async () => {
-      const qs = new URLSearchParams();
-      if (params?.from) qs.set("from", params.from);
-      if (params?.to) qs.set("to", params.to);
-      const res = await api.get(`/api/v1/hr/exit/analytics${qs.toString() ? `?${qs.toString()}` : ""}`);
-      return (res.data?.data ?? {}) as any;
-    },
-  });
-}
-
-export function useMyExitRequest() {
+export function useMyExitRequest(options?: {
+  enabled?: boolean;
+}) {
   return useQuery({
     queryKey: ["exit-request-me"],
+
+    enabled:
+      options?.enabled ?? true,
+
     queryFn: async () => {
-      const res = await api.get("/api/v1/hr/exit/me");
-      return (res.data?.data ?? null) as any | null;
+      const response = await api.get(
+        "/api/v1/hr/exit/me",
+      );
+
+      return (
+        response.data?.data ?? null
+      );
     },
   });
 }
 
-export function useExitRequest(id?: string) {
+export function useCompleteExitProcess() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      id,
+      completionNote,
+    }: {
+      id: string;
+      completionNote?: string;
+    }) =>
+      api.patch(
+        `/api/v1/hr/exit/${id}/status`,
+        {
+          status: "completed",
+          approvalNote:
+            completionNote || undefined,
+        },
+      ),
+
+    onSuccess: (
+      _response,
+      variables,
+    ) => {
+      queryClient.invalidateQueries({
+        queryKey: ["exit-requests"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-request",
+          variables.id,
+        ],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-clearance",
+          variables.id,
+        ],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-resources",
+          variables.id,
+        ],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["exit-request-me"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["exit-analytics"],
+      });
+    },
+  });
+}
+export function useExitRequest(
+  id?: string,
+) {
   return useQuery({
-    queryKey: ["exit-request", id],
+    queryKey: [
+      "exit-request",
+      id,
+    ],
+
     enabled: Boolean(id),
-    queryFn: async () => {
-      const res = await api.get(`/api/v1/hr/exit/${id}`);
-      return (res.data?.data ?? null) as any | null;
-    },
-  });
-}
 
-export function useExitClearance(exitProcessId?: string) {
-  return useQuery({
-    queryKey: ["exit-clearance", exitProcessId],
-    enabled: Boolean(exitProcessId),
     queryFn: async () => {
-      const res = await api.get(`/api/v1/hr/exit/${exitProcessId}/clearance`);
-      return (res.data?.data ?? null) as any | null;
+      const response = await api.get(
+        `/api/v1/hr/exit/${id}`,
+      );
+
+      return (
+        response.data?.data ?? null
+      );
     },
   });
 }
 
 export function useSubmitExitRequest() {
-  const queryClient = useQueryClient();
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: (data: {
-      effectiveDate: string;
-      reason?: string;
-      letterHtml: string;
-      noticePeriodDays: number;
-      templateId?: string;
-      templateSnapshot?: any;
-      formValues?: Record<string, any>;
-    }) => api.post("/api/v1/hr/exit/resign", data),
+    mutationFn: (
+      data: EmployeeExitPayload,
+    ) =>
+      api.post(
+        "/api/v1/hr/exit/resign",
+        data,
+      ),
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
+      invalidateExitQueries(
+        queryClient,
+      );
     },
   });
 }
 
 export function useCreateExitProcess() {
-  const queryClient = useQueryClient();
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: (data: { employeeUserId: string; exitType: "termination" | "redundancy"; effectiveDate: string; reason?: string }) =>
-      api.post("/api/v1/hr/exit", data),
+    mutationFn: (
+      data: EmployerExitPayload,
+    ) =>
+      api.post(
+        "/api/v1/hr/exit",
+        data,
+      ),
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-analytics"] });
-    },
-  });
-}
-
-export function useUpdateExitProcess() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.patch(`/api/v1/hr/exit/${id}`, data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request", variables.id] });
-    },
-  });
-}
-
-export function useExitTimeline(exitProcessId?: string) {
-  return useQuery({
-    queryKey: ["exit-timeline", exitProcessId],
-    enabled: Boolean(exitProcessId),
-    queryFn: async () => {
-      const res = await api.get(`/api/v1/hr/exit/${exitProcessId}/timeline`);
-      return (res.data?.data ?? []) as any[];
-    },
-  });
-}
-
-export function useExitForms() {
-  return useQuery({
-    queryKey: ["exit-forms"],
-    queryFn: async () => {
-      const res = await api.get("/api/v1/hr/forms?category=exit");
-      return (res.data?.data ?? []) as any[];
-    },
-  });
-}
-
-export function useCreateExitForm() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: any) => api.post("/api/v1/hr/forms", data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exit-forms"] }),
-  });
-}
-
-export function useUpdateExitForm() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.patch(`/api/v1/hr/forms/${id}`, data),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exit-forms"] }),
-  });
-}
-
-export function useDeleteExitForm() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.delete(`/api/v1/hr/forms/${id}`),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["exit-forms"] }),
-  });
-}
-
-export function useUpdateExitStatus() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, status, data }: { id: string; status: string; data?: any }) =>
-      api.patch(`/api/v1/hr/exit/${id}/status`, { status, ...(data || {}) }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request"] });
+      invalidateExitQueries(
+        queryClient,
+      );
     },
   });
 }
 
 export function useApproveExitRequest() {
-  const queryClient = useQueryClient();
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { effectiveDate?: string; approvalNote?: string } }) =>
-      api.post(`/api/v1/hr/exit/${id}/approve`, data),
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: ExitApprovalPayload;
+    }) =>
+      api.post(
+        `/api/v1/hr/exit/${id}/approve`,
+        data,
+      ),
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-analytics"] });
+      invalidateExitQueries(
+        queryClient,
+      );
     },
   });
 }
 
 export function useRejectExitRequest() {
-  const queryClient = useQueryClient();
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: ({ id, rejectionReason }: { id: string; rejectionReason: string }) =>
-      api.post(`/api/v1/hr/exit/${id}/reject`, { rejectionReason }),
+    mutationFn: ({
+      id,
+      rejectionReason,
+    }: {
+      id: string;
+      rejectionReason: string;
+    }) =>
+      api.post(
+        `/api/v1/hr/exit/${id}/reject`,
+        {
+          rejectionReason,
+        },
+      ),
+
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-analytics"] });
+      invalidateExitQueries(
+        queryClient,
+      );
     },
   });
 }
 
-export function useDisableExitAccount() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.post(`/api/v1/hr/exit/${id}/disable-account`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-analytics"] });
-    },
-  });
-}
+export function useExitClearance(
+  exitProcessId?: string,
+) {
+  return useQuery({
+    queryKey: [
+      "exit-clearance",
+      exitProcessId,
+    ],
 
-export function useSendOffboardingForm() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => api.post(`/api/v1/hr/exit/${id}/offboarding-form/send`),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
-    },
-  });
-}
+    enabled: Boolean(
+      exitProcessId,
+    ),
 
-export function useSubmitOffboardingForm() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: any }) => api.post(`/api/v1/hr/exit/${id}/offboarding-form`, data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-request-me"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-request", variables.id] });
-    },
-  });
-}
+    queryFn: async () => {
+      const response = await api.get(
+        `/api/v1/hr/exit/${exitProcessId}/clearance`,
+      );
 
-export function useUpdateExitFinalPay() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: {
-      status: "pending" | "processing" | "settled";
-      grossAmount?: number;
-      deductions?: number;
-      netAmount?: number;
-      settledAt?: string;
-      settledByUserId?: string;
-      notes?: string;
-    } }) => api.patch(`/api/v1/hr/exit/${id}/final-pay`, data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-clearance", variables.id] });
-      queryClient.invalidateQueries({ queryKey: ["exit-analytics"] });
+      return (
+        response.data?.data ?? null
+      );
     },
   });
 }
 
 export function useCompleteExitClearanceStep() {
-  const queryClient = useQueryClient();
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: ({ exitProcessId, stepId, notes }: { exitProcessId: string; stepId: string; notes?: string }) =>
-      api.post(`/api/v1/hr/exit/${exitProcessId}/clearance/${stepId}/complete`, { notes }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-clearance", variables.exitProcessId] });
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
+    mutationFn: ({
+      exitProcessId,
+      stepId,
+      notes,
+    }: {
+      exitProcessId: string;
+      stepId: string;
+      notes?: string;
+    }) =>
+      api.post(
+        `/api/v1/hr/exit/${exitProcessId}/clearance/${stepId}/complete`,
+        {
+          notes,
+        },
+      ),
+
+    onSuccess: (
+      _response,
+      variables,
+    ) => {
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-clearance",
+          variables.exitProcessId,
+        ],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["exit-requests"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-request",
+          variables.exitProcessId,
+        ],
+      });
     },
   });
 }
 
 export function useWaiveExitClearanceStep() {
-  const queryClient = useQueryClient();
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: ({ exitProcessId, stepId, notes }: { exitProcessId: string; stepId: string; notes?: string }) =>
-      api.post(`/api/v1/hr/exit/${exitProcessId}/clearance/${stepId}/waive`, { notes }),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-clearance", variables.exitProcessId] });
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
+    mutationFn: ({
+      exitProcessId,
+      stepId,
+      notes,
+    }: {
+      exitProcessId: string;
+      stepId: string;
+      notes?: string;
+    }) =>
+      api.post(
+        `/api/v1/hr/exit/${exitProcessId}/clearance/${stepId}/waive`,
+        {
+          notes,
+        },
+      ),
+
+    onSuccess: (
+      _response,
+      variables,
+    ) => {
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-clearance",
+          variables.exitProcessId,
+        ],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["exit-requests"],
+      });
     },
   });
 }
 
 export function useUpdateExitClearanceStep() {
-  const queryClient = useQueryClient();
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: ({ exitProcessId, stepId, data }: { exitProcessId: string; stepId: string; data: any }) =>
-      api.patch(`/api/v1/hr/exit/${exitProcessId}/clearance/${stepId}`, data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-clearance", variables.exitProcessId] });
-      queryClient.invalidateQueries({ queryKey: ["exit-requests"] });
-    },
-  });
-}
+    mutationFn: ({
+      exitProcessId,
+      stepId,
+      data,
+    }: {
+      exitProcessId: string;
+      stepId: string;
+      data: Record<
+        string,
+        unknown
+      >;
+    }) =>
+      api.patch(
+        `/api/v1/hr/exit/${exitProcessId}/clearance/${stepId}`,
+        data,
+      ),
 
-export function useExitInterviews() {
-  return useQuery({
-    queryKey: ["exit-interviews"],
-    queryFn: async () => {
-      const res = await api.get("/api/v1/hr/exit/interviews");
-      return (res.data?.data ?? []) as any[];
-    },
-  });
-}
-
-export function useCreateExitInterview() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ exitProcessId, data }: { exitProcessId: string; data: any }) =>
-      api.post(`/api/v1/hr/exit/${exitProcessId}/interviews`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-interviews"] });
-    },
-  });
-}
-
-export function useUpdateExitInterview() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ interviewId, data }: { interviewId: string; data: any }) =>
-      api.patch(`/api/v1/hr/exit/interviews/${interviewId}`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-interviews"] });
-    },
-  });
-}
-
-export function useCompleteExitInterview() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ interviewId, data }: { interviewId: string; data: any }) =>
-      api.post(`/api/v1/hr/exit/interviews/${interviewId}/complete`, data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["exit-interviews"] });
-      queryClient.invalidateQueries({ queryKey: ["exit-clearance"] });
-    },
-  });
-}
-
-export function useSendExitInterviewReminder() {
-  return useMutation({
-    mutationFn: (interviewId: string) => api.post(`/api/v1/hr/exit/interviews/${interviewId}/send-reminder`),
-  });
-}
-
-export function useExitDocuments(exitProcessId?: string) {
-  return useQuery({
-    queryKey: ["exit-documents", exitProcessId],
-    enabled: Boolean(exitProcessId),
-    queryFn: async () => {
-      const res = await api.get(`/api/v1/hr/exit/${exitProcessId}/documents`);
-      return (res.data?.data ?? null) as any | null;
-    },
-  });
-}
-
-export function useUploadExitDocument() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: ({ exitProcessId, documentId, file }: { exitProcessId: string; documentId: string; file: File }) => {
-      const formData = new FormData();
-      formData.append("file", file);
-      formData.append("moduleKey", "hr");
-      return api.post(`/api/v1/hr/exit/${exitProcessId}/documents/${documentId}/upload`, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
+    onSuccess: (
+      _response,
+      variables,
+    ) => {
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-clearance",
+          variables.exitProcessId,
+        ],
       });
     },
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-documents", variables.exitProcessId] });
-    },
   });
 }
 
-export function useVerifyExitDocument() {
-  const queryClient = useQueryClient();
+export function useUpdateExitFinalPay() {
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: ({ exitProcessId, documentId }: { exitProcessId: string; documentId: string }) =>
-      api.post(`/api/v1/hr/exit/${exitProcessId}/documents/${documentId}/verify`),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-documents", variables.exitProcessId] });
+    mutationFn: ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: ExitFinalPayPayload;
+    }) =>
+      api.patch(
+        `/api/v1/hr/exit/${id}/final-pay`,
+        data,
+      ),
+
+    onSuccess: (
+      _response,
+      variables,
+    ) => {
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-clearance",
+          variables.id,
+        ],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: ["exit-requests"],
+      });
+
+      queryClient.invalidateQueries({
+        queryKey: [
+          "exit-request",
+          variables.id,
+        ],
+      });
     },
   });
 }
 
-export function useUpdateExitDocument() {
-  const queryClient = useQueryClient();
+export function useDisableExitAccount() {
+  const queryClient =
+    useQueryClient();
+
   return useMutation({
-    mutationFn: ({ exitProcessId, documentId, data }: { exitProcessId: string; documentId: string; data: any }) =>
-      api.patch(`/api/v1/hr/exit/${exitProcessId}/documents/${documentId}`, data),
-    onSuccess: (_data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ["exit-documents", variables.exitProcessId] });
+    mutationFn: (id: string) =>
+      api.post(
+        `/api/v1/hr/exit/${id}/disable-account`,
+      ),
+
+    onSuccess: () => {
+      invalidateExitQueries(
+        queryClient,
+      );
     },
   });
 }
 
+export function useExitTimeline(
+  exitProcessId?: string,
+) {
+  return useQuery({
+    queryKey: [
+      "exit-timeline",
+      exitProcessId,
+    ],
+
+    enabled: Boolean(
+      exitProcessId,
+    ),
+
+    queryFn: async () => {
+      const response = await api.get(
+        `/api/v1/hr/exit/${exitProcessId}/timeline`,
+      );
+
+      return (
+        response.data?.data ?? []
+      );
+    },
+  });
+}

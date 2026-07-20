@@ -4,11 +4,22 @@ export interface InventoryItem {
   id: string;
   name: string;
   category: string;
+
   assetTag?: string | null;
   serialNumber?: string | null;
+
   condition: string;
   status: string;
+
+  assignedToUserId?: string | null;
+  reservedForOnboardingId?: string | null;
+
   notes?: string | null;
+
+  metadata?: Record<
+    string,
+    any
+  >;
 }
 
 export async function listInventory(params?: { status?: string }) {

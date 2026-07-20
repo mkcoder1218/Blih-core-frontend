@@ -47,7 +47,7 @@ export default function AppShell() {
     if (p.includes("/attendance")) return "attendance";
     if (p.includes("/performance")) return "performance";
     if (p.includes("/talent")) return "talent";
-    if (p.includes("/exit")) return "exit";
+    if (p.includes("/exit")) return "talent";
     if (p.includes("/finance")) return "finance";
     if (p.includes("/projects")) return "projects";
     if (p.includes("/permissions")) return "permissions";
@@ -68,8 +68,25 @@ export default function AppShell() {
       if (module === "recruitment") setCurrentTalentTab(`recruitment-${tab === "overview" ? "overview" : tab}`);
       if (module === "profiles") setCurrentTalentTab(`profiles-${tab === "overview" ? "directory" : tab}`);
       if (module === "attendance") setCurrentAttendanceTab(tab as any);
-      if (module === "talent") setCurrentTalentTab(tab === "overview" ? "recruitment-overview" : tab);
-      if (module === "exit") setCurrentExitTab(tab as any);
+      if (module === "talent") {
+        setCurrentTalentTab(
+          tab === "overview"
+            ? "recruitment-overview"
+            : tab,
+        );
+      }
+
+      if (module === "exit") {
+        const exitTab =
+          tab === "overview"
+            ? "offboarding"
+            : tab;
+
+        setCurrentExitTab(exitTab as any);
+        setCurrentTalentTab(
+          `exit-${exitTab}`,
+        );
+      }
       if (module === "finance") setCurrentFinanceTab(tab as any);
       if (module === "projects") setCurrentProjectsTab(tab as any);
       if (module === "onboarding") setCurrentTalentTab(`onboarding-${tab === "overview" ? "overview" : tab}`);

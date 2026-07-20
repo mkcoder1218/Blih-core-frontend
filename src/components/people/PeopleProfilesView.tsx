@@ -1,53 +1,56 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { ConfirmDialog } from '@/components/ui/blih';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  useOrganogram,
-  useEmployees,
-  useDeleteEmployee,
-  useUpdateEmployeePassword,
-  useUpdateEmployeeRole,
-  useAllRoles,
-  useCreateUserExemption,
-  useUserExemptions,
-  useApproveUserExemption,
-  useRejectUserExemption,
-  useRevokeUserExemption,
-  type UserExemption,
-} from '../../hooks/useHrRecords';
-import {
-  Users, Calendar, Plus, Search, Sparkles, Trash2, Copy, ChevronRight,
-  ChevronLeft,
-  Download,
   Award,
+  Briefcase,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Download,
+  Eye,
   FileText,
   Filter,
-  Check,
-  Eye,
-  Briefcase,
-  ExternalLink,
+  Lock,
   MoreVertical,
   Pencil,
+  Plus, Search,
+  ShieldCheck,
+  ShieldOff,
   Trash,
   Upload,
-  Lock,
   UserCog,
-  ShieldOff,
-  ShieldCheck,
-  Clock3,
+  Users,
+  UserX,
   XCircle
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
-import CreateEmployeeModal from './CreateEmployeeModal';
+import { AnimatePresence, motion } from 'motion/react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useLegacyUser } from '../../api/legacyUserStore';
+import {
+  useAllRoles,
+  useApproveUserExemption,
+  useCreateUserExemption,
+  useDeleteEmployee,
+  useEmployees,
+  useOrganogram,
+  useRejectUserExemption,
+  useRevokeUserExemption,
+  useUpdateEmployeePassword,
+  useUpdateEmployeeRole,
+  useUserExemptions,
+  type UserExemption,
+} from '../../hooks/useHrRecords';
+import { useMyPermissions } from '../../hooks/usePermissions';
 import BulkEmployeeImportPage from '../../pages/BulkEmployeeImportPage';
-import { UserAvatar, ConfirmDialog } from '@/components/ui/blih';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import ImmediateTerminationModal from "../offboarding/modals/ImmediateTerminationModal";
+import CreateEmployeeModal from './CreateEmployeeModal';
+import DepartmentsPositionsTab from './DepartmentsPositionsTab';
+import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
+import EmployeeDevicesTab from './EmployeeDevicesTab';
 import EventsTab from './EventsTab';
 import PendingRegistrationsTab from './PendingRegistrationsTab';
-import DepartmentsPositionsTab from './DepartmentsPositionsTab';
-import EmployeeDevicesTab from './EmployeeDevicesTab';
-import { useMyPermissions } from '../../hooks/usePermissions';
-import { useLegacyUser } from '../../api/legacyUserStore';
 
 interface OrgNode {
   id: string;
@@ -63,8 +66,8 @@ interface OrgNode {
 // ─── Layout constants ─────────────────────────────────────────────────────────
 const NODE_W = 160;
 const NODE_H = 80;
-const H_GAP  = 40;   // horizontal gap between siblings
-const V_GAP  = 80;   // vertical gap between levels
+const H_GAP = 40;   // horizontal gap between siblings
+const V_GAP = 80;   // vertical gap between levels
 
 // ─── Measure subtree width ────────────────────────────────────────────────────
 function subtreeWidth(node: OrgNode): number {
@@ -99,7 +102,7 @@ function layoutTree(node: OrgNode, x: number, y: number): PositionedNode {
 }
 
 // ─── Collect all nodes + edges ────────────────────────────────────────────────
-function collectNodes(pn: PositionedNode, nodes: PositionedNode[], edges: { x1:number;y1:number;x2:number;y2:number }[]) {
+function collectNodes(pn: PositionedNode, nodes: PositionedNode[], edges: { x1: number; y1: number; x2: number; y2: number }[]) {
   nodes.push(pn);
   pn.children.forEach(child => {
     edges.push({
@@ -143,11 +146,10 @@ function OrgCard({ pn, onSelect }: { pn: PositionedNode; onSelect: (n: OrgNode) 
       }}
       className={`${isDepartment ? 'cursor-default' : 'cursor-pointer'} group select-none`}
     >
-      <div className={`w-full h-full rounded-xl border-2 shadow-sm transition-all flex flex-col items-center justify-center px-2 py-2 relative ${
-        isDepartment
+      <div className={`w-full h-full rounded-xl border-2 shadow-sm transition-all flex flex-col items-center justify-center px-2 py-2 relative ${isDepartment
           ? 'bg-blue-50 border-blue-500'
           : `${hasChildren ? 'border-blue-500' : 'border-slate-200'} bg-white hover:shadow-md hover:border-blue-400`
-      }`}>
+        }`}>
         {!isDepartment && node.department && (
           <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 text-[7px] font-black uppercase tracking-widest bg-blue-600 text-white px-2 py-0.5 rounded-full whitespace-nowrap">
             {node.department}
@@ -185,7 +187,7 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 
   // Build layout for all roots side by side
   const allNodes: PositionedNode[] = [];
-  const allEdges: { x1:number;y1:number;x2:number;y2:number }[] = [];
+  const allEdges: { x1: number; y1: number; x2: number; y2: number }[] = [];
 
   let cursor = 0;
   const rootLayouts: PositionedNode[] = roots.map(root => {
@@ -237,7 +239,7 @@ function OrgChartCanvas({ roots, onSelect }: { roots: OrgNode[]; onSelect: (n: O
 
   const onMouseUp = () => { dragging.current = false; };
 
-  const zoomIn  = () => setScale(s => Math.min(2, parseFloat((s * 1.2).toFixed(3))));
+  const zoomIn = () => setScale(s => Math.min(2, parseFloat((s * 1.2).toFixed(3))));
   const zoomOut = () => setScale(s => Math.max(0.2, parseFloat((s / 1.2).toFixed(3))));
   const resetView = () => {
     if (!containerRef.current) return;
@@ -352,7 +354,10 @@ export default function PeopleProfilesView({
   // Directory & Archive Selection States
   const [selectedDirectoryRow, setSelectedDirectoryRow] = useState<number>(0);
   const [selectedArchiveRow, setSelectedArchiveRow] = useState<number>(0);
-
+  const [
+    terminationEmployee,
+    setTerminationEmployee,
+  ] = useState<any | null>(null);
   // Search/Filters states
   const [directionSearch, setDirectionSearch] = useState<string>('');
   const [deptFilter, setDeptFilter] = useState<string>('Marketing');
@@ -451,6 +456,10 @@ export default function PeopleProfilesView({
   };
   const selectedRoleLabel = allRoles.find((role: any) => role.key === selectedRoleKey)?.name || selectedRoleKey;
   const canRequestExemption = perms.hasAny('hr.write', 'user.update', 'attendance.manage');
+  const canTerminateEmployee =
+    perms.hasAny("hr.write") ||
+    perms.isSuperAdmin ||
+    legacyUser?.role === "Business Admin";
   const canApproveExemption = perms.isSuperAdmin || legacyUser?.role === 'Business Admin';
   const exemptionsByUserId = React.useMemo(() => {
     const map = new Map<string, UserExemption>();
@@ -803,8 +812,8 @@ export default function PeopleProfilesView({
                       <tr>
                         <td colSpan={7} className="py-12 text-center">
                           <div className="flex flex-col items-center gap-2">
-                             <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fetching Roster...</span>
+                            <div className="w-8 h-8 border-3 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Fetching Roster...</span>
                           </div>
                         </td>
                       </tr>
@@ -832,8 +841,8 @@ export default function PeopleProfilesView({
                             key={emp.id}
                             onClick={() => onViewProfile?.(emp)}
                             className={`group transition-all relative cursor-pointer ${isActive
-                                ? 'bg-slate-50/70 z-10'
-                                : 'hover:bg-slate-50/30'
+                              ? 'bg-slate-50/70 z-10'
+                              : 'hover:bg-slate-50/30'
                               } ${activeActionsMenu === emp.id ? 'z-50' : 'z-0'}`}
                           >
                             {/* Name Column */}
@@ -845,13 +854,12 @@ export default function PeopleProfilesView({
                                 <span className="font-bold text-slate-900 block group-hover:text-blue-600 transition-colors">{emp.user?.fullName}</span>
                                 <span className="text-[10.5px] text-slate-400 block mt-0.5">{emp.employeeCode || emp.user?.email}</span>
                                 {exemption && (
-                                  <span className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${
-                                    exemption.status === 'APPROVED'
+                                  <span className={`mt-1 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-black uppercase tracking-wide ${exemption.status === 'APPROVED'
                                       ? 'border-emerald-100 bg-emerald-50 text-emerald-700'
                                       : exemption.status === 'PENDING'
                                         ? 'border-amber-100 bg-amber-50 text-amber-700'
                                         : 'border-slate-100 bg-slate-50 text-slate-500'
-                                  }`}>
+                                    }`}>
                                     {exemption.status === 'APPROVED' ? <ShieldCheck className="h-3 w-3" /> : <Clock3 className="h-3 w-3" />}
                                     {exemption.status === 'APPROVED' ? 'Exempted' : exemption.status === 'PENDING' ? 'Exemption pending' : 'Exemption rejected'}
                                   </span>
@@ -865,25 +873,25 @@ export default function PeopleProfilesView({
                                 <span className="truncate">{positionTitle}</span>
                               </span>
                             </td>
-  
+
                             {/* Department Column */}
                             <td className="py-3 px-4">
-                               <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200">
-                                 {emp.department?.name || 'General'}
-                               </span>
+                              <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-slate-200">
+                                {emp.department?.name || 'General'}
+                              </span>
                             </td>
-  
+
                             {/* Job Type Column */}
                             <td className="py-3 px-4 font-semibold text-slate-700 capitalize">
-                               {emp.employmentType?.replace('_', ' ') || 'full_time'}
+                              {emp.employmentType?.replace('_', ' ') || 'full_time'}
                             </td>
-  
+
                             {/* Address / Contact Info Column */}
                             <td className="py-3 px-4 text-[10.5px] leading-relaxed">
                               <span className="font-semibold text-slate-700 block">{emp.user?.email}</span>
                               <span className="text-slate-400 block font-medium mt-0.5">{emp.user?.phone || 'No Phone'}</span>
                             </td>
-  
+
                             {/* Performance Rank Column */}
                             <td className="py-3 px-4 text-center">
                               <span className="inline-flex items-center gap-1 text-[10.5px] font-bold text-blue-600 bg-blue-50/70 py-1 px-2.5 rounded-full border border-blue-100">
@@ -891,10 +899,10 @@ export default function PeopleProfilesView({
                                 <span>90%</span>
                               </span>
                             </td>
-  
+
                             {/* Actions Column */}
                             <td className={`py-3 px-4 text-right relative ${activeActionsMenu === emp.id ? 'z-50' : ''}`}>
-                              <button 
+                              <button
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setActiveActionsMenu(activeActionsMenu === emp.id ? null : emp.id);
@@ -903,16 +911,16 @@ export default function PeopleProfilesView({
                               >
                                 <MoreVertical className="w-4 h-4" />
                               </button>
-  
+
                               <AnimatePresence>
                                 {activeActionsMenu === emp.id && (
                                   <>
-                                    <div 
-                                      className="fixed inset-0 z-10" 
+                                    <div
+                                      className="fixed inset-0 z-10"
                                       onClick={(e) => {
                                         e.stopPropagation();
                                         setActiveActionsMenu(null);
-                                      }} 
+                                      }}
                                     />
                                     <motion.div
                                       initial={{ opacity: 0, scale: 0.95, y: -10 }}
@@ -920,7 +928,7 @@ export default function PeopleProfilesView({
                                       exit={{ opacity: 0, scale: 0.95, y: -10 }}
                                       className="absolute right-0 top-8 w-44 bg-white border border-slate-100 rounded-2xl shadow-2xl z-[100] overflow-hidden py-1.5"
                                     >
-                                      <button 
+                                      <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           onViewProfile?.(emp);
@@ -930,7 +938,7 @@ export default function PeopleProfilesView({
                                       >
                                         <Eye className="w-3.5 h-3.5" /> View Profile
                                       </button>
-                                      <button 
+                                      <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setUpdateEmployeeUserId(emp.userId);
@@ -961,6 +969,7 @@ export default function PeopleProfilesView({
                                       >
                                         <UserCog className="w-3.5 h-3.5" /> Change Role
                                       </button>
+
                                       {exemption?.status === 'APPROVED' && canApproveExemption ? (
                                         <button
                                           onClick={(e) => {
@@ -984,8 +993,22 @@ export default function PeopleProfilesView({
                                           <ShieldOff className="w-3.5 h-3.5" /> Exempt User
                                         </button>
                                       )}
+                                      {canTerminateEmployee && (
+                                        <button
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+
+                                            setTerminationEmployee(emp);
+                                            setActiveActionsMenu(null);
+                                          }}
+                                          className="flex w-full items-center whitespace-nowrap gap-2.5 px-4 py-2 text-[10px] font-bold text-rose-600 transition-colors hover:bg-rose-50"
+                                        >
+                                          <UserX className="h-3.5 w-3.5" />
+                                          Immediate Termination
+                                        </button>
+                                      )}
                                       <div className="h-[1px] bg-slate-50 my-1" />
-                                      <button 
+                                      <button
                                         onClick={(e) => {
                                           e.stopPropagation();
                                           setDeleteEmployeeUserId(emp.userId);
@@ -1017,16 +1040,15 @@ export default function PeopleProfilesView({
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                
+
                 {Array.from({ length: Math.ceil(totalEmployees / employeesPerPage) }).map((_, i) => (
                   <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`w-7 h-7 font-black text-xs rounded-full flex items-center justify-center cursor-pointer transition-all ${
-                      currentPage === i + 1 
-                        ? 'bg-blue-600 text-white shadow-md scale-110' 
+                    className={`w-7 h-7 font-black text-xs rounded-full flex items-center justify-center cursor-pointer transition-all ${currentPage === i + 1
+                        ? 'bg-blue-600 text-white shadow-md scale-110'
                         : 'text-slate-500 hover:bg-slate-50 font-bold'
-                    }`}
+                      }`}
                   >
                     {i + 1}
                   </button>
@@ -1276,9 +1298,8 @@ export default function PeopleProfilesView({
                   <button
                     key={i}
                     onClick={() => setInternsPage(i + 1)}
-                    className={`w-7 h-7 font-black text-xs rounded-full flex items-center justify-center cursor-pointer transition-all ${
-                      internsPage === i + 1 ? 'bg-blue-600 text-white shadow-md scale-110' : 'text-slate-500 hover:bg-slate-50 font-bold'
-                    }`}
+                    className={`w-7 h-7 font-black text-xs rounded-full flex items-center justify-center cursor-pointer transition-all ${internsPage === i + 1 ? 'bg-blue-600 text-white shadow-md scale-110' : 'text-slate-500 hover:bg-slate-50 font-bold'
+                      }`}
                   >
                     {i + 1}
                   </button>
@@ -1334,7 +1355,14 @@ export default function PeopleProfilesView({
             <EventsTab showAlert={showAlert} />
           </motion.div>
         )}
-
+<ImmediateTerminationModal
+  isOpen={Boolean(terminationEmployee)}
+  employee={terminationEmployee}
+  onClose={() =>
+    setTerminationEmployee(null)
+  }
+  showAlert={showAlert}
+/>
         {/* --- 6. ARCHIVE SCREEN (IMAGE 6) --- */}
         {currentProfilesTab === 'archive' && (
           <motion.div
@@ -1397,8 +1425,8 @@ export default function PeopleProfilesView({
                         key={val}
                         onClick={() => setSelectedArchiveRow(val)}
                         className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${isActive
-                            ? 'bg-slate-50/70 border-2 border-blue-600/30'
-                            : 'bg-white border-slate-50 hover:bg-slate-50/50'
+                          ? 'bg-slate-50/70 border-2 border-blue-600/30'
+                          : 'bg-white border-slate-50 hover:bg-slate-50/50'
                           }`}
                       >
                         <div className="flex items-center gap-3">
@@ -1662,11 +1690,10 @@ export default function PeopleProfilesView({
                       </td>
                       <td className="max-w-md px-5 py-4 text-[11px] font-semibold leading-5 text-slate-600">{request.reason}</td>
                       <td className="px-5 py-4">
-                        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black ${
-                          request.excludeFromPayroll
+                        <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-[10px] font-black ${request.excludeFromPayroll
                             ? 'border-rose-100 bg-rose-50 text-rose-600'
                             : 'border-emerald-100 bg-emerald-50 text-emerald-700'
-                        }`}>
+                          }`}>
                           {request.excludeFromPayroll ? 'Excluded' : 'Included'}
                         </span>
                       </td>

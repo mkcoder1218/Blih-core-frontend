@@ -3,56 +3,46 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-import { useMyPermissions } from '../../hooks/usePermissions';
-import { useCriticalDisciplinaryCases } from '../../hooks/useDisciplinary';
 import {
-  RECRUITMENT_TAB_PERMISSIONS,
-  ONBOARDING_TAB_PERMISSIONS,
-  PROFILES_TAB_PERMISSIONS,
-  ATTENDANCE_TAB_PERMISSIONS,
-  PERFORMANCE_TAB_PERMISSIONS,
-  TALENT_TAB_PERMISSIONS,
-  EXIT_TAB_PERMISSIONS,
-  FINANCE_TAB_PERMISSIONS,
-  PROJECTS_TAB_PERMISSIONS,
-  BUSINESSES_TAB_PERMISSIONS,
-  MODULE_PERMISSIONS,
-} from '../../config/tabPermissions';
-import {
-  Brain,
-  UserPlus,
-  UserCheck,
-  Users,
+  BriefcaseBusiness,
+  Building2,
   Calendar,
-  TrendingUp,
-  GraduationCap,
-  LogOut,
   CircleDollarSign,
   Shield,
-  Building2,
-  BriefcaseBusiness,
-  Settings,
   SlidersHorizontal,
-  ChevronDown,
-  ChevronRight,
+  TrendingUp,
+  UserPlus
 } from 'lucide-react';
+import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { BusinessesTab, MainModule, ProjectsTab, RecruitmentTab } from '../../types';
+import {
+  ATTENDANCE_TAB_PERMISSIONS,
+  BUSINESSES_TAB_PERMISSIONS,
+  EXIT_TAB_PERMISSIONS,
+  FINANCE_TAB_PERMISSIONS,
+  MODULE_PERMISSIONS,
+  ONBOARDING_TAB_PERMISSIONS,
+  PERFORMANCE_TAB_PERMISSIONS,
+  PROFILES_TAB_PERMISSIONS,
+  PROJECTS_TAB_PERMISSIONS,
+  RECRUITMENT_TAB_PERMISSIONS
+} from '../../config/tabPermissions';
+import { useCriticalDisciplinaryCases } from '../../hooks/useDisciplinary';
+import { useMyPermissions } from '../../hooks/usePermissions';
+import { MainModule } from '../../types';
 
-import type { SidebarProps } from './sidebarTypes';
 import {
   ALL_ATTENDANCE_TABS,
   ALL_BUSINESSES_TABS,
   ALL_EXIT_TABS,
   ALL_FINANCE_TABS,
   ALL_ONBOARDING_TABS,
-  createPerformanceTabs,
   ALL_PROFILES_TABS,
   ALL_PROJECTS_TABS,
   ALL_RECRUITMENT_TABS,
-  ALL_TALENT_TABS,
+  createPerformanceTabs
 } from './sidebarTabs';
+import type { SidebarProps } from './sidebarTypes';
 
 export function useSidebarController({
   currentModule,
@@ -101,7 +91,7 @@ export function useSidebarController({
     'Time & Records': false,
     'Requests & Leave': true,
   });
-
+ const exitTabs = allowedTabs(ALL_EXIT_TABS, EXIT_TAB_PERMISSIONS);
   // ── Helper: filter a tab list by the permission map ───────────────────────
   function allowedTabs<T extends { id: string }>(
     tabs: readonly T[],
@@ -146,7 +136,6 @@ export function useSidebarController({
     { id: 'talent', label: 'Talent Management', icon: UserPlus, badge: 0 },
     { id: 'attendance', label: 'Attendance & Leave', icon: Calendar, badge: 0 },
     { id: 'performance', label: 'Performance', icon: TrendingUp, badge: criticalDisciplineCount },
-    { id: 'exit', label: 'Exit & Offboarding', icon: LogOut, badge: 0 },
     { id: 'finance', label: 'Workforce Finance', icon: CircleDollarSign, badge: 0 },
     { id: 'projects', label: 'Projects', icon: BriefcaseBusiness, badge: 0 },
     {
@@ -235,7 +224,6 @@ export function useSidebarController({
           'special-request',
           'unavailable',
           'work-from-home',
-          'exit-request',
         ],
         labels: {
           requests: 'Punctuality',
@@ -244,7 +232,6 @@ export function useSidebarController({
           'special-request': 'Special Request',
           unavailable: 'Unavailable',
           'work-from-home': 'Work-from-Home',
-          'exit-request': 'Exit Request',
         },
       },
     ] as Array<{
@@ -308,7 +295,12 @@ export function useSidebarController({
       title: 'People',
       items: profilesTabs
         .filter((tab) =>
-          ['create', 'directory', 'pending_registrations', 'exemption_requests'].includes(tab.id),
+          [
+            'create',
+            'directory',
+            'pending_registrations',
+            'exemption_requests',
+          ].includes(tab.id),
         )
         .map((tab) => ({
           ...tab,
@@ -324,8 +316,40 @@ export function useSidebarController({
             )[tab.id] ?? tab.label,
         })),
     },
+    {
+      title: "Exit & Offboarding",
+
+      items: exitTabs.map(
+        (tab) => ({
+          ...tab,
+
+          id: `exit-${tab.id}`,
+
+          label:
+            (
+              {
+                "my-exit":
+                  "My Exit",
+
+                requests:
+                  "Exit Requests",
+
+                clearance:
+                  "Clearance",
+
+                reasons:
+                  "Exit Reasons",
+              } as Record<
+                string,
+                string
+              >
+            )[tab.id] ??
+            tab.label,
+        }),
+      ),
+    },
   ].filter((group) => group.items.length > 0);
-  const exitTabs = allowedTabs(ALL_EXIT_TABS, EXIT_TAB_PERMISSIONS);
+
   const financeTabs = allowedTabs(ALL_FINANCE_TABS, FINANCE_TAB_PERMISSIONS);
   const projectsTabs = allowedTabs(ALL_PROJECTS_TABS, PROJECTS_TAB_PERMISSIONS);
   const performanceTabs = allowedTabs(
@@ -366,7 +390,6 @@ export function useSidebarController({
     if (
       moduleId === 'attendance' ||
       moduleId === 'talent' ||
-      moduleId === 'exit' ||
       moduleId === 'finance' ||
       moduleId === 'projects' ||
       moduleId === 'performance' ||

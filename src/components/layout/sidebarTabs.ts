@@ -64,12 +64,26 @@ export const ALL_TALENT_TABS = [
 ] as const;
 
 export const ALL_EXIT_TABS = [
-  { id: 'offboarding', label: 'My Offboarding', badge: 0 },
-  { id: 'resign', label: 'Resignation Requests', badge: 0 },
-  { id: 'interviews', label: 'Exit Interviews', badge: 0 },
-  { id: 'forms', label: 'Template Creation', badge: 0 },
-  { id: 'documents', label: 'Process Documents', badge: 0 },
-  { id: 'clearance', label: 'Process Execution', badge: 0 },
+  {
+    id: "my-exit",
+    label: "My Exit",
+    badge: 0,
+  },
+  {
+    id: "requests",
+    label: "Exit Requests",
+    badge: 0,
+  },
+  {
+    id: "clearance",
+    label: "Clearance",
+    badge: 0,
+  },
+  {
+    id: "reasons",
+    label: "Exit Reasons",
+    badge: 0,
+  },
 ] as const;
 
 export const ALL_FINANCE_TABS = [

@@ -97,14 +97,35 @@ export const TALENT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 };
 
 // ─── Exit & Offboarding ──────────────────────────────────────────────────────
-export const EXIT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
-  overview:     { requires: ["hr.read", "hr.write"] },
-  offboarding:  { requires: ["hr.read", "hr.write", "exit.self"] },
-  resign:       { requires: ["hr.write"] },
-  interviews:   { requires: ["hr.read", "hr.write"] },
-  documents:    { requires: ["hr.write"] },
-  clearance:    { requires: ["hr.write"] },
-  forms:        { requires: ["hr.read", "hr.write"] },
+export const EXIT_TAB_PERMISSIONS: Record<
+  string,
+  TabPermissionEntry
+> = {
+  "my-exit": {
+    requires: [
+      "exit.self",
+    ],
+  },
+
+  requests: {
+    requires: [
+      "hr.read",
+      "hr.write",
+    ],
+  },
+
+  clearance: {
+    requires: [
+      "hr.read",
+      "hr.write",
+    ],
+  },
+
+  reasons: {
+    requires: [
+      "hr.write",
+    ],
+  },
 };
 
 // ─── Workforce Finance ───────────────────────────────────────────────────────
@@ -152,11 +173,38 @@ export const MODULE_PERMISSIONS: Record<string, string[]> = {
   profiles:    ["hr.read", "hr.write", "profiles.read", "profiles.self", "department.create", "department.update", "position.create", "position.update", "device.read", "device.approve"],
   attendance:  ["attendance.read", "attendance.manage", "attendance.self", "attendance.late_reason.read", "attendance.checkin_correction.request", "attendance.checkin_correction.approve", "leave.read"],
   performance: ["performance.read", "performance.manage", "performance.self"],
-  talent:      [
-    "job.manage", "job.post", "applicant.manage", "interview.schedule", "interview.feedback", "offer.create", "offer.approve", "job_template.manage",
-    "onboarding.read", "onboarding.manage", "onboarding.self",
-    "hr.read", "hr.write", "profiles.read", "profiles.self", "department.create", "department.update", "position.create", "position.update", "device.read", "device.approve",
-    "performance.read", "performance.manage", "career.self",
+  talent: [
+    "job.manage",
+    "job.post",
+    "applicant.manage",
+    "interview.schedule",
+    "interview.feedback",
+    "offer.create",
+    "offer.approve",
+    "job_template.manage",
+
+    "onboarding.read",
+    "onboarding.manage",
+    "onboarding.self",
+
+    "hr.read",
+    "hr.write",
+    "profiles.read",
+    "profiles.self",
+
+    "department.create",
+    "department.update",
+    "position.create",
+    "position.update",
+
+    "device.read",
+    "device.approve",
+
+    "performance.read",
+    "performance.manage",
+    "career.self",
+
+    "exit.self",
   ],
   exit:        ["hr.read", "hr.write", "exit.self"],
   finance:     ["finance.read", "finance.manage", "finance.mine", "salary_employee_read"],
