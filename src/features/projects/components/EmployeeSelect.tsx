@@ -14,7 +14,7 @@ export function EmployeeSelect({ value, onChange, placeholder = "Select employee
   return (
     <select
       value={value || ""}
-      onChange={(e) => onChange(e.target.value)}
+      onChange={(e) => onChange(e.currentTarget.value)}
       disabled={disabled}
       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-50"
     >

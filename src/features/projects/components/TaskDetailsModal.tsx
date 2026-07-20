@@ -115,7 +115,7 @@ export function TaskDetailsModal({
               <span className="mb-1 block text-xs font-bold text-slate-600">Task title</span>
               <input
                 value={form.title}
-                onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))}
+                onChange={(e) => setForm((p) => ({ ...p, title: e.currentTarget.value }))}
                 disabled={!canEdit}
                 className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 disabled:bg-slate-50"
               />
@@ -125,7 +125,7 @@ export function TaskDetailsModal({
               <span className="mb-1 block text-xs font-bold text-slate-600">Description</span>
               <textarea
                 value={form.description}
-                onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
+                onChange={(e) => setForm((p) => ({ ...p, description: e.currentTarget.value }))}
                 disabled={!canEdit}
                 className="min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-50"
               />
@@ -140,7 +140,7 @@ export function TaskDetailsModal({
               <span className="mb-1 block text-xs font-bold text-slate-600">Priority</span>
               <select
                 value={form.priority}
-                onChange={(e) => setForm((p) => ({ ...p, priority: e.target.value }))}
+                onChange={(e) => setForm((p) => ({ ...p, priority: e.currentTarget.value }))}
                 disabled={!canEdit}
                 className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50"
               >
@@ -150,27 +150,27 @@ export function TaskDetailsModal({
 
             <label>
               <span className="mb-1 block text-xs font-bold text-slate-600">Start date</span>
-              <input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.target.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
+              <input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.currentTarget.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
             </label>
 
             <label>
               <span className="mb-1 block text-xs font-bold text-slate-600">Due date</span>
-              <input type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.target.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
+              <input type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.currentTarget.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
             </label>
 
             <label>
               <span className="mb-1 block text-xs font-bold text-slate-600">Estimated hours</span>
-              <input type="number" min="0" value={form.estimatedHours} onChange={(e) => setForm((p) => ({ ...p, estimatedHours: e.target.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
+              <input type="number" min="0" value={form.estimatedHours} onChange={(e) => setForm((p) => ({ ...p, estimatedHours: e.currentTarget.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
             </label>
 
             <label>
               <span className="mb-1 block text-xs font-bold text-slate-600">Actual hours</span>
-              <input type="number" min="0" value={form.actualHours} onChange={(e) => setForm((p) => ({ ...p, actualHours: e.target.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
+              <input type="number" min="0" value={form.actualHours} onChange={(e) => setForm((p) => ({ ...p, actualHours: e.currentTarget.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
             </label>
 
             <label>
               <span className="mb-1 block text-xs font-bold text-slate-600">Weight</span>
-              <input type="number" min="0.1" step="0.1" value={form.weight} onChange={(e) => setForm((p) => ({ ...p, weight: e.target.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
+              <input type="number" min="0.1" step="0.1" value={form.weight} onChange={(e) => setForm((p) => ({ ...p, weight: e.currentTarget.value }))} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
             </label>
           </div>
         )}

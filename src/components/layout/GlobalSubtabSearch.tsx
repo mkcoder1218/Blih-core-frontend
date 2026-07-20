@@ -224,6 +224,7 @@ const otherTabs: CatalogTab[] = [
   ...[
     { id: 'general', label: 'Business Settings' },
     { id: 'attendance', label: 'Attendance Settings' },
+    { id: 'probation', label: 'Probation Settings' },
     { id: 'smtp', label: 'SMTP Settings' },
     { id: 'punctuality-messages', label: 'Punctuality Messages' },
     { id: 'subscription', label: 'Subscription' },

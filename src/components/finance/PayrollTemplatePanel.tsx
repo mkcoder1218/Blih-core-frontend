@@ -81,7 +81,7 @@ function PctField({ label, field, form, set }: {
           type="number" min="0" max="100" step="0.1"
           placeholder="—"
           value={val}
-          onChange={e => set({ ...form, [field]: e.target.value })}
+          onChange={e => set({ ...form, [field]: e.currentTarget.value })}
           className={`w-full bg-slate-50 border rounded-xl py-2 pl-3 pr-8 text-xs font-bold focus:outline-none focus:bg-white transition-colors ${
             outOfRange ? 'border-rose-300 focus:border-rose-400' : 'border-slate-100 focus:border-blue-500'
           }`}
@@ -109,7 +109,7 @@ function FlatField({ label, field, form, set }: {
           type="number" min="0" step="0.01"
           placeholder="—"
           value={val}
-          onChange={e => set({ ...form, [field]: e.target.value })}
+          onChange={e => set({ ...form, [field]: e.currentTarget.value })}
           className={`w-full bg-slate-50 border rounded-xl py-2 pl-14 pr-3 text-xs font-bold focus:outline-none focus:bg-white transition-colors ${
             negative ? 'border-rose-300 focus:border-rose-400' : 'border-slate-100 focus:border-blue-500'
           }`}
@@ -527,7 +527,7 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
               <input
                 type="text"
                 value={form.name}
-                onChange={e => { setForm({ ...form, name: e.target.value }); setFormError(null); }}
+                onChange={e => { setForm({ ...form, name: e.currentTarget.value }); setFormError(null); }}
                 placeholder="e.g. Standard Employee"
                 className={`w-full bg-slate-50 border rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:bg-white transition-colors ${
                   formError && !form.name.trim() ? 'border-rose-300' : 'border-slate-100 focus:border-blue-500'
@@ -539,7 +539,7 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
               <input
                 type="text"
                 value={form.description}
-                onChange={e => setForm({ ...form, description: e.target.value })}
+                onChange={e => setForm({ ...form, description: e.currentTarget.value })}
                 placeholder="Brief description..."
                 className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:border-blue-500 focus:bg-white"
               />
@@ -585,7 +585,7 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
               <input
                 type="checkbox"
                 checked={form.isDefault}
-                onChange={e => setForm({ ...form, isDefault: e.target.checked })}
+                onChange={e => setForm({ ...form, isDefault: e.currentTarget.checked })}
                 className="rounded accent-blue-600"
               />
               Set as default template
@@ -594,7 +594,7 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
               <label className="text-[9px] font-extrabold text-slate-400 uppercase tracking-wider">Currency</label>
               <select
                 value={form.currency}
-                onChange={e => { setForm({ ...form, currency: e.target.value }); setPreviewResult(null); }}
+                onChange={e => { setForm({ ...form, currency: e.currentTarget.value }); setPreviewResult(null); }}
                 className="bg-slate-50 border border-slate-100 rounded-lg py-1.5 px-2.5 text-xs font-bold text-slate-700 focus:outline-none focus:border-blue-500 cursor-pointer"
               >
                 {CURRENCIES.map(c => (
@@ -618,7 +618,7 @@ export default function PayrollTemplatePanel({ showAlert }: Props) {
                   placeholder="Enter base salary..."
                   value={previewBase}
                   onChange={e => {
-                    setPreviewBase(e.target.value);
+                    setPreviewBase(e.currentTarget.value);
                     setPreviewResult(null);
                     setPreviewError(null);
                   }}

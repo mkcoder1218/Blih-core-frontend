@@ -45,7 +45,7 @@ export default function RequiredDeviceRegistrationModal() {
             <span className="mb-1 block text-xs font-bold text-slate-600">Device name</span>
             <input
               value={label}
-              onChange={(e) => setLabel(e.target.value)}
+              onChange={(e) => setLabel(e.currentTarget.value)}
               disabled={register.isPending}
               className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 disabled:bg-slate-50"
               autoFocus

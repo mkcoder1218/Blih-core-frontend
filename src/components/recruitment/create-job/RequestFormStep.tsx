@@ -81,7 +81,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
                 placeholder="Senior Product Designer"
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all"
                 value={data.jobTitle}
-                onChange={(e) => updateData({ jobTitle: e.target.value })}
+                onChange={(e) => updateData({ jobTitle: e.currentTarget.value })}
               />
             </div>
             <div className="space-y-2">
@@ -100,7 +100,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"
                 value={data.department}
-                onChange={(e) => updateData({ department: e.target.value })}
+                onChange={(e) => updateData({ department: e.currentTarget.value })}
               >
                 <option value="">Select department</option>
                 {deptsLoading ? (
@@ -128,7 +128,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"
                 value={data.position}
-                onChange={(e) => updateData({ position: e.target.value })}
+                onChange={(e) => updateData({ position: e.currentTarget.value })}
               >
                 <option value="">Select position</option>
                 {posLoading ? (
@@ -182,7 +182,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"
                 value={data.type}
-                onChange={(e) => updateData({ type: e.target.value })}
+                onChange={(e) => updateData({ type: e.currentTarget.value })}
               >
                 <option value="New Role">New Role</option>
                 <option value="Replacement">Replacement</option>
@@ -194,7 +194,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all disabled:opacity-50"
                 value={data.replaceFor}
                 disabled={data.type === 'New Role'}
-                onChange={(e) => updateData({ replaceFor: e.target.value })}
+                onChange={(e) => updateData({ replaceFor: e.currentTarget.value })}
               >
                 <option value="Not applicable">Not applicable</option>
                 {employeesLoading ? (
@@ -214,7 +214,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
               placeholder="Explain the hiring need, team gap, expected impact, and why this role is needed now."
               className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all min-h-[120px] resize-none"
               value={data.businessJustification}
-              onChange={(e) => updateData({ businessJustification: e.target.value })}
+              onChange={(e) => updateData({ businessJustification: e.currentTarget.value })}
             />
             <p className="text-[10px] text-slate-400 px-1 font-medium italic">Briefly explain why this role is needed now.</p>
           </div>
@@ -237,7 +237,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
               <select 
                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
                 value={data.employmentType}
-                onChange={(e) => updateData({ employmentType: e.target.value })}
+                onChange={(e) => updateData({ employmentType: e.currentTarget.value })}
               >
                 <option value="Full-time">Full-time</option>
                 <option value="Part-time">Part-time</option>
@@ -249,7 +249,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
               <select 
                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
                 value={data.workMode}
-                onChange={(e) => updateData({ workMode: e.target.value })}
+                onChange={(e) => updateData({ workMode: e.currentTarget.value })}
               >
                 <option value="On-site">On-site</option>
                 <option value="Remote">Remote</option>
@@ -261,7 +261,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
               <select 
                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
                 value={data.urgency}
-                onChange={(e) => updateData({ urgency: e.target.value })}
+                onChange={(e) => updateData({ urgency: e.currentTarget.value })}
               >
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
@@ -273,7 +273,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
               <select 
                 className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
                 value={data.priority}
-                onChange={(e) => updateData({ priority: e.target.value })}
+                onChange={(e) => updateData({ priority: e.currentTarget.value })}
               >
                 <option value="Low">Low</option>
                 <option value="Medium">Medium</option>
@@ -287,7 +287,7 @@ export default function RequestFormStep({ data, updateData }: RequestFormStepPro
                   type="date"
                   className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
                   value={data.neededByDate}
-                  onChange={(e) => updateData({ neededByDate: e.target.value })}
+                  onChange={(e) => updateData({ neededByDate: e.currentTarget.value })}
                 />
               </div>
             </div>

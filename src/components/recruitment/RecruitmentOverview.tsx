@@ -3,16 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useMemo } from 'react';
+import { SectionCard } from '@/components/ui/blih';
 import {
-  Area,
-  AreaChart,
-  CartesianGrid,
-  Line,
-  XAxis,
-  YAxis,
-} from 'recharts';
-import { motion } from 'motion/react';
+  ChartContainer,
+  ChartLegend,
+  ChartLegendContent,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from '@/components/ui/chart';
 import {
   AlertTriangle,
   BriefcaseBusiness,
@@ -25,18 +24,20 @@ import {
   TrendingUp,
   UserCheck,
 } from 'lucide-react';
+import { motion } from 'motion/react';
+import { useMemo } from 'react';
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  Line,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { useLegacyUser } from '../../api/legacyUserStore';
 import { useInterviews, useJobApplications, useJobRequests } from '../../hooks/useJobRequests';
 import AttendanceShortcutCard from '../attendance/AttendanceShortcutCard';
-import { SectionCard } from '@/components/ui/blih';
-import {
-  ChartContainer,
-  ChartLegend,
-  ChartLegendContent,
-  ChartTooltip,
-  ChartTooltipContent,
-  type ChartConfig,
-} from '@/components/ui/chart';
+import { KpiCard } from './RecruitmentRequestParts';
 
 interface RecruitmentOverviewProps {
   onNavigateToTab: (tabId: string) => void;
@@ -322,25 +323,16 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
       )}
 
       <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
-        {kpis.map((kpi) => {
-          const Icon = kpi.icon;
-          return (
-            <button
-              key={kpi.label}
-              onClick={() => onNavigateToTab(kpi.tab)}
-              className="rounded-xl border border-slate-100 bg-white p-3 text-left shadow-xs hover:border-blue-200 hover:bg-blue-50/40 transition-colors"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400 leading-tight">{kpi.label}</p>
-                <span className="h-7 w-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                  <Icon className="h-3.5 w-3.5" />
-                </span>
-              </div>
-              <p className="mt-1 text-2xl font-black text-slate-900 leading-none">{kpi.value}</p>
-              <p className="mt-1.5 text-[10px] font-semibold text-slate-500 truncate">{kpi.trend}</p>
-            </button>
-          );
-        })}
+        {kpis.map((kpi) => (
+          <KpiCard
+            key={kpi.label}
+            label={kpi.label}
+            value={kpi.value}
+            icon={kpi.icon}
+            trend={kpi.trend}
+            onClick={() => onNavigateToTab(kpi.tab)}
+          />
+        ))}
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">

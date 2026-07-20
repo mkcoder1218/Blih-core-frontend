@@ -263,7 +263,7 @@ function SalaryPayrollPanel({
                   type="text"
                   placeholder="Search employees..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => setSearchQuery(e.currentTarget.value)}
                   className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 pl-9 pr-3 text-xs focus:outline-none focus:bg-white focus:border-blue-500 font-semibold text-slate-700"
                 />
               </div>

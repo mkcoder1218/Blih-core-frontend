@@ -194,7 +194,7 @@ export default function HrAttendanceCheckInsPage() {
   React.useEffect(() => {
     const visibleEmployeeIds = new Set(rows.map((row) => row.employeeId));
     setSelectedEmployeeIds((current) => {
-      const next = new Set(Array.from(current).filter((employeeId) => visibleEmployeeIds.has(employeeId)));
+      const next = new Set(Array.from(current).filter((employeeId: string) => visibleEmployeeIds.has(employeeId)));
       return next.size === current.size ? current : next;
     });
   }, [rows]);

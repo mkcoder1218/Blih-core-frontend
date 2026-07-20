@@ -90,7 +90,7 @@ export const PERFORMANCE_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
 // ─── Career Management (Talent) ──────────────────────────────────────────────
 export const TALENT_TAB_PERMISSIONS: Record<string, TabPermissionEntry> = {
   overview:     { requires: ["performance.read", "performance.manage", "career.self"] },
-  career:       { requires: ["performance.manage", "career.self"] },
+ // career:       { requires: ["performance.manage", "career.self"] },
   training:     { requires: ["performance.read", "performance.manage", "career.self"] },
   culture:      { requires: ["profiles.read", "hr.read", "career.self"] },
   development:  { requires: ["career.self", "performance.read", "performance.manage"] },

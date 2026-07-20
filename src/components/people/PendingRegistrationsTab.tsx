@@ -26,14 +26,24 @@ import {
 } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { RegistrantDrawer } from './RegisterantDrawer';
+import {
+  ApproveConfirmationModal,
+  calculateEthiopianPreview,
+  createInitialFinancialForm,
+  financialNumber,
+  money,
+  resolveEthiopianPreviewFromNet,
+  toApprovalFinancialInfo,
+  type FinancialFormState,
+} from './registerantFinancial';
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+// Section
 const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
 // Backend base URL for serving uploaded files
 const API_BASE = import.meta.env.VITE_API_Prod_URL || 'http://localhost:4000';
 
-// ── ID Doc image viewer ───────────────────────────────────────────────────────
+// Section
 function IdDocImage({ url, label }: { url: string; label: string }) {
   const [lightbox, setLightbox] = useState(false);
   const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
@@ -83,10 +93,10 @@ function IdDocImage({ url, label }: { url: string; label: string }) {
   );
 }
 
-// ── Detail drawer ─────────────────────────────────────────────────────────────
+// Section
 
 
-// ── Reject modal ──────────────────────────────────────────────────────────────
+// Section
 function RejectModal({
   open, onClose, onConfirm, loading, applicantName,
 }: {
@@ -181,178 +191,6 @@ function RejectModal({
   );
 }
 
-type FinancialFormState = {
-  salaryInputMode: 'base' | 'net';
-  baseSalary: string;
-  netSalary: string;
-  pensionableSalary: string;
-  transportAllowance: string;
-  housingAllowance: string;
-  mealAllowance: string;
-  otherAllowance: string;
-  employeePensionRate: string;
-  employerPensionRate: string;
-  bankAccount: string;
-  tin: string;
-  remarks: string;
-};
-
-const createInitialFinancialForm = (prefill?: Partial<FinancialFormState>): FinancialFormState => ({
-  salaryInputMode: 'base',
-  baseSalary: '',
-  netSalary: '',
-  pensionableSalary: '',
-  transportAllowance: '0',
-  housingAllowance: '0',
-  mealAllowance: '0',
-  otherAllowance: '0',
-  employeePensionRate: '7',
-  employerPensionRate: '11',
-  bankAccount: '',
-  tin: '',
-  remarks: '',
-  ...prefill,
-});
-
-const financialNumber = (value: string, fallback = 0) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : fallback;
-};
-
-const money = (value?: number | null) => `ETB ${Math.round(Number(value || 0)).toLocaleString('en-US')}`;
-
-function incomeTaxBracket(taxableIncome: number) {
-  if (taxableIncome >= 2001 && taxableIncome <= 4000) return { rate: 0.15, deduction: 300 };
-  if (taxableIncome >= 4001 && taxableIncome <= 7000) return { rate: 0.20, deduction: 500 };
-  if (taxableIncome >= 7001 && taxableIncome <= 10000) return { rate: 0.25, deduction: 850 };
-  if (taxableIncome >= 10001 && taxableIncome <= 14000) return { rate: 0.30, deduction: 1350 };
-  if (taxableIncome > 14000) return { rate: 0.35, deduction: 2050 };
-  return { rate: 0, deduction: 0 };
-}
-
-function calculateEthiopianPreview(baseSalary: number, form: FinancialFormState) {
-  const transportAllowance = financialNumber(form.transportAllowance);
-  const housingAllowance = financialNumber(form.housingAllowance);
-  const mealAllowance = financialNumber(form.mealAllowance);
-  const otherAllowance = financialNumber(form.otherAllowance);
-  const grossPay = baseSalary + transportAllowance + housingAllowance + mealAllowance + otherAllowance;
-  const salaryPctCap = baseSalary * 0.25;
-  const taxableTransport = Math.max(transportAllowance - Math.min(2200, salaryPctCap), 0);
-  const taxableMeal = Math.max(mealAllowance - Math.min(2200, salaryPctCap), 0);
-  const taxableIncomeBeforeFringe = baseSalary + housingAllowance + taxableTransport + taxableMeal;
-  const taxableIncome = taxableIncomeBeforeFringe + otherAllowance;
-  const baseTaxBracket = incomeTaxBracket(taxableIncomeBeforeFringe);
-  const fullTaxBracket = incomeTaxBracket(taxableIncome);
-  const incomeTaxBeforeFringe = Math.max(taxableIncomeBeforeFringe * baseTaxBracket.rate - baseTaxBracket.deduction, 0);
-  const fullIncomeTax = Math.max(taxableIncome * fullTaxBracket.rate - fullTaxBracket.deduction, 0);
-  const fringeTax = Math.min(Math.max(fullIncomeTax - incomeTaxBeforeFringe, 0), baseSalary * 0.1);
-  const incomeTax = incomeTaxBeforeFringe + fringeTax;
-  const pensionableSalary = form.pensionableSalary ? financialNumber(form.pensionableSalary) : baseSalary;
-  const employeePension = pensionableSalary * (financialNumber(form.employeePensionRate, 7) / 100);
-  const employerPension = pensionableSalary * (financialNumber(form.employerPensionRate, 11) / 100);
-  const totalDeductions = incomeTax + employeePension;
-  const netPay = Math.max(grossPay - totalDeductions, 0);
-
-  return {
-    baseSalary,
-    grossPay,
-    taxableIncome,
-    incomeTax,
-    employeePension,
-    employerPension,
-    totalDeductions,
-    netPay,
-    totalCostToCompany: grossPay + employerPension,
-  };
-}
-
-function resolveEthiopianPreviewFromNet(targetNetSalary: number, form: FinancialFormState) {
-  if (!Number.isFinite(targetNetSalary) || targetNetSalary <= 0) return null;
-  let lower = 0;
-  let upper = Math.max(targetNetSalary * 2, 1000);
-  while (calculateEthiopianPreview(upper, form).netPay < targetNetSalary && upper < 1_000_000_000) upper *= 2;
-  for (let i = 0; i < 70; i += 1) {
-    const mid = (lower + upper) / 2;
-    if (calculateEthiopianPreview(mid, form).netPay < targetNetSalary) lower = mid;
-    else upper = mid;
-  }
-  return calculateEthiopianPreview(Math.round(upper * 100) / 100, form);
-}
-
-const toApprovalFinancialInfo = (form: FinancialFormState): ApprovalFinancialInfo => {
-  const baseSalary = financialNumber(form.baseSalary);
-  const netSalary = financialNumber(form.netSalary);
-  return {
-    salaryInputMode: form.salaryInputMode,
-    ...(form.salaryInputMode === 'net' ? { netSalary } : { baseSalary }),
-    ...(form.pensionableSalary ? { pensionableSalary: financialNumber(form.pensionableSalary, baseSalary) } : {}),
-    currency: 'ETB',
-    transportAllowance: financialNumber(form.transportAllowance),
-    housingAllowance: financialNumber(form.housingAllowance),
-    mealAllowance: financialNumber(form.mealAllowance),
-    otherAllowance: financialNumber(form.otherAllowance),
-    employeePensionRate: financialNumber(form.employeePensionRate, 7),
-    employerPensionRate: financialNumber(form.employerPensionRate, 11),
-    bankAccount: form.bankAccount.trim(),
-    tin: form.tin.trim(),
-    paymentStatus: 'Pending',
-    remarks: form.remarks.trim(),
-  };
-};
-
-
-
-function ApproveConfirmationModal({
-  open, applicantName, loading, onClose, onConfirm,
-}: {
-  open: boolean;
-  applicantName: string;
-  loading: boolean;
-  onClose: () => void;
-  onConfirm: () => void;
-}) {
-  if (!open) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 8 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-5 space-y-4"
-      >
-        <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-            <AlertTriangle className="w-5 h-5 text-amber-600" />
-          </div>
-          <div>
-            <h3 className="text-sm font-black text-slate-900">Confirm Financial Information</h3>
-            <p className="text-xs font-semibold text-slate-500 mt-1">
-              Are you sure you added the correct financial information for {applicantName}?
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center justify-end gap-2">
-          <Button variant="ghost" onClick={onClose} disabled={loading} className="h-8 text-xs px-4 rounded-lg">
-            Review
-          </Button>
-          <Button
-            onClick={onConfirm}
-            disabled={loading}
-            className="h-8 text-xs px-5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm shadow-emerald-600/20"
-          >
-            {loading ? 'Approving...' : 'Confirm approve'}
-          </Button>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
-
-// ── Detail drawer panel ───────────────────────────────────────────────────────
-
-
-// ── Main component ────────────────────────────────────────────────────────────
 export default function PendingRegistrationsTab({ showAlert }: { showAlert: (msg: string, type?: 'success' | 'error' | 'info') => void }) {
   const [statusFilter, setStatusFilter] = useState<'pending' | 'rejected'>('pending');
   const [search, setSearch]             = useState('');

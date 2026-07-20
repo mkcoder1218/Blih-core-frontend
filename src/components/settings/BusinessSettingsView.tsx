@@ -4,12 +4,13 @@ import SubscriptionPage from "../../pages/SubscriptionPage";
 import AttendanceSettingsTab from "./AttendanceSettingsTab";
 import GeneralSettingsTab from "./GeneralSettingsTab";
 import PunctualityMessagesTab from "./PunctualityMessagesTab";
+import ProbationSettingsTab from "./ProbationSettingsTab";
 
 type Props = {
   showAlert: (msg: string, type?: "success" | "info" | "error") => void;
 };
 
-const validTabs = ["general", "attendance", "smtp", "punctuality-messages", "subscription"] as const;
+const validTabs = ["general", "attendance", "probation", "smtp", "punctuality-messages", "subscription"] as const;
 
 export default function BusinessSettingsView({ showAlert }: Props) {
   const { tab } = useParams<{ tab?: string }>();
@@ -23,6 +24,7 @@ export default function BusinessSettingsView({ showAlert }: Props) {
     <div className="w-full max-w-none space-y-5 pb-10 text-slate-900 dark:text-slate-100">
       {activeTab === "general" ? <GeneralSettingsTab showAlert={showAlert} /> : null}
       {activeTab === "attendance" ? <AttendanceSettingsTab showAlert={showAlert} /> : null}
+      {activeTab === "probation" ? <ProbationSettingsTab showAlert={showAlert} /> : null}
       {activeTab === "smtp" ? <BusinessSmtpSettingsPanel showAlert={showAlert} /> : null}
       {activeTab === "punctuality-messages" ? <PunctualityMessagesTab showAlert={showAlert} /> : null}
       {activeTab === "subscription" ? <SubscriptionPage /> : null}

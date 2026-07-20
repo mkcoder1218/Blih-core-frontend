@@ -129,7 +129,7 @@ function LinkModal({
           <input
             type="number" min="0"
             value={baseOverride}
-            onChange={e => setBaseOverride(e.target.value)}
+            onChange={e => setBaseOverride(e.currentTarget.value)}
             placeholder={employee.baseSalary > 0 ? `Current: ${employee.baseSalary}` : 'Enter base salary...'}
             className="w-full bg-slate-50 border border-slate-100 rounded-xl py-2 px-3 text-xs font-bold focus:outline-none focus:border-blue-500 focus:bg-white"
           />

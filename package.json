@@ -8,7 +8,13 @@
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist server.js",
-    "lint": "tsc --noEmit"
+    "format": "biome format --write",
+    "format:check": "biome format biome.json scripts",
+    "lint": "biome lint .",
+    "lint:fix": "biome lint --write .",
+    "typecheck": "tsc --noEmit",
+    "check:modules": "node scripts/check-source-size.mjs",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run check:modules"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -46,6 +52,7 @@
     "vite": "^6.2.3"
   },
   "devDependencies": {
+    "@biomejs/biome": "2.5.4",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",

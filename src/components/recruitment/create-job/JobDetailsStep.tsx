@@ -40,7 +40,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 placeholder="Senior Product Designer"
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all"
                 value={data.jobTitle}
-                onChange={(e) => updateData({ jobTitle: e.target.value })}
+                onChange={(e) => updateData({ jobTitle: e.currentTarget.value })}
               />
             </div>
             <div className="space-y-2">
@@ -49,7 +49,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 type="number"
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all"
                 value={data.openings}
-                onChange={(e) => updateData({ openings: parseInt(e.target.value) || 0 })}
+                onChange={(e) => updateData({ openings: parseInt(e.currentTarget.value) || 0 })}
               />
             </div>
             <div className="space-y-2">
@@ -59,7 +59,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 placeholder="addis ababa"
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all"
                 value={data.city}
-                onChange={(e) => updateData({ city: e.target.value })}
+                onChange={(e) => updateData({ city: e.currentTarget.value })}
               />
             </div>
             <div className="space-y-2">
@@ -69,7 +69,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 placeholder="Ethiopia"
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all"
                 value={data.country}
-                onChange={(e) => updateData({ country: e.target.value })}
+                onChange={(e) => updateData({ country: e.currentTarget.value })}
               />
             </div>
             <div className="space-y-2">
@@ -77,7 +77,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"
                 value={data.locationType}
-                onChange={(e) => updateData({ locationType: e.target.value })}
+                onChange={(e) => updateData({ locationType: e.currentTarget.value })}
               >
                 <option value="On-site">On-site</option>
                 <option value="Remote">Remote</option>
@@ -89,7 +89,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"
                 value={data.employmentType}
-                onChange={(e) => updateData({ employmentType: e.target.value })}
+                onChange={(e) => updateData({ employmentType: e.currentTarget.value })}
               >
                 <option value="Full-time">Full-time</option>
                 <option value="Part-time">Part-time</option>
@@ -101,7 +101,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"
                 value={data.contractType}
-                onChange={(e) => updateData({ contractType: e.target.value })}
+                onChange={(e) => updateData({ contractType: e.currentTarget.value })}
               >
                 <option value="Permanent">Permanent</option>
                 <option value="Fixed-term">Fixed-term</option>
@@ -113,7 +113,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
               <select 
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all cursor-pointer"
                 value={data.experienceLevel}
-                onChange={(e) => updateData({ experienceLevel: e.target.value })}
+                onChange={(e) => updateData({ experienceLevel: e.currentTarget.value })}
               >
                 <option value="Junior Level">Junior Level</option>
                 <option value="Mid Level">Mid Level</option>
@@ -152,7 +152,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 type="date"
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all"
                 value={data.deadline}
-                onChange={(e) => updateData({ deadline: e.target.value })}
+                onChange={(e) => updateData({ deadline: e.currentTarget.value })}
               />
             </div>
           </div>
@@ -173,7 +173,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 placeholder="Describe the role, responsibilities, and what makes this opportunity exciting..."
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all min-h-[120px] resize-none"
                 value={data.description}
-                onChange={(e) => updateData({ description: e.target.value })}
+                onChange={(e) => updateData({ description: e.currentTarget.value })}
               />
               <p className="text-[10px] text-slate-400 px-1 font-medium italic">Keep it clear, candidate-facing, and easy to scan.</p>
             </div>
@@ -183,7 +183,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 placeholder="Share the team culture, growth opportunities, or mission that makes this role compelling."
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all min-h-[100px] resize-none"
                 value={data.summary}
-                onChange={(e) => updateData({ summary: e.target.value })}
+                onChange={(e) => updateData({ summary: e.currentTarget.value })}
               />
             </div>
           </div>
@@ -203,7 +203,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
               <textarea
                 className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all min-h-[100px] resize-none"
                 value={data.responsibilities}
-                onChange={(e) => updateData({ responsibilities: e.target.value })}
+                onChange={(e) => updateData({ responsibilities: e.currentTarget.value })}
               />
               <p className="text-[9px] text-slate-400 px-1 font-medium italic uppercase tracking-wider">Add one responsibility per line.</p>
             </div>
@@ -214,7 +214,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 <textarea
                   className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all min-h-[100px] resize-none"
                   value={data.requiredSkills}
-                  onChange={(e) => updateData({ requiredSkills: e.target.value })}
+                  onChange={(e) => updateData({ requiredSkills: e.currentTarget.value })}
                 />
                 <p className="text-[9px] text-slate-400 px-1 font-medium italic uppercase tracking-wider">Add one skill per line.</p>
               </div>
@@ -223,7 +223,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 <textarea
                   className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all min-h-[100px] resize-none"
                   value={data.preferredSkills}
-                  onChange={(e) => updateData({ preferredSkills: e.target.value })}
+                  onChange={(e) => updateData({ preferredSkills: e.currentTarget.value })}
                 />
                 <p className="text-[9px] text-slate-400 px-1 font-medium italic uppercase tracking-wider">Add one skill per line.</p>
               </div>
@@ -232,7 +232,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 <textarea
                   className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all min-h-[100px] resize-none"
                   value={data.tools}
-                  onChange={(e) => updateData({ tools: e.target.value })}
+                  onChange={(e) => updateData({ tools: e.currentTarget.value })}
                 />
                 <p className="text-[9px] text-slate-400 px-1 font-medium italic uppercase tracking-wider">Add one tool per line.</p>
               </div>
@@ -241,7 +241,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
                 <textarea
                   className="w-full bg-slate-50 border border-slate-100 focus:bg-white focus:border-blue-500 rounded-xl px-4 py-3 text-xs text-slate-800 font-semibold focus:outline-none transition-all min-h-[100px] resize-none"
                   value={data.benefits}
-                  onChange={(e) => updateData({ benefits: e.target.value })}
+                  onChange={(e) => updateData({ benefits: e.currentTarget.value })}
                 />
                 <p className="text-[9px] text-slate-400 px-1 font-medium italic uppercase tracking-wider">Add one benefit per line.</p>
               </div>
@@ -265,7 +265,7 @@ export default function JobDetailsStep({ data, updateData }: JobDetailsStepProps
             <select 
               className="w-full bg-white border border-slate-200 rounded-xl px-3 py-2.5 text-xs text-slate-800 font-semibold focus:outline-none"
               value={data.salaryType}
-              onChange={(e) => updateData({ salaryType: e.target.value })}
+              onChange={(e) => updateData({ salaryType: e.currentTarget.value })}
             >
               <option value="Not Specified">Not Specified</option>
               <option value="Range">Range</option>

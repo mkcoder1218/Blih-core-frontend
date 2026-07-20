@@ -75,7 +75,7 @@ export default function RequiredFullNameModal() {
             <span className="mb-1 block text-xs font-bold text-slate-600">First name</span>
             <input
               value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
+              onChange={(e) => setFirstName(e.currentTarget.value)}
               className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
               autoFocus
             />
@@ -84,7 +84,7 @@ export default function RequiredFullNameModal() {
             <span className="mb-1 block text-xs font-bold text-slate-600">Father name</span>
             <input
               value={fatherName}
-              onChange={(e) => setFatherName(e.target.value)}
+              onChange={(e) => setFatherName(e.currentTarget.value)}
               className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
             />
           </label>
@@ -92,7 +92,7 @@ export default function RequiredFullNameModal() {
             <span className="mb-1 block text-xs font-bold text-slate-600">Grandfather name</span>
             <input
               value={grandFatherName}
-              onChange={(e) => setGrandFatherName(e.target.value)}
+              onChange={(e) => setGrandFatherName(e.currentTarget.value)}
               className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500"
             />
           </label>
