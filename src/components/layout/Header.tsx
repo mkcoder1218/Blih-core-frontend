@@ -192,14 +192,7 @@ export default function Header({
           }}
         />
 
-        <button
-          type="button"
-          onClick={() => onOpenAiHelper("general")}
-          className="flex cursor-pointer select-none items-center gap-1.5 rounded-full border border-blue-100 bg-[#f2f6ff] px-3 py-1.5 text-xs font-semibold text-blue-700 transition-all hover:bg-[#e6eeff] active:bg-[#d8e5ff] sm:px-3.5"
-        >
-          <Sparkles className="h-3.5 w-3.5 fill-blue-600 text-blue-600" />
-          <span className="hidden 2xl:inline">Snap AI</span>
-        </button>
+
 
         <div
           className="relative"
