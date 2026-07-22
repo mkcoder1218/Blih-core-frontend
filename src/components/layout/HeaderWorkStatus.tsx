@@ -383,7 +383,6 @@ export default function HeaderWorkStatus({
             ),
             hasError: Boolean(disabledReason),
           })}
-
           <span className="whitespace-nowrap">
             {getActionSectionLabel({
               action: nextAction,
