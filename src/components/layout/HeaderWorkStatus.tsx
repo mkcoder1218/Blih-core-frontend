@@ -288,11 +288,12 @@ export default function HeaderWorkStatus({
   };
 
   return (
-    <div className="hidden min-w-0 xl:flex">
+    <div className="flex w-full min-w-0">
       <button
         type="button"
         onClick={handleMergedControlClick}
-        aria-disabled={isSubmitting}
+        disabled={isSubmitting}
+        aria-disabled={Boolean(actionDisabledReason)}
         title={
           actionDisabledReason ??
           getAttendanceControlTitle({
@@ -301,7 +302,7 @@ export default function HeaderWorkStatus({
           })
         }
         className={[
-          "group flex h-11 min-w-[310px] max-w-[420px] items-stretch overflow-hidden rounded-2xl border text-left transition-all",
+          "group flex h-11 w-full min-w-0 items-stretch overflow-hidden rounded-2xl border text-left transition-all sm:min-w-[310px] sm:max-w-[420px]",
           isSubmitting
             ? "cursor-wait border-slate-200 bg-slate-50"
             : disabledReason
@@ -313,7 +314,7 @@ export default function HeaderWorkStatus({
                   : "cursor-pointer border-blue-200 bg-white shadow-sm hover:border-blue-300 hover:bg-blue-50/30 hover:shadow",
         ].join(" ")}
       >
-        <div className="flex min-w-0 flex-1 items-center gap-2.5 px-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2 px-2.5 sm:gap-2.5 sm:px-3">
           <div
             className={[
               "flex h-7 w-7 shrink-0 items-center justify-center rounded-lg",
@@ -361,7 +362,7 @@ export default function HeaderWorkStatus({
 
         <div
           className={[
-            "flex min-w-[104px] shrink-0 items-center justify-center gap-1.5 border-l px-3 text-[11px] font-black transition-colors",
+            "flex min-w-[92px] shrink-0 items-center justify-center gap-1.5 border-l px-2 text-[10px] font-black transition-colors sm:min-w-[104px] sm:px-3 sm:text-[11px]",
             getActionSectionClass({
               action: nextAction,
               isLoading,
