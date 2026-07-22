@@ -149,6 +149,9 @@ export default function AppShell() {
           isDetailedView={isDetailedView}
           onOpenAiHelper={() => {}}
           onMobileMenuOpen={() => setMobileSidebarOpen(true)}
+          onShowAlert={(message, type = "success") => {
+            showAlert(message, type);
+          }}
         />
         <AnimatePresence>
           {notification.show && (
