@@ -56,6 +56,7 @@ export interface CalendarEventPayload {
   availabilityStatus?: AvailabilityStatus;
   color?: string;
   projectId?: string | null;
+  recurrenceRule?: string | null;
   metadata?: Record<string, any>;
 }
 
