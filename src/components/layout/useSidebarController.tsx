@@ -293,23 +293,28 @@ export function useSidebarController({
     },
     {
       title: 'People',
+
       items: profilesTabs
         .filter((tab) =>
           [
             'create',
             'directory',
+            'contract_templates',
             'pending_registrations',
             'exemption_requests',
           ].includes(tab.id),
         )
         .map((tab) => ({
           ...tab,
+
           id: `profiles-${tab.id}`,
+
           label:
             (
               {
                 create: 'Create Profile',
                 directory: 'Profiles',
+                contract_templates: 'Contract Templates',
                 pending_registrations: 'Pending Registrations',
                 exemption_requests: 'Exemption Requests',
               } as Record<string, string>

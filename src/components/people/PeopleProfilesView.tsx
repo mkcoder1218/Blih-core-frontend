@@ -9,6 +9,7 @@ import {
   Clock3,
   Download,
   Eye,
+  FileSignature,
   FileText,
   Filter,
   Lock,
@@ -24,6 +25,8 @@ import {
   UserX,
   XCircle
 } from 'lucide-react';
+import EmployeeContractMenuAction from "../contracts/EmployeeContractMenuAction";
+import EmployeeContractViewerModal from "../contracts/EmployeeContractViewerModal";
 import { AnimatePresence, motion } from 'motion/react';
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -51,7 +54,7 @@ import PeopleProfileDraftsPanel from './drafts/PeopleProfileDraftsPanel';
 import EmployeeDevicesTab from './EmployeeDevicesTab';
 import EventsTab from './EventsTab';
 import PendingRegistrationsTab from './PendingRegistrationsTab';
-
+import AssignEmployeeContractModal from "../contracts/AssignEmployeeContractModal";
 interface OrgNode {
   id: string;
   userId?: string;
@@ -358,6 +361,15 @@ export default function PeopleProfilesView({
     terminationEmployee,
     setTerminationEmployee,
   ] = useState<any | null>(null);
+  const [
+    contractEmployee,
+    setContractEmployee,
+  ] = useState<any | null>(null);
+  const [
+    viewerContractId,
+    setViewerContractId,
+  ] = useState<string | null>(null);
+
   // Search/Filters states
   const [directionSearch, setDirectionSearch] = useState<string>('');
   const [deptFilter, setDeptFilter] = useState<string>('Marketing');
@@ -460,6 +472,15 @@ export default function PeopleProfilesView({
     perms.hasAny("hr.write") ||
     perms.isSuperAdmin ||
     legacyUser?.role === "Business Admin";
+  const canAssignContract =
+    perms.hasAny(
+      "hr.write",
+      "onboarding.manage",
+      "offer.approve",
+    ) ||
+    perms.isSuperAdmin ||
+    legacyUser?.role ===
+      "Business Admin";
   const canApproveExemption = perms.isSuperAdmin || legacyUser?.role === 'Business Admin';
   const exemptionsByUserId = React.useMemo(() => {
     const map = new Map<string, UserExemption>();
@@ -969,7 +990,19 @@ export default function PeopleProfilesView({
                                       >
                                         <UserCog className="w-3.5 h-3.5" /> Change Role
                                       </button>
-
+                                      {canAssignContract && (
+                                        <EmployeeContractMenuAction
+                                          employee={emp}
+                                          onAssign={(employee) => {
+                                            setContractEmployee(employee);
+                                            setActiveActionsMenu(null);
+                                          }}
+                                          onView={(contractId) => {
+                                            setViewerContractId(contractId);
+                                            setActiveActionsMenu(null);
+                                          }}
+                                        />
+                                      )}
                                       {exemption?.status === 'APPROVED' && canApproveExemption ? (
                                         <button
                                           onClick={(e) => {
@@ -1362,7 +1395,7 @@ export default function PeopleProfilesView({
     setTerminationEmployee(null)
   }
   showAlert={showAlert}
-/>
+        />
         {/* --- 6. ARCHIVE SCREEN (IMAGE 6) --- */}
         {currentProfilesTab === 'archive' && (
           <motion.div
@@ -2041,6 +2074,24 @@ export default function PeopleProfilesView({
         description={`Remove the active exemption for ${unexemptTarget?.employee?.user?.fullName || 'this user'}? They will return to attendance check-in requirements and payroll handling based on their normal employee setup.`}
         confirmLabel="Unexempt"
         loading={revokeExemptionMutation.isPending}
+      />
+
+      <AssignEmployeeContractModal
+        isOpen={Boolean(contractEmployee)}
+        employee={contractEmployee}
+        onClose={() => setContractEmployee(null)}
+        showAlert={showAlert}
+        onAssigned={() => {
+          setContractEmployee(null);
+          refetchEmployees();
+          showAlert('Employment contract assigned successfully', 'success');
+        }}
+      />
+
+      <EmployeeContractViewerModal
+        isOpen={Boolean(viewerContractId)}
+        contractId={viewerContractId}
+        onClose={() => setViewerContractId(null)}
       />
     </div>
   );

@@ -1,40 +1,48 @@
-import React from "react";
+import React from 'react';
+
 import {
   Navigate,
   useLocation,
   useNavigate,
   useOutletContext,
   useParams,
-} from "react-router-dom";
-import AttendanceView from "../components/attendance/AttendanceView";
-import CareerManagementView from "../components/career/CareerManagementView";
-import WorkforceFinanceView from "../components/finance/WorkforceFinanceView";
-import OffboardingView from "../components/offboarding/ExitOffboardingView";
-import OnboardingView from "../components/onboarding/OnboardingView";
-import CreateEmployeeModal from "../components/people/CreateEmployeeModal";
-import EmployeeDetailPage from "../components/people/EmployeeDetailPage";
-import PeopleProfilesView from "../components/people/PeopleProfilesView";
-import PerformanceView from "../components/performance/PerformanceView";
-import BusinessSettingsView from "../components/settings/BusinessSettingsView";
+} from 'react-router-dom';
+
+import AttendanceView from '../components/attendance/AttendanceView';
+import CareerManagementView from '../components/career/CareerManagementView';
+import WorkforceFinanceView from '../components/finance/WorkforceFinanceView';
+import OffboardingView from '../components/offboarding/ExitOffboardingView';
+import OnboardingView from '../components/onboarding/OnboardingView';
+import CreateEmployeeModal from '../components/people/CreateEmployeeModal';
+import EmployeeDetailPage from '../components/people/EmployeeDetailPage';
+import PeopleProfilesView from '../components/people/PeopleProfilesView';
+import PerformanceView from '../components/performance/PerformanceView';
+import BusinessSettingsView from '../components/settings/BusinessSettingsView';
+
 import {
   ProjectDetailsPage,
   ProjectsPage,
-} from "../features/projects";
-import RecruitmentPage from "./RecruitmentPage";
+} from '../features/projects';
+
+import EmploymentContractTemplatePage from './EmploymentContractTemplatePage';
+import RecruitmentPage from './RecruitmentPage';
 
 const ALLOWED_MODULES = new Set([
-  "onboarding",
-  "profiles",
-  "attendance",
-  "performance",
-  "talent",
-  "exit",
-  "finance",
-  "projects",
-  "settings",
+  'onboarding',
+  'profiles',
+  'attendance',
+  'performance',
+  'talent',
+  'exit',
+  'finance',
+  'projects',
+  'settings',
 ]);
 
-type AlertType = "success" | "info" | "error";
+type AlertType =
+  | 'success'
+  | 'info'
+  | 'error';
 
 interface AppOutletContext {
   showAlert?: (
@@ -43,120 +51,163 @@ interface AppOutletContext {
   ) => void;
 }
 
-function getRolePrefix(pathname: string): string {
-  if (pathname.startsWith("/super-admin")) {
-    return "/super-admin";
+function getRolePrefix(
+  pathname: string,
+): string {
+  if (
+    pathname.startsWith(
+      '/super-admin',
+    )
+  ) {
+    return '/super-admin';
   }
 
-  if (pathname.startsWith("/hr-manager")) {
-    return "/hr-manager";
+  if (
+    pathname.startsWith(
+      '/hr-manager',
+    )
+  ) {
+    return '/hr-manager';
   }
 
-  if (pathname.startsWith("/business-admin")) {
-    return "/business-admin";
+  if (
+    pathname.startsWith(
+      '/business-admin',
+    )
+  ) {
+    return '/business-admin';
   }
 
-  return "/employee";
-}
-
-function getLegacyExitTab(tab: string): string {
-  if (!tab || tab === "overview") {
-    return "offboarding";
-  }
-
-  return tab;
+  return '/employee';
 }
 
 export default function ModulePage() {
-  const params = useParams();
-  const navigate = useNavigate();
-  const location = useLocation();
+  const params =
+    useParams();
+
+  const navigate =
+    useNavigate();
+
+  const location =
+    useLocation();
 
   const outlet =
     useOutletContext<AppOutletContext | null>();
 
   const showAlert =
-    outlet?.showAlert ?? (() => undefined);
+    outlet?.showAlert ??
+    (() => undefined);
 
-  const [updateEmployeeUserId, setUpdateEmployeeUserId] =
-    React.useState<string | null>(null);
+  const [
+    updateEmployeeUserId,
+    setUpdateEmployeeUserId,
+  ] = React.useState<
+    string | null
+  >(null);
 
-  const moduleName = String(
-    params.module ||
-      (location.pathname.includes("/settings")
-        ? "settings"
-        : ""),
-  );
+  const moduleName =
+    String(
+      params.module ||
+        (
+          location.pathname.includes(
+            '/settings',
+          )
+            ? 'settings'
+            : ''
+        ),
+    );
 
-  const tab = String(
-    params.tab ||
-      (moduleName === "exit"
-        ? "offboarding"
-        : moduleName === "profiles"
-          ? "directory"
-          : "overview"),
-  );
+  const tab =
+    String(
+      params.tab ||
+        (
+          moduleName ===
+          'exit'
+            ? 'offboarding'
+            : moduleName ===
+                'profiles'
+              ? 'directory'
+              : 'overview'
+        ),
+    );
 
-  const rolePrefix = getRolePrefix(
-    location.pathname,
-  );
+  const rolePrefix =
+    getRolePrefix(
+      location.pathname,
+    );
 
   const projectUuid =
-    moduleName === "projects" &&
-    /^[0-9a-fA-F-]{36}$/.test(tab)
+    moduleName ===
+      'projects' &&
+    /^[0-9a-fA-F-]{36}$/.test(
+      tab,
+    )
       ? tab
-      : "";
+      : '';
 
-  if (!ALLOWED_MODULES.has(moduleName)) {
-    return <Navigate to=".." replace />;
+  if (
+    !ALLOWED_MODULES.has(
+      moduleName,
+    )
+  ) {
+    return (
+      <Navigate
+        to=".."
+        replace
+      />
+    );
   }
 
   if (projectUuid) {
     return (
       <ProjectDetailsPage
-        projectId={projectUuid}
+        projectId={
+          projectUuid
+        }
       />
     );
   }
 
-  /*
-   * Legacy Exit routes remain supported.
-   *
-   * Example:
-   * /business-admin/exit/resign
-   *
-   * Redirects to:
-   * /business-admin/talent/exit-resign
-   */
-if (moduleName === "exit") {
-  const legacyExitTab =
-    tab === "overview" ||
-    tab === "offboarding"
-      ? "my-exit"
-      : tab === "resign"
-        ? "requests"
-        : tab === "forms"
-          ? "reasons"
-          : tab === "interviews" ||
-              tab === "documents"
-            ? "clearance"
-            : tab;
+  if (
+    moduleName ===
+    'exit'
+  ) {
+    const legacyExitTab =
+      tab === 'overview' ||
+      tab === 'offboarding'
+        ? 'my-exit'
+        : tab === 'resign'
+          ? 'requests'
+          : tab === 'forms'
+            ? 'reasons'
+            : tab ===
+                  'interviews' ||
+                tab ===
+                  'documents'
+              ? 'clearance'
+              : tab;
 
-  return (
-    <Navigate
-      to={`${rolePrefix}/talent/exit-${legacyExitTab}`}
-      replace
-    />
-  );
-}
+    return (
+      <Navigate
+        to={`${rolePrefix}/talent/exit-${legacyExitTab}`}
+        replace
+      />
+    );
+  }
 
   if (
-    moduleName === "profiles" &&
-    tab === "employee"
+    moduleName ===
+      'profiles' &&
+    tab === 'employee'
   ) {
-    const employee = location.state?.employee;
+    const employee =
+      location.state
+        ?.employee;
+
     const fromTab =
-      location.state?.fromTab || "directory";
+      location.state
+        ?.fromTab ||
+      'directory';
 
     if (!employee) {
       return (
@@ -175,22 +226,30 @@ if (moduleName === "exit") {
     return (
       <>
         <EmployeeDetailPage
-          targetUserId={employeeUserId}
+          targetUserId={
+            employeeUserId
+          }
           user={{
             name:
-              employee.user?.fullName ||
+              employee.user
+                ?.fullName ||
               employee.name ||
-              "Unknown",
+              'Unknown',
+
             email:
-              employee.user?.email ||
+              employee.user
+                ?.email ||
               employee.email ||
-              "",
+              '',
+
             role:
-              employee.position?.title ||
+              employee.position
+                ?.title ||
               employee.title ||
-              employee.department?.name ||
+              employee.department
+                ?.name ||
               employee.department ||
-              "Staff",
+              'Staff',
           }}
           onBack={() =>
             navigate(
@@ -209,9 +268,13 @@ if (moduleName === "exit") {
             updateEmployeeUserId,
           )}
           onClose={() =>
-            setUpdateEmployeeUserId(null)
+            setUpdateEmployeeUserId(
+              null,
+            )
           }
-          showAlert={showAlert}
+          showAlert={
+            showAlert
+          }
           mode="update"
           targetUserId={
             updateEmployeeUserId ||
@@ -222,21 +285,27 @@ if (moduleName === "exit") {
     );
   }
 
-  if (moduleName === "talent") {
+  if (
+    moduleName ===
+    'talent'
+  ) {
     const talentTab =
-      tab === "overview"
-        ? "recruitment-overview"
+      tab === 'overview'
+        ? 'recruitment-overview'
         : tab;
 
     if (
-      talentTab === "profiles-employee"
+      talentTab ===
+      'profiles-employee'
     ) {
       const employee =
-        location.state?.employee;
+        location.state
+          ?.employee;
 
       const fromTab =
-        location.state?.fromTab ||
-        "profiles-directory";
+        location.state
+          ?.fromTab ||
+        'profiles-directory';
 
       if (!employee) {
         return (
@@ -255,22 +324,30 @@ if (moduleName === "exit") {
       return (
         <>
           <EmployeeDetailPage
-            targetUserId={employeeUserId}
+            targetUserId={
+              employeeUserId
+            }
             user={{
               name:
-                employee.user?.fullName ||
+                employee.user
+                  ?.fullName ||
                 employee.name ||
-                "Unknown",
+                'Unknown',
+
               email:
-                employee.user?.email ||
+                employee.user
+                  ?.email ||
                 employee.email ||
-                "",
+                '',
+
               role:
-                employee.position?.title ||
+                employee.position
+                  ?.title ||
                 employee.title ||
-                employee.department?.name ||
+                employee.department
+                  ?.name ||
                 employee.department ||
-                "Staff",
+                'Staff',
             }}
             onBack={() =>
               navigate(
@@ -289,9 +366,13 @@ if (moduleName === "exit") {
               updateEmployeeUserId,
             )}
             onClose={() =>
-              setUpdateEmployeeUserId(null)
+              setUpdateEmployeeUserId(
+                null,
+              )
             }
-            showAlert={showAlert}
+            showAlert={
+              showAlert
+            }
             mode="update"
             targetUserId={
               updateEmployeeUserId ||
@@ -304,19 +385,23 @@ if (moduleName === "exit") {
 
     if (
       talentTab.startsWith(
-        "recruitment-",
+        'recruitment-',
       )
     ) {
       const recruitmentTab =
         talentTab.replace(
-          "recruitment-",
-          "",
-        ) || "overview";
+          'recruitment-',
+          '',
+        ) || 'overview';
 
       return (
         <RecruitmentPage
-          currentTab={recruitmentTab}
-          routeForTab={(nextTab) =>
+          currentTab={
+            recruitmentTab
+          }
+          routeForTab={(
+            nextTab,
+          ) =>
             `${rolePrefix}/talent/recruitment-${nextTab}`
           }
         />
@@ -325,36 +410,70 @@ if (moduleName === "exit") {
 
     if (
       talentTab.startsWith(
-        "onboarding-",
+        'onboarding-',
       )
     ) {
       const onboardingTab =
         talentTab.replace(
-          "onboarding-",
-          "",
+          'onboarding-',
+          '',
         );
+
+      if (
+        onboardingTab ===
+        'contract'
+      ) {
+        return (
+          <Navigate
+            to={`${rolePrefix}/talent/profiles-contract_templates`}
+            replace
+          />
+        );
+      }
 
       return (
         <OnboardingView
           currentTab={
-            onboardingTab as any
+            onboardingTab as
+              | 'overview'
+              | 'progress'
+              | 'probation'
+              | 'checklists'
+              | 'policy'
           }
           onDraftAiSuggestion={() =>
             undefined
           }
-          showAlert={showAlert}
+          showAlert={
+            showAlert
+          }
         />
       );
     }
 
     if (
-      talentTab.startsWith("profiles-")
+      talentTab ===
+      'profiles-contract_templates'
+    ) {
+      return (
+        <EmploymentContractTemplatePage
+          showAlert={
+            showAlert
+          }
+        />
+      );
+    }
+
+    if (
+      talentTab.startsWith(
+        'profiles-',
+      )
     ) {
       const profilesTab =
         talentTab.replace(
-          "profiles-",
-          "",
-        ) || "directory";
+          'profiles-',
+          '',
+        ) || 'directory';
 
       return (
         <PeopleProfilesView
@@ -364,14 +483,19 @@ if (moduleName === "exit") {
           onDraftAiSuggestion={() =>
             undefined
           }
-          showAlert={showAlert}
-          onViewProfile={(employee) =>
+          showAlert={
+            showAlert
+          }
+          onViewProfile={(
+            employee,
+          ) =>
             navigate(
               `${rolePrefix}/talent/profiles-employee`,
               {
                 state: {
                   employee,
-                  fromTab: talentTab,
+                  fromTab:
+                    talentTab,
                 },
               },
             )
@@ -381,39 +505,54 @@ if (moduleName === "exit") {
     }
 
     if (
-      talentTab.startsWith("career-")
+      talentTab.startsWith(
+        'career-',
+      )
     ) {
       const careerTab =
         talentTab.replace(
-          "career-",
-          "",
+          'career-',
+          '',
         );
 
       return (
         <CareerManagementView
-          currentTab={careerTab as any}
+          currentTab={
+            careerTab as any
+          }
           onDraftAiSuggestion={() =>
             undefined
           }
-          showAlert={showAlert}
+          showAlert={
+            showAlert
+          }
         />
       );
     }
 
     if (
-      talentTab.startsWith("exit-")
+      talentTab.startsWith(
+        'exit-',
+      )
     ) {
-     const exitTab =
-  talentTab.replace("exit-", "") ||
-  "my-exit";
+      const exitTab =
+        talentTab.replace(
+          'exit-',
+          '',
+        ) ||
+        'my-exit';
 
       return (
         <OffboardingView
-          currentTab={exitTab as any}
+          currentTab={
+            exitTab as any
+          }
           onDraftAiSuggestion={() =>
             undefined
           }
-          showAlert={showAlert}
+          showAlert={
+            showAlert
+          }
         />
       );
     }
@@ -426,8 +565,14 @@ if (moduleName === "exit") {
     );
   }
 
-  if (moduleName === "profiles") {
-    if (tab === "overview") {
+  if (
+    moduleName ===
+    'profiles'
+  ) {
+    if (
+      tab ===
+      'overview'
+    ) {
       return (
         <Navigate
           to={`${rolePrefix}/profiles/directory`}
@@ -436,20 +581,40 @@ if (moduleName === "exit") {
       );
     }
 
+    if (
+      tab ===
+      'contract_templates'
+    ) {
+      return (
+        <EmploymentContractTemplatePage
+          showAlert={
+            showAlert
+          }
+        />
+      );
+    }
+
     return (
       <PeopleProfilesView
-        currentProfilesTab={tab as any}
+        currentProfilesTab={
+          tab as any
+        }
         onDraftAiSuggestion={() =>
           undefined
         }
-        showAlert={showAlert}
-        onViewProfile={(employee) =>
+        showAlert={
+          showAlert
+        }
+        onViewProfile={(
+          employee,
+        ) =>
           navigate(
             `${rolePrefix}/profiles/employee`,
             {
               state: {
                 employee,
-                fromTab: tab,
+                fromTab:
+                  tab,
               },
             },
           )
@@ -458,73 +623,131 @@ if (moduleName === "exit") {
     );
   }
 
-  if (moduleName === "attendance") {
+  if (
+    moduleName ===
+    'attendance'
+  ) {
     return (
       <AttendanceView
-        currentAttendanceTab={tab as any}
-        routeForTab={(nextTab) =>
+        currentAttendanceTab={
+          tab as any
+        }
+        routeForTab={(
+          nextTab,
+        ) =>
           `${rolePrefix}/attendance/${nextTab}`
         }
         onDraftAiSuggestion={() =>
           undefined
         }
-        showAlert={showAlert}
+        showAlert={
+          showAlert
+        }
       />
     );
   }
 
-  if (moduleName === "onboarding") {
+  if (
+    moduleName ===
+    'onboarding'
+  ) {
+    if (
+      tab ===
+      'contract'
+    ) {
+      return (
+        <Navigate
+          to={`${rolePrefix}/profiles/contract_templates`}
+          replace
+        />
+      );
+    }
+
     return (
       <OnboardingView
-        currentTab={tab as any}
+        currentTab={
+          tab as
+            | 'overview'
+            | 'progress'
+            | 'probation'
+            | 'checklists'
+            | 'policy'
+        }
         onDraftAiSuggestion={() =>
           undefined
         }
-        showAlert={showAlert}
+        showAlert={
+          showAlert
+        }
       />
     );
   }
 
-  if (moduleName === "finance") {
+  if (
+    moduleName ===
+    'finance'
+  ) {
     return (
       <WorkforceFinanceView
-        currentTab={tab as any}
+        currentTab={
+          tab as any
+        }
         onDraftAiSuggestion={() =>
           undefined
         }
-        showAlert={showAlert}
+        showAlert={
+          showAlert
+        }
       />
     );
   }
 
-  if (moduleName === "projects") {
+  if (
+    moduleName ===
+    'projects'
+  ) {
     return (
       <ProjectsPage
         currentTab={
-          (tab === "my-projects"
-            ? "mine"
-            : tab) as any
+          (
+            tab ===
+            'my-projects'
+              ? 'mine'
+              : tab
+          ) as any
         }
       />
     );
   }
 
-  if (moduleName === "settings") {
+  if (
+    moduleName ===
+    'settings'
+  ) {
     return (
       <BusinessSettingsView
-        showAlert={showAlert}
+        showAlert={
+          showAlert
+        }
       />
     );
   }
 
-  if (moduleName === "performance") {
+  if (
+    moduleName ===
+    'performance'
+  ) {
     return (
       <PerformanceView
-        currentTab={tab as any}
+        currentTab={
+          tab as any
+        }
         onDraftAiSuggestion={() =>
           undefined
         }
-        showAlert={showAlert}
+        showAlert={
+          showAlert
+        }
       />
     );
   }

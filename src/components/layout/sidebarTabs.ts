@@ -13,7 +13,6 @@ export const ALL_RECRUITMENT_TABS = [
 
 export const ALL_ONBOARDING_TABS = [
   { id: 'overview', label: 'Overview', badge: 0 },
-  { id: 'contract', label: 'Contract', badge: 0 },
   { id: 'progress', label: 'Progress', badge: 0 },
   { id: 'probation', label: 'Probation', badge: 0 },
   { id: 'policy', label: 'Policies', badge: 0 },
@@ -23,16 +22,33 @@ export const ALL_ONBOARDING_TABS = [
 export const ALL_PROFILES_TABS = [
   { id: 'create', label: 'Create', badge: 0 },
   { id: 'bulk_create', label: 'Bulk Create', badge: 0 },
+  {
+    id: 'contract_templates',
+    label: 'Contract Templates',
+    badge: 0,
+  },
   { id: 'organogram', label: 'Organogram', badge: 0 },
   { id: 'directory', label: 'Directory', badge: 0 },
   { id: 'left', label: 'Left Employees', badge: 0 },
   { id: 'interns', label: 'Interns', badge: 0 },
-  { id: 'organization', label: 'Departments & Positions', badge: 0 },
+  {
+    id: 'organization',
+    label: 'Departments & Positions',
+    badge: 0,
+  },
   { id: 'devices', label: 'Devices', badge: 0 },
   { id: 'events', label: 'Events', badge: 0 },
   { id: 'archive', label: 'Archive', badge: 0 },
-  { id: 'pending_registrations', label: 'Pending Registrations', badge: 0 },
-  { id: 'exemption_requests', label: 'Exemption Requests', badge: 0 },
+  {
+    id: 'pending_registrations',
+    label: 'Pending Registrations',
+    badge: 0,
+  },
+  {
+    id: 'exemption_requests',
+    label: 'Exemption Requests',
+    badge: 0,
+  },
 ] as const;
 
 export const ALL_ATTENDANCE_TABS = [
@@ -65,23 +81,23 @@ export const ALL_TALENT_TABS = [
 
 export const ALL_EXIT_TABS = [
   {
-    id: "my-exit",
-    label: "My Exit",
+    id: 'my-exit',
+    label: 'My Exit',
     badge: 0,
   },
   {
-    id: "requests",
-    label: "Exit Requests",
+    id: 'requests',
+    label: 'Exit Requests',
     badge: 0,
   },
   {
-    id: "clearance",
-    label: "Clearance",
+    id: 'clearance',
+    label: 'Clearance',
     badge: 0,
   },
   {
-    id: "reasons",
-    label: "Exit Reasons",
+    id: 'reasons',
+    label: 'Exit Reasons',
     badge: 0,
   },
 ] as const;
@@ -125,5 +141,3 @@ export const ALL_BUSINESSES_TABS = [
   { id: 'audit_logs', label: 'Audit Logs', badge: 0 },
   { id: 'notifications', label: 'Notifications', badge: 0 },
 ] as const;
-
-// ── Resolved tab arrays (filtered by user permissions) ────────────────────
