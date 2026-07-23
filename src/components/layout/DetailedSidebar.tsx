@@ -326,7 +326,7 @@ export function DetailedSidebar({
                                   );
 
                                   navigate(
-                                    tab.id ===
+                                    String(tab.id) ===
                                       'overview'
                                       ? `/${roleSegment}/attendance`
                                       : `/${roleSegment}/attendance/${tab.id}`,

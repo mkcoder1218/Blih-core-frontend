@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import { useLegacyUser } from '../../api/legacyUserStore';
 import { useAttendanceHrReport } from '../../hooks/useAttendanceHrReport';
 import { useMyPermissions } from '../../hooks/usePermissions';
+import { useMyAttendanceToday } from '../../hooks/useMyAttendanceToday';
 
 import EmployeeAttendancePage from './EmployeeAttendancePage';
 import HrAttendanceCheckInsPage from './hr/HrAttendanceCheckInsPage';

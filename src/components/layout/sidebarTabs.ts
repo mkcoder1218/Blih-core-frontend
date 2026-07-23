@@ -52,7 +52,6 @@ export const ALL_PROFILES_TABS = [
 ] as const;
 
 export const ALL_ATTENDANCE_TABS = [
-  { id: 'overview', label: 'Overview', badge: 0 },
   { id: 'calendar', label: 'Calendar', badge: 0 },
   { id: 'check-in', label: 'Check-ins', badge: 0 },
   { id: 'check-me-in', label: 'Check me in', badge: 0 },

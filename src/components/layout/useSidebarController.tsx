@@ -29,6 +29,7 @@ import {
 } from '../../config/tabPermissions';
 import { useCriticalDisciplinaryCases } from '../../hooks/useDisciplinary';
 import { useMyPermissions } from '../../hooks/usePermissions';
+import { useMyAttendanceToday } from '../../hooks/useMyAttendanceToday';
 import { MainModule } from '../../types';
 
 import {
@@ -79,6 +80,10 @@ export function useSidebarController({
   const location = useLocation();
   const { hasAny, isSuperAdmin } = useMyPermissions();
   const { data: criticalDisciplineData } = useCriticalDisciplinaryCases();
+  const attendanceToday = useMyAttendanceToday(user?.role === 'Employee');
+  const isAttendanceExempted = Boolean(
+    (attendanceToday.data?.data as any)?.attendanceExemption,
+  );
   const criticalDisciplineCount =
     criticalDisciplineData?.total ?? criticalDisciplineData?.rows?.length ?? 0;
   const [openTalentGroups, setOpenTalentGroups] = useState<Record<string, boolean>>({
@@ -167,34 +172,60 @@ export function useSidebarController({
   const profilesTabs = allowedTabs(ALL_PROFILES_TABS, PROFILES_TAB_PERMISSIONS).filter(
     (tab) => !isInternUser || ['events'].includes(tab.id),
   );
-  const attendanceTabs = allowedTabs(ALL_ATTENDANCE_TABS, ATTENDANCE_TAB_PERMISSIONS).filter(
-    (tab) =>
-      !isInternUser ||
-      [
-        'calendar',
-        'check-me-in',
-        'history',
-        'requests',
-        'leaves',
-        'overtime',
-        'special-request',
-        'unavailable',
-        'work-from-home',
-        'exit-request',
-      ].includes(tab.id),
-  );
+  const exemptedAttendanceTabIds = new Set([
+    'check-me-in',
+    'my-lateness-reason',
+    'manual-lateness-reason',
+    'timesheet',
+    'special-request',
+    'unavailable',
+    'work-from-home',
+    'history',
+    'overtime'
+  ]);
+
+  const attendanceTabs = allowedTabs(
+    ALL_ATTENDANCE_TABS,
+    ATTENDANCE_TAB_PERMISSIONS,
+  ).filter((tab) => {
+    if (
+      user?.role === 'Employee' &&
+      isAttendanceExempted &&
+      exemptedAttendanceTabIds.has(tab.id)
+    ) {
+      return false;
+    }
+
+    if (!isInternUser) {
+      return true;
+    }
+
+    return [
+      'calendar',
+      'check-me-in',
+      'history',
+      'requests',
+      'leaves',
+      'overtime',
+      'special-request',
+      'unavailable',
+      'work-from-home',
+      'exit-request',
+    ].includes(tab.id);
+  });
   type AttendanceTabId = (typeof attendanceTabs)[number]['id'];
   const attendanceTabById = new Map(attendanceTabs.map((tab) => [tab.id, tab]));
   const attendanceGroups = (
     [
-      {
-        title: 'Dashboard',
-        ids: ['overview', 'calendar'],
-        labels: { overview: 'Overview', calendar: 'Calendar' },
-      },
+      // {
+      //   title: 'Dashboard',
+      //   ids: ['overview', 'calendar'],
+      //   labels: { overview: 'Overview', calendar: 'Calendar' },
+      // },
       {
         title: 'Time & Records',
         ids: [
+          'calendar',
           'check-in',
           'check-me-in',
           'history',
@@ -205,6 +236,7 @@ export function useSidebarController({
           'memo-log',
         ],
         labels: {
+          calendar: 'Calendar',
           'check-in': 'Check-ins',
           'check-me-in': 'Check me in',
           history: 'History',
@@ -445,7 +477,9 @@ export function useSidebarController({
   const defaultModule = user?.role === 'Employee' ? 'attendance' : 'talent';
   const defaultPath =
     user?.role === 'Employee'
-      ? `/${roleSegment}/attendance/check-me-in`
+      ? isAttendanceExempted
+        ? `/${roleSegment}/attendance/overview`
+        : `/${roleSegment}/attendance/check-me-in`
       : `/${roleSegment}/talent/recruitment-overview`;
 
   // ─── State 1: Detailed two-column sidebar ───────────────────────────────────
