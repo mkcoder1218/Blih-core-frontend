@@ -1,78 +1,103 @@
 /**
- * PageHeader — Blih ERP shared component
- * Consistent section/page headers with title, subtitle, eye-candy badge, and action slots.
+ * PageHeader — Blih ERP shared page heading.
+ *
+ * Provides a compact page title area with:
+ * - optional eyebrow / breadcrumb text
+ * - title
+ * - description
+ * - right-aligned actions
+ * - subtle bottom divider
  *
  * Usage:
- *   <PageHeader
- *     eyebrow="Leave Management"
- *     title="Leave Requests"
- *     description="Review and manage employee leave requests."
- *     actions={<Button onClick={openModal}><Plus /> New Request</Button>}
- *   />
+ *
+ * <PageHeader
+ *   eyebrow="HR / Attendance"
+ *   title="Check-ins Monitoring"
+ *   description="Review today's attendance and exceptions."
+ *   actions={<Button>Export</Button>}
+ * />
  */
 
-import React from 'react';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
-  /** Small uppercase label above the title */
+  /**
+   * Small contextual label displayed above the title.
+   * Examples:
+   * - HR / Attendance
+   * - Business Attendance
+   * - Recruitment
+   */
   eyebrow?: string;
-  eyebrowTone?: 'blue' | 'violet' | 'emerald' | 'amber' | 'rose' | 'slate';
+
+  /**
+   * Preserved for backward compatibility.
+   * The simplified header intentionally uses one neutral text style.
+   */
+  eyebrowTone?:
+    | "blue"
+    | "violet"
+    | "emerald"
+    | "amber"
+    | "rose"
+    | "slate";
+
   title: string;
   description?: string;
-  /** Right-aligned action area — pass buttons / icon buttons here */
+
+  /**
+   * Right-aligned action area.
+   * Pass buttons, dropdowns, or other compact controls.
+   */
   actions?: React.ReactNode;
+
   className?: string;
 }
 
-const eyebrowColors = {
-  blue:    'bg-blue-50 border-blue-100 text-blue-700',
-  violet:  'bg-violet-50 border-violet-100 text-violet-700',
-  emerald: 'bg-emerald-50 border-emerald-100 text-emerald-700',
-  amber:   'bg-amber-50 border-amber-100 text-amber-700',
-  rose:    'bg-rose-50 border-rose-100 text-rose-700',
-  slate:   'bg-slate-50 border-slate-200 text-slate-600',
-};
-
 export function PageHeader({
   eyebrow,
-  eyebrowTone = 'blue',
   title,
   description,
   actions,
   className,
 }: PageHeaderProps) {
   return (
-    <div
+    <header
       className={cn(
-        'flex flex-col sm:flex-row sm:items-center justify-between gap-4',
-        'bg-white p-5 rounded-3xl border border-slate-100 shadow-[0_5px_22px_rgba(0,0,0,0.015)]',
-        className
+        "flex flex-col gap-4 border-b border-slate-200 pb-5",
+        "sm:flex-row sm:items-start sm:justify-between",
+        className,
       )}
     >
-      <div>
-        {eyebrow && (
-          <span
-            className={cn(
-              'inline-flex items-center border text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase mb-1.5',
-              eyebrowColors[eyebrowTone]
-            )}
-          >
+      <div className="min-w-0">
+        {eyebrow ? (
+          <p className="text-xs font-medium text-slate-500">
             {eyebrow}
-          </span>
-        )}
-        <h2 className="text-xl font-black text-slate-900 tracking-tight leading-tight">
+          </p>
+        ) : null}
+
+        <h1
+          className={cn(
+            "text-2xl font-semibold tracking-tight text-slate-950",
+            eyebrow ? "mt-1" : "",
+          )}
+        >
           {title}
-        </h2>
-        {description && (
-          <p className="text-xs text-slate-400 font-medium mt-0.5 leading-relaxed">
+        </h1>
+
+        {description ? (
+          <p className="mt-1 max-w-4xl text-sm font-normal leading-6 text-slate-500">
             {description}
           </p>
-        )}
+        ) : null}
       </div>
-      {actions && (
-        <div className="flex items-center gap-2 flex-shrink-0">{actions}</div>
-      )}
-    </div>
+
+      {actions ? (
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {actions}
+        </div>
+      ) : null}
+    </header>
   );
 }

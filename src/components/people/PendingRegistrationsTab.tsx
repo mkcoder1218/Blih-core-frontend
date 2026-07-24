@@ -1,189 +1,274 @@
 /**
  * PendingRegistrationsTab
- * Shown inside the Profiles module for HR to review, approve, or reject
- * self-registered users.
+ *
+ * HR workflow for reviewing self-registered applicants.
+ *
+ * Approval flow:
+ * 1. Review registration
+ * 2. Confirm financial information
+ * 3. Choose employment initialization
+ * 4. Approve account
+ * 5. Initialize probation when requested
  */
-import React, { useCallback, useEffect, useState } from 'react';
+
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import {
-  CheckCircle, XCircle, Eye, RefreshCw, AlertTriangle,
-  ChevronLeft, ChevronRight, User, Briefcase, MapPin,
-  HeartPulse, FileImage, ZoomIn, Landmark,
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  RefreshCw,
+  XCircle,
+} from "lucide-react";
+import {
+  AnimatePresence,
+  motion,
+} from "framer-motion";
 import {
   pendingRegistrationsApi,
   REJECTION_TEMPLATES,
   type ApprovalFinancialInfo,
   type PendingRegistrant,
-} from '../../api/pendingRegistrations';
+} from "../../api/pendingRegistrations";
+import { initializeEmployeeProbation } from "../../api/employeeProbation";
 import {
-  PageHeader, StatusBadge, UserAvatar, DataTable,
+  DataTable,
   FilterBar,
-} from '@/components/ui/blih';
-import { Button } from '@/components/ui/button';
+  PageHeader,
+  StatusBadge,
+  UserAvatar,
+} from "@/components/ui/blih";
+import { Button } from "@/components/ui/button";
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select';
-import { cn } from '@/lib/utils';
-import { RegistrantDrawer } from './RegisterantDrawer';
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { cn } from "@/lib/utils";
+import { RegistrantDrawer } from "./RegisterantDrawer";
 import {
-  ApproveConfirmationModal,
-  calculateEthiopianPreview,
-  createInitialFinancialForm,
-  financialNumber,
-  money,
-  resolveEthiopianPreviewFromNet,
-  toApprovalFinancialInfo,
-  type FinancialFormState,
-} from './registerantFinancial';
+  RegistrationApprovalDecisionDialog,
+  type RegistrationProbationConfiguration,
+} from "../../features/probation/components/RegistrationApprovalDecisionDialog";
 
-// Section
-const fmt = (d: string | null) => d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+function formatDate(
+  value: string | null,
+) {
+  if (!value) {
+    return "—";
+  }
 
-// Backend base URL for serving uploaded files
-const API_BASE = import.meta.env.VITE_API_Prod_URL || 'http://localhost:4000';
-
-// Section
-function IdDocImage({ url, label }: { url: string; label: string }) {
-  const [lightbox, setLightbox] = useState(false);
-  const fullUrl = url.startsWith('http') ? url : `${API_BASE}${url}`;
-
-  return (
-    <>
-      <div className="space-y-1.5">
-        <p className="text-[9px] font-bold uppercase tracking-wider text-slate-400">{label}</p>
-        <div
-          className="relative group rounded-xl overflow-hidden border border-slate-200 bg-slate-50 cursor-pointer"
-          style={{ height: 110 }}
-          onClick={() => setLightbox(true)}
-        >
-          <img
-            src={fullUrl}
-            alt={label}
-            className="w-full h-full object-cover transition-transform group-hover:scale-105"
-            onError={e => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).style.display = 'none'; }}
-          />
-          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
-            <ZoomIn className="w-5 h-5 text-white drop-shadow" />
-          </div>
-        </div>
-      </div>
-
-      {/* Lightbox */}
-      {lightbox && (
-        <div
-          className="fixed inset-0 z-[100] bg-black/80 flex items-center justify-center p-6"
-          onClick={() => setLightbox(false)}
-        >
-          <motion.img
-            initial={{ opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            src={fullUrl}
-            alt={label}
-            className="max-w-full max-h-full rounded-2xl shadow-2xl cursor-zoom-out"
-            onClick={e => e.stopPropagation()}
-          />
-          <button
-            onClick={() => setLightbox(false)}
-            className="absolute top-4 right-4 w-8 h-8 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white text-lg font-bold transition-colors"
-          >×</button>
-        </div>
-      )}
-    </>
+  return new Date(
+    value,
+  ).toLocaleDateString(
+    "en-GB",
+    {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    },
   );
 }
 
-// Section
-
-
-// Section
 function RejectModal({
-  open, onClose, onConfirm, loading, applicantName,
+  open,
+  onClose,
+  onConfirm,
+  loading,
+  applicantName,
 }: {
   open: boolean;
   onClose: () => void;
-  onConfirm: (reason: string, templateMsg: string) => void;
+  onConfirm: (
+    reason: string,
+    templateMessage: string,
+  ) => void;
   loading: boolean;
   applicantName: string;
 }) {
-  const [reason, setReason] = useState('');
-  const [templateId, setTemplateId] = useState('');
+  const [reason, setReason] =
+    useState("");
 
-  const selected = REJECTION_TEMPLATES.find(t => t.id === templateId);
+  const [
+    templateId,
+    setTemplateId,
+  ] = useState("");
 
-  const handleTemplate = (id: string) => {
-    setTemplateId(id);
-    const tpl = REJECTION_TEMPLATES.find(t => t.id === id);
-    if (tpl) setReason(tpl.message);
-  };
-
-  const handleSubmit = () => {
-    if (!reason.trim()) return;
-    onConfirm(reason.trim(), selected?.message || '');
-  };
+  const selectedTemplate =
+    REJECTION_TEMPLATES.find(
+      (template) =>
+        template.id ===
+        templateId,
+    );
 
   useEffect(() => {
-    if (!open) { setReason(''); setTemplateId(''); }
+    if (!open) {
+      setReason("");
+      setTemplateId("");
+    }
   }, [open]);
 
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
+
+  const selectTemplate = (
+    id: string,
+  ) => {
+    setTemplateId(id);
+
+    const template =
+      REJECTION_TEMPLATES.find(
+        (item) =>
+          item.id === id,
+      );
+
+    if (template) {
+      setReason(
+        template.message,
+      );
+    }
+  };
+
+  const submit = () => {
+    if (!reason.trim()) {
+      return;
+    }
+
+    onConfirm(
+      reason.trim(),
+      selectedTemplate?.message ||
+        "",
+    );
+  };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 8 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 8 }}
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-5"
+        initial={{
+          opacity: 0,
+          scale: 0.96,
+          y: 8,
+        }}
+        animate={{
+          opacity: 1,
+          scale: 1,
+          y: 0,
+        }}
+        exit={{
+          opacity: 0,
+          scale: 0.96,
+          y: 8,
+        }}
+        className="w-full max-w-md space-y-5 rounded-2xl bg-white p-6 shadow-2xl"
       >
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center flex-shrink-0">
-            <XCircle className="w-5 h-5 text-rose-500" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-50">
+            <XCircle className="h-5 w-5 text-rose-500" />
           </div>
+
           <div>
-            <h3 className="text-sm font-black text-slate-900">Reject Registration</h3>
-            <p className="text-[11px] text-slate-500 mt-0.5">{applicantName}</p>
+            <h3 className="text-sm font-black text-slate-900">
+              Reject Registration
+            </h3>
+
+            <p className="mt-0.5 text-[11px] text-slate-500">
+              {applicantName}
+            </p>
           </div>
         </div>
 
         <div className="space-y-2">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Use a template</p>
-          <Select value={templateId} onValueChange={handleTemplate}>
-            <SelectTrigger className="h-9 text-xs rounded-lg border-slate-200">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+            Use a template
+          </p>
+
+          <Select
+            value={templateId}
+            onValueChange={
+              selectTemplate
+            }
+          >
+            <SelectTrigger className="h-9 rounded-lg border-slate-200 text-xs">
               <SelectValue placeholder="Select a template (optional)" />
             </SelectTrigger>
+
             <SelectContent>
-              {REJECTION_TEMPLATES.map(t => (
-                <SelectItem key={t.id} value={t.id} className="text-xs">{t.label}</SelectItem>
-              ))}
+              {REJECTION_TEMPLATES.map(
+                (template) => (
+                  <SelectItem
+                    key={
+                      template.id
+                    }
+                    value={
+                      template.id
+                    }
+                    className="text-xs"
+                  >
+                    {
+                      template.label
+                    }
+                  </SelectItem>
+                ),
+              )}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
           <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-            Reason message <span className="text-rose-400">*</span>
+            Reason message{" "}
+            <span className="text-rose-400">
+              *
+            </span>
           </p>
+
           <textarea
             value={reason}
-            onChange={e => setReason(e.target.value)}
+            onChange={(event) =>
+              setReason(
+                event.target.value,
+              )
+            }
             rows={4}
-            placeholder="Explain why this application is being rejected. This message will be sent to the applicant with a link to resubmit."
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-medium text-slate-700 resize-none focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all placeholder:text-slate-400"
+            placeholder="Explain why this application is being rejected."
+            className="w-full resize-none rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-medium text-slate-700 outline-none transition-all placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-500/30"
           />
-          <p className="text-[9px] text-slate-400">The applicant will receive this message via email along with a link to update and resubmit their application.</p>
+
+          <p className="text-[9px] text-slate-400">
+            The applicant will
+            receive this message by
+            email with a link to
+            update and resubmit.
+          </p>
         </div>
 
         <div className="flex items-center justify-end gap-2 pt-1">
-          <Button variant="ghost" onClick={onClose} disabled={loading} className="h-8 text-xs px-4 rounded-lg">
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            disabled={loading}
+            className="h-8 rounded-lg px-4 text-xs"
+          >
             Cancel
           </Button>
+
           <Button
-            onClick={handleSubmit}
-            disabled={!reason.trim() || loading}
-            className="h-8 text-xs px-5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg shadow-sm shadow-rose-600/20"
+            onClick={submit}
+            disabled={
+              !reason.trim() ||
+              loading
+            }
+            className="h-8 rounded-lg bg-rose-600 px-5 text-xs text-white shadow-sm shadow-rose-600/20 hover:bg-rose-700"
           >
-            {loading ? 'Sending…' : 'Reject & Notify'}
+            {loading
+              ? "Sending…"
+              : "Reject & Notify"}
           </Button>
         </div>
       </motion.div>
@@ -191,97 +276,356 @@ function RejectModal({
   );
 }
 
-export default function PendingRegistrationsTab({ showAlert }: { showAlert: (msg: string, type?: 'success' | 'error' | 'info') => void }) {
-  const [statusFilter, setStatusFilter] = useState<'pending' | 'rejected'>('pending');
-  const [search, setSearch]             = useState('');
-  const [items, setItems]               = useState<PendingRegistrant[]>([]);
-  const [total, setTotal]               = useState(0);
-  const [page, setPage]                 = useState(1);
-  const [pages, setPages]               = useState(1);
-  const [loading, setLoading]           = useState(false);
-  const [selected, setSelected]         = useState<PendingRegistrant | null>(null);
-  const [rejectOpen, setRejectOpen]     = useState(false);
-  const [approving, setApproving]       = useState(false);
-  const [rejecting, setRejecting]       = useState(false);
+export default function PendingRegistrationsTab({
+  showAlert,
+}: {
+  showAlert: (
+    message: string,
+    type?:
+      | "success"
+      | "error"
+      | "info",
+  ) => void;
+}) {
+  const [
+    statusFilter,
+    setStatusFilter,
+  ] = useState<
+    "pending" | "rejected"
+  >("pending");
 
-  const load = useCallback(async (p = 1) => {
-    setLoading(true);
-    try {
-      const res = await pendingRegistrationsApi.list(statusFilter, p);
-      const d = (res.data as any)?.data ?? (res.data as any);
-      setItems(d.items ?? []);
-      setTotal(d.total ?? 0);
-      setPages(d.pages ?? 1);
-      setPage(p);
-    } catch {
-      showAlert('Failed to load registrations', 'error');
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter]);
+  const [search, setSearch] =
+    useState("");
 
-  useEffect(() => { load(1); }, [load]);
+  const [items, setItems] =
+    useState<
+      PendingRegistrant[]
+    >([]);
 
-  const filtered = search.trim()
-    ? items.filter(i =>
-        i.fullName.toLowerCase().includes(search.toLowerCase()) ||
-        i.email.toLowerCase().includes(search.toLowerCase()),
-      )
-    : items;
+  const [total, setTotal] =
+    useState(0);
 
-  // Keep a snapshot of the selected item so dialogs don't lose their title
-  // when selected is cleared after approve/reject
-  const [snapshot, setSnapshot] = useState<PendingRegistrant | null>(null);
+  const [page, setPage] =
+    useState(1);
 
-  const openDrawer = (row: PendingRegistrant) => {
+  const [pages, setPages] =
+    useState(1);
+
+  const [loading, setLoading] =
+    useState(false);
+
+  const [
+    selected,
+    setSelected,
+  ] =
+    useState<PendingRegistrant | null>(
+      null,
+    );
+
+  const [
+    snapshot,
+    setSnapshot,
+  ] =
+    useState<PendingRegistrant | null>(
+      null,
+    );
+
+  const [
+    rejectOpen,
+    setRejectOpen,
+  ] = useState(false);
+
+  const [
+    decisionOpen,
+    setDecisionOpen,
+  ] = useState(false);
+
+  const [
+    pendingFinancialInfo,
+    setPendingFinancialInfo,
+  ] =
+    useState<ApprovalFinancialInfo | null>(
+      null,
+    );
+
+  const [
+    approving,
+    setApproving,
+  ] = useState(false);
+
+  const [
+    rejecting,
+    setRejecting,
+  ] = useState(false);
+
+  const load = useCallback(
+    async (
+      requestedPage = 1,
+    ) => {
+      setLoading(true);
+
+      try {
+        const response =
+          await pendingRegistrationsApi.list(
+            statusFilter,
+            requestedPage,
+          );
+
+        const data =
+          response.data?.data ||
+          response.data;
+
+        setItems(
+          data.items || [],
+        );
+
+        setTotal(
+          data.total || 0,
+        );
+
+        setPages(
+          data.pages || 1,
+        );
+
+        setPage(
+          requestedPage,
+        );
+      } catch {
+        showAlert(
+          "Failed to load registrations",
+          "error",
+        );
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      statusFilter,
+      showAlert,
+    ],
+  );
+
+  useEffect(() => {
+    load(1);
+  }, [load]);
+
+  const filtered =
+    search.trim()
+      ? items.filter(
+          (item) =>
+            item.fullName
+              .toLowerCase()
+              .includes(
+                search.toLowerCase(),
+              ) ||
+            item.email
+              .toLowerCase()
+              .includes(
+                search.toLowerCase(),
+              ),
+        )
+      : items;
+
+  const openDrawer = (
+    row: PendingRegistrant,
+  ) => {
     setSelected(row);
     setSnapshot(row);
   };
 
-  const handleApprove = async (financialInfo: ApprovalFinancialInfo) => {
-    if (!snapshot) return;
-    setApproving(true);
-    try {
-      await pendingRegistrationsApi.approve(snapshot.id, financialInfo);
-      showAlert(`${snapshot.fullName} has been approved`, 'success');
-      setSelected(null);
-      load(page);
-    } catch {
-      showAlert('Failed to approve', 'error');
-    } finally {
-      setApproving(false);
+  const requestApproval = (
+    financialInfo: ApprovalFinancialInfo,
+  ) => {
+    if (!snapshot) {
+      return;
     }
+
+    setPendingFinancialInfo(
+      financialInfo,
+    );
+
+    setSelected(null);
+    setDecisionOpen(true);
   };
 
-  const handleReject = async (reason: string, templateMessage: string) => {
-    if (!snapshot) return;
-    setRejecting(true);
-    try {
-      await pendingRegistrationsApi.reject(snapshot.id, reason, templateMessage);
-      showAlert(`${snapshot.fullName} has been rejected and notified`, 'success');
-      setRejectOpen(false);
-      setSelected(null);
-      load(page);
-    } catch {
-      showAlert('Failed to reject', 'error');
-    } finally {
-      setRejecting(false);
-    }
-  };
+  const completeApproval =
+    async (
+      configuration: RegistrationProbationConfiguration,
+    ) => {
+      if (
+        !snapshot ||
+        !pendingFinancialInfo
+      ) {
+        return;
+      }
+
+      setApproving(true);
+
+      try {
+        const approval =
+          await pendingRegistrationsApi.approve(
+            snapshot.id,
+            {
+              financialInfo:
+                pendingFinancialInfo,
+
+              approvalMode:
+                configuration.mode,
+            },
+          );
+
+        const approvedUserId =
+          approval.userId ||
+          snapshot.id;
+
+        if (
+          configuration.mode ===
+          "START_PROBATION"
+        ) {
+          if (
+            !configuration.startDate ||
+            !configuration.durationMonths ||
+            !configuration.expectedEndDate ||
+            !configuration.managerUserId
+          ) {
+            throw new Error(
+              "Probation configuration is incomplete.",
+            );
+          }
+
+          await initializeEmployeeProbation(
+            {
+              employeeUserId:
+                approvedUserId,
+
+              startDate:
+                configuration.startDate,
+
+              durationMonths:
+                configuration.durationMonths,
+
+              expectedEndDate:
+                configuration.expectedEndDate,
+
+              managerUserId:
+                configuration.managerUserId,
+
+              finalApproverUserId:
+                configuration.finalApproverUserId ||
+                null,
+
+              source:
+                "PORTAL_REGISTRATION",
+
+              status: "ACTIVE",
+
+              notes:
+                configuration.notes ||
+                null,
+
+              metadata: {
+                registrationApprovalMode:
+                  configuration.mode,
+
+                registrationId:
+                  snapshot.id,
+              },
+            },
+          );
+        }
+
+        showAlert(
+          configuration.mode ===
+            "START_PROBATION"
+            ? `${snapshot.fullName} has been approved and probation was initialized`
+            : `${snapshot.fullName} has been approved`,
+          "success",
+        );
+
+        setDecisionOpen(false);
+        setSelected(null);
+        setSnapshot(null);
+        setPendingFinancialInfo(
+          null,
+        );
+
+        await load(page);
+      } catch (error: any) {
+        showAlert(
+          error?.response?.data
+            ?.message ||
+            error?.message ||
+            "Failed to approve registration",
+          "error",
+        );
+      } finally {
+        setApproving(false);
+      }
+    };
+
+  const handleReject =
+    async (
+      reason: string,
+      templateMessage: string,
+    ) => {
+      if (!snapshot) {
+        return;
+      }
+
+      setRejecting(true);
+
+      try {
+        await pendingRegistrationsApi.reject(
+          snapshot.id,
+          reason,
+          templateMessage,
+        );
+
+        showAlert(
+          `${snapshot.fullName} has been rejected and notified`,
+          "success",
+        );
+
+        setRejectOpen(false);
+        setSelected(null);
+        setSnapshot(null);
+
+        await load(page);
+      } catch (error: any) {
+        showAlert(
+          error?.response?.data
+            ?.message ||
+            error?.message ||
+            "Failed to reject registration",
+          "error",
+        );
+      } finally {
+        setRejecting(false);
+      }
+    };
 
   return (
     <div className="space-y-4">
       <PageHeader
         eyebrow="People"
         title="Pending Registrations"
-        description="Review self-registered applicants and approve or reject their account requests."
+        description="Review self-registered applicants and approve, start probation, or reject their account requests."
         actions={
           <Button
             variant="outline"
-            onClick={() => load(page)}
-            className="h-8 text-xs rounded-xl border-slate-200 gap-1.5"
+            onClick={() =>
+              load(page)
+            }
+            className="h-8 gap-1.5 rounded-xl border-slate-200 text-xs"
           >
-            <RefreshCw className={cn('w-3.5 h-3.5', loading && 'animate-spin')} />
+            <RefreshCw
+              className={cn(
+                "h-3.5 w-3.5",
+                loading &&
+                  "animate-spin",
+              )}
+            />
+
             Refresh
           </Button>
         }
@@ -289,128 +633,312 @@ export default function PendingRegistrationsTab({ showAlert }: { showAlert: (msg
 
       <FilterBar
         search={search}
-        onSearchChange={setSearch}
+        onSearchChange={
+          setSearch
+        }
         searchPlaceholder="Search by name or email…"
-        filters={[{
-          value: statusFilter,
-          onChange: v => { setStatusFilter(v as any); setPage(1); },
-          placeholder: 'Status',
-          options: [
-            { value: 'pending',  label: 'Pending Review' },
-            { value: 'rejected', label: 'Rejected' },
-          ],
-        }]}
+        filters={[
+          {
+            value:
+              statusFilter,
+
+            onChange: (
+              value,
+            ) => {
+              setStatusFilter(
+                value as
+                  | "pending"
+                  | "rejected",
+              );
+
+              setPage(1);
+            },
+
+            placeholder:
+              "Status",
+
+            options: [
+              {
+                value:
+                  "pending",
+                label:
+                  "Pending Review",
+              },
+
+              {
+                value:
+                  "rejected",
+                label:
+                  "Rejected",
+              },
+            ],
+          },
+        ]}
       />
 
-      {/* Stats row */}
       <div className="flex items-center gap-3 text-[11px]">
-        <span className="text-slate-400 font-medium">
-          {total} {statusFilter === 'pending' ? 'pending' : 'rejected'} applicant{total !== 1 ? 's' : ''}
+        <span className="font-medium text-slate-400">
+          {total}{" "}
+          {statusFilter ===
+          "pending"
+            ? "pending"
+            : "rejected"}{" "}
+          applicant
+          {total !== 1
+            ? "s"
+            : ""}
         </span>
-        {pages > 1 && (
-          <span className="text-slate-300">·</span>
-        )}
-        {pages > 1 && (
-          <span className="text-slate-400 font-medium">Page {page} of {pages}</span>
-        )}
+
+        {pages > 1 ? (
+          <>
+            <span className="text-slate-300">
+              ·
+            </span>
+
+            <span className="font-medium text-slate-400">
+              Page {page} of{" "}
+              {pages}
+            </span>
+          </>
+        ) : null}
       </div>
 
       <DataTable
-        columns={['Applicant', 'Role Requested', 'Department', 'Applied On', 'Status', '']}
+        columns={[
+          "Applicant",
+          "Role Requested",
+          "Department",
+          "Applied On",
+          "Status",
+          "",
+        ]}
         rows={filtered}
         loading={loading}
         emptyMessage={
-          statusFilter === 'pending'
-            ? 'No pending registrations — all caught up!'
-            : 'No rejected applications found.'
+          statusFilter ===
+          "pending"
+            ? "No pending registrations — all caught up!"
+            : "No rejected applications found."
         }
         renderRow={(row) => {
-          const r = row as PendingRegistrant;
+          const registrant =
+            row as PendingRegistrant;
+
           return (
-          <tr
-            key={r.id}
-            className="border-b border-slate-100 hover:bg-slate-50/60 cursor-pointer transition-colors"
-            onClick={() => openDrawer(r)}
-          >
-            <td className="px-4 py-3">
-              <div className="flex items-center gap-2.5">
-                <UserAvatar name={r.fullName} size="sm" />
-                <div>
-                  <p className="text-xs font-bold text-slate-900 leading-none">{r.fullName}</p>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{r.email}</p>
+            <tr
+              key={
+                registrant.id
+              }
+              className="cursor-pointer border-b border-slate-100 transition-colors hover:bg-slate-50/60"
+              onClick={() =>
+                openDrawer(
+                  registrant,
+                )
+              }
+            >
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-2.5">
+                  <UserAvatar
+                    name={
+                      registrant.fullName
+                    }
+                    size="sm"
+                  />
+
+                  <div>
+                    <p className="text-xs font-bold leading-none text-slate-900">
+                      {
+                        registrant.fullName
+                      }
+                    </p>
+
+                    <p className="mt-0.5 text-[10px] text-slate-400">
+                      {
+                        registrant.email
+                      }
+                    </p>
+                  </div>
                 </div>
-              </div>
-            </td>
-            <td className="px-4 py-3">
-              <span className="text-[11px] font-semibold text-slate-600">
-                {r.requestedRoleKey?.replace(/_/g, ' ') || '—'}
-              </span>
-            </td>
-            <td className="px-4 py-3">
-              <span className="text-[11px] text-slate-500">{r.department?.name || '—'}</span>
-            </td>
-            <td className="px-4 py-3">
-              <span className="text-[11px] text-slate-500">{fmt(r.createdAt)}</span>
-            </td>
-            <td className="px-4 py-3">
-              <StatusBadge status={r.status} />
-            </td>
-            <td className="px-4 py-3 text-right">
-              <button
-                onClick={e => { e.stopPropagation(); openDrawer(r); }}
-                className="w-7 h-7 rounded-lg bg-slate-50 hover:bg-blue-50 border border-slate-100 hover:border-blue-200 flex items-center justify-center transition-colors ml-auto"
-              >
-                <Eye className="w-3.5 h-3.5 text-slate-400 hover:text-blue-500" />
-              </button>
-            </td>
-          </tr>
+              </td>
+
+              <td className="px-4 py-3">
+                <span className="text-[11px] font-semibold text-slate-600">
+                  {registrant.requestedRoleKey?.replace(
+                    /_/g,
+                    " ",
+                  ) || "—"}
+                </span>
+              </td>
+
+              <td className="px-4 py-3">
+                <span className="text-[11px] text-slate-500">
+                  {registrant
+                    .department
+                    ?.name ||
+                    "—"}
+                </span>
+              </td>
+
+              <td className="px-4 py-3">
+                <span className="text-[11px] text-slate-500">
+                  {formatDate(
+                    registrant.createdAt,
+                  )}
+                </span>
+              </td>
+
+              <td className="px-4 py-3">
+                <StatusBadge
+                  status={
+                    registrant.status
+                  }
+                />
+              </td>
+
+              <td className="px-4 py-3 text-right">
+                <button
+                  type="button"
+                  onClick={(
+                    event,
+                  ) => {
+                    event.stopPropagation();
+
+                    openDrawer(
+                      registrant,
+                    );
+                  }}
+                  className="ml-auto flex h-7 w-7 items-center justify-center rounded-lg border border-slate-100 bg-slate-50 transition-colors hover:border-blue-200 hover:bg-blue-50"
+                >
+                  <Eye className="h-3.5 w-3.5 text-slate-400 hover:text-blue-500" />
+                </button>
+              </td>
+            </tr>
           );
         }}
       />
 
-      {/* Pagination */}
-      {pages > 1 && (
+      {pages > 1 ? (
         <div className="flex items-center justify-center gap-2 pt-2">
-          <Button variant="ghost" size="sm" onClick={() => load(page - 1)} disabled={page <= 1 || loading} className="h-7 w-7 p-0 rounded-lg">
-            <ChevronLeft className="w-4 h-4" />
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              load(page - 1)
+            }
+            disabled={
+              page <= 1 ||
+              loading
+            }
+            className="h-7 w-7 rounded-lg p-0"
+          >
+            <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-xs font-semibold text-slate-500 px-2">{page} / {pages}</span>
-          <Button variant="ghost" size="sm" onClick={() => load(page + 1)} disabled={page >= pages || loading} className="h-7 w-7 p-0 rounded-lg">
-            <ChevronRight className="w-4 h-4" />
+
+          <span className="px-2 text-xs font-semibold text-slate-500">
+            {page} / {pages}
+          </span>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() =>
+              load(page + 1)
+            }
+            disabled={
+              page >= pages ||
+              loading
+            }
+            className="h-7 w-7 rounded-lg p-0"
+          >
+            <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-      )}
+      ) : null}
 
-      {/* Detail drawer */}
       <AnimatePresence>
-        {selected && (
+        {selected ? (
           <>
             <div
               className="fixed inset-0 z-30 bg-black/20 backdrop-blur-[2px]"
-              onClick={() => setSelected(null)}
+              onClick={() =>
+                setSelected(null)
+              }
             />
+
             <RegistrantDrawer
-              registrant={selected}
-              onClose={() => setSelected(null)}
-              onApprove={handleApprove}
-              onReject={() => setRejectOpen(true)}
-              approving={approving}
-              rejecting={rejecting}
+              registrant={
+                selected
+              }
+              onClose={() =>
+                setSelected(null)
+              }
+              onApprove={
+                requestApproval
+              }
+              onReject={() =>
+                setRejectOpen(
+                  true,
+                )
+              }
+              approving={
+                approving
+              }
+              rejecting={
+                rejecting
+              }
             />
           </>
-        )}
+        ) : null}
       </AnimatePresence>
 
-      {/* Reject modal */}
       <AnimatePresence>
         <RejectModal
           open={rejectOpen}
-          onClose={() => setRejectOpen(false)}
-          onConfirm={handleReject}
-          loading={rejecting}
-          applicantName={snapshot?.fullName || ''}
+          onClose={() =>
+            setRejectOpen(
+              false,
+            )
+          }
+          onConfirm={
+            handleReject
+          }
+          loading={
+            rejecting
+          }
+          applicantName={
+            snapshot?.fullName ||
+            ""
+          }
         />
       </AnimatePresence>
+
+      <RegistrationApprovalDecisionDialog
+        isOpen={
+          decisionOpen
+        }
+        registrant={
+          snapshot
+        }
+        submitting={
+          approving
+        }
+        onClose={() => {
+          if (approving) {
+            return;
+          }
+
+          setDecisionOpen(
+            false,
+          );
+
+          setPendingFinancialInfo(
+            null,
+          );
+        }}
+        onConfirm={
+          completeApproval
+        }
+      />
     </div>
   );
 }

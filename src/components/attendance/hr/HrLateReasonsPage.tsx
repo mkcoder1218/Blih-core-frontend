@@ -1,12 +1,44 @@
 import React from "react";
-import { useCreateHrLateReason, useDeactivateHrLateReason, useHrLateReasons, useLatenessCreditConfig, useUpdateHrLateReason, useUpdateLatenessCreditConfig } from "../../../hooks/useHrLateReasons";
+import { Pencil, Plus, Settings2, Trash2, X } from "lucide-react";
+import {
+  InfoAlert,
+  LoadingSpinner,
+  PageHeader,
+} from "@/components/ui/blih";
+import { Button } from "@/components/ui/button";
+import {
+  useCreateHrLateReason,
+  useDeactivateHrLateReason,
+  useHrLateReasons,
+  useLatenessCreditConfig,
+  useUpdateHrLateReason,
+  useUpdateLatenessCreditConfig,
+} from "../../../hooks/useHrLateReasons";
 import { useMyPermissions } from "../../../hooks/usePermissions";
 import { useMe } from "../../../hooks/useMe";
-import { PageHeader, SectionCard, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
-import { Button } from "@/components/ui/button";
-import type { AttendanceLateReason, LatenessCreditConfig, LatenessCreditMode, LatenessReasonBehavior } from "../../../api/attendanceLateReasons";
+import type {
+  AttendanceLateReason,
+  LatenessCreditConfig,
+  LatenessCreditMode,
+  LatenessReasonBehavior,
+} from "../../../api/attendanceLateReasons";
+import {
+  LATENESS_CONTROL_CLASS,
+  LATENESS_TEXTAREA_CLASS,
+  LatenessEmptyState,
+  LatenessField,
+  LatenessNotice,
+  LatenessPanel,
+  LatenessStatusBadge,
+  LatenessSwitch,
+  LatenessTable,
+} from "../lateness/LatenessUi";
 
-const BEHAVIORS: LatenessReasonBehavior[] = ["BLOCK", "MARK_INVALID", "HR_REVIEW"];
+const BEHAVIORS: LatenessReasonBehavior[] = [
+  "BLOCK",
+  "MARK_INVALID",
+  "HR_REVIEW",
+];
 
 type RuleForm = {
   reasonCode: string;
@@ -40,25 +72,30 @@ function emptyForm(): RuleForm {
   };
 }
 
-function formFromReason(r: AttendanceLateReason): RuleForm {
+function formFromReason(reason: AttendanceLateReason): RuleForm {
   return {
-    reasonCode: r.reasonCode || r.name,
-    label: r.label || r.name,
-    description: r.description || "",
-    monthlyLimit: Number(r.monthlyLimit || 0),
-    coversMinutes: Number(r.coversMinutes || 0),
-    requiresApproval: r.requiresApproval !== false,
-    requiresAttachment: Boolean(r.requiresAttachment),
-    allowAfterDeadline: Boolean(r.allowAfterDeadline),
-    behaviorWhenExceeded: (r.behaviorWhenExceeded || "HR_REVIEW") as LatenessReasonBehavior,
-    sortOrder: Number(r.sortOrder || 0),
-    enabled: r.enabled !== false && r.isActive !== false,
-    requiresComment: Boolean(r.requiresComment),
+    reasonCode: reason.reasonCode || reason.name,
+    label: reason.label || reason.name,
+    description: reason.description || "",
+    monthlyLimit: Number(reason.monthlyLimit || 0),
+    coversMinutes: Number(reason.coversMinutes || 0),
+    requiresApproval: reason.requiresApproval !== false,
+    requiresAttachment: Boolean(reason.requiresAttachment),
+    allowAfterDeadline: Boolean(reason.allowAfterDeadline),
+    behaviorWhenExceeded:
+      (reason.behaviorWhenExceeded ||
+        "HR_REVIEW") as LatenessReasonBehavior,
+    sortOrder: Number(reason.sortOrder || 0),
+    enabled: reason.enabled !== false && reason.isActive !== false,
+    requiresComment: Boolean(reason.requiresComment),
   };
 }
 
-function normalizeCode(value: string) {
-  return value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "_");
+function normalizeCode(value: string): string {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_");
 }
 
 function payload(form: RuleForm) {
@@ -72,151 +109,292 @@ function payload(form: RuleForm) {
   };
 }
 
+function behaviorLabel(value: LatenessReasonBehavior): string {
+  if (value === "BLOCK") return "Block submission";
+  if (value === "MARK_INVALID") return "Accept but mark invalid";
+  return "Send to HR review";
+}
+
 export default function HrLateReasonsPage() {
-  const perms = useMyPermissions();
+  const permissions = useMyPermissions();
   const me = useMe();
+
   const roles: string[] = (me.data as any)?.data?.roles || [];
-  const q = useHrLateReasons();
+  const query = useHrLateReasons();
   const creditConfig = useLatenessCreditConfig();
   const updateCreditConfig = useUpdateLatenessCreditConfig();
   const create = useCreateHrLateReason();
   const update = useUpdateHrLateReason();
   const deactivate = useDeactivateHrLateReason();
-  const canManage = perms.hasAny("attendance.manage") || roles.includes("BUSINESS_ADMIN") || roles.includes("HR_MANAGER");
-  const reasons = q.data?.data?.reasons || [];
+
+  const canManage =
+    permissions.hasAny("attendance.manage") ||
+    roles.includes("BUSINESS_ADMIN") ||
+    roles.includes("HR_MANAGER");
+
+  const reasons = query.data?.data?.reasons || [];
   const currentCreditConfig = creditConfig.data?.data?.config;
+
+  const [editorOpen, setEditorOpen] = React.useState(false);
+  const [editingReason, setEditingReason] =
+    React.useState<AttendanceLateReason | null>(null);
   const [form, setForm] = React.useState<RuleForm>(emptyForm());
   const [formError, setFormError] = React.useState("");
 
-  const setField = <K extends keyof RuleForm>(key: K, value: RuleForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
+  const openCreate = () => {
+    setEditingReason(null);
+    setForm(emptyForm());
+    setFormError("");
+    setEditorOpen(true);
+  };
+
+  const openEdit = (reason: AttendanceLateReason) => {
+    setEditingReason(reason);
+    setForm(formFromReason(reason));
+    setFormError("");
+    setEditorOpen(true);
+  };
+
+  const closeEditor = () => {
+    if (create.isPending || update.isPending) return;
+    setEditorOpen(false);
+    setEditingReason(null);
+    setForm(emptyForm());
+    setFormError("");
+  };
+
+  const saveRule = async () => {
+    setFormError("");
+
+    if (!form.label.trim()) {
+      setFormError("Label is required.");
+      return;
+    }
+
+    if (!normalizeCode(form.reasonCode || form.label)) {
+      setFormError("Reason code is required.");
+      return;
+    }
+
+    try {
+      if (editingReason) {
+        await update.mutateAsync({
+          reasonId: editingReason.id,
+          data: payload(form),
+        });
+      } else {
+        await create.mutateAsync(payload(form));
+      }
+
+      closeEditor();
+    } catch (caught: any) {
+      setFormError(
+        caught?.response?.data?.message ||
+          caught?.message ||
+          "Failed to save reason rule.",
+      );
+    }
+  };
 
   return (
     <div className="space-y-4">
       <PageHeader
         eyebrow="Business Attendance"
         title="Late Reason Rules"
-        description="Configure each lateness reason separately for this business."
+        description="Manage lateness credit behavior and the reason categories available to employees."
       />
 
-      {canManage && (
-        <CreditConfigCard
-          config={creditConfig.data?.data?.config}
+      {canManage ? (
+        <CreditConfigPanel
+          config={currentCreditConfig}
           isLoading={creditConfig.isLoading}
           isSaving={updateCreditConfig.isPending}
-          onSave={(config) => updateCreditConfig.mutateAsync(config)}
+          onSave={(config) =>
+            updateCreditConfig.mutateAsync(config)
+          }
         />
-      )}
+      ) : null}
 
-      {canManage && (
-        <SectionCard title="Create Reason Rule">
-          {formError && <InfoAlert variant="error" message={formError} className="mb-3" />}
-          <RuleFields form={form} setField={setField} creditConfig={currentCreditConfig} />
-          <Button
-            onClick={async () => {
-              setFormError("");
-              if (!form.label.trim()) return setFormError("Label is required.");
-              if (!normalizeCode(form.reasonCode || form.label)) return setFormError("Reason code is required.");
-              try {
-                await create.mutateAsync(payload(form));
-                setForm(emptyForm());
-              } catch (e: any) {
-                setFormError(e?.response?.data?.message || e?.message || "Failed to create reason rule");
-              }
-            }}
-            disabled={create.isPending}
-            className="mt-4 bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white text-xs h-9 rounded-xl"
+      <LatenessPanel
+        title="Reason rules"
+        description={`${reasons.length} configured reason ${
+          reasons.length === 1 ? "rule" : "rules"
+        }.`}
+        action={
+          canManage ? (
+            <Button
+              type="button"
+              onClick={openCreate}
+              className="h-9 rounded-lg bg-blue-600 px-3 text-xs font-semibold text-white hover:bg-blue-700"
+            >
+              <Plus className="mr-1.5 h-4 w-4" />
+              New reason
+            </Button>
+          ) : null
+        }
+      >
+        {query.isLoading ? (
+          <LoadingSpinner label="Loading reason rules..." />
+        ) : null}
+
+        {query.isError ? (
+          <InfoAlert
+            variant="error"
+            message="Failed to load lateness reason rules."
+            className="mb-4"
+          />
+        ) : null}
+
+        {!query.isLoading && reasons.length ? (
+          <LatenessTable
+            columns={[
+              "Reason",
+              "Credit",
+              "Requirements",
+              "Exceeded behavior",
+              "Status",
+              "Actions",
+            ]}
           >
-            {create.isPending ? "Creating..." : "Create Rule"}
-          </Button>
-        </SectionCard>
-      )}
+            {reasons.map((reason: AttendanceLateReason) => {
+              const enabled =
+                reason.enabled !== false &&
+                reason.isActive !== false;
 
-      <SectionCard title="Reason Rules" description={`${reasons.length} total`}>
-        {q.isLoading && <LoadingSpinner label="Loading..." />}
-        {q.isError && <InfoAlert variant="error" message="Failed to load lateness reason rules." />}
-        <div className="divide-y divide-slate-100">
-          {reasons.map((r) => (
-            <div key={r.id}>
-              <ReasonRow
-                r={r}
-                canManage={canManage}
-                creditConfig={currentCreditConfig}
-                onSave={(data) => update.mutateAsync({ reasonId: r.id, data })}
-                onDeactivate={() => deactivate.mutateAsync(r.id)}
-              />
-            </div>
-          ))}
-        </div>
-      </SectionCard>
+              return (
+                <tr key={reason.id}>
+                  <td className="px-4 py-3">
+                    <p className="text-sm font-semibold text-slate-900">
+                      {reason.label || reason.name}
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                      {reason.reasonCode}
+                    </p>
+                    {reason.description ? (
+                      <p className="mt-1 max-w-xs text-xs leading-5 text-slate-500">
+                        {reason.description}
+                      </p>
+                    ) : null}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">
+                    {currentCreditConfig?.mode === "GLOBAL_POOL" ? (
+                      <>
+                        <p className="font-semibold text-slate-800">
+                          Shared pool
+                        </p>
+                        <p className="mt-0.5">
+                          {currentCreditConfig.globalMonthlyLimit}/month ·{" "}
+                          {currentCreditConfig.globalCoversMinutes} min
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="font-semibold text-slate-800">
+                          {reason.monthlyLimit}/month
+                        </p>
+                        <p className="mt-0.5">
+                          Covers {reason.coversMinutes} min
+                        </p>
+                      </>
+                    )}
+                  </td>
+
+                  <td className="px-4 py-3 text-xs text-slate-600">
+                    <div className="flex flex-wrap gap-1.5">
+                      {reason.requiresApproval !== false ? (
+                        <LatenessStatusBadge value="approval" />
+                      ) : null}
+                      {reason.requiresAttachment ? (
+                        <LatenessStatusBadge value="attachment" />
+                      ) : null}
+                      {reason.requiresComment ? (
+                        <LatenessStatusBadge value="comment" />
+                      ) : null}
+                      {reason.allowAfterDeadline ? (
+                        <LatenessStatusBadge value="after deadline" />
+                      ) : null}
+                      {reason.requiresApproval === false &&
+                      !reason.requiresAttachment &&
+                      !reason.requiresComment &&
+                      !reason.allowAfterDeadline ? (
+                        <span className="text-xs text-slate-400">None</span>
+                      ) : null}
+                    </div>
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3 text-xs font-medium text-slate-700">
+                    {behaviorLabel(
+                      (reason.behaviorWhenExceeded ||
+                        "HR_REVIEW") as LatenessReasonBehavior,
+                    )}
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3">
+                    <LatenessStatusBadge
+                      value={enabled ? "active" : "disabled"}
+                    />
+                  </td>
+
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {canManage ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEdit(reason)}
+                          className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </button>
+
+                        {enabled ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              deactivate.mutateAsync(reason.id)
+                            }
+                            disabled={deactivate.isPending}
+                            className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-2.5 text-xs font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Disable
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-slate-400">Read only</span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </LatenessTable>
+        ) : !query.isLoading ? (
+          <LatenessEmptyState
+            title="No reason rules configured"
+            description="Create the first lateness reason to make it available to employees."
+          />
+        ) : null}
+      </LatenessPanel>
+
+      {editorOpen ? (
+        <RuleEditorDialog
+          form={form}
+          setForm={setForm}
+          error={formError}
+          editing={Boolean(editingReason)}
+          creditConfig={currentCreditConfig}
+          saving={create.isPending || update.isPending}
+          onClose={closeEditor}
+          onSave={saveRule}
+        />
+      ) : null}
     </div>
   );
 }
 
-function RuleFields({ form, setField, creditConfig }: { form: RuleForm; setField: <K extends keyof RuleForm>(key: K, value: RuleForm[K]) => void; creditConfig?: LatenessCreditConfig }) {
-  const inputClass = "bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700";
-  const labelClass = "text-[10px] font-bold uppercase tracking-wider text-slate-400";
-  const isGlobalPool = creditConfig?.mode === "GLOBAL_POOL";
-  return (
-    <div className="space-y-3">
-      <div className={`grid grid-cols-1 ${isGlobalPool ? "md:grid-cols-2" : "md:grid-cols-4"} gap-3`}>
-        <Field label="Reason code">
-          <input value={form.reasonCode} onChange={(e) => setField("reasonCode", normalizeCode(e.target.value))} className={inputClass} placeholder="SICKNESS" />
-        </Field>
-        <Field label="Label">
-          <input value={form.label} onChange={(e) => setField("label", e.target.value)} className={inputClass} placeholder="Sickness" />
-        </Field>
-        {!isGlobalPool && (
-          <>
-            <Field label="Monthly limit">
-              <input type="number" min={0} value={form.monthlyLimit} onChange={(e) => setField("monthlyLimit", Number(e.target.value))} className={inputClass} />
-            </Field>
-            <Field label="Covers minutes">
-              <input type="number" min={0} value={form.coversMinutes} onChange={(e) => setField("coversMinutes", Number(e.target.value))} className={inputClass} />
-            </Field>
-          </>
-        )}
-      </div>
-
-      {isGlobalPool && (
-        <div className="rounded-xl border border-blue-100 bg-blue-50 px-3 py-2.5 text-[11px] font-bold text-blue-700">
-          One shared credit is active: {creditConfig?.globalMonthlyLimit ?? 0}/month, covers {creditConfig?.globalCoversMinutes ?? 0} minutes. Per-reason monthly limit and covers minutes are hidden because they are not used.
-        </div>
-      )}
-
-      <textarea value={form.description} onChange={(e) => setField("description", e.target.value)} rows={2} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700" placeholder="Description (optional)" />
-
-      <div className={`grid grid-cols-1 ${isGlobalPool ? "md:grid-cols-4" : "md:grid-cols-5"} gap-3`}>
-        {!isGlobalPool && (
-          <Field label="Exceeded behavior">
-            <select value={form.behaviorWhenExceeded} onChange={(e) => setField("behaviorWhenExceeded", e.target.value as LatenessReasonBehavior)} className={inputClass}>
-              {BEHAVIORS.map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </Field>
-        )}
-        <Field label="Sort order">
-          <input type="number" value={form.sortOrder} onChange={(e) => setField("sortOrder", Number(e.target.value))} className={inputClass} />
-        </Field>
-        <Toggle label="Enabled" checked={form.enabled} onChange={(value) => setField("enabled", value)} />
-        <Toggle label="Requires approval" checked={form.requiresApproval} onChange={(value) => setField("requiresApproval", value)} />
-        <Toggle label="Requires attachment" checked={form.requiresAttachment} onChange={(value) => setField("requiresAttachment", value)} />
-      </div>
-      <div className="flex flex-wrap gap-3">
-        <Toggle label="Allow after deadline" checked={form.allowAfterDeadline} onChange={(value) => setField("allowAfterDeadline", value)} />
-        <Toggle label="Requires comment" checked={form.requiresComment} onChange={(value) => setField("requiresComment", value)} />
-      </div>
-      {!isGlobalPool ? (
-        <>
-          <div className={labelClass}>Monthly limit is used in per-reason mode. In global pool mode, all enabled reasons share the system monthly credit limit.</div>
-          <div className={labelClass}>Examples: SICKNESS 2 / 60, TRANSPORT 1 / 30, FAMILY_EMERGENCY 2 / 120, MEDICAL_APPOINTMENT 2 / 90 with attachment, OTHER 0 / 0 with HR_REVIEW.</div>
-        </>
-      ) : (
-        <div className={labelClass}>Exceeded behavior is controlled by the global credit mode settings above.</div>
-      )}
-    </div>
-  );
-}
-
-function CreditConfigCard({
+function CreditConfigPanel({
   config,
   isLoading,
   isSaving,
@@ -239,166 +417,345 @@ function CreditConfigCard({
     if (config) setForm(config);
   }, [config]);
 
-  const inputClass = "bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700";
-
   return (
-    <SectionCard
-      title="Credit Mode"
-      description="Choose whether lateness credits are counted per reason category or as one shared monthly credit pool."
+    <LatenessPanel
+      title="Credit settings"
+      description="Choose whether each reason has its own credit or all reasons use one shared monthly pool."
+      action={<Settings2 className="h-4 w-4 text-slate-400" />}
     >
-      {isLoading ? <LoadingSpinner label="Loading credit config..." /> : null}
-      {error ? <InfoAlert variant="error" message={error} className="mb-3" /> : null}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-        <Field label="Implementation">
-          <select value={form.mode} onChange={(e) => setForm((prev) => ({ ...prev, mode: e.target.value as LatenessCreditMode }))} className={inputClass}>
-            <option value="PER_REASON">Each reason has own credit</option>
-            <option value="GLOBAL_POOL">One credit number for all</option>
+      {isLoading ? (
+        <LoadingSpinner label="Loading credit settings..." />
+      ) : null}
+
+      {error ? (
+        <InfoAlert variant="error" message={error} className="mb-4" />
+      ) : null}
+
+      <div className="grid gap-4 lg:grid-cols-4">
+        <LatenessField label="Credit mode">
+          <select
+            value={form.mode}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                mode: event.target.value as LatenessCreditMode,
+              }))
+            }
+            className={LATENESS_CONTROL_CLASS}
+          >
+            <option value="PER_REASON">
+              Separate credit for each reason
+            </option>
+            <option value="GLOBAL_POOL">
+              One shared monthly credit
+            </option>
           </select>
-        </Field>
-        <Field label="Global monthly credit">
+        </LatenessField>
+
+        <LatenessField label="Monthly uses">
           <input
             type="number"
             min={0}
             value={form.globalMonthlyLimit}
             disabled={form.mode !== "GLOBAL_POOL"}
-            onChange={(e) => setForm((prev) => ({ ...prev, globalMonthlyLimit: Number(e.target.value) }))}
-            className={`${inputClass} disabled:text-slate-400`}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                globalMonthlyLimit: Number(event.target.value),
+              }))
+            }
+            className={LATENESS_CONTROL_CLASS}
           />
-        </Field>
-        <Field label="Global covers minutes">
+        </LatenessField>
+
+        <LatenessField label="Minutes covered">
           <input
             type="number"
             min={0}
             value={form.globalCoversMinutes}
             disabled={form.mode !== "GLOBAL_POOL"}
-            onChange={(e) => setForm((prev) => ({ ...prev, globalCoversMinutes: Number(e.target.value) }))}
-            className={`${inputClass} disabled:text-slate-400`}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                globalCoversMinutes: Number(event.target.value),
+              }))
+            }
+            className={LATENESS_CONTROL_CLASS}
           />
-        </Field>
-        <Field label="Exceeded behavior">
-          <select value={form.behaviorWhenExceeded} onChange={(e) => setForm((prev) => ({ ...prev, behaviorWhenExceeded: e.target.value as LatenessReasonBehavior }))} className={inputClass}>
-            {BEHAVIORS.map((item) => <option key={item} value={item}>{item}</option>)}
+        </LatenessField>
+
+        <LatenessField label="When credit is exceeded">
+          <select
+            value={form.behaviorWhenExceeded}
+            onChange={(event) =>
+              setForm((current) => ({
+                ...current,
+                behaviorWhenExceeded:
+                  event.target.value as LatenessReasonBehavior,
+              }))
+            }
+            className={LATENESS_CONTROL_CLASS}
+          >
+            {BEHAVIORS.map((behavior) => (
+              <option key={behavior} value={behavior}>
+                {behaviorLabel(behavior)}
+              </option>
+            ))}
           </select>
-        </Field>
+        </LatenessField>
       </div>
-      <div className="mt-3 text-[10px] font-bold uppercase tracking-wider text-slate-400">
-        Per-reason mode keeps the current behavior. Global pool mode still requires an enabled selected reason, but all approved notices consume the same shared monthly credit.
+
+      <div className="mt-4 flex flex-col gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <p className="text-xs leading-5 text-blue-700">
+          {form.mode === "GLOBAL_POOL"
+            ? "All enabled reasons consume the same monthly credit pool."
+            : "Each reason uses its own monthly limit and covered minutes."}
+        </p>
+
+        <Button
+          type="button"
+          disabled={isSaving}
+          onClick={async () => {
+            setError("");
+
+            try {
+              await onSave(form);
+            } catch (caught: any) {
+              setError(
+                caught?.response?.data?.message ||
+                  caught?.message ||
+                  "Failed to save credit settings.",
+              );
+            }
+          }}
+          className="h-9 shrink-0 rounded-lg bg-slate-900 px-3 text-xs font-semibold text-white hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400"
+        >
+          {isSaving ? "Saving..." : "Save settings"}
+        </Button>
       </div>
-      <Button
-        onClick={async () => {
-          setError("");
-          try {
-            await onSave(form);
-          } catch (e: any) {
-            setError(e?.response?.data?.message || e?.message || "Failed to save credit config");
-          }
-        }}
-        disabled={isSaving}
-        className="mt-4 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white text-xs h-9 rounded-xl"
-      >
-        {isSaving ? "Saving..." : "Save Credit Mode"}
-      </Button>
-    </SectionCard>
+    </LatenessPanel>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="flex flex-col gap-1.5"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{label}</span>{children}</label>;
-}
-
-function Toggle({ label, checked, onChange }: { label: string; checked: boolean; onChange: (value: boolean) => void }) {
-  return (
-    <label className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4 accent-[#1a56db]" />
-      <span className="text-xs font-semibold text-slate-700">{label}</span>
-    </label>
-  );
-}
-
-function ReasonRow({ r, canManage, creditConfig, onSave, onDeactivate }: {
-  r: AttendanceLateReason;
-  canManage: boolean;
+function RuleEditorDialog({
+  form,
+  setForm,
+  error,
+  editing,
+  creditConfig,
+  saving,
+  onClose,
+  onSave,
+}: {
+  form: RuleForm;
+  setForm: React.Dispatch<React.SetStateAction<RuleForm>>;
+  error: string;
+  editing: boolean;
   creditConfig?: LatenessCreditConfig;
-  onSave: (data: any) => Promise<any>;
-  onDeactivate: () => Promise<any>;
+  saving: boolean;
+  onClose: () => void;
+  onSave: () => void;
 }) {
-  const [editing, setEditing] = React.useState(false);
-  const [form, setForm] = React.useState<RuleForm>(formFromReason(r));
-  const [err, setErr] = React.useState("");
-  const [saving, setSaving] = React.useState(false);
-  const setField = <K extends keyof RuleForm>(key: K, value: RuleForm[K]) => setForm((prev) => ({ ...prev, [key]: value }));
   const isGlobalPool = creditConfig?.mode === "GLOBAL_POOL";
 
+  const setField = <K extends keyof RuleForm>(
+    key: K,
+    value: RuleForm[K],
+  ) => {
+    setForm((current) => ({ ...current, [key]: value }));
+  };
+
   return (
-    <div className="px-5 py-4">
-      {err ? <InfoAlert variant="error" message={err} className="mb-2" /> : null}
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          {editing ? (
-            <RuleFields form={form} setField={setField} creditConfig={creditConfig} />
-          ) : (
-            <div className="space-y-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-[13px] font-extrabold text-slate-900">{r.label || r.name}</div>
-                <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-black text-slate-600">{r.reasonCode}</span>
-                {r.enabled === false || r.isActive === false ? <span className="rounded-full bg-rose-50 px-2 py-1 text-[10px] font-black text-rose-700">Disabled</span> : null}
-              </div>
-              <div className="text-[11px] text-slate-600 font-semibold">{r.description || "-"}</div>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-[11px] font-bold text-slate-600">
-                {isGlobalPool ? (
-                  <>
-                    <span>Shared limit: {creditConfig?.globalMonthlyLimit ?? 0}/month</span>
-                    <span>Shared covers: {creditConfig?.globalCoversMinutes ?? 0} min</span>
-                    <span>Shared exceeded: {creditConfig?.behaviorWhenExceeded || "HR_REVIEW"}</span>
-                  </>
-                ) : (
-                  <>
-                    <span>Limit: {r.monthlyLimit}/month</span>
-                    <span>Covers: {r.coversMinutes} min</span>
-                  </>
-                )}
-                <span>Exceeded: {r.behaviorWhenExceeded}</span>
-                <span>Approval: {r.requiresApproval === false ? "No" : "Yes"}</span>
-                <span>Attachment: {r.requiresAttachment ? "Yes" : "No"}</span>
-              </div>
-            </div>
-          )}
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/40 p-4">
+      <button
+        type="button"
+        className="absolute inset-0"
+        onClick={onClose}
+        aria-label="Close reason editor"
+      />
+
+      <div className="relative flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-5 py-4">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950">
+              {editing ? "Edit reason rule" : "Create reason rule"}
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Keep the rule name clear and use the switches only when required.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
-        {canManage && (
-          <div className="flex gap-2 shrink-0">
-            {editing ? (
-              <>
-                <button onClick={() => { setForm(formFromReason(r)); setEditing(false); }} className="text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-xl" disabled={saving}>Cancel</button>
-                <button
-                  onClick={async () => {
-                    setErr("");
-                    setSaving(true);
-                    try {
-                      await onSave(payload(form));
-                      setEditing(false);
-                    } catch (e: any) {
-                      setErr(e?.response?.data?.message || e?.message || "Save failed");
-                    } finally {
-                      setSaving(false);
-                    }
-                  }}
-                  className="text-xs font-extrabold bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-xl"
-                  disabled={saving}
-                >
-                  Save
-                </button>
-              </>
-            ) : (
-              <>
-                <button onClick={() => setEditing(true)} className="text-xs font-extrabold bg-slate-900 hover:bg-slate-800 text-white px-3 py-2 rounded-xl">Edit</button>
-                {r.enabled !== false && r.isActive !== false ? (
-                  <button onClick={onDeactivate} className="text-xs font-extrabold bg-rose-50 hover:bg-rose-100 text-rose-700 px-3 py-2 rounded-xl">Disable</button>
-                ) : null}
-              </>
-            )}
+        <div className="flex-1 space-y-5 overflow-y-auto p-5">
+          {error ? <InfoAlert variant="error" message={error} /> : null}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <LatenessField label="Reason label" required>
+              <input
+                value={form.label}
+                onChange={(event) => setField("label", event.target.value)}
+                className={LATENESS_CONTROL_CLASS}
+                placeholder="Sickness"
+              />
+            </LatenessField>
+
+            <LatenessField
+              label="Reason code"
+              required
+              hint="Used internally and stored in uppercase."
+            >
+              <input
+                value={form.reasonCode}
+                onChange={(event) =>
+                  setField("reasonCode", normalizeCode(event.target.value))
+                }
+                className={LATENESS_CONTROL_CLASS}
+                placeholder="SICKNESS"
+              />
+            </LatenessField>
           </div>
-        )}
+
+          <LatenessField label="Description">
+            <textarea
+              value={form.description}
+              onChange={(event) =>
+                setField("description", event.target.value)
+              }
+              rows={3}
+              className={LATENESS_TEXTAREA_CLASS}
+              placeholder="Explain when employees should use this reason..."
+            />
+          </LatenessField>
+
+          {isGlobalPool ? (
+            <LatenessNotice
+              tone="info"
+              title="Shared credit mode is active"
+              description={`${creditConfig?.globalMonthlyLimit ?? 0} uses per month covering ${creditConfig?.globalCoversMinutes ?? 0} minutes. Per-reason credit fields are not used.`}
+            />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              <LatenessField label="Monthly limit">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.monthlyLimit}
+                  onChange={(event) =>
+                    setField("monthlyLimit", Number(event.target.value))
+                  }
+                  className={LATENESS_CONTROL_CLASS}
+                />
+              </LatenessField>
+
+              <LatenessField label="Minutes covered">
+                <input
+                  type="number"
+                  min={0}
+                  value={form.coversMinutes}
+                  onChange={(event) =>
+                    setField("coversMinutes", Number(event.target.value))
+                  }
+                  className={LATENESS_CONTROL_CLASS}
+                />
+              </LatenessField>
+
+              <LatenessField label="When exceeded">
+                <select
+                  value={form.behaviorWhenExceeded}
+                  onChange={(event) =>
+                    setField(
+                      "behaviorWhenExceeded",
+                      event.target.value as LatenessReasonBehavior,
+                    )
+                  }
+                  className={LATENESS_CONTROL_CLASS}
+                >
+                  {BEHAVIORS.map((behavior) => (
+                    <option key={behavior} value={behavior}>
+                      {behaviorLabel(behavior)}
+                    </option>
+                  ))}
+                </select>
+              </LatenessField>
+            </div>
+          )}
+
+          <div className="grid gap-3 md:grid-cols-2">
+            <LatenessSwitch
+              label="Enabled"
+              description="Employees can select this reason."
+              checked={form.enabled}
+              onChange={(value) => setField("enabled", value)}
+            />
+            <LatenessSwitch
+              label="Requires approval"
+              description="HR or an approver must review the notice."
+              checked={form.requiresApproval}
+              onChange={(value) => setField("requiresApproval", value)}
+            />
+            <LatenessSwitch
+              label="Requires attachment"
+              description="The employee must provide supporting evidence."
+              checked={form.requiresAttachment}
+              onChange={(value) => setField("requiresAttachment", value)}
+            />
+            <LatenessSwitch
+              label="Requires comment"
+              description="A written explanation is mandatory."
+              checked={form.requiresComment}
+              onChange={(value) => setField("requiresComment", value)}
+            />
+            <LatenessSwitch
+              label="Allow after deadline"
+              description="Employees may submit this reason after 08:30."
+              checked={form.allowAfterDeadline}
+              onChange={(value) => setField("allowAfterDeadline", value)}
+            />
+
+            <LatenessField label="Sort order">
+              <input
+                type="number"
+                value={form.sortOrder}
+                onChange={(event) =>
+                  setField("sortOrder", Number(event.target.value))
+                }
+                className={LATENESS_CONTROL_CLASS}
+              />
+            </LatenessField>
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-slate-100 bg-slate-50 px-5 py-4">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={saving}
+            onClick={onClose}
+            className="h-9 rounded-lg"
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={saving}
+            onClick={onSave}
+            className="h-9 rounded-lg bg-blue-600 px-4 text-xs font-semibold text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400"
+          >
+            {saving
+              ? "Saving..."
+              : editing
+                ? "Save changes"
+                : "Create reason"}
+          </Button>
+        </div>
       </div>
     </div>
   );

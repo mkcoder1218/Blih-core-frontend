@@ -13,30 +13,32 @@ import {
   type ChartConfig,
 } from '@/components/ui/chart';
 import {
-  AlertTriangle,
+  Activity,
   BriefcaseBusiness,
   CalendarCheck,
-  CheckCircle2,
   Clock3,
   FileText,
+  Gauge,
   Send,
   Timer,
-  TrendingUp,
   UserCheck,
+  UsersRound,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useMemo } from 'react';
 import {
   Area,
   AreaChart,
+  Bar,
+  BarChart,
   CartesianGrid,
-  Line,
+  Cell,
+  Pie,
+  PieChart,
   XAxis,
   YAxis,
 } from 'recharts';
-import { useLegacyUser } from '../../api/legacyUserStore';
 import { useInterviews, useJobApplications, useJobRequests } from '../../hooks/useJobRequests';
-import AttendanceShortcutCard from '../attendance/AttendanceShortcutCard';
 import { KpiCard } from './RecruitmentRequestParts';
 
 interface RecruitmentOverviewProps {
@@ -50,10 +52,20 @@ const interviewStages = new Set(['interview', 'interview_scheduled', 'scheduled'
 const shortlistStages = new Set(['shortlisted', 'waitlisted']);
 const offerStages = new Set(['offer', 'offered']);
 
-const lineChartConfig = {
+const trendChartConfig = {
   applications: { label: 'Applications', color: '#2563eb' },
   interviews: { label: 'Interviews', color: '#06b6d4' },
   hires: { label: 'Hires', color: '#84cc16' },
+} satisfies ChartConfig;
+
+const pipelineChartConfig = {
+  count: { label: 'Candidates', color: '#2563eb' },
+} satisfies ChartConfig;
+
+const statusChartConfig = {
+  active: { label: 'Active', color: '#2563eb' },
+  pending: { label: 'Pending', color: '#f59e0b' },
+  closed: { label: 'Closed', color: '#94a3b8' },
 } satisfies ChartConfig;
 
 const cardMotion = {
@@ -62,49 +74,37 @@ const cardMotion = {
   transition: { duration: 0.35, ease: 'easeOut' },
 };
 
-function normalizeStage(value: any) {
+function normalizeStage(value: unknown) {
   return `${value ?? ''}`.toLowerCase().trim();
 }
 
 function getRecordDate(record: any) {
-  const raw = record?.createdAt || record?.submittedAt || record?.appliedAt || record?.requestedDate || record?.updatedAt || record?.interviewAt;
+  const raw =
+    record?.createdAt ||
+    record?.submittedAt ||
+    record?.appliedAt ||
+    record?.requestedDate ||
+    record?.updatedAt ||
+    record?.interviewAt;
   const date = raw ? new Date(raw) : null;
   return date && !Number.isNaN(date.getTime()) ? date : null;
 }
 
-function getActivityDate(record: any) {
-  const raw = record?.updatedAt || record?.interviewAt || record?.createdAt || record?.submittedAt || record?.appliedAt || record?.requestedDate;
-  const date = raw ? new Date(raw) : null;
-  return date && !Number.isNaN(date.getTime()) ? date : null;
-}
-
-function getJobTitle(record: any, jobById: Map<string, any>) {
-  const directTitle = record?.job?.title || record?.jobRequest?.title || record?.jobOpening?.title || record?.JobOpening?.title || record?.jobTitle || record?.title;
-  if (directTitle) return directTitle;
-
-  const jobId = record?.jobId || record?.jobRequestId || record?.jobOpeningId || record?.job?.id || record?.jobRequest?.id || record?.jobOpening?.id || record?.JobOpening?.id;
-  return jobId ? jobById.get(jobId)?.title : undefined;
-}
-
-function getCandidateName(record: any) {
-  return record?.fullName || record?.candidateName || record?.metadata?.fullName || record?.JobApplication?.fullName || 'Candidate';
-}
-
-function toTitleCase(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/\b\w/g, (char) => char.toUpperCase());
-}
-
-function formatDate(value: Date | null) {
-  return value
-    ? new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric', year: 'numeric' }).format(value)
-    : 'No activity';
+function getApplicationJobId(application: any) {
+  return (
+    application?.jobId ||
+    application?.jobRequestId ||
+    application?.jobOpeningId ||
+    application?.job?.id ||
+    application?.jobRequest?.id ||
+    application?.jobOpening?.id ||
+    application?.JobOpening?.id
+  );
 }
 
 function daysBetween(start: Date | null, end: Date | null) {
   if (!start || !end || end < start) return null;
-  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86400000));
+  return Math.max(0, Math.round((end.getTime() - start.getTime()) / 86_400_000));
 }
 
 function averageDays(values: Array<number | null>) {
@@ -127,22 +127,40 @@ function trendLabel(current: number, previous: number) {
   return `${change >= 0 ? '+' : ''}${change}% vs last month`;
 }
 
-function formatPercent(current: number, previous: number) {
-  if (!previous) return current ? '100%' : '0%';
-  return `${Math.round((current / previous) * 100)}%`;
+function ratio(current: number, total: number) {
+  if (!total) return 0;
+  return Math.min(100, Math.round((current / total) * 100));
 }
 
-function EmptyMessage({ title }: { title: string }) {
+function EmptyAnalytics({ title }: { title: string }) {
   return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-5 text-center">
+    <div className="flex h-[260px] items-center justify-center rounded-xl border border-dashed border-slate-200 bg-slate-50">
       <p className="text-xs font-bold text-slate-500">{title}</p>
     </div>
   );
 }
 
+function MetricGauge({ label, value, total, tone }: { label: string; value: number; total: number; tone: string }) {
+  const percentage = ratio(value, total);
+
+  return (
+    <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-[0.16em] text-slate-400">{label}</p>
+          <p className="mt-2 text-3xl font-black leading-none text-slate-900">{value}</p>
+        </div>
+        <span className={`rounded-full px-2.5 py-1 text-[10px] font-black ${tone}`}>{percentage}%</span>
+      </div>
+      <div className="mt-4 h-2 overflow-hidden rounded-full bg-slate-100">
+        <div className="h-full rounded-full bg-slate-900 transition-all" style={{ width: `${percentage}%` }} />
+      </div>
+      <p className="mt-2 text-[10px] font-semibold text-slate-400">Share of total applications</p>
+    </div>
+  );
+}
+
 export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOverviewProps) {
-  const legacyUser = useLegacyUser();
-  const isEmployee = legacyUser?.role === 'Employee';
   const jobRequestsQuery = useJobRequests({ includePublished: true });
   const applicationsQuery = useJobApplications();
   const interviewsQuery = useInterviews();
@@ -150,28 +168,43 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
   const jobRequests = jobRequestsQuery.data?.rows ?? [];
   const applications = applicationsQuery.data ?? [];
   const interviews = interviewsQuery.data ?? [];
-  const jobById = useMemo(() => new Map(jobRequests.map((job: any) => [job.id, job])), [jobRequests]);
-  const scheduledApplicationIds = useMemo(() => new Set(interviews.map((interview: any) => interview?.jobApplicationId || interview?.JobApplication?.id).filter(Boolean)), [interviews]);
 
-  const activeRecruitments = jobRequests.filter((job: any) => activePostingStatuses.has(job.postingStatus) || job.isPosted).length;
+  const scheduledApplicationIds = useMemo(
+    () =>
+      new Set(
+        interviews
+          .map((interview: any) => interview?.jobApplicationId || interview?.JobApplication?.id)
+          .filter(Boolean),
+      ),
+    [interviews],
+  );
+
+  const activeRecruitments = jobRequests.filter(
+    (job: any) => activePostingStatuses.has(normalizeStage(job.postingStatus)) || job.isPosted,
+  ).length;
   const pendingReviews = applications.filter((application: any) => reviewStages.has(normalizeStage(application.stage))).length;
-  const interviewsScheduled = interviews.filter((interview: any) => ['scheduled', 'pending_acceptance'].includes(normalizeStage(interview.status))).length;
+  const interviewsScheduled = interviews.filter((interview: any) =>
+    ['scheduled', 'pending_acceptance'].includes(normalizeStage(interview.status)),
+  ).length;
   const offersPending = applications.filter((application: any) => offerStages.has(normalizeStage(application.stage))).length;
-  const hiresThisMonth = applications.filter((application: any) => normalizeStage(application.stage) === 'hired' && isSameMonth(getRecordDate(application))).length;
+  const hiresThisMonth = applications.filter(
+    (application: any) => normalizeStage(application.stage) === 'hired' && isSameMonth(getRecordDate(application)),
+  ).length;
 
   const applicationTrendData = useMemo(() => {
+    const currentYear = new Date().getFullYear();
     const rows = monthLabels.map((month) => ({ month, applications: 0, interviews: 0, hires: 0 }));
 
     applications.forEach((application: any) => {
       const date = getRecordDate(application);
-      if (!date) return;
+      if (!date || date.getFullYear() !== currentYear) return;
       rows[date.getMonth()].applications += 1;
       if (normalizeStage(application.stage) === 'hired') rows[date.getMonth()].hires += 1;
     });
 
     interviews.forEach((interview: any) => {
-      const date = getRecordDate(interview) || (interview?.interviewAt ? new Date(interview.interviewAt) : null);
-      if (!date || Number.isNaN(date.getTime())) return;
+      const date = interview?.interviewAt ? new Date(interview.interviewAt) : getRecordDate(interview);
+      if (!date || Number.isNaN(date.getTime()) || date.getFullYear() !== currentYear) return;
       rows[date.getMonth()].interviews += 1;
     });
 
@@ -179,133 +212,181 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
   }, [applications, interviews]);
 
   const pipelineData = useMemo(() => {
-    const applied = applications.filter((application: any) => ['applied', 'new', ''].includes(normalizeStage(application.stage))).length;
-    const screening = applications.filter((application: any) => ['screening', 'review', 'pending_review'].includes(normalizeStage(application.stage))).length;
-    const interview = applications.filter((application: any) => interviewStages.has(normalizeStage(application.stage)) || scheduledApplicationIds.has(application.id)).length;
-    const shortlisted = applications.filter((application: any) => shortlistStages.has(normalizeStage(application.stage))).length;
-    const offered = applications.filter((application: any) => offerStages.has(normalizeStage(application.stage))).length;
-    const hired = applications.filter((application: any) => normalizeStage(application.stage) === 'hired').length;
     const stages = [
-      { stage: 'Applied', count: applied, color: 'bg-blue-600' },
-      { stage: 'Screening', count: screening, color: 'bg-cyan-500' },
-      { stage: 'Interview', count: interview, color: 'bg-indigo-500' },
-      { stage: 'Shortlisted', count: shortlisted, color: 'bg-emerald-500' },
-      { stage: 'Offered', count: offered, color: 'bg-amber-500' },
-      { stage: 'Hired', count: hired, color: 'bg-violet-500' },
+      {
+        stage: 'Applied',
+        count: applications.filter((application: any) => ['applied', 'new', ''].includes(normalizeStage(application.stage))).length,
+      },
+      {
+        stage: 'Screening',
+        count: applications.filter((application: any) => ['screening', 'review', 'pending_review'].includes(normalizeStage(application.stage))).length,
+      },
+      {
+        stage: 'Interview',
+        count: applications.filter(
+          (application: any) => interviewStages.has(normalizeStage(application.stage)) || scheduledApplicationIds.has(application.id),
+        ).length,
+      },
+      {
+        stage: 'Shortlisted',
+        count: applications.filter((application: any) => shortlistStages.has(normalizeStage(application.stage))).length,
+      },
+      {
+        stage: 'Offered',
+        count: applications.filter((application: any) => offerStages.has(normalizeStage(application.stage))).length,
+      },
+      {
+        stage: 'Hired',
+        count: applications.filter((application: any) => normalizeStage(application.stage) === 'hired').length,
+      },
     ];
 
     return stages.map((stage, index) => ({
       ...stage,
-      conversion: index === 0 ? '100%' : formatPercent(stage.count, stages[index - 1].count),
+      conversion: index === 0 ? 100 : ratio(stage.count, stages[index - 1].count),
     }));
   }, [applications, scheduledApplicationIds]);
 
-  const jobPerformance = useMemo(() => {
-    const titles = new Set<string>();
-    jobRequests.forEach((job: any) => job.title && titles.add(job.title));
-    applications.forEach((application: any) => {
-      const title = getJobTitle(application, jobById);
-      if (title) titles.add(title);
-    });
-
-    return [...titles].map((title) => {
-      const jobRows = jobRequests.filter((job: any) => job.title === title);
-      const jobApps = applications.filter((application: any) => getJobTitle(application, jobById) === title);
-      const jobInterviews = interviews.filter((interview: any) => getJobTitle(interview, jobById) === title || getJobTitle(interview?.JobApplication, jobById) === title);
-      const dates = [...jobRows, ...jobApps, ...jobInterviews].map(getActivityDate).filter(Boolean) as Date[];
-      const hires = jobApps.filter((application: any) => normalizeStage(application.stage) === 'hired').length;
-      const status = jobRows.find((job: any) => activePostingStatuses.has(job.postingStatus) || job.isPosted)?.postingStatus || jobRows[0]?.status || 'No posting';
-
-      return {
-        title,
-        applications: jobApps.length,
-        interviews: jobInterviews.length,
-        shortlisted: jobApps.filter((application: any) => shortlistStages.has(normalizeStage(application.stage))).length,
-        offers: jobApps.filter((application: any) => offerStages.has(normalizeStage(application.stage))).length,
-        hires,
-        conversion: formatPercent(hires, jobApps.length),
-        status,
-        lastActivity: dates.length ? new Date(Math.max(...dates.map((date) => date.getTime()))) : null,
-      };
-    }).sort((a, b) => (b.lastActivity?.getTime() ?? 0) - (a.lastActivity?.getTime() ?? 0));
-  }, [applications, interviews, jobById, jobRequests]);
-
-  const staleRecruitments = jobPerformance.filter((job) => {
-    if (!['open', 'active', 'published', 'approved'].includes(normalizeStage(job.status))) return false;
-    if (!job.lastActivity) return true;
-    return daysBetween(job.lastActivity, new Date())! > 14;
-  }).length;
-
-  const attentionItems = [
-    { label: 'Applications waiting for review', value: pendingReviews, tab: 'active_posting', tone: 'text-amber-600' },
-    {
-      label: 'Interviews that need scheduling',
-      value: applications.filter((application: any) => shortlistStages.has(normalizeStage(application.stage)) && !scheduledApplicationIds.has(application.id)).length,
-      tab: 'ongoing_recruitment',
-      tone: 'text-blue-600',
-    },
-    { label: 'Offers awaiting responses', value: offersPending, tab: 'offers', tone: 'text-violet-600' },
-    { label: 'Recruitments with no recent activity', value: staleRecruitments, tab: 'ongoing_recruitment', tone: 'text-rose-600' },
-  ];
-
-  const hiringSpeed = useMemo(() => {
-    const reviewDays = applications.map((application: any) => daysBetween(getRecordDate(application), application.updatedAt ? new Date(application.updatedAt) : getRecordDate(application)));
-    const interviewDays = interviews.map((interview: any) => daysBetween(getRecordDate(interview?.JobApplication) || getRecordDate(interview), interview?.interviewAt ? new Date(interview.interviewAt) : getRecordDate(interview)));
-    const hireDays = applications
-      .filter((application: any) => normalizeStage(application.stage) === 'hired')
-      .map((application: any) => daysBetween(getRecordDate(application), application.updatedAt ? new Date(application.updatedAt) : getRecordDate(application)));
-    const acceptedOffers = applications.filter((application: any) => normalizeStage(application.stage) === 'hired').length;
-    const totalOffers = applications.filter((application: any) => offerStages.has(normalizeStage(application.stage)) || normalizeStage(application.stage) === 'hired').length;
+  const recruitmentStatusData = useMemo(() => {
+    const active = jobRequests.filter(
+      (job: any) => activePostingStatuses.has(normalizeStage(job.postingStatus)) || job.isPosted,
+    ).length;
+    const closed = jobRequests.filter((job: any) =>
+      ['closed', 'filled', 'cancelled', 'rejected'].includes(normalizeStage(job.postingStatus || job.status)),
+    ).length;
+    const pending = Math.max(0, jobRequests.length - active - closed);
 
     return [
-      { label: 'Avg time to review', value: averageDays(reviewDays), suffix: 'days' },
-      { label: 'Avg time to interview', value: averageDays(interviewDays), suffix: 'days' },
-      { label: 'Avg time to hire', value: averageDays(hireDays), suffix: 'days' },
-      { label: 'Offer acceptance rate', value: totalOffers ? Math.round((acceptedOffers / totalOffers) * 100) : null, suffix: '%' },
+      { name: 'Active', value: active, fill: 'var(--color-active)' },
+      { name: 'Pending', value: pending, fill: 'var(--color-pending)' },
+      { name: 'Closed', value: closed, fill: 'var(--color-closed)' },
+    ];
+  }, [jobRequests]);
+
+  const applicationDistribution = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    applications.forEach((application: any) => {
+      const jobId = getApplicationJobId(application);
+      const job = jobRequests.find((row: any) => row.id === jobId);
+      const title =
+        application?.job?.title ||
+        application?.jobRequest?.title ||
+        application?.jobOpening?.title ||
+        application?.JobOpening?.title ||
+        application?.jobTitle ||
+        job?.title ||
+        'Unassigned';
+      counts.set(title, (counts.get(title) ?? 0) + 1);
+    });
+
+    return [...counts.entries()]
+      .map(([job, count]) => ({ job, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [applications, jobRequests]);
+
+  const hiringSpeed = useMemo(() => {
+    const reviewDays = applications.map((application: any) =>
+      daysBetween(
+        getRecordDate(application),
+        application.updatedAt ? new Date(application.updatedAt) : getRecordDate(application),
+      ),
+    );
+    const interviewDays = interviews.map((interview: any) =>
+      daysBetween(
+        getRecordDate(interview?.JobApplication) || getRecordDate(interview),
+        interview?.interviewAt ? new Date(interview.interviewAt) : getRecordDate(interview),
+      ),
+    );
+    const hireDays = applications
+      .filter((application: any) => normalizeStage(application.stage) === 'hired')
+      .map((application: any) =>
+        daysBetween(
+          getRecordDate(application),
+          application.updatedAt ? new Date(application.updatedAt) : getRecordDate(application),
+        ),
+      );
+    const acceptedOffers = applications.filter((application: any) => normalizeStage(application.stage) === 'hired').length;
+    const totalOffers = applications.filter(
+      (application: any) => offerStages.has(normalizeStage(application.stage)) || normalizeStage(application.stage) === 'hired',
+    ).length;
+
+    return [
+      { label: 'Average review time', value: averageDays(reviewDays), suffix: 'days' },
+      { label: 'Average interview time', value: averageDays(interviewDays), suffix: 'days' },
+      { label: 'Average time to hire', value: averageDays(hireDays), suffix: 'days' },
+      {
+        label: 'Offer acceptance',
+        value: totalOffers ? Math.round((acceptedOffers / totalOffers) * 100) : null,
+        suffix: '%',
+      },
     ];
   }, [applications, interviews]);
 
-  const recentActivity = useMemo(() => {
-    const applicationEvents = applications.map((application: any) => {
-      const stage = normalizeStage(application.stage);
-      const action = stage === 'hired'
-        ? 'Candidate hired'
-        : offerStages.has(stage)
-          ? 'Offer sent'
-          : stage && stage !== 'applied'
-            ? `Moved to ${stage.replace(/_/g, ' ')}`
-            : 'Candidate applied';
-
-      return {
-        id: `app-${application.id}`,
-        action,
-        candidate: getCandidateName(application),
-        job: getJobTitle(application, jobById) || 'Recruitment',
-        date: getActivityDate(application),
-      };
-    });
-
-    const interviewEvents = interviews.map((interview: any) => ({
-      id: `interview-${interview.id}`,
-      action: 'Interview scheduled',
-      candidate: getCandidateName(interview?.JobApplication || interview),
-      job: getJobTitle(interview, jobById) || getJobTitle(interview?.JobApplication, jobById) || 'Recruitment',
-      date: interview?.interviewAt ? new Date(interview.interviewAt) : getRecordDate(interview),
-    }));
-
-    return [...applicationEvents, ...interviewEvents]
-      .filter((event) => event.date)
-      .sort((a, b) => (b.date?.getTime() ?? 0) - (a.date?.getTime() ?? 0))
-      .slice(0, 8);
-  }, [applications, interviews, jobById]);
+  const unscheduledShortlists = applications.filter(
+    (application: any) => shortlistStages.has(normalizeStage(application.stage)) && !scheduledApplicationIds.has(application.id),
+  ).length;
+  const inactiveRecruitments = jobRequests.filter((job: any) => {
+    if (!activePostingStatuses.has(normalizeStage(job.postingStatus)) && !job.isPosted) return false;
+    const activityDate = getRecordDate(job);
+    return !activityDate || (daysBetween(activityDate, new Date()) ?? 0) > 14;
+  }).length;
 
   const kpis = [
-    { label: 'Active Recruitments', value: activeRecruitments, icon: BriefcaseBusiness, tab: 'active_posting', trend: `${jobRequests.filter((job: any) => job.status === 'approved').length} approved` },
-    { label: 'Total Applications', value: applications.length, icon: FileText, tab: 'active_posting', trend: trendLabel(applications.filter((app: any) => isSameMonth(getRecordDate(app))).length, applications.filter((app: any) => isSameMonth(getRecordDate(app), -1)).length) },
-    { label: 'Pending Reviews', value: pendingReviews, icon: Clock3, tab: 'active_posting', trend: pendingReviews ? 'Needs review' : 'Clear' },
-    { label: 'Interviews Scheduled', value: interviewsScheduled, icon: CalendarCheck, tab: 'my_interviews', trend: trendLabel(interviews.filter((iv: any) => isSameMonth(getRecordDate(iv))).length, interviews.filter((iv: any) => isSameMonth(getRecordDate(iv), -1)).length) },
-    { label: 'Offers Pending', value: offersPending, icon: Send, tab: 'offers', trend: offersPending ? 'Awaiting response' : 'No pending offers' },
-    { label: 'Hires This Month', value: hiresThisMonth, icon: UserCheck, tab: 'ongoing_recruitment', trend: trendLabel(hiresThisMonth, applications.filter((app: any) => normalizeStage(app.stage) === 'hired' && isSameMonth(getRecordDate(app), -1)).length) },
+    {
+      label: 'Active Recruitments',
+      value: activeRecruitments,
+      icon: BriefcaseBusiness,
+      tab: 'active_posting',
+      trend: `${jobRequests.filter((job: any) => normalizeStage(job.status) === 'approved').length} approved`,
+    },
+    {
+      label: 'Total Applications',
+      value: applications.length,
+      icon: FileText,
+      tab: 'active_posting',
+      trend: trendLabel(
+        applications.filter((application: any) => isSameMonth(getRecordDate(application))).length,
+        applications.filter((application: any) => isSameMonth(getRecordDate(application), -1)).length,
+      ),
+    },
+    {
+      label: 'Pending Reviews',
+      value: pendingReviews,
+      icon: Clock3,
+      tab: 'active_posting',
+      trend: pendingReviews ? 'Needs review' : 'Clear',
+    },
+    {
+      label: 'Interviews Scheduled',
+      value: interviewsScheduled,
+      icon: CalendarCheck,
+      tab: 'my_interviews',
+      trend: trendLabel(
+        interviews.filter((interview: any) => isSameMonth(getRecordDate(interview))).length,
+        interviews.filter((interview: any) => isSameMonth(getRecordDate(interview), -1)).length,
+      ),
+    },
+    {
+      label: 'Offers Pending',
+      value: offersPending,
+      icon: Send,
+      tab: 'offers',
+      trend: offersPending ? 'Awaiting response' : 'No pending offers',
+    },
+    {
+      label: 'Hires This Month',
+      value: hiresThisMonth,
+      icon: UserCheck,
+      tab: 'ongoing_recruitment',
+      trend: trendLabel(
+        hiresThisMonth,
+        applications.filter(
+          (application: any) => normalizeStage(application.stage) === 'hired' && isSameMonth(getRecordDate(application), -1),
+        ).length,
+      ),
+    },
   ];
 
   return (
@@ -316,13 +397,7 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
       animate={{ opacity: 1 }}
       transition={{ duration: 0.25 }}
     >
-      {isEmployee && (
-        <div className="max-w-xl">
-          <AttendanceShortcutCard />
-        </div>
-      )}
-
-      <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
         {kpis.map((kpi) => (
           <KpiCard
             key={kpi.label}
@@ -335,75 +410,128 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
         ))}
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
-        <motion.div id="pipeline-section" className="xl:col-span-8" {...cardMotion}>
-          <SectionCard title="Recruitment Pipeline" padding="sm">
-            {applications.length ? (
-              <div className="grid grid-cols-1 md:grid-cols-6 gap-2">
-                {pipelineData.map((stage, index) => (
-                  <div key={stage.stage} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                    <div className={`h-1.5 rounded-full ${stage.color}`} />
-                    <p className="mt-3 text-[11px] font-extrabold text-slate-700">{stage.stage}</p>
-                    <p className="text-2xl font-black text-slate-900 leading-tight">{stage.count}</p>
-                    <p className="text-[10px] font-semibold text-slate-400">{index === 0 ? 'Starting pool' : `${stage.conversion} from prior`}</p>
-                  </div>
-                ))}
-              </div>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <motion.div className="xl:col-span-8" {...cardMotion}>
+          <SectionCard title="Recruitment Activity Trend" icon={<Activity className="h-4 w-4" />} padding="sm">
+            {applications.length || interviews.length ? (
+              <ChartContainer config={trendChartConfig} className="h-[320px] w-full">
+                <AreaChart data={applicationTrendData} margin={{ top: 16, right: 16, left: 4, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="applicationsFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-applications)" stopOpacity={0.28} />
+                      <stop offset="95%" stopColor="var(--color-applications)" stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="interviewsFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="var(--color-interviews)" stopOpacity={0.2} />
+                      <stop offset="95%" stopColor="var(--color-interviews)" stopOpacity={0.01} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid vertical={false} strokeDasharray="4 6" />
+                  <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={10} />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} width={38} allowDecimals={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <ChartLegend content={<ChartLegendContent className="pt-2" />} />
+                  <Area type="monotone" dataKey="applications" stroke="var(--color-applications)" fill="url(#applicationsFill)" strokeWidth={2.5} />
+                  <Area type="monotone" dataKey="interviews" stroke="var(--color-interviews)" fill="url(#interviewsFill)" strokeWidth={2.25} />
+                  <Area type="monotone" dataKey="hires" stroke="var(--color-hires)" fill="transparent" strokeWidth={2.25} />
+                </AreaChart>
+              </ChartContainer>
             ) : (
-              <EmptyMessage title="No candidate pipeline data yet." />
+              <EmptyAnalytics title="No recruitment trend data yet." />
             )}
           </SectionCard>
         </motion.div>
 
         <motion.div className="xl:col-span-4" {...cardMotion} transition={{ duration: 0.35, delay: 0.05 }}>
-          <SectionCard title="Attention Required" icon={<AlertTriangle className="h-4 w-4" />} padding="sm" accent="amber">
-            <div className="grid gap-2">
-              {attentionItems.map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => onNavigateToTab(item.tab)}
-                  className="flex items-center justify-between rounded-lg border border-slate-100 bg-white px-3 py-2 text-left hover:border-blue-200 hover:bg-blue-50/40 transition-colors"
-                >
-                  <span className="text-xs font-bold text-slate-600">{item.label}</span>
-                  <span className={`text-lg font-black ${item.tone}`}>{item.value}</span>
-                </button>
-              ))}
-            </div>
+          <SectionCard title="Recruitment Status Mix" icon={<Gauge className="h-4 w-4" />} padding="sm">
+            {jobRequests.length ? (
+              <ChartContainer config={statusChartConfig} className="h-[320px] w-full">
+                <PieChart>
+                  <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                  <Pie
+                    data={recruitmentStatusData}
+                    dataKey="value"
+                    nameKey="name"
+                    innerRadius={68}
+                    outerRadius={105}
+                    paddingAngle={4}
+                    strokeWidth={0}
+                  >
+                    {recruitmentStatusData.map((entry) => (
+                      <Cell key={entry.name} fill={entry.fill} />
+                    ))}
+                  </Pie>
+                  <ChartLegend content={<ChartLegendContent nameKey="name" />} />
+                </PieChart>
+              </ChartContainer>
+            ) : (
+              <EmptyAnalytics title="No recruitment status data yet." />
+            )}
           </SectionCard>
         </motion.div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <motion.div id="trend-section" {...cardMotion} transition={{ duration: 0.35, delay: 0.1 }}>
-          <SectionCard title="Applications Over Time" padding="sm">
-            <ChartContainer config={lineChartConfig} className="h-[280px] w-full">
-              <AreaChart data={applicationTrendData} margin={{ top: 18, right: 18, left: 8, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="applicationsFillCompact" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="var(--color-applications)" stopOpacity={0.2} />
-                    <stop offset="95%" stopColor="var(--color-applications)" stopOpacity={0.02} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid vertical={false} strokeDasharray="4 6" />
-                <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={10} />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} width={44} allowDecimals={false} />
-                <ChartTooltip content={<ChartTooltipContent />} />
-                <ChartLegend content={<ChartLegendContent className="pt-1" />} />
-                <Area type="monotone" dataKey="applications" stroke="var(--color-applications)" fill="url(#applicationsFillCompact)" strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 5 }} />
-                <Line type="monotone" dataKey="interviews" stroke="var(--color-interviews)" strokeWidth={2.25} dot={{ r: 3 }} />
-                <Line type="monotone" dataKey="hires" stroke="var(--color-hires)" strokeWidth={2.25} dot={{ r: 3 }} />
-              </AreaChart>
-            </ChartContainer>
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-12">
+        <motion.div className="xl:col-span-7" {...cardMotion} transition={{ duration: 0.35, delay: 0.1 }}>
+          <SectionCard title="Candidate Pipeline" icon={<UsersRound className="h-4 w-4" />} padding="sm">
+            {applications.length ? (
+              <ChartContainer config={pipelineChartConfig} className="h-[310px] w-full">
+                <BarChart data={pipelineData} margin={{ top: 18, right: 16, left: 0, bottom: 0 }}>
+                  <CartesianGrid vertical={false} strokeDasharray="4 6" />
+                  <XAxis dataKey="stage" tickLine={false} axisLine={false} tickMargin={10} />
+                  <YAxis tickLine={false} axisLine={false} tickMargin={8} width={36} allowDecimals={false} />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="var(--color-count)" radius={[8, 8, 2, 2]} maxBarSize={54} />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <EmptyAnalytics title="No candidate pipeline data yet." />
+            )}
+            <div className="mt-3 grid grid-cols-3 gap-2 md:grid-cols-6">
+              {pipelineData.map((stage) => (
+                <div key={stage.stage} className="rounded-lg bg-slate-50 px-2 py-2 text-center">
+                  <p className="text-[9px] font-black uppercase tracking-wide text-slate-400">{stage.stage}</p>
+                  <p className="mt-1 text-xs font-black text-slate-700">{stage.conversion}%</p>
+                </div>
+              ))}
+            </div>
           </SectionCard>
         </motion.div>
 
-        <motion.div {...cardMotion} transition={{ duration: 0.35, delay: 0.15 }}>
-          <SectionCard title="Hiring Speed" icon={<Timer className="h-4 w-4" />} padding="sm">
+        <motion.div className="xl:col-span-5" {...cardMotion} transition={{ duration: 0.35, delay: 0.15 }}>
+          <SectionCard title="Applications by Position" icon={<BriefcaseBusiness className="h-4 w-4" />} padding="sm">
+            {applicationDistribution.length ? (
+              <ChartContainer config={pipelineChartConfig} className="h-[360px] w-full">
+                <BarChart data={applicationDistribution} layout="vertical" margin={{ top: 8, right: 18, left: 10, bottom: 0 }}>
+                  <CartesianGrid horizontal={false} strokeDasharray="4 6" />
+                  <XAxis type="number" tickLine={false} axisLine={false} allowDecimals={false} />
+                  <YAxis
+                    type="category"
+                    dataKey="job"
+                    tickLine={false}
+                    axisLine={false}
+                    width={120}
+                    tick={{ fontSize: 10 }}
+                  />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="count" fill="var(--color-count)" radius={[2, 8, 8, 2]} maxBarSize={30} />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <EmptyAnalytics title="No application distribution data yet." />
+            )}
+          </SectionCard>
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <motion.div {...cardMotion} transition={{ duration: 0.35, delay: 0.2 }}>
+          <SectionCard title="Hiring Efficiency" icon={<Timer className="h-4 w-4" />} padding="sm">
             <div className="grid grid-cols-2 gap-3">
               {hiringSpeed.map((metric) => (
-                <div key={metric.label} className="rounded-lg border border-slate-100 bg-slate-50 p-3">
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-slate-400">{metric.label}</p>
-                  <p className="mt-2 text-2xl font-black text-slate-900 leading-none">
+                <div key={metric.label} className="rounded-xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-[10px] font-black uppercase tracking-[0.14em] text-slate-400">{metric.label}</p>
+                  <p className="mt-3 text-3xl font-black leading-none text-slate-900">
                     {metric.value === null ? '—' : metric.value}
                     {metric.value !== null && <span className="ml-1 text-xs font-bold text-slate-400">{metric.suffix}</span>}
                   </p>
@@ -412,74 +540,18 @@ export default function RecruitmentOverview({ onNavigateToTab }: RecruitmentOver
             </div>
           </SectionCard>
         </motion.div>
+
+        <motion.div {...cardMotion} transition={{ duration: 0.35, delay: 0.25 }}>
+          <SectionCard title="Recruitment Workload" icon={<Gauge className="h-4 w-4" />} padding="sm">
+            <div className="grid grid-cols-2 gap-3">
+              <MetricGauge label="Waiting for review" value={pendingReviews} total={applications.length} tone="bg-amber-50 text-amber-700" />
+              <MetricGauge label="Need scheduling" value={unscheduledShortlists} total={applications.length} tone="bg-blue-50 text-blue-700" />
+              <MetricGauge label="Offers pending" value={offersPending} total={applications.length} tone="bg-violet-50 text-violet-700" />
+              <MetricGauge label="Inactive recruitments" value={inactiveRecruitments} total={Math.max(jobRequests.length, 1)} tone="bg-rose-50 text-rose-700" />
+            </div>
+          </SectionCard>
+        </motion.div>
       </div>
-
-      <motion.div id="job-performance-section" {...cardMotion} transition={{ duration: 0.35, delay: 0.2 }}>
-        <SectionCard title="Job Performance" icon={<TrendingUp className="h-4 w-4" />} padding="sm">
-          {jobPerformance.length ? (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-100 text-[10px] uppercase tracking-wide text-slate-400">
-                    <th className="px-3 py-2 font-extrabold">Job title</th>
-                    <th className="px-3 py-2 font-extrabold">Applications</th>
-                    <th className="px-3 py-2 font-extrabold">Interviews</th>
-                    <th className="px-3 py-2 font-extrabold">Shortlisted</th>
-                    <th className="px-3 py-2 font-extrabold">Offers</th>
-                    <th className="px-3 py-2 font-extrabold">Hires</th>
-                    <th className="px-3 py-2 font-extrabold">Conversion</th>
-                    <th className="px-3 py-2 font-extrabold">Status</th>
-                    <th className="px-3 py-2 font-extrabold">Last activity</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {jobPerformance.map((job) => (
-                    <tr
-                      key={job.title}
-                      onClick={() => onNavigateToTab('ongoing_recruitment')}
-                      className="cursor-pointer hover:bg-blue-50/50"
-                    >
-                      <td className="px-3 py-3 font-extrabold text-slate-900">{toTitleCase(job.title)}</td>
-                      <td className="px-3 py-3 font-bold text-slate-700">{job.applications}</td>
-                      <td className="px-3 py-3 font-bold text-slate-700">{job.interviews}</td>
-                      <td className="px-3 py-3 font-bold text-slate-700">{job.shortlisted}</td>
-                      <td className="px-3 py-3 font-bold text-slate-700">{job.offers}</td>
-                      <td className="px-3 py-3 font-bold text-slate-700">{job.hires}</td>
-                      <td className="px-3 py-3 font-black text-blue-600">{job.conversion}</td>
-                      <td className="px-3 py-3">
-                        <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold capitalize text-slate-600">{`${job.status}`.replace(/_/g, ' ')}</span>
-                      </td>
-                      <td className="px-3 py-3 font-semibold text-slate-500">{formatDate(job.lastActivity)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <EmptyMessage title="No job performance data yet." />
-          )}
-        </SectionCard>
-      </motion.div>
-
-      <motion.div id="activity-section" {...cardMotion} transition={{ duration: 0.35, delay: 0.25 }}>
-        <SectionCard title="Recent Recruitment Activity" icon={<CheckCircle2 className="h-4 w-4" />} padding="sm">
-          {recentActivity.length ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {recentActivity.map((event) => (
-                <div key={event.id} className="rounded-lg border border-slate-100 bg-white px-3 py-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <p className="text-xs font-extrabold text-slate-800">{event.action}</p>
-                    <p className="text-[10px] font-semibold text-slate-400 shrink-0">{formatDate(event.date)}</p>
-                  </div>
-                  <p className="mt-1 text-[11px] font-semibold text-slate-500">{event.candidate} · {toTitleCase(event.job)}</p>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyMessage title="No recent recruitment activity." />
-          )}
-        </SectionCard>
-      </motion.div>
     </motion.div>
   );
 }

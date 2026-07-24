@@ -1,181 +1,426 @@
 import React from "react";
-import { AlertTriangle, Clock3 } from "lucide-react";
-import { PageHeader, SectionCard, InfoAlert, LoadingSpinner } from "@/components/ui/blih";
+import { Clock3, Send } from "lucide-react";
+import {
+  InfoAlert,
+  LoadingSpinner,
+  PageHeader,
+} from "@/components/ui/blih";
 import { Button } from "@/components/ui/button";
 import { useMyAttendanceToday } from "../../hooks/useMyAttendanceToday";
-import { useAttendanceRequests, useSubmitAttendanceRequest } from "../../hooks/useAttendanceRequests";
+import {
+  useAttendanceRequests,
+  useSubmitAttendanceRequest,
+} from "../../hooks/useAttendanceRequests";
+import {
+  LATENESS_CONTROL_CLASS,
+  LATENESS_TEXTAREA_CLASS,
+  LatenessEmptyState,
+  LatenessField,
+  LatenessMetric,
+  LatenessNotice,
+  LatenessPanel,
+  LatenessStatusBadge,
+  LatenessTable,
+} from "./lateness/LatenessUi";
 
 const ADDIS_ABABA_TZ = "Africa/Addis_Ababa";
 
-function localYmd(date: Date) {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: ADDIS_ABABA_TZ, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+function localYmd(date: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: ADDIS_ABABA_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
 }
 
-function localHm(date: Date) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: ADDIS_ABABA_TZ, hour: "2-digit", minute: "2-digit", hour12: false }).format(date);
+function localHm(date: Date): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: ADDIS_ABABA_TZ,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).format(date);
 }
 
-function beforeDeadline(date: Date) {
+function beforeDeadline(date: Date): boolean {
   const [hour, minute] = localHm(date).split(":").map(Number);
   return hour * 60 + minute < 8 * 60 + 30;
 }
 
-function statusTone(status: string) {
-  if (status === "approved") return "bg-emerald-50 text-emerald-700";
-  if (status === "pending") return "bg-amber-50 text-amber-700";
-  if (status === "rejected" || status === "invalid" || status === "expired") return "bg-rose-50 text-rose-700";
-  return "bg-slate-100 text-slate-600";
+function formatSubmittedAt(row: any): string {
+  const value = row.submittedAt || row.createdAt;
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return date.toLocaleString();
 }
 
 export default function MyLatenessReasonPage() {
   const today = useMyAttendanceToday();
   const submit = useSubmitAttendanceRequest();
-  const history = useAttendanceRequests({ requestType: "lateness_notice", mine: true, size: 50 });
-  const balances: any[] = (today.data?.data as any)?.latenessReasonBalances || [];
+  const history = useAttendanceRequests({
+    requestType: "lateness_notice",
+    mine: true,
+    size: 50,
+  });
+
+  const balances: any[] =
+    (today.data?.data as any)?.latenessReasonBalances || [];
+
   const options = balances.filter((item) => item.enabled);
-  const now = new Date();
-  const canSubmitNow = beforeDeadline(now);
+  const canSubmitNow = beforeDeadline(new Date());
+
   const [reasonCode, setReasonCode] = React.useState("");
   const [reasonText, setReasonText] = React.useState("");
   const [error, setError] = React.useState("");
 
-  const selected = options.find((item) => item.reasonCode === reasonCode) || null;
+  const selected =
+    options.find((item) => item.reasonCode === reasonCode) || null;
+
+  const historyRows = history.data?.rows || [];
+  const totalRemaining = balances.reduce(
+    (sum, item) => sum + Number(item.remainingThisMonth || 0),
+    0,
+  );
+  const totalUsed = balances.reduce(
+    (sum, item) => sum + Number(item.usedThisMonth || 0),
+    0,
+  );
+
+  const handleSubmit = async () => {
+    setError("");
+
+    if (!reasonCode) {
+      setError("Select a reason.");
+      return;
+    }
+
+    if (!reasonText.trim()) {
+      setError("Write your exact reason.");
+      return;
+    }
+
+    if (selected && !selected.canUse) {
+      setError(
+        selected.blockedReason || "This reason cannot be used.",
+      );
+      return;
+    }
+
+    try {
+      const ymd = localYmd(new Date());
+
+      await submit.mutateAsync({
+        requestType: "lateness_notice",
+        category: reasonCode,
+        reasonCategory: reasonCode,
+        title: `Late reason - ${selected?.label || reasonCode}`,
+        reason: reasonText.trim(),
+        reasonText: reasonText.trim(),
+        fromAt: `${ymd}T08:00`,
+      });
+
+      setReasonCode("");
+      setReasonText("");
+      await Promise.all([today.refetch(), history.refetch()]);
+    } catch (caught: any) {
+      setError(
+        caught?.response?.data?.message ||
+          caught?.message ||
+          "Failed to submit late reason.",
+      );
+    }
+  };
 
   return (
     <div className="space-y-4">
       <PageHeader
         eyebrow="Attendance"
         title="My Lateness Reason"
-        description="Submit lateness requests before 08:30 and track your reason credit."
+        description="Submit a reason before the daily deadline and track your available lateness credit."
       />
 
       {!canSubmitNow ? (
-        <InfoAlert
-          variant="warning"
-          message="Late reason requests are only allowed before 08:30 AM Addis Ababa time."
+        <LatenessNotice
+          tone="warning"
+          title="Submission window closed"
+          description="Lateness reasons are accepted only before 08:30 AM Addis Ababa time. Your credit remains visible below."
         />
-      ) : null}
+      ) : (
+        <LatenessNotice
+          tone="info"
+          title="Submit before 08:30 AM"
+          description="Choose the correct category and write a clear explanation for HR."
+        />
+      )}
 
-      <SectionCard title="Submit Late Reason">
-        {error ? <InfoAlert variant="error" message={error} className="mb-3" /> : null}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
-          <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Reason</span>
-            <select
-              value={reasonCode}
-              onChange={(e) => setReasonCode(e.target.value)}
-              disabled={!canSubmitNow || submit.isPending}
-              className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700"
+      <LatenessPanel
+        title="Submit lateness reason"
+        description={
+          canSubmitNow
+            ? "Your request uses the credit attached to the selected reason."
+            : "The form is disabled because today's submission deadline has passed."
+        }
+      >
+        {error ? (
+          <InfoAlert variant="error" message={error} className="mb-4" />
+        ) : null}
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-4">
+            <LatenessField label="Reason category" required>
+              <select
+                value={reasonCode}
+                onChange={(event) => setReasonCode(event.target.value)}
+                disabled={!canSubmitNow || submit.isPending}
+                className={LATENESS_CONTROL_CLASS}
+              >
+                <option value="">Select a reason</option>
+                {options.map((item) => (
+                  <option
+                    key={item.reasonCode}
+                    value={item.reasonCode}
+                    disabled={!item.canUse}
+                  >
+                    {item.label}
+                    {item.canUse
+                      ? ` · ${item.remainingThisMonth} remaining`
+                      : " · unavailable"}
+                  </option>
+                ))}
+              </select>
+            </LatenessField>
+
+            <LatenessField
+              label="Explanation"
+              required
+              hint="Write the exact situation in one or two clear sentences."
             >
-              <option value="">Select reason</option>
-              {options.map((item) => (
-                <option key={item.reasonCode} value={item.reasonCode} disabled={!item.canUse}>
-                  {item.label} ({item.remainingThisMonth}/{item.monthlyLimit} left)
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold text-slate-600 lg:col-span-2">
+              <textarea
+                value={reasonText}
+                onChange={(event) => setReasonText(event.target.value)}
+                rows={4}
+                disabled={!canSubmitNow || submit.isPending}
+                className={LATENESS_TEXTAREA_CLASS}
+                placeholder="Describe why you expect to be late..."
+              />
+            </LatenessField>
+
+            {selected?.blockedReason ? (
+              <LatenessNotice
+                tone="error"
+                title="This reason cannot currently be used"
+                description={selected.blockedReason}
+              />
+            ) : null}
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                disabled={
+                  !canSubmitNow ||
+                  submit.isPending ||
+                  !reasonCode ||
+                  !reasonText.trim() ||
+                  Boolean(selected && !selected.canUse)
+                }
+                onClick={handleSubmit}
+                className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400"
+              >
+                <Send className="mr-2 h-4 w-4" />
+                {submit.isPending ? "Submitting..." : "Submit reason"}
+              </Button>
+            </div>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="text-xs font-semibold text-slate-800">
+              Selected credit
+            </p>
+
             {selected ? (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                <span>Used: {selected.usedThisMonth}</span>
-                <span>Remaining: {selected.remainingThisMonth}</span>
-                <span>Limit: {selected.monthlyLimit}/month</span>
-                <span>Covers: {selected.coversMinutes} min</span>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <LatenessMetric
+                  label="Remaining"
+                  value={selected.remainingThisMonth}
+                  tone={selected.canUse ? "green" : "red"}
+                />
+                <LatenessMetric
+                  label="Used"
+                  value={selected.usedThisMonth}
+                />
+                <LatenessMetric
+                  label="Monthly limit"
+                  value={selected.monthlyLimit}
+                />
+                <LatenessMetric
+                  label="Covers"
+                  value={`${selected.coversMinutes} min`}
+                  tone="blue"
+                />
               </div>
             ) : (
-              <span>Select a reason to see credit.</span>
+              <p className="mt-3 text-xs leading-5 text-slate-500">
+                Select a reason to see its monthly limit, remaining credit,
+                and covered minutes.
+              </p>
             )}
           </div>
         </div>
-        {selected?.blockedReason ? (
-          <div className="mt-2 text-[11px] font-bold text-rose-700">Blocked: {selected.blockedReason}</div>
+      </LatenessPanel>
+
+      <LatenessPanel
+        title="Reason credit"
+        description="A compact view of all enabled lateness categories for the current month."
+      >
+        {today.isLoading ? (
+          <LoadingSpinner label="Loading reason credit..." />
+        ) : balances.length ? (
+          <>
+            <div className="mb-4 grid gap-3 sm:grid-cols-3">
+              <LatenessMetric
+                label="Available categories"
+                value={balances.length}
+              />
+              <LatenessMetric
+                label="Credits used"
+                value={totalUsed}
+                tone="amber"
+              />
+              <LatenessMetric
+                label="Credits remaining"
+                value={totalRemaining}
+                tone="green"
+              />
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              {balances.map((item) => (
+                <button
+                  key={item.reasonCode}
+                  type="button"
+                  onClick={() =>
+                    item.enabled && item.canUse
+                      ? setReasonCode(item.reasonCode)
+                      : undefined
+                  }
+                  className="rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:border-blue-200 hover:bg-blue-50/30"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {item.label}
+                      </p>
+                      <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                        {item.reasonCode}
+                      </p>
+                    </div>
+                    <LatenessStatusBadge
+                      value={item.canUse ? "active" : "invalid"}
+                    />
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                    <div>
+                      <p className="text-base font-semibold text-slate-950">
+                        {item.remainingThisMonth}
+                      </p>
+                      <p className="text-[10px] font-medium text-slate-500">
+                        Remaining
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-slate-950">
+                        {item.usedThisMonth}
+                      </p>
+                      <p className="text-[10px] font-medium text-slate-500">
+                        Used
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-slate-950">
+                        {item.coversMinutes}
+                      </p>
+                      <p className="text-[10px] font-medium text-slate-500">
+                        Minutes
+                      </p>
+                    </div>
+                  </div>
+
+                  {item.blockedReason ? (
+                    <p className="mt-3 text-[11px] font-medium leading-4 text-rose-600">
+                      {item.blockedReason}
+                    </p>
+                  ) : null}
+                </button>
+              ))}
+            </div>
+          </>
+        ) : (
+          <LatenessEmptyState
+            title="No lateness credits configured"
+            description="Ask HR to configure at least one active lateness reason."
+          />
+        )}
+      </LatenessPanel>
+
+      <LatenessPanel
+        title="Reason history"
+        description="Your submitted lateness reasons and their current status."
+      >
+        {history.isLoading ? (
+          <LoadingSpinner label="Loading reason history..." />
         ) : null}
-        <textarea
-          value={reasonText}
-          onChange={(e) => setReasonText(e.target.value)}
-          rows={4}
-          disabled={!canSubmitNow || submit.isPending}
-          className="mt-3 w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700"
-          placeholder="Write the exact reason you want HR to review..."
-        />
-        <Button
-          disabled={!canSubmitNow || submit.isPending}
-          onClick={async () => {
-            setError("");
-            if (!reasonCode) return setError("Select a reason.");
-            if (!reasonText.trim()) return setError("Write your exact reason.");
-            if (selected && !selected.canUse) return setError(selected.blockedReason || "This reason cannot be used.");
-            try {
-              const ymd = localYmd(new Date());
-              await submit.mutateAsync({
-                requestType: "lateness_notice",
-                category: reasonCode,
-                reasonCategory: reasonCode,
-                title: `Late reason - ${selected?.label || reasonCode}`,
-                reason: reasonText.trim(),
-                reasonText: reasonText.trim(),
-                fromAt: `${ymd}T08:00`,
-              });
-              setReasonCode("");
-              setReasonText("");
-              await today.refetch();
-            } catch (e: any) {
-              setError(e?.response?.data?.message || e?.message || "Failed to submit late reason.");
-            }
-          }}
-          className="mt-4 bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white text-xs h-9 rounded-xl"
-        >
-          {submit.isPending ? "Submitting..." : "Submit Late Reason"}
-        </Button>
-      </SectionCard>
 
-      <SectionCard title="Reason Credit">
-        {today.isLoading ? <LoadingSpinner label="Loading..." /> : null}
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
-          {balances.map((item) => (
-            <div key={item.reasonCode} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <div className="text-xs font-black text-slate-900">{item.label}</div>
-                  <div className="text-[10px] font-bold text-slate-400 mt-0.5">{item.reasonCode}</div>
-                </div>
-                {!item.canUse ? <AlertTriangle className="w-4 h-4 text-amber-500" /> : null}
-              </div>
-              <div className="mt-3 text-[11px] font-bold text-slate-600 space-y-1">
-                <div>Used this month: {item.usedThisMonth}</div>
-                <div>Remaining: {item.remainingThisMonth}</div>
-                <div>Covers: {item.coversMinutes} minutes</div>
-                {item.blockedReason ? <div className="text-rose-700">Blocked: {item.blockedReason}</div> : null}
-              </div>
-            </div>
-          ))}
-        </div>
-      </SectionCard>
+        {history.isError ? (
+          <InfoAlert
+            variant="error"
+            message="Failed to load lateness reason history."
+            className="mb-4"
+          />
+        ) : null}
 
-      <SectionCard title="My Reason History">
-        {history.isLoading ? <LoadingSpinner label="Loading..." /> : null}
-        {history.isError ? <InfoAlert variant="error" message="Failed to load lateness reason history." /> : null}
-        <div className="divide-y divide-slate-100">
-          {(history.data?.rows || []).map((row) => (
-            <div key={row.id} className="py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs font-black text-slate-900">{row.reasonCategory || row.category || "Reason"}</div>
-                <span className={`rounded-full px-2 py-1 text-[10px] font-black uppercase ${statusTone(row.status)}`}>{row.status}</span>
-              </div>
-              <div className="mt-1 text-xs font-semibold text-slate-700 whitespace-pre-wrap">{row.reasonText || row.reason}</div>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-[11px] font-semibold text-slate-500">
-                <span className="inline-flex items-center gap-1"><Clock3 className="w-3.5 h-3.5" />Submitted {row.submittedAt ? new Date(row.submittedAt).toLocaleString() : new Date(row.createdAt).toLocaleString()}</span>
-                {row.deadlineAt ? <span>Deadline {new Date(row.deadlineAt).toLocaleString()}</span> : null}
-                {row.validityStatus ? <span>Validity: {row.validityStatus}</span> : null}
-              </div>
-            </div>
-          ))}
-          {!history.isLoading && !(history.data?.rows || []).length ? (
-            <div className="py-6 text-xs font-semibold text-slate-500">No lateness reasons submitted yet.</div>
-          ) : null}
-        </div>
-      </SectionCard>
+        {!history.isLoading && historyRows.length ? (
+          <LatenessTable
+            columns={[
+              "Reason",
+              "Explanation",
+              "Submitted",
+              "Validity",
+              "Status",
+            ]}
+          >
+            {historyRows.map((row: any) => (
+              <tr key={row.id}>
+                <td className="whitespace-nowrap px-4 py-3 text-sm font-semibold text-slate-900">
+                  {row.reasonCategory || row.category || "Reason"}
+                </td>
+                <td className="max-w-md px-4 py-3 text-xs leading-5 text-slate-600">
+                  {row.reasonText || row.reason || "—"}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-500">
+                  <span className="inline-flex items-center gap-1.5">
+                    <Clock3 className="h-3.5 w-3.5" />
+                    {formatSubmittedAt(row)}
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3">
+                  <LatenessStatusBadge value={row.validityStatus || "unknown"} />
+                </td>
+                <td className="whitespace-nowrap px-4 py-3">
+                  <LatenessStatusBadge value={row.status} />
+                </td>
+              </tr>
+            ))}
+          </LatenessTable>
+        ) : !history.isLoading ? (
+          <LatenessEmptyState
+            title="No lateness reasons submitted"
+            description="Your submitted reasons will appear here with their approval and validity status."
+          />
+        ) : null}
+      </LatenessPanel>
     </div>
   );
 }

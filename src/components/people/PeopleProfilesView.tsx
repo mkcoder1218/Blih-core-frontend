@@ -12,6 +12,7 @@ import {
   FileSignature,
   FileText,
   Filter,
+  Hourglass,
   Lock,
   MoreVertical,
   Pencil,
@@ -55,6 +56,7 @@ import EmployeeDevicesTab from './EmployeeDevicesTab';
 import EventsTab from './EventsTab';
 import PendingRegistrationsTab from './PendingRegistrationsTab';
 import AssignEmployeeContractModal from "../contracts/AssignEmployeeContractModal";
+import { InitializeProbationDialog } from "../../features/probation/components/InitializeProbationDialog";
 interface OrgNode {
   id: string;
   userId?: string;
@@ -366,6 +368,10 @@ export default function PeopleProfilesView({
     setContractEmployee,
   ] = useState<any | null>(null);
   const [
+    probationEmployee,
+    setProbationEmployee,
+  ] = useState<any | null>(null);
+  const [
     viewerContractId,
     setViewerContractId,
   ] = useState<string | null>(null);
@@ -477,6 +483,15 @@ export default function PeopleProfilesView({
       "hr.write",
       "onboarding.manage",
       "offer.approve",
+    ) ||
+    perms.isSuperAdmin ||
+    legacyUser?.role ===
+      "Business Admin";
+  const canInitializeProbation =
+    perms.hasAny(
+      "hr.write",
+      "onboarding.manage",
+      "performance.manage",
     ) ||
     perms.isSuperAdmin ||
     legacyUser?.role ===
@@ -1002,6 +1017,19 @@ export default function PeopleProfilesView({
                                             setActiveActionsMenu(null);
                                           }}
                                         />
+                                      )}
+                                      {canInitializeProbation && (
+                                        <button
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            setProbationEmployee(emp);
+                                            setActiveActionsMenu(null);
+                                          }}
+                                          className="w-full flex items-center gap-2.5 px-4 py-2 text-[11px] font-bold text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition-colors"
+                                        >
+                                          <Hourglass className="w-3.5 h-3.5" />
+                                          Initialize Probation
+                                        </button>
                                       )}
                                       {exemption?.status === 'APPROVED' && canApproveExemption ? (
                                         <button
@@ -2075,6 +2103,67 @@ export default function PeopleProfilesView({
         confirmLabel="Unexempt"
         loading={revokeExemptionMutation.isPending}
       />
+
+      {probationEmployee && (
+        <InitializeProbationDialog
+          isOpen={Boolean(probationEmployee)}
+          employeeUserId={getEmployeeUserId(probationEmployee)}
+          employeeName={
+            probationEmployee?.user?.fullName ||
+            probationEmployee?.User?.fullName ||
+            probationEmployee?.fullName ||
+            probationEmployee?.user?.email ||
+            "Employee"
+          }
+          positionId={
+            probationEmployee?.position?.id ||
+            probationEmployee?.Position?.id ||
+            probationEmployee?.positionId ||
+            probationEmployee?.user?.EmployeeRecord?.positionId ||
+            probationEmployee?.user?.EmployeeRecords?.[0]?.positionId ||
+            null
+          }
+          positionTitle={
+            probationEmployee?.position?.title ||
+            probationEmployee?.Position?.title ||
+            probationEmployee?.user?.EmployeeRecord?.position?.title ||
+            probationEmployee?.user?.EmployeeRecords?.[0]?.position?.title ||
+            probationEmployee?.metadata?.positionTitle ||
+            probationEmployee?.metadata?.positionName ||
+            null
+          }
+          departmentName={
+            probationEmployee?.department?.name ||
+            probationEmployee?.Department?.name ||
+            probationEmployee?.user?.EmployeeRecord?.department?.name ||
+            probationEmployee?.user?.EmployeeRecords?.[0]?.department?.name ||
+            null
+          }
+          currentManagerUserId={
+            probationEmployee?.managerUserId ||
+            probationEmployee?.manager?.id ||
+            probationEmployee?.Manager?.id ||
+            probationEmployee?.user?.EmployeeRecord?.managerUserId ||
+            probationEmployee?.user?.EmployeeRecords?.[0]?.managerUserId ||
+            null
+          }
+          defaultStartDate={
+            probationEmployee?.hireDate ||
+            probationEmployee?.contractStartDate ||
+            probationEmployee?.user?.EmployeeRecord?.hireDate ||
+            probationEmployee?.user?.EmployeeRecords?.[0]?.hireDate ||
+            probationEmployee?.createdAt ||
+            null
+          }
+          onClose={() => setProbationEmployee(null)}
+          onSuccess={() => {
+            setProbationEmployee(null);
+            refetchEmployees();
+            refetchOrg();
+            showAlert("Employee probation initialized successfully", "success");
+          }}
+        />
+      )}
 
       <AssignEmployeeContractModal
         isOpen={Boolean(contractEmployee)}

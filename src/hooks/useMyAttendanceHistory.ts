@@ -1,27 +1,39 @@
-import { useQuery } from "@tanstack/react-query";
-import { getMyAttendanceHistory } from "../api/attendanceMe";
+import {
+  keepPreviousData,
+  useQuery,
+} from "@tanstack/react-query";
+import {
+  getMyAttendanceHistory,
+  type AttendanceMeHistoryParams,
+} from "../api/attendanceMe";
 
-export function useMyAttendanceHistory(params?: {
-  startDate?: string;
-  endDate?: string;
-  status?: string;
-  sortBy?: string;
-  sortOrder?: string;
-  page?: number;
-  size?: number;
-}) {
+export function useMyAttendanceHistory(
+  params?: AttendanceMeHistoryParams,
+) {
   return useQuery({
     queryKey: [
       "attendanceMe",
       "history",
-      params?.startDate || "",
-      params?.endDate || "",
-      params?.status || "",
-      params?.sortBy || "",
-      params?.sortOrder || "",
-      params?.page || 1,
-      params?.size || 30,
+      {
+        startDate: params?.startDate || "",
+        endDate: params?.endDate || "",
+        status: params?.status || "",
+        sortBy: params?.sortBy || "date",
+        sortOrder: params?.sortOrder || "desc",
+        page: params?.page || 1,
+        size: params?.size || 20,
+      },
     ],
-    queryFn: async () => getMyAttendanceHistory(params),
+    queryFn: () =>
+      getMyAttendanceHistory({
+        startDate: params?.startDate,
+        endDate: params?.endDate,
+        status: params?.status,
+        sortBy: params?.sortBy || "date",
+        sortOrder: params?.sortOrder || "desc",
+        page: params?.page || 1,
+        size: params?.size || 20,
+      }),
+    placeholderData: keepPreviousData,
   });
 }

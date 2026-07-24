@@ -6,22 +6,56 @@ import type {
   AttendanceMeTodayResponse,
 } from "./types";
 
-export async function getMyAttendanceToday() {
-  const res = await api.get<ApiEnvelope<AttendanceMeTodayResponse>>("/api/v1/attendance/me/today");
-  return res.data;
+export interface AttendanceMeHistoryParams {
+  startDate?: string;
+  endDate?: string;
+  status?: string;
+  sortBy?: "date" | "status" | "workedMinutes";
+  sortOrder?: "asc" | "desc";
+  page?: number;
+  size?: number;
 }
 
-export async function createMyAttendanceEvent(payload: AttendanceMeCreateEventRequest) {
-  const res = await api.post<ApiEnvelope<AttendanceMeTodayResponse>>("/api/v1/attendance/me/events", payload);
-  return res.data;
+export async function getMyAttendanceToday() {
+  const response =
+    await api.get<ApiEnvelope<AttendanceMeTodayResponse>>(
+      "/api/v1/attendance/me/today",
+    );
+
+  return response.data;
+}
+
+export async function createMyAttendanceEvent(
+  payload: AttendanceMeCreateEventRequest,
+) {
+  const response =
+    await api.post<ApiEnvelope<AttendanceMeTodayResponse>>(
+      "/api/v1/attendance/me/events",
+      payload,
+    );
+
+  return response.data;
 }
 
 export async function revertMyLastAttendanceEvent() {
-  const res = await api.post<ApiEnvelope<AttendanceMeTodayResponse>>("/api/v1/attendance/me/events/revert-last");
-  return res.data;
+  const response =
+    await api.post<ApiEnvelope<AttendanceMeTodayResponse>>(
+      "/api/v1/attendance/me/events/revert-last",
+    );
+
+  return response.data;
 }
 
-export async function getMyAttendanceHistory(params?: { page?: number; size?: number }) {
-  const res = await api.get<ApiEnvelope<AttendanceMeHistoryResponse>>("/api/v1/attendance/me/history", { params });
-  return res.data;
+export async function getMyAttendanceHistory(
+  params?: AttendanceMeHistoryParams,
+) {
+  const response =
+    await api.get<ApiEnvelope<AttendanceMeHistoryResponse>>(
+      "/api/v1/attendance/me/history",
+      {
+        params,
+      },
+    );
+
+  return response.data;
 }
