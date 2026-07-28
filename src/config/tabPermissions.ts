@@ -668,12 +668,91 @@ export const BUSINESSES_TAB_PERMISSIONS: Record<
   },
 };
 
+// ─── Brain & E-Policies ───────────────────────────────────────────────────────
+
+export const BRAIN_TAB_PERMISSIONS: Record<
+  string,
+  TabPermissionEntry
+> = {
+  overview: {
+    requires: [
+      "brain.access",
+      "brain.article.view",
+      "brain.category.view",
+      "policy.access",
+      "policy.document.view",
+      "policy.document.read", // Legacy fallback
+    ],
+  },
+
+  categories: {
+    requires: [
+      "brain.access",
+      "brain.category.view",
+    ],
+  },
+
+  knowledge: {
+    requires: [
+      "brain.access",
+      "brain.article.view",
+      "brain.category.view",
+    ],
+  },
+
+  policies: {
+    requires: [
+      "policy.access",
+      "policy.document.view",
+      "policy.category.view",
+      "policy.document.read", // Legacy fallback
+      "policy.read",          // Legacy fallback
+    ],
+  },
+
+  procedures: {
+    requires: [
+      "procedures.access",
+      "procedures.procedure.view",
+    ],
+  },
+
+  training: {
+    requires: [
+      "brain.access",
+      "brain.training.view",
+    ],
+  },
+
+  // Removed: reviews, acceptance, activity tabs
+
+  settings: {
+    requires: [
+      "brain.access",
+      "policy.access",
+      "policy.settings.manage",
+      "settings.update",
+    ],
+  },
+};
+
 // ─── Top-level module visibility ─────────────────────────────────────────────
 
 export const MODULE_PERMISSIONS: Record<
   string,
   string[]
 > = {
+  brain: [
+    "brain.access",
+    "brain.article.view",
+    "procedures.access",
+    "procedures.procedure.view",
+    "policy.access",
+    "policy.document.view",
+    "policy.document.read", // Legacy fallback
+    "policy.read",          // Legacy fallback
+  ],
+
   recruitment: [
     "job.manage",
     "job.post",

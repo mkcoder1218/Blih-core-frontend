@@ -67,6 +67,34 @@ function removeRRulePrefix(rule: string) {
     ?.replace(/^RRULE:/i, "");
 }
 
+function extractExdates(rule: string): Date[] {
+  const lines = rule.split(/\r?\n/).map((line) => line.trim());
+  const exdateLine = lines.find((line) => line.toUpperCase().startsWith("EXDATE:"));
+  
+  if (!exdateLine) {
+    return [];
+  }
+  
+  const dates = exdateLine
+    .replace(/^EXDATE:/i, "")
+    .split(",")
+    .map((dateStr) => {
+      // Handle YYYYMMDD format
+      const cleaned = dateStr.trim();
+      if (cleaned.length === 8) {
+        const year = cleaned.substring(0, 4);
+        const month = cleaned.substring(4, 6);
+        const day = cleaned.substring(6, 8);
+        return new Date(`${year}-${month}-${day}T00:00:00.000Z`);
+      }
+      // Fallback to parsing as-is
+      return new Date(cleaned);
+    })
+    .filter((date) => !Number.isNaN(date.getTime()));
+  
+  return dates;
+}
+
 function defaultRangeStart() {
   const date = new Date();
   date.setFullYear(date.getFullYear() - 1);
@@ -228,9 +256,22 @@ function buildRecurringEvents(
       options.rangeEnd || defaultRangeEnd();
 
     const durationMs = getDurationMs(item);
+    
+    // Extract exception dates (EXDATE)
+    const exdates = extractExdates(item.recurrenceRule || "");
+    
+    // Helper to check if a date is in the exception list
+    const isExcluded = (date: Date): boolean => {
+      const dateStr = date.toISOString().split('T')[0];
+      return exdates.some((exdate) => {
+        const exdateStr = exdate.toISOString().split('T')[0];
+        return dateStr === exdateStr;
+      });
+    };
 
     return rule
       .between(rangeStart, rangeEnd, true)
+      .filter((occurrenceStart) => !isExcluded(occurrenceStart)) // Filter out exception dates
       .map((occurrenceStart) => {
         const occurrenceEnd = new Date(
           occurrenceStart.getTime() + durationMs,

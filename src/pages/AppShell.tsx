@@ -41,6 +41,7 @@ export default function AppShell() {
   const currentModule = useMemo(() => {
     const p = location.pathname || "/";
     if (p.includes("/businesses")) return "businesses";
+    if (p.includes("/brain")) return "brain";
     if (p.includes("/recruitment")) return "talent";
     if (p.includes("/onboarding")) return "talent";
     if (p.includes("/profiles")) return "talent";

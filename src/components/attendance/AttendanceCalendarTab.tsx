@@ -1,63 +1,69 @@
 import { useEffect, useMemo, useState } from "react";
 import { MeetingAttendeePopover } from "./calendar/MeetingAttendeePopover";
 
-import {
-  Check,
-  ChevronDown,
-  Cloud,
-  Edit2,
-  Eye,
-  Loader2,
-  MoreHorizontal,
-  Plus,
-  Search,
-  Send,
-  ShieldOff,
-  Trash2,
-  UserRoundCheck,
-  WifiOff,
-  X,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+    Check,
+    ChevronDown,
+    Cloud,
+    Edit2,
+    Eye,
+    Loader2,
+    MoreHorizontal,
+    Plus,
+    Search,
+    Send,
+    ShieldOff,
+    Trash2,
+    UserRoundCheck,
+    WifiOff,
+    X,
+} from "lucide-react";
 
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/components/ui/dialog";
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  useCalendarPeople,
-  useCreateMeetingRequest,
-  useCreateUserCalendarEvent,
-  useDeleteUserCalendarEvent,
-  useGoogleCalendarConnection,
-  useMeetingRequests,
-  useRespondMeetingRequest,
-  useSyncUserCalendarEventToGoogle,
-  useSyncAllUserCalendarEventsToGoogle,
-  useSyncUserCalendarFromGoogle,
-  useUpdateUserCalendarEvent,
-  useUserAvailabilityStatus,
-  useUserCalendar,
-} from "../../hooks/useUserCalendar";
-import {
-  calendarApi,
-  type AvailabilityStatus,
-  type CalendarItemType,
-  type CalendarPerson,
-  type UserCalendarEvent,
+    calendarApi,
+    type CalendarItemType,
+    type CalendarPerson,
+    type UserCalendarEvent
 } from "../../api/calendar";
 import { useProjects } from "../../features/projects/hooks";
 import { useMe } from "../../hooks/useMe";
 import {
-  CalendarEventDialog,
-  type CalendarEventFormState,
+    useCalendarPeople,
+    useCreateMeetingRequest,
+    useCreateUserCalendarEvent,
+    useDeleteUserCalendarEvent,
+    useGoogleCalendarConnection,
+    useMeetingRequests,
+    useRespondMeetingRequest,
+    useSyncAllUserCalendarEventsToGoogle,
+    useSyncUserCalendarEventToGoogle,
+    useSyncUserCalendarFromGoogle,
+    useUpdateUserCalendarEvent,
+    useUserAvailabilityStatus,
+    useUserCalendar,
+} from "../../hooks/useUserCalendar";
+import { CalendarCanvas } from "./calendar/CalendarCanvas";
+import {
+    CalendarEventDialog,
+    type CalendarEventFormState,
 } from "./calendar/CalendarEventDialog";
 import { CalendarRichTextViewer } from "./calendar/CalendarRichText";
-import { CalendarCanvas } from "./calendar/CalendarCanvas";
 import { buildCalendarEvents } from "./calendar/build-calendar-events";
 type Surface = "mine" | "team";
 type FormState = CalendarEventFormState;
@@ -217,6 +223,11 @@ export default function AttendanceCalendarTab({
     endAt: Date;
     allDay: boolean;
     title: string;
+  } | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    event: UserCalendarEvent;
+    isRecurring: boolean;
+    instanceDate: string;
   } | null>(null);
 
   const isReadOnlyCalendar = Boolean(selectedPerson);
@@ -511,11 +522,12 @@ export default function AttendanceCalendarTab({
     }
   };
 
-  const removeEvent = async (id: string) => {
+  const removeEvent = async (id: string, deleteScope?: 'THIS_EVENT' | 'ALL_EVENTS', instanceDate?: string) => {
     try {
-      await deleteEvent.mutateAsync(id);
+      await deleteEvent.mutateAsync({ id, deleteScope, instanceDate });
       setDetails(null);
       setFormOpen(false);
+      setDeleteConfirm(null);
       showAlert("Calendar item deleted.", "info");
     } catch (err: any) {
       showAlert(
@@ -523,6 +535,13 @@ export default function AttendanceCalendarTab({
         "error",
       );
     }
+  };
+
+  const openDeleteConfirm = (event: UserCalendarEvent, instanceStartDate?: string) => {
+    const isRecurring = Boolean(event.recurrenceRule || event.isRecurring || event.googleRecurringEventId);
+    // Use the event's start date or the provided instance date
+    const instanceDate = instanceStartDate || event.startAt;
+    setDeleteConfirm({ event, isRecurring, instanceDate });
   };
 
   const syncAllCalendarToGoogle = async (quiet = false) => {
@@ -587,7 +606,7 @@ export default function AttendanceCalendarTab({
       if (!details?.event || isReadOnlyCalendar || details.event.readOnly)
         return;
       event.preventDefault();
-      removeEvent(details.event.id);
+      openDeleteConfirm(details.event);
     };
     window.addEventListener("keydown", handleDeleteKey);
     return () => window.removeEventListener("keydown", handleDeleteKey);
@@ -1451,6 +1470,15 @@ export default function AttendanceCalendarTab({
               >
                 <ShieldOff className="h-3.5 w-3.5" /> Block this time
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="justify-start gap-2 text-red-600 hover:bg-red-50 hover:text-red-700 hover:border-red-200"
+                disabled={isReadOnlyCalendar || selected.readOnly || canRespondToSelectedMeeting}
+                onClick={() => openDeleteConfirm(selected)}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete event
+              </Button>
             </div>
           )}
           {details.mode === "details" &&
@@ -1482,7 +1510,7 @@ export default function AttendanceCalendarTab({
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={() => removeEvent(selected.id)}
+                  onClick={() => openDeleteConfirm(selected)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
@@ -1518,6 +1546,322 @@ export default function AttendanceCalendarTab({
         onSave={saveForm}
         onDelete={removeEvent}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={!!deleteConfirm} onOpenChange={(open) => !open && setDeleteConfirm(null)}>
+        <DialogContent className="max-w-md rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900">
+              Delete Calendar Event
+            </DialogTitle>
+            <DialogDescription className="text-sm font-semibold text-slate-600">
+              {deleteConfirm?.isRecurring 
+                ? "This is a recurring event. Do you want to delete all occurrences or just this one?"
+                : "Are you sure you want to delete this event? This action cannot be undone."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-6 space-y-3">
+            {deleteConfirm?.isRecurring ? (
+              <>
+                <Button
+                  onClick={() => deleteConfirm && removeEvent(deleteConfirm.event.id, 'ALL_EVENTS')}
+                  disabled={deleteEvent.isPending}
+                  className="w-full justify-center gap-2 rounded-xl bg-red-600 text-white hover:bg-red-700"
+                >
+                  {deleteEvent.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  <Trash2 className="h-4 w-4" />
+                  Delete All Events
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (deleteConfirm) removeEvent(deleteConfirm.event.id, 'THIS_EVENT', deleteConfirm.instanceDate);
+                  }}
+                  disabled={deleteEvent.isPending}
+                  variant="outline"
+                  className="w-full justify-center gap-2 rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                >
+                  {deleteEvent.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  <Trash2 className="h-4 w-4" />
+                  Delete This Event Only
+                </Button>
+                <Button
+                  onClick={() => setDeleteConfirm(null)}
+                  disabled={deleteEvent.isPending}
+                  variant="outline"
+                  className="w-full justify-center rounded-xl"
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button
+                  onClick={() => deleteConfirm && removeEvent(deleteConfirm.event.id)}
+                  disabled={deleteEvent.isPending}
+                  className="w-full justify-center gap-2 rounded-xl bg-red-600 text-white hover:bg-red-700"
+                >
+                  {deleteEvent.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                  <Trash2 className="h-4 w-4" />
+                  Yes, Delete Event
+                </Button>
+                <Button
+                  onClick={() => setDeleteConfirm(null)}
+                  disabled={deleteEvent.isPending}
+                  variant="outline"
+                  className="w-full justify-center rounded-xl"
+                >
+                  Cancel
+                </Button>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Meeting Requests Modal */}
+      <Dialog open={requestsOpen} onOpenChange={setRequestsOpen}>
+        <DialogContent className="max-w-2xl rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900">
+              Meeting Requests
+            </DialogTitle>
+            <DialogDescription className="text-sm font-semibold text-slate-600">
+              Manage your incoming and outgoing meeting requests
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            {/* Incoming Requests */}
+            {incomingRequests.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-slate-400">
+                  Incoming Requests ({incomingRequests.length})
+                </h3>
+                <div className="space-y-2">
+                  {incomingRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="rounded-xl border border-slate-200 bg-white p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-slate-900">
+                            {request.title}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            From: {request.requester?.fullName}
+                          </p>
+                          <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                            {new Date(request.startAt).toLocaleString()} - {new Date(request.endAt).toLocaleTimeString()}
+                          </p>
+                          {request.location && (
+                            <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                              📍 {request.location}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              respondToMeeting(request.id, "ACCEPTED");
+                              setRequestsOpen(false);
+                            }}
+                            className="gap-1 bg-emerald-600 hover:bg-emerald-700"
+                            disabled={respondMeeting.isPending}
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                            Accept
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              respondToMeeting(request.id, "DECLINED");
+                              setRequestsOpen(false);
+                            }}
+                            className="gap-1 border-red-200 text-red-600 hover:bg-red-50"
+                            disabled={respondMeeting.isPending}
+                          >
+                            <X className="h-3.5 w-3.5" />
+                            Decline
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Outgoing Requests */}
+            {outgoingRequests.length > 0 && (
+              <div>
+                <h3 className="mb-3 text-xs font-black uppercase tracking-wider text-slate-400">
+                  Outgoing Requests ({outgoingRequests.length})
+                </h3>
+                <div className="space-y-2">
+                  {outgoingRequests.map((request) => (
+                    <div
+                      key={request.id}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-4"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-black text-slate-900">
+                            {request.title}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold text-slate-500">
+                            To: {request.recipient?.fullName}
+                          </p>
+                          <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                            {new Date(request.startAt).toLocaleString()} - {new Date(request.endAt).toLocaleTimeString()}
+                          </p>
+                          {request.location && (
+                            <p className="mt-1 text-[11px] font-semibold text-slate-400">
+                              📍 {request.location}
+                            </p>
+                          )}
+                        </div>
+                        <span className="shrink-0 rounded-full bg-amber-100 px-3 py-1 text-[10px] font-black uppercase text-amber-700">
+                          Pending
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Empty State */}
+            {incomingRequests.length === 0 && outgoingRequests.length === 0 && (
+              <div className="py-12 text-center">
+                <p className="text-sm font-bold text-slate-400">
+                  No active meeting requests
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Meeting Request Form Modal */}
+      <Dialog open={meetingOpen} onOpenChange={setMeetingOpen}>
+        <DialogContent className="max-w-lg rounded-3xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-black text-slate-900">
+              Request Meeting
+            </DialogTitle>
+            <DialogDescription className="text-sm font-semibold text-slate-600">
+              {meetingRecipient
+                ? `Send a meeting request to ${meetingRecipient.fullName}`
+                : "Select a person to meet with"}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-700">
+                Meeting Title
+              </label>
+              <Input
+                value={meetingForm.title}
+                onChange={(e) =>
+                  setMeetingForm({ ...meetingForm, title: e.target.value })
+                }
+                placeholder="Meeting with..."
+                className="mt-1.5"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-700">
+                  Start Time
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={meetingForm.startAt}
+                  onChange={(e) =>
+                    setMeetingForm({ ...meetingForm, startAt: e.target.value })
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700">
+                  End Time
+                </label>
+                <Input
+                  type="datetime-local"
+                  value={meetingForm.endAt}
+                  onChange={(e) =>
+                    setMeetingForm({ ...meetingForm, endAt: e.target.value })
+                  }
+                  className="mt-1.5"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700">
+                Location (Optional)
+              </label>
+              <Input
+                value={meetingForm.location}
+                onChange={(e) =>
+                  setMeetingForm({ ...meetingForm, location: e.target.value })
+                }
+                placeholder="Office, Zoom link, etc."
+                className="mt-1.5"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-700">
+                Description (Optional)
+              </label>
+              <textarea
+                value={meetingForm.description}
+                onChange={(e) =>
+                  setMeetingForm({
+                    ...meetingForm,
+                    description: (e.target as HTMLTextAreaElement).value,
+                  })
+                }
+                placeholder="Agenda or notes..."
+                className="mt-1.5 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 outline-none transition focus:border-slate-300"
+                rows={3}
+              />
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                onClick={sendMeetingRequest}
+                disabled={createMeeting.isPending}
+                className="flex-1 gap-2 rounded-xl bg-blue-600 hover:bg-blue-700"
+              >
+                {createMeeting.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
+                <Send className="h-4 w-4" />
+                Send Request
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setMeetingOpen(false);
+                  setMeetingRecipient(null);
+                }}
+                disabled={createMeeting.isPending}
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

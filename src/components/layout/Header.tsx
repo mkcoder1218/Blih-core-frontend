@@ -223,6 +223,13 @@ export default function Header({
 
     if (
       currentModule ===
+      "brain"
+    ) {
+      mainText = "Brain & E-Policies";
+    }
+
+    if (
+      currentModule ===
       "projects"
     ) {
       mainText = "Projects";

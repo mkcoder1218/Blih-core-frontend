@@ -1,9 +1,9 @@
 import {
-  Brain,
-  ChevronDown,
-  ChevronRight,
-  Settings,
-  Shield,
+    Brain,
+    ChevronDown,
+    ChevronRight,
+    Settings,
+    Shield,
 } from 'lucide-react';
 
 import type { MainModule } from '../../types';
@@ -11,10 +11,16 @@ import type { MainModule } from '../../types';
 import GlobalSubtabSearch from './GlobalSubtabSearch';
 
 import {
-  DetailedSidebarUserBlock,
-  SidebarBadge,
-  SidebarButton,
+    DetailedSidebarUserBlock,
+    SidebarBadge,
+    SidebarButton,
 } from './SidebarViewParts';
+
+import {
+    Tooltip,
+    TooltipContent,
+    TooltipTrigger
+} from '@/components/ui/tooltip';
 
 import type { SidebarController } from './useSidebarController';
 
@@ -129,32 +135,37 @@ export function DetailedSidebar({
                 module.id === displayModule;
 
               return (
-                <SidebarButton
-                  key={module.id}
-                  onClick={() =>
-                    handleModuleClick(module.id)
-                  }
-                  className={`relative flex cursor-pointer items-center justify-center rounded-xl p-3 transition-all ${
-                    isActive
-                      ? 'bg-white text-[#1a56db] shadow-md'
-                      : 'text-white/85 hover:bg-white/10 hover:text-white'
-                  }`}
-                  title={module.label}
-                >
-                  <Icon className="h-5 w-5" />
+                <Tooltip key={module.id}>
+                  <TooltipTrigger asChild>
+                    <SidebarButton
+                      onClick={() =>
+                        handleModuleClick(module.id)
+                      }
+                      className={`relative flex cursor-pointer items-center justify-center rounded-xl p-3 transition-all ${
+                        isActive
+                          ? 'bg-white text-[#1a56db] shadow-md'
+                          : 'text-white/85 hover:bg-white/10 hover:text-white'
+                      }`}
+                    >
+                      <Icon className="h-5 w-5" />
 
-                  {module.badge > 0 &&
-                    !isActive && (
-                      <span
-                        className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-[#1a56db] ${
-                          module.id ===
-                          'performance'
-                            ? 'bg-red-400'
-                            : 'bg-sky-300'
-                        }`}
-                      />
-                    )}
-                </SidebarButton>
+                      {module.badge > 0 &&
+                        !isActive && (
+                          <span
+                            className={`absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-[#1a56db] ${
+                              module.id ===
+                              'performance'
+                                ? 'bg-red-400'
+                                : 'bg-sky-300'
+                            }`}
+                          />
+                        )}
+                    </SidebarButton>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="font-semibold">
+                    {module.label}
+                  </TooltipContent>
+                </Tooltip>
               );
             })}
           </div>
@@ -690,10 +701,37 @@ export function DetailedSidebar({
                 </SidebarButton>
               ))}
 
+            {displayModule === 'brain' &&
+              controller.brainTabs.map((tab) => (
+                <SidebarButton
+                  key={tab.id}
+                  onClick={() => {
+                    navigate(
+                      tab.id === 'overview'
+                        ? `/${roleSegment}/brain`
+                        : `/${roleSegment}/brain/${tab.id}`,
+                    );
+
+                    onMobileClose?.();
+                  }}
+                  className={tabCls(
+                    location.pathname.endsWith(`/brain/${tab.id}`) ||
+                      (tab.id === 'overview' &&
+                        (location.pathname.endsWith('/brain') ||
+                          location.pathname.endsWith('/brain/overview'))),
+                  )}
+                >
+                  <span>{tab.label}</span>
+
+                  <SidebarBadge count={tab.badge} />
+                </SidebarButton>
+              ))}
+
             {![
               'recruitment',
               'profiles',
               'attendance',
+              'brain',
               'talent',
               'exit',
               'onboarding',

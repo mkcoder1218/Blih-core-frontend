@@ -4,6 +4,7 @@
  */
 
 import {
+  BookOpen,
   BriefcaseBusiness,
   Building2,
   Calendar,
@@ -17,6 +18,7 @@ import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   ATTENDANCE_TAB_PERMISSIONS,
+  BRAIN_TAB_PERMISSIONS,
   BUSINESSES_TAB_PERMISSIONS,
   EXIT_TAB_PERMISSIONS,
   FINANCE_TAB_PERMISSIONS,
@@ -29,10 +31,13 @@ import {
 } from '../../config/tabPermissions';
 import { useCriticalDisciplinaryCases } from '../../hooks/useDisciplinary';
 import { useMyPermissions } from '../../hooks/usePermissions';
+import { useMe } from '../../hooks/useMe';
+import { useBrainAuthorization } from '../../hooks/useBrainAuthorization';
 import { MainModule } from '../../types';
 
 import {
   ALL_ATTENDANCE_TABS,
+  ALL_BRAIN_TABS,
   ALL_BUSINESSES_TABS,
   ALL_EXIT_TABS,
   ALL_FINANCE_TABS,
@@ -182,6 +187,8 @@ export function useSidebarController({
       : 'CO';
   };
 
+  const brainAuth = useBrainAuthorization();
+
   const allModules = [
     {
       id: 'businesses',
@@ -193,6 +200,12 @@ export function useSidebarController({
       id: 'permissions',
       label: 'Roles & Permissions',
       icon: Shield,
+      badge: 0,
+    },
+    {
+      id: 'brain',
+      label: 'Brain',
+      icon: BookOpen,
       badge: 0,
     },
     {
@@ -248,6 +261,10 @@ export function useSidebarController({
         )
       ) {
         return false;
+      }
+
+      if (module.id === 'brain') {
+        return brainAuth.canAccessWorkspace;
       }
 
       if (
@@ -695,10 +712,24 @@ export function useSidebarController({
       ? 'subscription-settings'
       : currentModule;
 
+  const brainTabs = brainAuth.allowedTabs;
+
   const handleModuleClick = (
     moduleId: MainModule,
   ) => {
     setCurrentModule(moduleId);
+
+    if (moduleId === 'brain') {
+      const allowedTab = brainAuth.firstAllowedTabId;
+      setIsDetailedView(true);
+      navigate(
+        allowedTab === 'overview'
+          ? `/${roleSegment}/brain`
+          : `/${roleSegment}/brain/${allowedTab}`,
+      );
+      onMobileClose?.();
+      return;
+    }
 
     if (
       moduleId ===
@@ -797,6 +828,7 @@ export function useSidebarController({
   return {
     activeSettingsTab,
     attendanceGroups,
+    brainTabs,
     businessesTabs,
     currentAttendanceTab,
     currentBusinessesTab,

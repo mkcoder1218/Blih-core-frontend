@@ -49,6 +49,7 @@ import PublicRegistrationConfigPanel from './PublicRegistrationConfigPanel';
 import { ConfirmDialog } from '@/components/ui/blih';
 import TelegramAttendanceIntegrationsPanel from './TelegramAttendanceIntegrationsPanel';
 import SmtpProvidersTab from './SmtpProvidersTab';
+import { BusinessModulesModal } from './BusinessModulesModal';
 
 type ViewBusiness = ApiBusiness & {
   legalName: string;
@@ -110,6 +111,8 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
   const [adminModalOpen, setAdminModalOpen] = useState(false);
   const [adminBusiness, setAdminBusiness] = useState<ViewBusiness | null>(null);
+  const [modulesModalOpen, setModulesModalOpen] = useState(false);
+  const [modulesBusiness, setModulesBusiness] = useState<ViewBusiness | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const createAdmin = useCreateBusinessAdmin(adminBusiness?.id || 'missing');
 
@@ -237,6 +240,12 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     setAdminPassword('');
     setAdminError('');
     setAdminModalOpen(true);
+  };
+
+  const openModulesModal = (biz: ViewBusiness) => {
+    if (!isPlatformSuperAdmin) return;
+    setModulesBusiness(biz);
+    setModulesModalOpen(true);
   };
 
   const handleDelete = async (id: string, name: string) => {
@@ -573,6 +582,14 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
                     <td className="py-4.5 px-6 text-right">
                       <div className="flex items-center gap-1.5 justify-end">
+                        <button
+                          onClick={() => openModulesModal(biz)}
+                          disabled={!isPlatformSuperAdmin}
+                          title="Manage Active Modules (Brain, Policy, HR, CRM, etc.)"
+                          className="p-1 px-2.5 hover:bg-emerald-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-emerald-700 rounded-lg transition-colors cursor-pointer"
+                        >
+                          <Layers className="w-3.5 h-3.5" />
+                        </button>
                         <button
                           onClick={() => openAdminModal(biz)}
                           disabled={!isPlatformSuperAdmin}
@@ -971,6 +988,12 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
         loading={deleteBiz.isPending}
       />
 
+      <BusinessModulesModal
+        business={modulesBusiness}
+        isOpen={modulesModalOpen}
+        onClose={() => setModulesModalOpen(false)}
+        showAlert={showAlert}
+      />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { calendarApi, type CalendarEventPayload, type AvailabilityStatus, type MeetingRequestStatus } from '../api/calendar';
+import { calendarApi, type AvailabilityStatus, type CalendarEventPayload, type MeetingRequestStatus } from '../api/calendar';
 
 const KEY = ['user-calendar'];
 
@@ -62,7 +62,8 @@ export function useUpdateUserCalendarEvent() {
 export function useDeleteUserCalendarEvent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => calendarApi.remove(id),
+    mutationFn: ({ id, deleteScope, instanceDate }: { id: string; deleteScope?: 'THIS_EVENT' | 'ALL_EVENTS'; instanceDate?: string }) => 
+      calendarApi.remove(id, { deleteScope, instanceDate }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }

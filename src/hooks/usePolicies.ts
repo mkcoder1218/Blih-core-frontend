@@ -1,123 +1,194 @@
-/**
- * React Query hooks for the Policies module.
- */
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  acceptPolicy,
-  archivePolicy,
-  createPolicy,
-  getActivePolicies,
-  getComplianceReport,
-  getPolicies,
-  getPolicyAcceptances,
-  getPolicyById,
-  getPolicyByType,
-  updatePolicy,
-  type ActivePolicy,
-  type ComplianceReport,
-  type PolicyDetail,
-  type PolicySummary,
-  type PolicyType,
+  policyCategoriesApi,
+  policyDocumentsApi,
+  CreatePolicyCategoryInput,
+  PolicyCategoryListParams,
+  UpdatePolicyCategoryInput,
+  CreatePolicyDocumentInput,
+  PolicyDocumentListParams,
+  UpdatePolicyDocumentInput,
+  PolicyAssignmentItem,
 } from "../api/policies";
 
-// ── Employee-facing ────────────────────────────────────────────────────────────
+// ── Policy Categories Hooks ──
 
-/** All active policies with the current user's acceptance status. */
+export function usePolicyCategories(params?: PolicyCategoryListParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["policy", "categories", params],
+    queryFn: () => policyCategoriesApi.list(params),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function usePolicyCategory(id: string | null | undefined) {
+  return useQuery({
+    queryKey: ["policy", "category", id],
+    queryFn: () => policyCategoriesApi.get(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function useCreatePolicyCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePolicyCategoryInput) => policyCategoriesApi.create(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "categories"] });
+    },
+  });
+}
+
+export function useUpdatePolicyCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdatePolicyCategoryInput }) =>
+      policyCategoriesApi.update(id, input),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "categories"] });
+      queryClient.invalidateQueries({ queryKey: ["policy", "category", variables.id] });
+    },
+  });
+}
+
+export function useDeletePolicyCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => policyCategoriesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "categories"] });
+    },
+  });
+}
+
+export function useRestorePolicyCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => policyCategoriesApi.restore(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "categories"] });
+    },
+  });
+}
+
+// ── Policy Documents Hooks ──
+
+export function usePolicyList(params?: PolicyDocumentListParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["policy", "list", params],
+    queryFn: () => policyDocumentsApi.list(params),
+    enabled: options?.enabled ?? true,
+  });
+}
+
+export function usePolicyDetail(id: string | null | undefined, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["policy", "detail", id],
+    queryFn: () => policyDocumentsApi.get(id!),
+    enabled: Boolean(id) && (options?.enabled ?? true),
+  });
+}
+
+export function useCreatePolicyDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreatePolicyDocumentInput) => policyDocumentsApi.create(input),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "list"] });
+    },
+  });
+}
+
+export function useUpdatePolicyDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: UpdatePolicyDocumentInput }) =>
+      policyDocumentsApi.update(id, input),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["policy", "detail", variables.id] });
+    },
+  });
+}
+
+export function useDeletePolicyDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => policyDocumentsApi.delete(id),
+    onSuccess: (data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["policy", "detail", id] });
+    },
+  });
+}
+
+export function useRestorePolicyDocument() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => policyDocumentsApi.restore(id),
+    onSuccess: (data, id) => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "list"] });
+      queryClient.invalidateQueries({ queryKey: ["policy", "detail", id] });
+    },
+  });
+}
+
+// ── Policy Assignments Hooks ──
+
+export function usePolicyAssignments(policyId: string | null | undefined, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ["policy", "assignments", policyId],
+    queryFn: () => policyDocumentsApi.listAssignments(policyId!),
+    enabled: Boolean(policyId) && (options?.enabled ?? true),
+  });
+}
+
+export function useUpdatePolicyAssignments() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ policyId, assignments }: { policyId: string; assignments: PolicyAssignmentItem[] }) =>
+      policyDocumentsApi.updateAssignments(policyId, assignments),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["policy", "assignments", variables.policyId] });
+      queryClient.invalidateQueries({ queryKey: ["policy", "detail", variables.policyId] });
+    },
+  });
+}
+
+// ── Legacy Onboarding Compatibility Hooks ──
+
 export function useActivePolicies() {
-  return useQuery<ActivePolicy[]>({
-    queryKey: ["policies", "public"],
-    queryFn: getActivePolicies,
-    staleTime: 60_000,
-  });
-}
-
-// ── Admin ──────────────────────────────────────────────────────────────────────
-
-/** Paginated list of all policies (admin). */
-export function usePolicies(filters?: {
-  page?: number;
-  limit?: number;
-  status?: "draft" | "active" | "archived";
-}) {
   return useQuery({
-    queryKey: ["policies", "list", filters],
-    queryFn: () => getPolicies(filters),
-    staleTime: 30_000,
+    queryKey: ["policy", "active-user-policies"],
+    queryFn: async () => {
+      const res = await policyDocumentsApi.list({ status: "published", page: 1, size: 50 });
+      return (res.rows || []).map((doc) => ({
+        _id: doc.id,
+        policyType: doc.policyType,
+        title: doc.title,
+        slug: doc.slug,
+        version: doc.version,
+        isRequired: doc.isRequired,
+        publishedAt: doc.publishedAt || null,
+        contentHtml: doc.contentHtml || "",
+        contentJson: doc.contentJson || {},
+        contentText: doc.contentText || "",
+        isAccepted: false,
+        acceptedAt: null,
+      }));
+    },
   });
 }
 
-/** Single policy by its fixed enum type (admin). */
-export function usePolicyByType(policyType: PolicyType | null) {
-  return useQuery<PolicyDetail>({
-    queryKey: ["policies", "type", policyType],
-    queryFn: () => getPolicyByType(policyType!),
-    enabled: !!policyType,
-    staleTime: 60_000,
-  });
-}
-
-/** Single policy detail by MongoDB ID (admin). */
-export function usePolicyDetail(id: string | null) {
-  return useQuery<PolicyDetail>({
-    queryKey: ["policies", "detail", id],
-    queryFn: () => getPolicyById(id!),
-    enabled: !!id,
-    staleTime: 30_000,
-  });
-}
-
-/** Who accepted a specific policy (admin). */
-export function usePolicyAcceptances(id: string | null, params?: { page?: number; limit?: number }) {
-  return useQuery({
-    queryKey: ["policies", "acceptances", id, params],
-    queryFn: () => getPolicyAcceptances(id!, params),
-    enabled: !!id,
-    staleTime: 30_000,
-  });
-}
-
-/** Compliance report (admin). */
-export function useComplianceReport() {
-  return useQuery<ComplianceReport>({
-    queryKey: ["policies", "compliance"],
-    queryFn: getComplianceReport,
-    staleTime: 60_000,
-  });
-}
-
-/** All write operations bundled together. */
 export function usePolicyMutations() {
-  const qc = useQueryClient();
-
-  const invalidate = () => {
-    qc.invalidateQueries({ queryKey: ["policies"] });
-  };
-
-  const createPolicyMut = useMutation({
-    mutationFn: (data: Partial<PolicyDetail>) => createPolicy(data),
-    onSuccess: invalidate,
+  const queryClient = useQueryClient();
+  const acceptPolicy = useMutation({
+    mutationFn: async (id: string) => {
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["policy"] });
+    },
   });
-
-  const updatePolicyMut = useMutation({
-    mutationFn: ({ id, ...data }: Partial<PolicyDetail> & { id: string }) =>
-      updatePolicy(id, data),
-    onSuccess: invalidate,
-  });
-
-  const deletePolicyMut = useMutation({
-    mutationFn: (id: string) => archivePolicy(id),
-    onSuccess: invalidate,
-  });
-
-  const acceptPolicyMut = useMutation({
-    mutationFn: (id: string) => acceptPolicy(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["policies", "public"] }),
-  });
-
-  return {
-    createPolicy: createPolicyMut,
-    updatePolicy: updatePolicyMut,
-    deletePolicy: deletePolicyMut,
-    acceptPolicy: acceptPolicyMut,
-  };
+  return { acceptPolicy };
 }

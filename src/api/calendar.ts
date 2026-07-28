@@ -108,8 +108,8 @@ export const calendarApi = {
     const res = await api.patch(`/api/v1/calendar/${id}`, payload);
     return res.data.event as UserCalendarEvent;
   },
-  remove: async (id: string) => {
-    await api.delete(`/api/v1/calendar/${id}`);
+  remove: async (id: string, params?: { deleteScope?: 'THIS_EVENT' | 'ALL_EVENTS'; instanceDate?: string }) => {
+    await api.delete(`/api/v1/calendar/${id}`, { params });
   },
   status: async () => {
     const res = await api.get('/api/v1/calendar/status');

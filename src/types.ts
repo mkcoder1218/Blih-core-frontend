@@ -18,7 +18,8 @@ export type MainModule =
   | 'subscription-settings'
   | 'businesses'
   | 'permissions'
-  | 'subscription';
+  | 'subscription'
+  | 'brain';
 
 export type RecruitmentTab =
   | 'overview'

@@ -24,10 +24,12 @@ import {
   ProjectsPage,
 } from '../features/projects';
 
+import BrainView from '../components/brain/BrainView';
 import EmploymentContractTemplatePage from './EmploymentContractTemplatePage';
 import RecruitmentPage from './RecruitmentPage';
 
 const ALLOWED_MODULES = new Set([
+  'brain',
   'onboarding',
   'profiles',
   'attendance',
@@ -748,6 +750,18 @@ export default function ModulePage() {
         showAlert={
           showAlert
         }
+      />
+    );
+  }
+
+  if (
+    moduleName ===
+    'brain'
+  ) {
+    return (
+      <BrainView
+        currentTab={tab}
+        showAlert={showAlert}
       />
     );
   }

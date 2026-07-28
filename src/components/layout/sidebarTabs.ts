@@ -140,3 +140,11 @@ export const ALL_BUSINESSES_TABS = [
   { id: 'audit_logs', label: 'Audit Logs', badge: 0 },
   { id: 'notifications', label: 'Notifications', badge: 0 },
 ] as const;
+
+export const ALL_BRAIN_TABS = [
+  { id: 'overview', label: 'Overview', badge: 0 },
+  { id: 'categories', label: 'Categories', badge: 0 },
+  { id: 'knowledge', label: 'Knowledge', badge: 0 },
+  { id: 'procedures', label: 'Procedures', badge: 0 },
+  { id: 'policies', label: 'Policies', badge: 0 },
+] as const;
