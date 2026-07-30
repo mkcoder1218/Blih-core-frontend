@@ -257,6 +257,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [editRow, setEditRow] = React.useState<EmployeeSalaryRow | null>(null);
   const [editingBaseUserId, setEditingBaseUserId] = React.useState<string | null>(null);
   const [baseDraft, setBaseDraft] = React.useState("");
+  const [selectedUserIds, setSelectedUserIds] = React.useState<string[]>([]);
   const [exporting, setExporting] = React.useState(false);
   const [showMoreDetails, setShowMoreDetails] = React.useState(false);
   const [columnMenuOpen, setColumnMenuOpen] = React.useState(false);
@@ -299,6 +300,22 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const departments = useDepartments({ size: 200 });
   const updateBaseSalary = useUpdateEmployeeBaseSalary();
   const rows = (salaries.data?.rows ?? []).filter((row) => !isUnpaidSalaryMarker(row));
+  const selectedUserIdSet = React.useMemo(() => new Set(selectedUserIds), [selectedUserIds]);
+  const visibleRowIds = React.useMemo(() => rows.map((row) => row.userId), [rows]);
+  const selectedRowsOnPageCount = React.useMemo(
+    () => visibleRowIds.filter((userId) => selectedUserIdSet.has(userId)).length,
+    [visibleRowIds, selectedUserIdSet]
+  );
+  const allRowsOnPageSelected = visibleRowIds.length > 0 && selectedRowsOnPageCount === visibleRowIds.length;
+  const hasSomeRowsOnPageSelected = selectedRowsOnPageCount > 0 && !allRowsOnPageSelected;
+  const selectPageCheckboxRef = React.useRef<HTMLInputElement | null>(null);
+
+  React.useEffect(() => {
+    if (selectPageCheckboxRef.current) {
+      selectPageCheckboxRef.current.indeterminate = hasSomeRowsOnPageSelected;
+    }
+  }, [hasSomeRowsOnPageSelected]);
+
   const pagination = salaries.data?.pagination ?? {};
   const totals = salaries.data?.meta?.totals ?? {};
   const total = Number(pagination.total ?? pagination.count ?? 0);
@@ -354,6 +371,28 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
       return normalizeColumnIds(next);
     });
   };
+
+  const toggleSelectedUser = React.useCallback((userId: string) => {
+    setSelectedUserIds((current) => current.includes(userId)
+      ? current.filter((value) => value !== userId)
+      : [...current, userId]);
+  }, []);
+
+  const toggleSelectCurrentPage = React.useCallback(() => {
+    setSelectedUserIds((current) => {
+      const next = new Set(current);
+      const shouldClearPage = visibleRowIds.length > 0 && visibleRowIds.every((userId) => next.has(userId));
+      visibleRowIds.forEach((userId) => {
+        if (shouldClearPage) next.delete(userId);
+        else next.add(userId);
+      });
+      return Array.from(next);
+    });
+  }, [visibleRowIds]);
+
+  const clearSelectedUsers = React.useCallback(() => {
+    setSelectedUserIds([]);
+  }, []);
 
   const renderActions = (row: EmployeeSalaryRow) => (
     <div className="relative inline-flex" onClick={(event) => event.stopPropagation()}>
@@ -491,16 +530,24 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const exportCsv = async () => {
     setExporting(true);
     try {
-      const res = await exportEmployeeSalaries({
-        q: search || undefined,
-        payrollStatus: payrollStatus || undefined,
-        templateId: templateId || undefined,
-        departmentId: departmentId || undefined,
-        employmentStatus: employmentStatus || undefined,
-        dateFrom: dateFrom || undefined,
-        dateTo: dateTo || undefined,
-        columns: visibleColumnIds.join(","),
-      });
+      const selectionParams = selectedUserIds.length
+        ? {
+            selectedUserIds: selectedUserIds.join(","),
+            dateFrom: dateFrom || undefined,
+            dateTo: dateTo || undefined,
+            columns: visibleColumnIds.join(","),
+          }
+        : {
+            q: search || undefined,
+            payrollStatus: payrollStatus || undefined,
+            templateId: templateId || undefined,
+            departmentId: departmentId || undefined,
+            employmentStatus: employmentStatus || undefined,
+            dateFrom: dateFrom || undefined,
+            dateTo: dateTo || undefined,
+            columns: visibleColumnIds.join(","),
+          };
+      const res = await exportEmployeeSalaries(selectionParams);
       const url = window.URL.createObjectURL(new Blob([res.data], { type: "text/csv;charset=utf-8" }));
       const link = document.createElement("a");
       link.href = url;
@@ -606,7 +653,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
               className="h-9 px-3 rounded-lg bg-blue-600 text-white text-xs font-black hover:bg-blue-700 disabled:opacity-60 inline-flex items-center gap-2"
             >
               <Download className="w-3.5 h-3.5" />
-              {exporting ? "Exporting..." : "Export CSV"}
+              {exporting ? "Exporting..." : selectedUserIds.length ? `Export Selected (${selectedUserIds.length})` : "Export CSV"}
             </button>
           </>
         }
@@ -705,21 +752,63 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
             )}
           </div>
 
-          {activeFilters.length > 0 && (
+          {(activeFilters.length > 0 || selectedUserIds.length > 0) && (
             <div className="flex flex-wrap items-center gap-2">
               {activeFilters.map((chip) => (
                 <span key={chip.key} className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-black text-slate-600">{chip.label}</span>
               ))}
-              <button type="button" onClick={clearFilters} className="text-[10px] font-black text-blue-700 hover:text-blue-800">
-                Clear filters
-              </button>
+              {selectedUserIds.length > 0 ? (
+                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-black text-blue-700">
+                  {selectedUserIds.length} selected
+                </span>
+              ) : null}
+              {activeFilters.length > 0 ? (
+                <button type="button" onClick={clearFilters} className="text-[10px] font-black text-blue-700 hover:text-blue-800">
+                  Clear filters
+                </button>
+              ) : null}
             </div>
           )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
+            <div className="text-[11px] font-bold text-slate-600">
+              {selectedUserIds.length ? `${selectedUserIds.length} employees selected for export` : "Select employees to export specific salary rows across pages."}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={toggleSelectCurrentPage}
+                disabled={!visibleRowIds.length}
+                className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-[11px] font-black text-slate-700 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {allRowsOnPageSelected ? "Unselect Page" : "Select Page"}
+              </button>
+              {selectedUserIds.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={clearSelectedUsers}
+                  className="h-8 px-3 rounded-lg border border-slate-200 bg-white text-[11px] font-black text-slate-700 hover:bg-slate-50"
+                >
+                  Clear Selection
+                </button>
+              ) : null}
+            </div>
+          </div>
 
           <div className="hidden md:block rounded-2xl border border-slate-100 overflow-x-auto">
             <table className="min-w-full text-left">
               <thead className="bg-slate-50 border-b border-slate-100">
                 <tr>
+                  <th className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 whitespace-nowrap">
+                    <input
+                      ref={selectPageCheckboxRef}
+                      type="checkbox"
+                      checked={allRowsOnPageSelected}
+                      onChange={() => toggleSelectCurrentPage()}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      aria-label={allRowsOnPageSelected ? "Unselect current page employees" : "Select current page employees"}
+                    />
+                  </th>
                   {visibleColumns.map((column) => (
                     <th key={column.id} className="px-4 py-3 text-[10px] font-black uppercase text-slate-400 whitespace-nowrap">
                       {column.label}
@@ -730,12 +819,21 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
               <tbody className="bg-white divide-y divide-slate-100">
                 {salaries.isLoading ? (
                   <tr>
-                    <td className="px-4 py-10 text-center" colSpan={visibleColumns.length}>
+                    <td className="px-4 py-10 text-center" colSpan={visibleColumns.length + 1}>
                       <LoadingSpinner />
                     </td>
                   </tr>
                 ) : rows.length ? rows.map((row) => (
                   <tr key={row.userId} className="hover:bg-slate-50/70 cursor-pointer" onClick={() => setDeductionRow(row)}>
+                    <td className="px-4 py-2" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIdSet.has(row.userId)}
+                        onChange={() => toggleSelectedUser(row.userId)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        aria-label={`Select ${row.name}`}
+                      />
+                    </td>
                     {visibleColumns.map((column) => (
                       <td key={column.id} className={`px-3 py-2 text-xs whitespace-nowrap ${column.cellClassName || ""} ${cellTone(column.id)}`}>
                         {renderCell(row, column.id)}
@@ -744,7 +842,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
                   </tr>
                 )) : (
                   <tr>
-                    <td className="px-4 py-10 text-center text-xs font-bold text-slate-400" colSpan={visibleColumns.length}>
+                    <td className="px-4 py-10 text-center text-xs font-bold text-slate-400" colSpan={visibleColumns.length + 1}>
                       No employee salary records match these filters.
                     </td>
                   </tr>
@@ -759,7 +857,18 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
             ) : rows.length ? rows.map((row) => (
               <div key={row.userId} role="button" tabIndex={0} onClick={() => setDeductionRow(row)} onKeyDown={(event) => { if (event.key === "Enter") setDeductionRow(row); }} className="text-left rounded-2xl border border-slate-100 bg-white p-3 shadow-sm">
                 <div className="flex items-start justify-between gap-3">
-                  {renderCell(row, "employee")}
+                  <div className="flex items-start gap-3">
+                    <div className="pt-0.5" onClick={(event) => event.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedUserIdSet.has(row.userId)}
+                        onChange={() => toggleSelectedUser(row.userId)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                        aria-label={`Select ${row.name}`}
+                      />
+                    </div>
+                    {renderCell(row, "employee")}
+                  </div>
                   {renderActions(row)}
                 </div>
                 <div className="mt-3 grid gap-2">
@@ -782,7 +891,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           </div>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-semibold text-slate-500">
-            <span>{total ? `${(page - 1) * limit + 1}-${Math.min(page * limit, total)} of ${total} employees` : "No employees"}</span>
+            <span>{total ? `${(page - 1) * limit + 1}-${Math.min(page * limit, total)} of ${total} employees` : "No employees"}{selectedUserIds.length ? ` . ${selectedUserIds.length} selected` : ""}</span>
             <div className="flex items-center gap-2">
               <button disabled={page <= 1 || salaries.isFetching} onClick={() => setPage((value) => Math.max(value - 1, 1))} className="px-3 py-2 rounded-lg border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50 font-bold">Previous</button>
               <span className="px-2 text-slate-700 font-black">Page {page} / {totalPages}</span>
