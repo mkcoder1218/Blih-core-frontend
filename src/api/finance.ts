@@ -52,6 +52,15 @@ export async function exportEmployeeSalaries(params?: Record<string, unknown>) {
   return api.get("/api/v1/finance/employee-salaries/export", { params, responseType: "blob" });
 }
 
+export async function markSelectedEmployeeSalariesPaid(data: {
+  selectedUserIds: string[];
+  dateFrom: string;
+  dateTo: string;
+  payDate?: string;
+}) {
+  return api.post("/api/v1/finance/employee-salaries/pay-selected", data);
+}
+
 export async function listSalaryDeductions(payrollLinkId: string, params?: Record<string, unknown>) {
   return api.get(`/api/v1/finance/employee-salaries/${payrollLinkId}/deductions`, { params });
 }

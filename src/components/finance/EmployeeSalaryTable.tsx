@@ -13,7 +13,7 @@ import {
 } from "../../hooks/useWorkforceFinance";
 import { useDepartments } from "../../hooks/useDepartments";
 import { EMPLOYMENT_STATUS_OPTIONS } from "../../constants/employee";
-import { exportEmployeeSalaries, removeSalaryDeduction } from "../../api/finance";
+import { exportEmployeeSalaries, markSelectedEmployeeSalariesPaid, removeSalaryDeduction } from "../../api/finance";
 
 type Props = {
   showAlert: (message: string, type?: "success" | "info" | "error") => void;
@@ -141,6 +141,14 @@ function inputNumber(value: string, fallback = 0) {
   return Number.isFinite(numeric) ? numeric : fallback;
 }
 
+function nextDateValue(value?: string | null) {
+  if (!value) return "";
+  const next = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(next.getTime())) return "";
+  next.setDate(next.getDate() + 1);
+  return next.toISOString().slice(0, 10);
+}
+
 function incomeTaxBracket(taxableIncome: number) {
   if (taxableIncome >= 2001 && taxableIncome <= 4000) return { rate: 0.15, deduction: 300 };
   if (taxableIncome >= 4001 && taxableIncome <= 7000) return { rate: 0.20, deduction: 500 };
@@ -258,6 +266,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [editingBaseUserId, setEditingBaseUserId] = React.useState<string | null>(null);
   const [baseDraft, setBaseDraft] = React.useState("");
   const [selectedUserIds, setSelectedUserIds] = React.useState<string[]>([]);
+  const [payingSelected, setPayingSelected] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
   const [showMoreDetails, setShowMoreDetails] = React.useState(false);
   const [columnMenuOpen, setColumnMenuOpen] = React.useState(false);
@@ -578,6 +587,42 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
     }
   };
 
+  const markSelectedPaid = async () => {
+    if (!selectedUserIds.length) {
+      showAlert("Select at least one employee first.", "error");
+      return;
+    }
+    if (!dateFrom || !dateTo) {
+      showAlert("Choose both start and end dates before marking the selected salary interval as paid.", "error");
+      return;
+    }
+
+    setPayingSelected(true);
+    try {
+      const response = await markSelectedEmployeeSalariesPaid({
+        selectedUserIds,
+        dateFrom,
+        dateTo,
+        payDate: dateTo,
+      });
+      const result = response.data?.data || {};
+      clearSelectedUsers();
+      setPage(1);
+      setDateFrom(nextDateValue(dateTo));
+      setDateTo("");
+      showAlert(
+        result.skippedCount
+          ? `${result.paidCount || 0} salary interval(s) marked paid. ${result.skippedCount} skipped.`
+          : `${result.paidCount || 0} salary interval(s) marked paid and the next interval has started.`,
+        result.skippedCount ? "info" : "success"
+      );
+    } catch (error: any) {
+      showAlert(error?.response?.data?.error || "Could not mark the selected salary interval as paid.", "error");
+    } finally {
+      setPayingSelected(false);
+    }
+  };
+
   const startBaseEdit = (row: EmployeeSalaryRow) => {
     setEditingBaseUserId(row.userId);
     setBaseDraft(String(row.baseSalary || ""));
@@ -772,9 +817,21 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
 
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-100 bg-slate-50/70 px-3 py-2.5">
             <div className="text-[11px] font-bold text-slate-600">
-              {selectedUserIds.length ? `${selectedUserIds.length} employees selected for export` : "Select employees to export specific salary rows across pages."}
+              {selectedUserIds.length
+                ? `${selectedUserIds.length} employees selected for export or interval payment`
+                : "Select employees across pages, then use export or mark the filtered interval as paid."}
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={markSelectedPaid}
+                disabled={!selectedUserIds.length || !dateFrom || !dateTo || payingSelected}
+                className="h-8 px-3 rounded-lg bg-emerald-600 text-[11px] font-black text-white hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-2"
+                title={!dateFrom || !dateTo ? "Select a start and end date to mark the salary interval as paid." : "Mark the selected salary interval as paid"}
+              >
+                <Check className="w-3.5 h-3.5" />
+                {payingSelected ? "Paying..." : selectedUserIds.length ? `Make Paid (${selectedUserIds.length})` : "Make Paid"}
+              </button>
               <button
                 type="button"
                 onClick={toggleSelectCurrentPage}
