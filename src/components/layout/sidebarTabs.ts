@@ -15,7 +15,6 @@ export const ALL_ONBOARDING_TABS = [
   { id: 'overview', label: 'Overview', badge: 0 },
   { id: 'progress', label: 'Progress', badge: 0 },
   { id: 'probation', label: 'Probation', badge: 0 },
-  { id: 'policy', label: 'Policies', badge: 0 },
   { id: 'checklists', label: 'Checklists', badge: 0 },
 ] as const;
 
@@ -38,7 +37,6 @@ export const ALL_PROFILES_TABS = [
   },
   { id: 'devices', label: 'Devices', badge: 0 },
   { id: 'events', label: 'Events', badge: 0 },
-  { id: 'archive', label: 'Archive', badge: 0 },
   {
     id: 'pending_registrations',
     label: 'Pending Registrations',
@@ -54,7 +52,7 @@ export const ALL_PROFILES_TABS = [
 export const ALL_ATTENDANCE_TABS = [
   { id: 'calendar', label: 'Calendar', badge: 0 },
   { id: 'check-in', label: 'Check-ins', badge: 0 },
-  { id: 'check-me-in', label: 'Check me in', badge: 0 },
+  { id: 'check-me-in', label: 'My checkin', badge: 0 },
   { id: 'history', label: 'History', badge: 0 },
   { id: 'my-lateness-reason', label: 'My Lateness Reason', badge: 0 },
   { id: 'manual-lateness-reason', label: 'Manual Lateness', badge: 0 },
@@ -64,7 +62,6 @@ export const ALL_ATTENDANCE_TABS = [
   { id: 'leaves', label: 'Leaves', badge: 0 },
   { id: 'overtime', label: 'Overtime', badge: 0 },
   { id: 'special-request', label: 'Special Request', badge: 0 },
-  { id: 'unavailable', label: 'Unavailable', badge: 0 },
   { id: 'memo-log', label: 'Memo Log', badge: 0 },
   { id: 'work-from-home', label: 'Work-from-Home', badge: 0 },
   { id: 'exit-request', label: 'Exit Request', badge: 0 },
@@ -104,12 +101,8 @@ export const ALL_EXIT_TABS = [
 export const ALL_FINANCE_TABS = [
   { id: 'overview', label: 'Overview', badge: 0 },
   { id: 'employee_salary', label: 'Employee Salary', badge: 0 },
-  { id: 'salary_payroll', label: 'Salary & Payroll', badge: 0 },
   { id: 'payroll_template', label: 'Pay Templates', badge: 0 },
-  { id: 'budget', label: 'Budget', badge: 0 },
   { id: 'exports', label: 'Exports', badge: 0 },
-  { id: 'my_payslip', label: 'My Payslip', badge: 0 },
-  { id: 'benefits', label: 'Benefits', badge: 0 },
 ] as const;
 
 export const ALL_PROJECTS_TABS = [
@@ -122,7 +115,6 @@ export const ALL_PROJECTS_TABS = [
 
 export const createPerformanceTabs = (criticalDisciplineCount: number) =>
   [
-    { id: 'overview', label: 'Overview', badge: 0 },
     { id: 'performance_review', label: 'Performance Review', badge: 0 },
     { id: 'okrs', label: 'OKRs', badge: 0 },
     { id: 'kpis', label: 'KPIs', badge: 0 },

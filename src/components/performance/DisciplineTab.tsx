@@ -390,28 +390,43 @@ export default function DisciplineTab({ onDraftAiSuggestion, showAlert }: Discip
         {filteredCases.length === 0 ? (
           <EmptyState title="No disciplinary cases on record" compact />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mt-2">
-            {visibleCases.map(c => (
-              <div key={c.id} onClick={() => setActiveCaseModal(c)}
-                className="bg-slate-50/50 hover:bg-white border hover:border-slate-350 border-slate-100/80 p-3.5 rounded-2xl cursor-pointer transition-all flex flex-col justify-between hover:shadow-xs space-y-4">
-                <div>
-                  <div className="flex justify-between items-start gap-1">
-                    <UserAvatar name={c.employee?.fullName ?? 'Employee'} size="sm" />
-                    <span className="text-[10px] text-slate-405 font-bold">{c.createdAt.slice(0, 10)}</span>
-                  </div>
-                  <div className="mt-3 flex flex-wrap gap-1.5">
-                    <span className="bg-slate-100 text-slate-650 text-[8px] font-black uppercase px-2 py-0.5 rounded leading-none">
-                      {c.caseType.replace('_', ' ')}
-                    </span>
-                    <StatusBadge label={STATUS_LABEL[c.status] ?? c.status} tone={STATUS_TONE[c.status] as any} />
-                  </div>
-                </div>
-                <div className="flex justify-between items-center bg-white border border-slate-100 rounded-xl p-2">
-                  <span className="text-[8px] font-black text-slate-400 block uppercase leading-none">Severity Score</span>
-                  <span className="text-xs font-bold text-slate-850 leading-none">{severityScore(c)}</span>
-                </div>
-              </div>
-            ))}
+          <div className="overflow-x-auto mt-2 border border-slate-100 rounded-2xl">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-slate-50 text-[10px] font-black text-slate-400 uppercase border-b border-slate-100">
+                  <th className="p-3.5 pl-5">Employee</th>
+                  <th className="p-3.5">Date</th>
+                  <th className="p-3.5">Type</th>
+                  <th className="p-3.5">Severity Score</th>
+                  <th className="p-3.5">Status</th>
+                  <th className="p-3.5 pr-5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleCases.map(c => (
+                  <tr key={c.id} onClick={() => setActiveCaseModal(c)}
+                    className="hover:bg-slate-50/50 border-b border-slate-100/80 cursor-pointer text-xs font-bold text-slate-800 transition-colors">
+                    <td className="p-3.5 pl-5 flex items-center gap-2">
+                      <UserAvatar name={c.employee?.fullName ?? 'Employee'} size="xs" />
+                      <span>{c.employee?.fullName ?? 'Employee'}</span>
+                    </td>
+                    <td className="p-3.5 text-slate-500">{c.createdAt.slice(0, 10)}</td>
+                    <td className="p-3.5">
+                      <span className="bg-slate-100 text-slate-650 text-[9px] font-black uppercase px-2 py-0.5 rounded">
+                        {c.caseType.replace('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="p-3.5 text-slate-700">{severityScore(c)}</td>
+                    <td className="p-3.5">
+                      <StatusBadge label={STATUS_LABEL[c.status] ?? c.status} tone={STATUS_TONE[c.status] as any} />
+                    </td>
+                    <td className="p-3.5 pr-5 text-right">
+                      <span className="text-blue-600 hover:underline">Review Case</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </SectionCard>

@@ -2,6 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, BriefcaseBusiness, CheckCircle2, Clock, Plus, Sparkles, User } from 'lucide-react';
 import { getPerformanceReviews, type EmployeeProjectMetrics, type PerformanceReviewRecord } from '../../api/performance';
 import { UserAvatar, StatusBadge, FilterBar, EmptyState, SectionCard, FormField, FormRow } from '@/components/ui/blih';
+import { useUsers } from '../../hooks/useUsers';
+import { useDepartments } from '../../hooks/useDepartments';
 
 interface PerformanceReviewTabProps {
   onDraftAiSuggestion: (prompt: string) => void;
@@ -9,6 +11,11 @@ interface PerformanceReviewTabProps {
 }
 
 export default function PerformanceReviewTab({ onDraftAiSuggestion, showAlert }: PerformanceReviewTabProps) {
+  const { data: usersData } = useUsers({ size: 200 });
+  const { data: deptsData } = useDepartments({ size: 100 });
+  const employeesList = usersData?.rows || [];
+  const departmentsList = deptsData?.departments || [];
+
   const [reviews, setReviews] = useState<PerformanceReviewRecord[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -233,10 +240,29 @@ export default function PerformanceReviewTab({ onDraftAiSuggestion, showAlert }:
             <form onSubmit={handleAddNewReview} className="space-y-4">
               <FormRow cols={2}>
                 <FormField label="Employee Name" required>
-                  <input value={newReviewForm.name} onChange={(e) => setNewReviewForm((prev) => ({ ...prev, name: e.target.value }))} className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none" />
+                  <select
+                    value={newReviewForm.name}
+                    required
+                    onChange={(e) => setNewReviewForm((prev) => ({ ...prev, name: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Select Employee...</option>
+                    {employeesList.map((emp) => (
+                      <option key={emp.id} value={emp.fullName}>{emp.fullName}</option>
+                    ))}
+                  </select>
                 </FormField>
                 <FormField label="Department Unit">
-                  <input value={newReviewForm.dept} onChange={(e) => setNewReviewForm((prev) => ({ ...prev, dept: e.target.value }))} className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3.5 py-2 text-xs font-bold focus:outline-none" />
+                  <select
+                    value={newReviewForm.dept}
+                    onChange={(e) => setNewReviewForm((prev) => ({ ...prev, dept: e.target.value }))}
+                    className="w-full bg-slate-50 border border-slate-150 rounded-xl px-3 py-2.5 text-xs font-bold focus:outline-none cursor-pointer"
+                  >
+                    <option value="">Select Department...</option>
+                    {departmentsList.map((dept) => (
+                      <option key={dept.id} value={dept.name}>{dept.name}</option>
+                    ))}
+                  </select>
                 </FormField>
               </FormRow>
               <FormField label="Manager Performance Review Remarks">

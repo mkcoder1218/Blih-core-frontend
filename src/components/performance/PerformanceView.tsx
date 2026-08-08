@@ -17,8 +17,6 @@ export default function PerformanceView({ currentTab, onDraftAiSuggestion, showA
   // Map panel states
   const renderActiveTab = () => {
     switch (currentTab) {
-      case 'overview':
-        return <PerformanceOverview />;
       case 'performance_review':
         return <PerformanceReviewTab onDraftAiSuggestion={onDraftAiSuggestion} showAlert={showAlert} />;
       case 'okrs':
@@ -30,7 +28,7 @@ export default function PerformanceView({ currentTab, onDraftAiSuggestion, showA
       case 'evaluation_form':
         return <EvaluationFormTab showAlert={showAlert} />;
       default:
-        return <PerformanceOverview />;
+        return <PerformanceReviewTab onDraftAiSuggestion={onDraftAiSuggestion} showAlert={showAlert} />;
     }
   };
 
