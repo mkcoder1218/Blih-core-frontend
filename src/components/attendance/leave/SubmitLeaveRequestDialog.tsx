@@ -24,6 +24,24 @@ function hasAllowedEvidenceExtension(fileName: string) {
   return ALLOWED_EVIDENCE_EXTENSIONS.some((extension) => normalized.endsWith(extension));
 }
 
+function countWorkingDaysInclusive(startDate: string, endDate: string) {
+  if (!startDate || !endDate || endDate < startDate) return 0;
+
+  const start = new Date(`${startDate}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 0;
+
+  let count = 0;
+  const cursor = new Date(start);
+  while (cursor <= end) {
+    const day = cursor.getUTCDay();
+    if (day !== 0 && day !== 6) count += 1;
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  return count;
+}
+
 export function SubmitModal({
   onClose,
   showAlert,
@@ -56,6 +74,17 @@ export function SubmitModal({
     ? selectedTemplate.leaveType === "sick" || selectedTemplate.name.toLowerCase().trim() === "sick leave"
     : false;
   const balance = balances.find((item) => item.leaveType === selectedTemplate?.leaveType);
+  const effectiveEndDate = isAnnualLeave && form.durationType === "HALF_DAY" ? form.startDate : form.endDate;
+  const requestedDays =
+    isAnnualLeave && form.durationType === "HALF_DAY"
+      ? countWorkingDaysInclusive(form.startDate, form.startDate) > 0
+        ? 0.5
+        : 0
+      : countWorkingDaysInclusive(form.startDate, effectiveEndDate);
+  const availableDays = selectedTemplate?.hasAmount !== false
+    ? Number(balance?.remainingDays ?? selectedTemplate?.totalDays ?? 0)
+    : null;
+  const remainingAfterRequest = availableDays === null ? null : availableDays - requestedDays;
 
   const handleEvidenceFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
@@ -79,12 +108,10 @@ export function SubmitModal({
 
   const uploadEvidenceFile = async (file: File) => {
     const body = new FormData();
-    body.append("file", file);
     body.append("moduleKey", "leave");
+    body.append("file", file);
 
-    const response = await api.post("/api/v1/files/upload", body, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await api.post("/api/v1/files/upload", body);
 
     const uploaded = response.data?.file;
     if (!uploaded?.id || !uploaded?.downloadUrl) {
@@ -122,6 +149,17 @@ export function SubmitModal({
     }
     if (durationType === "HALF_DAY" && form.startDate !== endDate) {
       showAlert("Half-day leave must start and end on the same date", "error");
+      return;
+    }
+    if (requestedDays <= 0) {
+      showAlert("The selected interval contains no working leave days", "error");
+      return;
+    }
+    if (availableDays !== null && requestedDays > availableDays) {
+      showAlert(
+        `Insufficient leave balance. You have ${availableDays} day(s) available but selected ${requestedDays} day(s).`,
+        "error",
+      );
       return;
     }
 
@@ -188,7 +226,6 @@ export function SubmitModal({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Template selector */}
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Leave Template</label>
             {activeTemplates.length === 0 ? (
@@ -267,7 +304,6 @@ export function SubmitModal({
             )}
           </div>
 
-          {/* Balance info */}
           {selectedTemplate && selectedTemplate.hasAmount !== false && balance && (
             <div className="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5 text-[11px] text-blue-700 font-semibold flex items-center gap-2">
               <Calendar className="w-3.5 h-3.5 flex-shrink-0" />
@@ -334,7 +370,6 @@ export function SubmitModal({
             </div>
           )}
 
-          {/* Dates */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Start Date</label>
@@ -369,7 +404,59 @@ export function SubmitModal({
             </div>
           </div>
 
-          {/* Reason */}
+          {selectedTemplate && form.startDate && effectiveEndDate && effectiveEndDate >= form.startDate && (
+            <div
+              className={cn(
+                "flex items-start justify-between gap-3 rounded-xl border px-3 py-2.5",
+                requestedDays > 0 && (availableDays === null || requestedDays <= availableDays)
+                  ? "border-blue-100 bg-blue-50"
+                  : "border-red-200 bg-red-50",
+              )}
+            >
+              <div className="flex min-w-0 items-start gap-2">
+                <Calendar
+                  className={cn(
+                    "mt-0.5 h-3.5 w-3.5 flex-shrink-0",
+                    requestedDays > 0 && (availableDays === null || requestedDays <= availableDays)
+                      ? "text-blue-600"
+                      : "text-red-500",
+                  )}
+                />
+                <div className="min-w-0">
+                  <p
+                    className={cn(
+                      "text-[11px] font-black",
+                      requestedDays > 0 && (availableDays === null || requestedDays <= availableDays)
+                        ? "text-blue-800"
+                        : "text-red-700",
+                    )}
+                  >
+                    {requestedDays} {requestedDays === 1 ? "leave day" : "leave days"}
+                  </p>
+                  <p className="mt-0.5 text-[10px] font-medium text-slate-500">
+                    {form.durationType === "HALF_DAY" && isAnnualLeave
+                      ? "Half-day request"
+                      : "Calculated from the selected interval; Saturday and Sunday are excluded."}
+                  </p>
+                </div>
+              </div>
+
+              {remainingAfterRequest !== null && requestedDays > 0 && (
+                <div className="flex-shrink-0 text-right">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-slate-400">After request</p>
+                  <p
+                    className={cn(
+                      "mt-0.5 text-xs font-black",
+                      remainingAfterRequest >= 0 ? "text-emerald-700" : "text-red-600",
+                    )}
+                  >
+                    {Math.max(0, remainingAfterRequest)}d left
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Reason</label>
             <Textarea
