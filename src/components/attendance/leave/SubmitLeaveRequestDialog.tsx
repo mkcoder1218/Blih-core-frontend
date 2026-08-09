@@ -77,7 +77,9 @@ export function SubmitModal({
   const effectiveEndDate = isAnnualLeave && form.durationType === "HALF_DAY" ? form.startDate : form.endDate;
   const requestedDays =
     isAnnualLeave && form.durationType === "HALF_DAY"
-      ? 0.5
+      ? countWorkingDaysInclusive(form.startDate, form.startDate) > 0
+        ? 0.5
+        : 0
       : countWorkingDaysInclusive(form.startDate, effectiveEndDate);
   const availableDays = selectedTemplate?.hasAmount !== false
     ? Number(balance?.remainingDays ?? selectedTemplate?.totalDays ?? 0)
@@ -106,12 +108,10 @@ export function SubmitModal({
 
   const uploadEvidenceFile = async (file: File) => {
     const body = new FormData();
-    body.append("file", file);
     body.append("moduleKey", "leave");
+    body.append("file", file);
 
-    const response = await api.post("/api/v1/files/upload", body, {
-      headers: { "Content-Type": "multipart/form-data" },
-    });
+    const response = await api.post("/api/v1/files/upload", body);
 
     const uploaded = response.data?.file;
     if (!uploaded?.id || !uploaded?.downloadUrl) {
