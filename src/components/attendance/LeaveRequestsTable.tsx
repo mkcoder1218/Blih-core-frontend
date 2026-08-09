@@ -187,6 +187,15 @@ export default function LeaveRequestsTable({
       return;
     }
 
+    // Open the tab synchronously from the click event so browser popup blockers
+    // do not block the eventual signed download URL after the async token request.
+    const evidenceWindow = window.open("", "_blank");
+    if (!evidenceWindow) {
+      window.alert("Please allow pop-ups to open the evidence attachment.");
+      return;
+    }
+    evidenceWindow.opener = null;
+
     setOpeningEvidenceUrl(evidenceUrl);
     try {
       const tokenResponse = await api.get(`/api/v1/files/${fileId}/token`);
@@ -195,7 +204,11 @@ export default function LeaveRequestsTable({
 
       const baseUrl = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
       const signedUrl = `${baseUrl}/api/v1/files/${encodeURIComponent(fileId)}/download?token=${encodeURIComponent(token)}`;
-      window.open(signedUrl, "_blank", "noopener,noreferrer");
+      evidenceWindow.location.href = signedUrl;
+    } catch (error) {
+      evidenceWindow.close();
+      console.error("Failed to open leave evidence attachment", error);
+      window.alert("Unable to open the evidence attachment. Please try again.");
     } finally {
       setOpeningEvidenceUrl(null);
     }
