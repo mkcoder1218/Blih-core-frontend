@@ -1,4 +1,5 @@
-import { Eye, FileText, Paperclip } from "lucide-react";
+import { useState } from "react";
+import { ExternalLink, Eye, FileText, Loader2, Paperclip } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { DataTable, UserAvatar } from "@/components/ui/blih";
 import { cn } from "@/lib/utils";
+
+import { api } from "../../api/client";
 
 import type { LeaveRequest } from "../../hooks/useLeave";
 
@@ -97,6 +100,11 @@ function getDuration(request: LeaveRequest) {
   return `${days} ${days === 1 ? "day" : "days"}`;
 }
 
+function getInternalFileId(evidenceUrl: string) {
+  const match = evidenceUrl.match(/\/api(?:\/v1)?\/files\/([^/?#]+)\/download/i);
+  return match?.[1] ? decodeURIComponent(match[1]) : null;
+}
+
 function StatusBadge({ status }: { status: string }) {
   return (
     <span
@@ -169,6 +177,30 @@ export default function LeaveRequestsTable({
   isCancelling = false,
   embedded = false,
 }: LeaveRequestsTableProps) {
+  const [openingEvidenceUrl, setOpeningEvidenceUrl] = useState<string | null>(null);
+
+  const openEvidenceAttachment = async (evidenceUrl: string) => {
+    const fileId = getInternalFileId(evidenceUrl);
+
+    if (!fileId) {
+      window.open(evidenceUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    setOpeningEvidenceUrl(evidenceUrl);
+    try {
+      const tokenResponse = await api.get(`/api/v1/files/${fileId}/token`);
+      const token = tokenResponse.data?.token || tokenResponse.data?.data?.token;
+      if (!token) throw new Error("Failed to get evidence download token");
+
+      const baseUrl = String(import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+      const signedUrl = `${baseUrl}/api/v1/files/${encodeURIComponent(fileId)}/download?token=${encodeURIComponent(token)}`;
+      window.open(signedUrl, "_blank", "noopener,noreferrer");
+    } finally {
+      setOpeningEvidenceUrl(null);
+    }
+  };
+
   const columns = [
     ...(showEmployee ? ["Employee"] : []),
     "Leave Type",
@@ -386,14 +418,22 @@ export default function LeaveRequestsTable({
                       </p>
                     </div>
                     {request.evidenceUrl && (
-                      <a
-                        href={request.evidenceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-2 block break-all text-xs font-bold text-blue-600 hover:underline"
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        disabled={openingEvidenceUrl === request.evidenceUrl}
+                        onClick={() => void openEvidenceAttachment(request.evidenceUrl!)}
+                        className="mt-2 h-auto justify-start gap-2 px-0 py-1 text-xs font-bold text-blue-600 hover:bg-transparent hover:text-blue-700"
                       >
-                        Open evidence attachment
-                      </a>
+                        {openingEvidenceUrl === request.evidenceUrl ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        )}
+                        {openingEvidenceUrl === request.evidenceUrl
+                          ? "Opening evidence..."
+                          : "Open evidence attachment"}
+                      </Button>
                     )}
                     {request.evidenceNote && (
                       <p className="mt-2 whitespace-pre-wrap text-xs font-semibold leading-5 text-slate-600">
