@@ -11,7 +11,6 @@ if (!baseURL) {
 
 export const api: AxiosInstance = axios.create({
   baseURL,
-  headers: { "Content-Type": "application/json" },
 });
 
 api.interceptors.request.use((config) => {
