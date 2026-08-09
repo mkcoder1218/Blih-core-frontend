@@ -1,13 +1,28 @@
 import React, { useState } from "react";
-import { AlertTriangle, Calendar, FileText, Paperclip, X } from "lucide-react";
+import { Calendar, FileText, Paperclip, Upload, X } from "lucide-react";
 import { useLeaveTemplates, useMyLeaveBalances, useSubmitLeaveRequest } from "../../../hooks/useLeave";
+import { api } from "../../../api/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+
+const MAX_EVIDENCE_FILE_SIZE = 10 * 1024 * 1024;
+const ALLOWED_EVIDENCE_MIME_TYPES = new Set(["image/jpeg", "image/png", "application/pdf"]);
+const ALLOWED_EVIDENCE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".pdf"];
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function hasAllowedEvidenceExtension(fileName: string) {
+  const normalized = fileName.toLowerCase();
+  return ALLOWED_EVIDENCE_EXTENSIONS.some((extension) => normalized.endsWith(extension));
+}
 
 export function SubmitModal({
   onClose,
@@ -16,7 +31,7 @@ export function SubmitModal({
   onClose: () => void;
   showAlert: (m: string, t?: "success" | "error") => void;
 }) {
-  const submit    = useSubmitLeaveRequest();
+  const submit = useSubmitLeaveRequest();
   const { data: activeTemplates = [] } = useLeaveTemplates(true);
   const { data: balances = [] } = useMyLeaveBalances();
 
@@ -25,26 +40,82 @@ export function SubmitModal({
     durationType: "FULL_DAY" as "FULL_DAY" | "HALF_DAY",
     halfDayPeriod: null as "MORNING" | "AFTERNOON" | null,
     startDate: new Date().toISOString().slice(0, 10),
-    endDate:   new Date().toISOString().slice(0, 10),
+    endDate: new Date().toISOString().slice(0, 10),
     reason: "",
     evidenceUrl: "",
     evidenceNote: "",
   });
+  const [evidenceFile, setEvidenceFile] = useState<File | null>(null);
+  const [isUploadingEvidence, setIsUploadingEvidence] = useState(false);
 
-  const selectedTemplate = activeTemplates.find((t) => t.id === form.leaveTemplateId);
+  const selectedTemplate = activeTemplates.find((template) => template.id === form.leaveTemplateId);
   const isAnnualLeave = selectedTemplate
     ? selectedTemplate.leaveType === "annual" || selectedTemplate.name.toLowerCase().trim() === "annual leave"
     : false;
-  const balance = balances.find((b) => b.leaveType === selectedTemplate?.leaveType);
+  const isSickLeave = selectedTemplate
+    ? selectedTemplate.leaveType === "sick" || selectedTemplate.name.toLowerCase().trim() === "sick leave"
+    : false;
+  const balance = balances.find((item) => item.leaveType === selectedTemplate?.leaveType);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEvidenceFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0] ?? null;
+    if (!file) return;
+
+    const validType = ALLOWED_EVIDENCE_MIME_TYPES.has(file.type) || hasAllowedEvidenceExtension(file.name);
+    if (!validType) {
+      event.target.value = "";
+      showAlert("Please upload a PNG, JPG, JPEG, or PDF file", "error");
+      return;
+    }
+
+    if (file.size > MAX_EVIDENCE_FILE_SIZE) {
+      event.target.value = "";
+      showAlert("Medical evidence must be 10 MB or smaller", "error");
+      return;
+    }
+
+    setEvidenceFile(file);
+  };
+
+  const uploadEvidenceFile = async (file: File) => {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("moduleKey", "leave");
+
+    const response = await api.post("/api/v1/files/upload", body, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    const uploaded = response.data?.file;
+    if (!uploaded?.id || !uploaded?.downloadUrl) {
+      throw new Error("The medical evidence upload did not return a valid file reference");
+    }
+
+    return {
+      id: String(uploaded.id),
+      downloadUrl: `/api/v1/files/${uploaded.id}/download`,
+    };
+  };
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+
     const durationType = isAnnualLeave ? form.durationType : "FULL_DAY";
     const halfDayPeriod = isAnnualLeave && durationType === "HALF_DAY" ? form.halfDayPeriod : null;
     const endDate = isAnnualLeave && durationType === "HALF_DAY" ? form.startDate : form.endDate;
-    if (!form.leaveTemplateId) { showAlert("Please select a leave type", "error"); return; }
-    if (!form.reason.trim())   { showAlert("Please provide a reason", "error"); return; }
-    if (endDate < form.startDate) { showAlert("End date cannot be before start date", "error"); return; }
+
+    if (!form.leaveTemplateId) {
+      showAlert("Please select a leave type", "error");
+      return;
+    }
+    if (!form.reason.trim()) {
+      showAlert("Please provide a reason", "error");
+      return;
+    }
+    if (endDate < form.startDate) {
+      showAlert("End date cannot be before start date", "error");
+      return;
+    }
     if (durationType === "HALF_DAY" && !halfDayPeriod) {
       showAlert("Please select morning or afternoon for half-day leave", "error");
       return;
@@ -53,21 +124,56 @@ export function SubmitModal({
       showAlert("Half-day leave must start and end on the same date", "error");
       return;
     }
-    if (selectedTemplate?.requiresEvidence && !form.evidenceUrl.trim() && !form.evidenceNote.trim()) {
+
+    if (isSickLeave && selectedTemplate?.requiresEvidence && !evidenceFile) {
+      showAlert("Please upload a medical certificate or medical evidence", "error");
+      return;
+    }
+
+    if (
+      !isSickLeave &&
+      selectedTemplate?.requiresEvidence &&
+      !form.evidenceUrl.trim() &&
+      !form.evidenceNote.trim()
+    ) {
       showAlert("Please provide evidence for this leave type", "error");
       return;
     }
+
+    let uploadedFileId: string | null = null;
+
     try {
+      let evidenceUrl = form.evidenceUrl.trim();
+
+      if (isSickLeave && evidenceFile) {
+        setIsUploadingEvidence(true);
+        const uploaded = await uploadEvidenceFile(evidenceFile);
+        uploadedFileId = uploaded.id;
+        evidenceUrl = uploaded.downloadUrl;
+      }
+
       await submit.mutateAsync({
         ...form,
+        evidenceUrl,
         durationType,
         halfDayPeriod,
         endDate,
       });
+
       showAlert("Leave request submitted successfully", "success");
       onClose();
     } catch (err: any) {
+      if (uploadedFileId) {
+        try {
+          await api.delete(`/api/v1/files/${uploadedFileId}`);
+        } catch {
+          // Best-effort cleanup only. The original leave submission error is more important to show.
+        }
+      }
+
       showAlert(err?.response?.data?.message || err?.message || "Failed to submit", "error");
+    } finally {
+      setIsUploadingEvidence(false);
     }
   };
 
@@ -92,17 +198,27 @@ export function SubmitModal({
             ) : (
               <Select
                 value={form.leaveTemplateId}
-                onValueChange={(val) => {
-                  const nextTemplate = activeTemplates.find((tpl) => tpl.id === val);
+                onValueChange={(value) => {
+                  const nextTemplate = activeTemplates.find((template) => template.id === value);
                   const nextIsAnnual = nextTemplate
                     ? nextTemplate.leaveType === "annual" || nextTemplate.name.toLowerCase().trim() === "annual leave"
                     : false;
-                  setForm((p) => ({
-                    ...p,
-                    leaveTemplateId: val,
-                    durationType: nextIsAnnual ? p.durationType : "FULL_DAY",
-                    halfDayPeriod: nextIsAnnual && p.durationType === "HALF_DAY" ? p.halfDayPeriod ?? "MORNING" : null,
-                    endDate: nextIsAnnual && p.durationType === "HALF_DAY" ? p.startDate : p.endDate,
+
+                  setEvidenceFile(null);
+                  setForm((previous) => ({
+                    ...previous,
+                    leaveTemplateId: value,
+                    durationType: nextIsAnnual ? previous.durationType : "FULL_DAY",
+                    halfDayPeriod:
+                      nextIsAnnual && previous.durationType === "HALF_DAY"
+                        ? previous.halfDayPeriod ?? "MORNING"
+                        : null,
+                    endDate:
+                      nextIsAnnual && previous.durationType === "HALF_DAY"
+                        ? previous.startDate
+                        : previous.endDate,
+                    evidenceUrl: "",
+                    evidenceNote: "",
                   }));
                 }}
               >
@@ -110,16 +226,17 @@ export function SubmitModal({
                   <SelectValue placeholder="Select leave template..." />
                 </SelectTrigger>
                 <SelectContent className="min-w-[var(--radix-select-trigger-width)] w-[min(92vw,360px)]">
-                  {activeTemplates.map((tpl) => {
-                    const bal = balances.find((b) => b.leaveType === tpl.leaveType);
-                    const usesAmount = tpl.hasAmount !== false;
-                    const remaining = bal?.remainingDays ?? tpl.totalDays;
+                  {activeTemplates.map((template) => {
+                    const templateBalance = balances.find((item) => item.leaveType === template.leaveType);
+                    const usesAmount = template.hasAmount !== false;
+                    const remaining = templateBalance?.remainingDays ?? template.totalDays;
                     const exhausted = usesAmount && remaining <= 0;
+
                     return (
-                      <SelectItem key={tpl.id} value={tpl.id} disabled={exhausted} className="py-2 pr-8">
+                      <SelectItem key={template.id} value={template.id} disabled={exhausted} className="py-2 pr-8">
                         <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
                           <span className="min-w-0 whitespace-normal break-words text-xs font-semibold leading-snug">
-                            {tpl.name}
+                            {template.name}
                           </span>
                           <div className="flex flex-shrink-0 flex-wrap justify-end gap-1">
                             {!usesAmount && (
@@ -127,15 +244,17 @@ export function SubmitModal({
                                 No balance
                               </span>
                             )}
-                            {tpl.requiresEvidence && (
+                            {template.requiresEvidence && (
                               <span className="whitespace-nowrap text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
                                 Evidence
                               </span>
                             )}
-                            <span className={cn(
-                              "whitespace-nowrap text-[9px] font-bold px-1.5 py-0.5 rounded",
-                              exhausted ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700"
-                            )}>
+                            <span
+                              className={cn(
+                                "whitespace-nowrap text-[9px] font-bold px-1.5 py-0.5 rounded",
+                                exhausted ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-700",
+                              )}
+                            >
                               {exhausted ? "Exhausted" : usesAmount ? `${remaining}d left` : "Open"}
                             </span>
                           </div>
@@ -162,12 +281,14 @@ export function SubmitModal({
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Duration</label>
                 <Select
                   value={form.durationType}
-                  onValueChange={(val) => setForm((p) => ({
-                    ...p,
-                    durationType: val as "FULL_DAY" | "HALF_DAY",
-                    halfDayPeriod: val === "HALF_DAY" ? p.halfDayPeriod ?? "MORNING" : null,
-                    endDate: val === "HALF_DAY" ? p.startDate : p.endDate,
-                  }))}
+                  onValueChange={(value) =>
+                    setForm((previous) => ({
+                      ...previous,
+                      durationType: value as "FULL_DAY" | "HALF_DAY",
+                      halfDayPeriod: value === "HALF_DAY" ? previous.halfDayPeriod ?? "MORNING" : null,
+                      endDate: value === "HALF_DAY" ? previous.startDate : previous.endDate,
+                    }))
+                  }
                 >
                   <SelectTrigger className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold h-9">
                     <SelectValue />
@@ -183,7 +304,12 @@ export function SubmitModal({
                   <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Period</label>
                   <Select
                     value={form.halfDayPeriod ?? ""}
-                    onValueChange={(val) => setForm((p) => ({ ...p, halfDayPeriod: val as "MORNING" | "AFTERNOON" }))}
+                    onValueChange={(value) =>
+                      setForm((previous) => ({
+                        ...previous,
+                        halfDayPeriod: value as "MORNING" | "AFTERNOON",
+                      }))
+                    }
                   >
                     <SelectTrigger className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold h-9">
                       <SelectValue placeholder="Select period..." />
@@ -216,11 +342,16 @@ export function SubmitModal({
                 type="date"
                 required
                 value={form.startDate}
-                onChange={(e) => setForm((p) => ({
-                  ...p,
-                  startDate: e.target.value,
-                  endDate: isAnnualLeave && p.durationType === "HALF_DAY" ? e.target.value : p.endDate,
-                }))}
+                onChange={(event) =>
+                  setForm((previous) => ({
+                    ...previous,
+                    startDate: event.target.value,
+                    endDate:
+                      isAnnualLeave && previous.durationType === "HALF_DAY"
+                        ? event.target.value
+                        : previous.endDate,
+                  }))
+                }
                 className="bg-slate-50 border-slate-200 rounded-xl text-xs h-9 font-semibold"
               />
             </div>
@@ -232,7 +363,7 @@ export function SubmitModal({
                 disabled={isAnnualLeave && form.durationType === "HALF_DAY"}
                 min={form.startDate}
                 value={form.endDate}
-                onChange={(e) => setForm((p) => ({ ...p, endDate: e.target.value }))}
+                onChange={(event) => setForm((previous) => ({ ...previous, endDate: event.target.value }))}
                 className="bg-slate-50 border-slate-200 rounded-xl text-xs h-9 font-semibold disabled:text-slate-400"
               />
             </div>
@@ -245,34 +376,89 @@ export function SubmitModal({
               required
               rows={3}
               value={form.reason}
-              onChange={(e) => setForm((p) => ({ ...p, reason: e.target.value }))}
+              onChange={(event) => setForm((previous) => ({ ...previous, reason: event.target.value }))}
               placeholder="Describe the reason for your leave..."
               className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold resize-none"
             />
           </div>
 
-          {(selectedTemplate?.requiresEvidence || form.evidenceUrl || form.evidenceNote) && (
+          {(isSickLeave || selectedTemplate?.requiresEvidence || form.evidenceUrl || form.evidenceNote) && (
             <div className="space-y-3">
+              {isSickLeave ? (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Medical Evidence {selectedTemplate?.requiresEvidence ? "" : "(optional)"}
+                  </label>
+
+                  {!evidenceFile ? (
+                    <label
+                      htmlFor="sick-leave-evidence"
+                      className="flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 px-3 py-3 transition hover:border-blue-400 hover:bg-blue-50/40"
+                    >
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white border border-slate-200 text-blue-600">
+                        <Upload className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-bold text-slate-700">Upload medical certificate</p>
+                        <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                          PNG, JPG, JPEG or PDF · max 10 MB
+                        </p>
+                      </div>
+                      <input
+                        id="sick-leave-evidence"
+                        type="file"
+                        accept=".png,.jpg,.jpeg,.pdf,image/png,image/jpeg,application/pdf"
+                        className="hidden"
+                        onChange={handleEvidenceFileChange}
+                      />
+                    </label>
+                  ) : (
+                    <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3">
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white border border-emerald-200 text-emerald-600">
+                        <FileText className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-bold text-slate-700">{evidenceFile.name}</p>
+                        <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                          {formatFileSize(evidenceFile.size)} · ready to upload
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setEvidenceFile(null)}
+                        className="h-8 w-8 flex-shrink-0 rounded-lg text-slate-400 hover:bg-white hover:text-red-500"
+                        aria-label="Remove medical evidence"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Evidence Link {selectedTemplate?.requiresEvidence ? "" : "(optional)"}
+                  </label>
+                  <Input
+                    value={form.evidenceUrl}
+                    onChange={(event) => setForm((previous) => ({ ...previous, evidenceUrl: event.target.value }))}
+                    placeholder="Paste document or evidence link..."
+                    className="bg-slate-50 border-slate-200 rounded-xl text-xs h-9 font-semibold"
+                  />
+                </div>
+              )}
+
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Evidence Link {selectedTemplate?.requiresEvidence ? "" : "(optional)"}
-                </label>
-                <Input
-                  value={form.evidenceUrl}
-                  onChange={(e) => setForm((p) => ({ ...p, evidenceUrl: e.target.value }))}
-                  placeholder="Paste document, image, or medical certificate link..."
-                  className="bg-slate-50 border-slate-200 rounded-xl text-xs h-9 font-semibold"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Evidence Note {selectedTemplate?.requiresEvidence ? "" : "(optional)"}
+                  Evidence Note (optional)
                 </label>
                 <Textarea
                   rows={2}
                   value={form.evidenceNote}
-                  onChange={(e) => setForm((p) => ({ ...p, evidenceNote: e.target.value }))}
-                  placeholder="Reference number, document description, or handover note..."
+                  onChange={(event) => setForm((previous) => ({ ...previous, evidenceNote: event.target.value }))}
+                  placeholder="Reference number, document description, or additional note..."
                   className="bg-slate-50 border-slate-200 rounded-xl text-xs font-semibold resize-none"
                 />
               </div>
@@ -284,16 +470,17 @@ export function SubmitModal({
               type="button"
               variant="outline"
               onClick={onClose}
+              disabled={submit.isPending || isUploadingEvidence}
               className="flex-1 border-slate-200 text-slate-600 font-bold text-xs h-9 rounded-xl"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={submit.isPending || activeTemplates.length === 0}
+              disabled={submit.isPending || isUploadingEvidence || activeTemplates.length === 0}
               className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-300 text-white font-bold text-xs h-9 rounded-xl"
             >
-              {submit.isPending ? "Submitting…" : "Submit Request"}
+              {isUploadingEvidence ? "Uploading…" : submit.isPending ? "Submitting…" : "Submit Request"}
             </Button>
           </div>
         </form>
