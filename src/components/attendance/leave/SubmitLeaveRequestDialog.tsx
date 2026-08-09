@@ -19,6 +19,17 @@ function formatFileSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatEvidenceFileName(fileName: string) {
+  if (fileName.length <= 32) return fileName;
+
+  const dotIndex = fileName.lastIndexOf(".");
+  const extension = dotIndex > 0 ? fileName.slice(dotIndex) : "";
+  const baseName = dotIndex > 0 ? fileName.slice(0, dotIndex) : fileName;
+
+  if (baseName.length <= 24) return fileName;
+  return `${baseName.slice(0, 12)}…${baseName.slice(-8)}${extension}`;
+}
+
 function hasAllowedEvidenceExtension(fileName: string) {
   const normalized = fileName.toLowerCase();
   return ALLOWED_EVIDENCE_EXTENSIONS.some((extension) => normalized.endsWith(extension));
@@ -500,13 +511,18 @@ export function SubmitModal({
                       />
                     </label>
                   ) : (
-                    <div className="flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3">
+                    <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3">
                       <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white border border-emerald-200 text-emerald-600">
                         <FileText className="h-4 w-4" />
                       </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-xs font-bold text-slate-700">{evidenceFile.name}</p>
-                        <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+                      <div className="min-w-0 overflow-hidden">
+                        <p
+                          title={evidenceFile.name}
+                          className="block max-w-full truncate text-xs font-bold text-slate-700"
+                        >
+                          {formatEvidenceFileName(evidenceFile.name)}
+                        </p>
+                        <p className="mt-0.5 truncate text-[10px] font-medium text-slate-400">
                           {formatFileSize(evidenceFile.size)} · ready to upload
                         </p>
                       </div>
