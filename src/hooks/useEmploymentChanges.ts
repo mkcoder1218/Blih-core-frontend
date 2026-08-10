@@ -16,6 +16,14 @@ function invalidateRelated(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
 }
 
+export function useEmploymentChangeContext(employeeUserId?: string) {
+  return useQuery({
+    queryKey: [...KEY, "context", employeeUserId || "me"],
+    queryFn: () => employmentChangesApi.context(employeeUserId),
+    staleTime: 30_000,
+  });
+}
+
 export function useEmploymentChanges(params?: EmploymentChangeListParams) {
   return useQuery({
     queryKey: [...KEY, params],
