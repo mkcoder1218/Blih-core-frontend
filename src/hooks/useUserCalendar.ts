@@ -51,7 +51,7 @@ export function useMeetingRequests(params?: { status?: string; size?: number }) 
 export function useMeetingEventDetails(eventId?: string) {
   return useQuery({
     queryKey: [...KEY, 'meeting-event-details', eventId],
-    queryFn: () => calendarApi.meetingEventDetails(eventId!),
+    queryFn: () => eventId ? calendarApi.meetingEventDetails(eventId) : Promise.resolve(null),
     enabled: Boolean(eventId),
     staleTime: 10_000,
   });
