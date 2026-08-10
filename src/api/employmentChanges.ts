@@ -17,6 +17,30 @@ export interface EmploymentChangePerson {
   email?: string | null;
 }
 
+export interface EmploymentChangeContext {
+  employee: EmploymentChangePerson & {
+    manager?: EmploymentChangePerson | null;
+  };
+  current: {
+    positionId?: string | null;
+    title?: string | null;
+    departmentId?: string | null;
+    departmentName?: string | null;
+    salary: number;
+    currency?: string | null;
+  };
+  positions: Array<{
+    id: string;
+    title: string;
+    departmentId?: string | null;
+    level?: number | null;
+  }>;
+  departments: Array<{
+    id: string;
+    name: string;
+  }>;
+}
+
 export interface EmploymentChangeRequest {
   id: string;
   businessId: string;
@@ -102,6 +126,13 @@ export interface EmploymentChangeListParams {
 const base = "/api/v1/people/employment-changes";
 
 export const employmentChangesApi = {
+  context: async (employeeUserId?: string): Promise<EmploymentChangeContext> => {
+    const response = await api.get(`${base}/context`, {
+      params: employeeUserId ? { employeeUserId } : undefined,
+    });
+    return response.data?.context ?? response.data?.data?.context ?? response.data?.data ?? response.data;
+  },
+
   list: async (params?: EmploymentChangeListParams): Promise<EmploymentChangeRequest[]> => {
     const response = await api.get(base, { params });
     return response.data?.rows ?? response.data?.data?.rows ?? [];
