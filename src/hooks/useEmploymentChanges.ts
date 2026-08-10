@@ -1,0 +1,92 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  employmentChangesApi,
+  type CreateEmploymentChangePayload,
+  type EmploymentChangeListParams,
+} from "../api/employmentChanges";
+
+const KEY = ["employment-changes"];
+
+function invalidateRelated(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: KEY });
+  queryClient.invalidateQueries({ queryKey: ["employee-profile"] });
+  queryClient.invalidateQueries({ queryKey: ["hr-records"] });
+  queryClient.invalidateQueries({ queryKey: ["positions"] });
+  queryClient.invalidateQueries({ queryKey: ["finance-workforce"] });
+  queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
+}
+
+export function useEmploymentChanges(params?: EmploymentChangeListParams) {
+  return useQuery({
+    queryKey: [...KEY, params],
+    queryFn: () => employmentChangesApi.list(params),
+    staleTime: 15_000,
+  });
+}
+
+export function useEmploymentChange(id?: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "detail", id],
+    queryFn: () => employmentChangesApi.get(String(id)),
+    enabled: Boolean(id),
+  });
+}
+
+export function useEmploymentChangeHistory(id?: string | null) {
+  return useQuery({
+    queryKey: [...KEY, "history", id],
+    queryFn: () => employmentChangesApi.history(String(id)),
+    enabled: Boolean(id),
+  });
+}
+
+export function useCreateEmploymentChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateEmploymentChangePayload) => employmentChangesApi.create(payload),
+    onSuccess: () => invalidateRelated(queryClient),
+  });
+}
+
+export function useApproveEmploymentChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, comment }: { id: string; comment?: string }) =>
+      employmentChangesApi.approve(id, comment),
+    onSuccess: () => invalidateRelated(queryClient),
+  });
+}
+
+export function useCounterEmploymentChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      recommendedSalary,
+      comment,
+    }: {
+      id: string;
+      recommendedSalary: number;
+      comment: string;
+    }) => employmentChangesApi.counter(id, recommendedSalary, comment),
+    onSuccess: () => invalidateRelated(queryClient),
+  });
+}
+
+export function useRejectEmploymentChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      employmentChangesApi.reject(id, reason),
+    onSuccess: () => invalidateRelated(queryClient),
+  });
+}
+
+export function useCancelEmploymentChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason?: string }) =>
+      employmentChangesApi.cancel(id, reason),
+    onSuccess: () => invalidateRelated(queryClient),
+  });
+}
