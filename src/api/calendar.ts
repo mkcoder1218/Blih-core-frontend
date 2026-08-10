@@ -3,6 +3,7 @@ import { api } from './client';
 export type AvailabilityStatus = 'AVAILABLE' | 'UNAVAILABLE';
 export type CalendarItemType = 'TASK' | 'EVENT' | 'AVAILABILITY' | 'MEETING';
 export type MeetingRequestStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED';
+export type MeetingAttendeeStatus = MeetingRequestStatus | 'REMOVED';
 export type CalendarSyncSource = 'BLIH' | 'GOOGLE';
 
 export interface UserCalendarEvent {
@@ -23,6 +24,7 @@ export interface UserCalendarEvent {
   projectId?: string | null;
   projectTaskId?: string | null;
   meetingRequestId?: string | null;
+  organizerUserId?: string | null;
   googleEventId?: string | null;
   googleCalendarId?: string | null;
   googleSyncStatus?: 'NOT_SYNCED' | 'SYNCED' | 'FAILED' | 'PENDING_RETRY' | 'SYNC_CONFLICT' | 'DEAD';
@@ -70,20 +72,77 @@ export interface CalendarPerson {
   currentBlock?: UserCalendarEvent | null;
 }
 
+export interface MeetingUserSummary {
+  id: string;
+  fullName: string;
+  email: string;
+}
+
+export interface MeetingAttendee {
+  id: string;
+  userId: string;
+  status: MeetingAttendeeStatus;
+  responseNote?: string | null;
+  respondedAt?: string | null;
+  calendarEventId?: string | null;
+  user?: MeetingUserSummary | null;
+}
+
 export interface MeetingRequest {
   id: string;
+  legacy?: boolean;
+  isGroup?: boolean;
+  businessId?: string;
+  organizerUserId: string;
   requesterUserId: string;
-  recipientUserId: string;
+  recipientUserId?: string | null;
   title: string;
   description?: string | null;
   location?: string | null;
   startAt: string;
   endAt: string;
-  status: MeetingRequestStatus;
-  requester?: { id: string; fullName: string; email: string };
-  recipient?: { id: string; fullName: string; email: string };
+  status: string;
+  meetingStatus?: string | null;
+  currentUserStatus?: MeetingAttendeeStatus | null;
+  requester?: MeetingUserSummary | null;
+  organizer?: MeetingUserSummary | null;
+  recipient?: MeetingUserSummary | null;
+  attendees: MeetingAttendee[];
+  pendingAttendeeCount?: number;
+  acceptedAttendeeCount?: number;
+  declinedAttendeeCount?: number;
   responseNote?: string | null;
-  createdAt: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface MeetingAvailabilityRow {
+  userId: string;
+  role: 'ORGANIZER' | 'ATTENDEE';
+  user?: MeetingUserSummary | null;
+  available: boolean;
+  conflict?: {
+    userId: string;
+    eventId: string;
+    title: string;
+    itemType: CalendarItemType;
+    startAt: string;
+    endAt: string;
+  } | null;
+}
+
+export interface MeetingAvailability {
+  available: boolean;
+  availableCount: number;
+  conflictCount: number;
+  attendeeAvailableCount: number;
+  attendeeConflictCount: number;
+  rows: MeetingAvailabilityRow[];
+}
+
+export interface CommonMeetingSlot {
+  startAt: string;
+  endAt: string;
 }
 
 export interface GoogleImportSyncSummary {
@@ -93,6 +152,15 @@ export interface GoogleImportSyncSummary {
   skippedCount: number;
   failedCount: number;
   errors?: Array<{ googleEventId?: string; message: string }>;
+}
+
+export interface MeetingPayload {
+  attendeeUserIds: string[];
+  title: string;
+  description?: string;
+  location?: string;
+  startAt: string;
+  endAt: string;
 }
 
 export const calendarApi = {
@@ -119,18 +187,60 @@ export const calendarApi = {
     const res = await api.get('/api/v1/calendar/people', { params });
     return (res.data.rows ?? []) as CalendarPerson[];
   },
-  meetingRequests: async (params?: { status?: MeetingRequestStatus; size?: number }) => {
-    const res = await api.get('/api/v1/calendar/meeting-requests', { params });
+
+  meetingRequests: async (params?: { status?: string; size?: number }) => {
+    const res = await api.get('/api/v1/calendar/meetings', { params });
     return (res.data.rows ?? []) as MeetingRequest[];
   },
-  createMeetingRequest: async (payload: { recipientUserId: string; title: string; description?: string; location?: string; startAt: string; endAt: string }) => {
-    const res = await api.post('/api/v1/calendar/meeting-requests', payload);
-    return res.data.request as MeetingRequest;
+  createMeetingRequest: async (payload: MeetingPayload) => {
+    const res = await api.post('/api/v1/calendar/meetings', payload);
+    return res.data.meeting as MeetingRequest;
   },
-  respondMeetingRequest: async (id: string, payload: { status: 'ACCEPTED' | 'DECLINED'; responseNote?: string }) => {
-    const res = await api.patch(`/api/v1/calendar/meeting-requests/${id}`, payload);
-    return res.data.request as MeetingRequest;
+  respondMeetingRequest: async (
+    id: string,
+    payload: { status: 'ACCEPTED' | 'DECLINED'; responseNote?: string; legacy?: boolean },
+  ) => {
+    if (payload.legacy) {
+      const { legacy: _legacy, ...body } = payload;
+      const res = await api.patch(`/api/v1/calendar/meeting-requests/${id}`, body);
+      return res.data.request as MeetingRequest;
+    }
+    const { legacy: _legacy, ...body } = payload;
+    const res = await api.patch(`/api/v1/calendar/meetings/${id}/respond`, body);
+    return res.data.meeting as MeetingRequest;
   },
+  updateMeeting: async (id: string, payload: Partial<MeetingPayload>) => {
+    const res = await api.patch(`/api/v1/calendar/meetings/${id}`, payload);
+    return res.data.meeting as MeetingRequest;
+  },
+  cancelMeeting: async (id: string) => {
+    const res = await api.delete(`/api/v1/calendar/meetings/${id}`);
+    return res.data.meeting as MeetingRequest;
+  },
+  meetingEventDetails: async (eventId: string) => {
+    const res = await api.get(`/api/v1/calendar/meetings/event/${eventId}`);
+    return res.data.meeting as MeetingRequest;
+  },
+  meetingAvailability: async (payload: {
+    attendeeUserIds: string[];
+    startAt: string;
+    endAt: string;
+    meetingId?: string;
+  }) => {
+    const res = await api.post('/api/v1/calendar/meetings/availability', payload);
+    return res.data as MeetingAvailability;
+  },
+  commonMeetingTimes: async (payload: {
+    attendeeUserIds: string[];
+    windows: Array<{ startAt: string; endAt: string }>;
+    durationMinutes?: number;
+    stepMinutes?: number;
+    meetingId?: string;
+  }) => {
+    const res = await api.post('/api/v1/calendar/meetings/common-times', payload);
+    return res.data as { slots: CommonMeetingSlot[] };
+  },
+
   googleConnection: async () => {
     const res = await api.get('/api/v1/calendar/google');
     return res.data as {
