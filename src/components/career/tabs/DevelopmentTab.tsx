@@ -60,8 +60,15 @@ const EMPTY_TRAINING: TrainingForm = {
   cost: "",
 };
 
+function initialSubTab(): "training" | "employment" {
+  if (typeof window === "undefined") return "training";
+  return new URLSearchParams(window.location.search).has("employmentChangeRequestId")
+    ? "employment"
+    : "training";
+}
+
 export default function DevelopmentTab({ showAlert }: DevelopmentTabProps) {
-  const [subTab, setSubTab] = useState<"training" | "employment">("training");
+  const [subTab, setSubTab] = useState<"training" | "employment">(initialSubTab);
   const [search, setSearch] = useState("");
   const [trainingModalOpen, setTrainingModalOpen] = useState(false);
   const [trainingForm, setTrainingForm] = useState<TrainingForm>(EMPTY_TRAINING);
