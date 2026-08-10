@@ -14,7 +14,7 @@ import WorkforceFinanceView from '../components/finance/WorkforceFinanceView';
 import OffboardingView from '../components/offboarding/ExitOffboardingView';
 import OnboardingView from '../components/onboarding/OnboardingView';
 import CreateEmployeeModal from '../components/people/CreateEmployeeModal';
-import EmployeeDetailPage from '../components/people/EmployeeDetailPage';
+import EmployeeDetailPage from '../components/people/EmployeeDetailWithEmploymentChanges';
 import PeopleProfilesView from '../components/people/PeopleProfilesView';
 import PerformanceView from '../components/performance/PerformanceView';
 import BusinessSettingsView from '../components/settings/BusinessSettingsView';
@@ -263,6 +263,7 @@ export default function ModulePage() {
               employeeUserId,
             )
           }
+          showAlert={showAlert}
         />
 
         <CreateEmployeeModal
@@ -361,6 +362,7 @@ export default function ModulePage() {
                 employeeUserId,
               )
             }
+            showAlert={showAlert}
           />
 
           <CreateEmployeeModal
