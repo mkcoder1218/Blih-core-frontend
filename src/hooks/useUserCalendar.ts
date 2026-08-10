@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { calendarApi, type AvailabilityStatus, type CalendarEventPayload, type MeetingRequestStatus } from '../api/calendar';
+import {
+  calendarApi,
+  type AvailabilityStatus,
+  type CalendarEventPayload,
+  type MeetingPayload,
+} from '../api/calendar';
 
 const KEY = ['user-calendar'];
 
@@ -35,11 +40,20 @@ export function useCalendarPeople(params?: { search?: string; size?: number }) {
   });
 }
 
-export function useMeetingRequests(params?: { status?: MeetingRequestStatus; size?: number }) {
+export function useMeetingRequests(params?: { status?: string; size?: number }) {
   return useQuery({
     queryKey: [...KEY, 'meeting-requests', params],
     queryFn: () => calendarApi.meetingRequests(params),
     staleTime: 20_000,
+  });
+}
+
+export function useMeetingEventDetails(eventId?: string) {
+  return useQuery({
+    queryKey: [...KEY, 'meeting-event-details', eventId],
+    queryFn: () => calendarApi.meetingEventDetails(eventId!),
+    enabled: Boolean(eventId),
+    staleTime: 10_000,
   });
 }
 
@@ -62,7 +76,7 @@ export function useUpdateUserCalendarEvent() {
 export function useDeleteUserCalendarEvent() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, deleteScope, instanceDate }: { id: string; deleteScope?: 'THIS_EVENT' | 'ALL_EVENTS'; instanceDate?: string }) => 
+    mutationFn: ({ id, deleteScope, instanceDate }: { id: string; deleteScope?: 'THIS_EVENT' | 'ALL_EVENTS'; instanceDate?: string }) =>
       calendarApi.remove(id, { deleteScope, instanceDate }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
@@ -95,7 +109,7 @@ export function useSyncUserCalendarFromGoogle() {
 export function useCreateMeetingRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: { recipientUserId: string; title: string; description?: string; location?: string; startAt: string; endAt: string }) => calendarApi.createMeetingRequest(payload),
+    mutationFn: (payload: MeetingPayload) => calendarApi.createMeetingRequest(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
 }
@@ -103,7 +117,53 @@ export function useCreateMeetingRequest() {
 export function useRespondMeetingRequest() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: { status: 'ACCEPTED' | 'DECLINED'; responseNote?: string } }) => calendarApi.respondMeetingRequest(id, payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: { status: 'ACCEPTED' | 'DECLINED'; responseNote?: string; legacy?: boolean };
+    }) => calendarApi.respondMeetingRequest(id, payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useUpdateMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<MeetingPayload> }) =>
+      calendarApi.updateMeeting(id, payload),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useCancelMeeting() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => calendarApi.cancelMeeting(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
+}
+
+export function useCheckMeetingAvailability() {
+  return useMutation({
+    mutationFn: (payload: {
+      attendeeUserIds: string[];
+      startAt: string;
+      endAt: string;
+      meetingId?: string;
+    }) => calendarApi.meetingAvailability(payload),
+  });
+}
+
+export function useFindCommonMeetingTimes() {
+  return useMutation({
+    mutationFn: (payload: {
+      attendeeUserIds: string[];
+      windows: Array<{ startAt: string; endAt: string }>;
+      durationMinutes?: number;
+      stepMinutes?: number;
+      meetingId?: string;
+    }) => calendarApi.commonMeetingTimes(payload),
   });
 }
