@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ApiEnvelope } from "../api/types";
 import { useMe } from "./useMe";
+import { useTesterSession } from "./useTesterControl";
 
 export interface Permission {
   id: string;
@@ -52,19 +53,17 @@ export function useAssignPermissions() {
 
 // ─── Hook: resolved permissions for the current user ─────────────────────────
 //
-// Returns a `can(key)` function that is true when the logged-in user holds
-// the given permission key, or when they are a platform super admin (which
-// bypasses all permission checks, but only for platform-level views).
-//
-// Usage:
-//   const { can, isSuperAdmin, isLoading } = useMyPermissions();
-//   if (can("job.read")) { ... }
+// Master Tester is a separate testing authority, not a real PLATFORM_SUPER_ADMIN
+// role assignment. For UI capability checks it receives the same effective bypass
+// so it can exercise every feature without contaminating normal RBAC data.
 
 export function useMyPermissions() {
-  const { data: meRes, isLoading } = useMe();
+  const { data: meRes, isLoading: meLoading } = useMe();
+  const testerSession = useTesterSession();
   const me = meRes?.data;
 
-  const isSuperAdmin = Boolean(me?.user?.isPlatformSuperAdmin);
+  const isMasterTester = Boolean(testerSession.data?.isMasterTester);
+  const isSuperAdmin = Boolean(me?.user?.isPlatformSuperAdmin) || isMasterTester;
   // Permissions come back from /me as a flat string array
   const permSet = new Set<string>(me?.permissions ?? []);
 
@@ -74,7 +73,7 @@ export function useMyPermissions() {
   };
 
   const hasAny = (...keys: string[]): boolean => {
-    // Empty key list = super-admin-only gate — never grant to regular users
+    // Empty key list = super-admin/master-tester-only gate.
     if (keys.length === 0) return isSuperAdmin;
     if (isSuperAdmin) return true;
     return keys.some((k) => permSet.has(k));
@@ -86,5 +85,15 @@ export function useMyPermissions() {
     return keys.every((k) => permSet.has(k));
   };
 
-  return { can, hasAny, hasAll, isSuperAdmin, permissions: permSet, isLoading };
+  return {
+    can,
+    hasAny,
+    hasAll,
+    isSuperAdmin,
+    isMasterTester,
+    isTestAccount: Boolean(testerSession.data?.isTestAccount),
+    testerLevel: testerSession.data?.testerLevel ?? null,
+    permissions: permSet,
+    isLoading: meLoading || testerSession.isLoading,
+  };
 }
