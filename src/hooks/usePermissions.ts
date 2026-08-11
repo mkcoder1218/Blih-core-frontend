@@ -45,7 +45,6 @@ export function useAssignPermissions() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
       queryClient.invalidateQueries({ queryKey: ["role-details", variables.roleId] });
-      // Re-fetch /me so the sidebar rebuilds immediately for the current session.
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
@@ -57,13 +56,12 @@ export function useAssignPermissions() {
 // role assignment. For UI capability checks it receives the same effective bypass
 // so it can exercise every feature without contaminating normal RBAC data.
 //
-// Career self-service historically had two permission keys:
-// - career.self
-// - career.request
-// The simplified Career Management UI treats either one as employee self-service
-// access so normal employees can see Overview + My Requests when either permission
-// is assigned. Company-wide request review still depends on HR/performance permissions
-// in the sidebar tab map and is not granted here.
+// Career self-service historically has two keys: career.self and career.request.
+// The simplified Career Management UI treats either one as employee self-service.
+// The built-in EMPLOYEE role also receives this self-service baseline, matching the
+// existing Attendance / Profiles / Performance employee self-service behavior.
+// Company-wide request review still requires HR/performance permissions in the
+// sidebar tab map and is not granted here.
 
 export function useMyPermissions() {
   const { data: meRes, isLoading: meLoading } = useMe();
@@ -74,8 +72,14 @@ export function useMyPermissions() {
   const isSuperAdmin = Boolean(me?.user?.isPlatformSuperAdmin) || isMasterTester;
 
   const permSet = new Set<string>(me?.permissions ?? []);
+  const roleKeys = new Set<string>((me?.roles ?? []).map((role) => String(role).toUpperCase()));
+  const isBuiltInEmployee = roleKeys.has("EMPLOYEE");
 
-  if (permSet.has("career.self") || permSet.has("career.request")) {
+  if (
+    isBuiltInEmployee ||
+    permSet.has("career.self") ||
+    permSet.has("career.request")
+  ) {
     permSet.add("career.self");
     permSet.add("career.request");
   }
@@ -86,7 +90,6 @@ export function useMyPermissions() {
   };
 
   const hasAny = (...keys: string[]): boolean => {
-    // Empty key list = super-admin/master-tester-only gate.
     if (keys.length === 0) return isSuperAdmin;
     if (isSuperAdmin) return true;
     return keys.some((k) => permSet.has(k));
