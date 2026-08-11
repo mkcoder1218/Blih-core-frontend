@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AnimatePresence, motion } from "motion/react";
 import { AlertCircle, Check } from "lucide-react";
 import Sidebar from "../components/layout/Sidebar";
@@ -7,12 +7,14 @@ import Header from "../components/layout/Header";
 import { clearAuthTokens } from "../api/storage";
 import { notifyAuthChanged } from "../api/authState";
 import { setLegacyUser, useLegacyUser } from "../api/legacyUserStore";
+import { useTesterSession } from "../hooks/useTesterControl";
 import type { BusinessesTab, ProjectsTab, RecruitmentTab } from "../types";
 import TesterControlPage from "./TesterControlPage";
 
 export default function AppShell() {
   const activeUser = useLegacyUser();
   const location = useLocation();
+  const testerSession = useTesterSession();
   const [currentRecruitmentTab, setCurrentRecruitmentTab] = useState<RecruitmentTab>("overview");
   const [currentProfilesTab, setCurrentProfilesTab] = useState<"overview" | "create" | "bulk_create" | "organogram" | "directory" | "left" | "interns" | "organization" | "devices" | "events" | "archive" | "pending_registrations" | "exemption_requests">("overview");
   const [currentAttendanceTab, setCurrentAttendanceTab] = useState<
@@ -40,6 +42,7 @@ export default function AppShell() {
 
   const userRole = activeUser?.role || "Employee";
   const isTesterControlRoute = location.pathname === "/tester-control";
+  const isMasterTester = Boolean(testerSession.data?.isMasterTester);
 
   const currentModule = useMemo(() => {
     const p = location.pathname || "/";
@@ -100,6 +103,14 @@ export default function AppShell() {
   }, [location.pathname]);
 
   if (!activeUser) return null;
+
+  if (isTesterControlRoute && testerSession.isLoading) {
+    return null;
+  }
+
+  if (isTesterControlRoute && !isMasterTester) {
+    return <Navigate to="/" replace />;
+  }
 
   return (
     <div id="app-window" className="flex h-screen w-screen bg-[#f8fafc] text-slate-800 relative font-sans select-none antialiased">
