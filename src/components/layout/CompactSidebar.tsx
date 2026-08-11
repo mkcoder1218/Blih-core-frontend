@@ -1,7 +1,8 @@
-import { Brain, LogOut } from 'lucide-react';
+import { Brain, FlaskConical, LogOut } from 'lucide-react';
 import GlobalSubtabSearch from './GlobalSubtabSearch';
 import { SidebarButton } from './SidebarViewParts';
 import type { SidebarController } from './useSidebarController';
+import { useTesterSession } from '../../hooks/useTesterControl';
 
 export function CompactSidebar({ controller }: { controller: SidebarController }) {
   const {
@@ -11,11 +12,14 @@ export function CompactSidebar({ controller }: { controller: SidebarController }
     handleProfileClick,
     mainModules,
     mobileOpen,
+    navigate,
     onLogout,
     onMobileClose,
     setIsDetailedView,
     user,
   } = controller;
+  const testerSession = useTesterSession();
+  const isTester = Boolean(testerSession.data?.isTestAccount);
 
   return (
     <div
@@ -81,6 +85,25 @@ export function CompactSidebar({ controller }: { controller: SidebarController }
               </SidebarButton>
             );
           })}
+
+          {isTester && (
+            <SidebarButton
+              onClick={() => {
+                setIsDetailedView(true);
+                navigate('/tester-control');
+                onMobileClose?.();
+              }}
+              className="mt-2 flex w-full cursor-pointer items-center justify-between rounded-xl border border-amber-200/30 bg-amber-300/10 px-3.5 py-3 text-[13px] font-semibold text-amber-50 transition-all hover:bg-amber-300/20"
+            >
+              <div className="flex items-center gap-3">
+                <FlaskConical className="h-4.5 w-4.5" />
+                <span className="tracking-tight">Tester Control</span>
+              </div>
+              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-700">
+                Test
+              </span>
+            </SidebarButton>
+          )}
         </div>
       </div>
 
@@ -95,9 +118,16 @@ export function CompactSidebar({ controller }: { controller: SidebarController }
             {user ? getInitials(user.name) : 'AY'}
           </SidebarButton>
           <div className="overflow-hidden min-w-0">
-            <p className="text-xs font-bold text-white truncate leading-none">
-              {user ? user.name : 'Aytenew Y.'}
-            </p>
+            <div className="flex min-w-0 items-center gap-1.5">
+              <p className="min-w-0 truncate text-xs font-bold text-white leading-none">
+                {user ? user.name : 'Aytenew Y.'}
+              </p>
+              {isTester && (
+                <span className="shrink-0 rounded bg-amber-100 px-1 py-0.5 text-[7px] font-black uppercase tracking-wide text-amber-700">
+                  Test
+                </span>
+              )}
+            </div>
             <p className="text-[10px] text-blue-100/70 truncate leading-tight mt-0.5">
               {user ? user.email : 'aytenew@blihmarketing.com'}
             </p>
