@@ -1,3 +1,4 @@
+import type { ElementType } from "react";
 import {
   BriefcaseBusiness,
   CheckCircle2,
@@ -24,7 +25,7 @@ function MetricCard({
 }: {
   label: string;
   value: number;
-  icon: React.ElementType;
+  icon: ElementType;
   hint?: string;
 }) {
   return (
