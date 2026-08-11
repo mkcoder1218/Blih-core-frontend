@@ -8,6 +8,7 @@ import { clearAuthTokens } from "../api/storage";
 import { notifyAuthChanged } from "../api/authState";
 import { setLegacyUser, useLegacyUser } from "../api/legacyUserStore";
 import type { BusinessesTab, ProjectsTab, RecruitmentTab } from "../types";
+import TesterControlPage from "./TesterControlPage";
 
 export default function AppShell() {
   const activeUser = useLegacyUser();
@@ -38,6 +39,8 @@ export default function AppShell() {
   };
 
   const userRole = activeUser?.role || "Employee";
+  const isTesterControlRoute = location.pathname === "/tester-control";
+
   const currentModule = useMemo(() => {
     const p = location.pathname || "/";
     if (p.includes("/businesses")) return "businesses";
@@ -175,7 +178,11 @@ export default function AppShell() {
           )}
         </AnimatePresence>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#fafbfc]">
-          <Outlet context={{ showAlert }} />
+          {isTesterControlRoute ? (
+            <TesterControlPage showAlert={showAlert} />
+          ) : (
+            <Outlet context={{ showAlert }} />
+          )}
         </main>
       </div>
     </div>
