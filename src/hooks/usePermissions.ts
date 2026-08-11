@@ -56,12 +56,9 @@ export function useAssignPermissions() {
 // role assignment. For UI capability checks it receives the same effective bypass
 // so it can exercise every feature without contaminating normal RBAC data.
 //
-// Career self-service historically has two keys: career.self and career.request.
-// The simplified Career Management UI treats either one as employee self-service.
-// The built-in EMPLOYEE role also receives this self-service baseline, matching the
-// existing Attendance / Profiles / Performance employee self-service behavior.
-// Company-wide request review still requires HR/performance permissions in the
-// sidebar tab map and is not granted here.
+// Career self-service is a baseline capability for every active business user,
+// just like attendance/profile/performance self-service. Company-wide Career
+// request review still requires HR/performance permissions in the sidebar tab map.
 
 export function useMyPermissions() {
   const { data: meRes, isLoading: meLoading } = useMe();
@@ -72,14 +69,8 @@ export function useMyPermissions() {
   const isSuperAdmin = Boolean(me?.user?.isPlatformSuperAdmin) || isMasterTester;
 
   const permSet = new Set<string>(me?.permissions ?? []);
-  const roleKeys = new Set<string>((me?.roles ?? []).map((role) => String(role).toUpperCase()));
-  const isBuiltInEmployee = roleKeys.has("EMPLOYEE");
 
-  if (
-    isBuiltInEmployee ||
-    permSet.has("career.self") ||
-    permSet.has("career.request")
-  ) {
+  if (me?.user) {
     permSet.add("career.self");
     permSet.add("career.request");
   }
