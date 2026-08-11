@@ -33,10 +33,18 @@ export function useEmploymentChangeAnalytics() {
   });
 }
 
+export function useEmploymentChangePage(params?: EmploymentChangeListParams) {
+  return useQuery({
+    queryKey: [...KEY, "page", params],
+    queryFn: () => employmentChangesApi.list(params),
+    staleTime: 15_000,
+  });
+}
+
 export function useEmploymentChanges(params?: EmploymentChangeListParams) {
   return useQuery({
     queryKey: [...KEY, "list", params],
-    queryFn: () => employmentChangesApi.list(params),
+    queryFn: async () => (await employmentChangesApi.list(params)).rows,
     staleTime: 15_000,
   });
 }
