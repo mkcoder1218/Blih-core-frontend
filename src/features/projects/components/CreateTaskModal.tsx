@@ -22,6 +22,10 @@ export function CreateTaskModal({ projectId }: { projectId: string }) {
   });
   const createTask = useCreateProjectTask(projectId);
 
+  const updateForm = (key: keyof typeof form, value: string) => {
+    setForm((previous) => ({ ...previous, [key]: value }));
+  };
+
   const submit = async () => {
     try {
       setError("");
@@ -53,35 +57,35 @@ export function CreateTaskModal({ projectId }: { projectId: string }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2">
             <span className="mb-1 block text-xs font-bold text-slate-600">Task title</span>
-            <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
+            <input value={form.title} onChange={(e) => updateForm("title", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
           </label>
           <label className="sm:col-span-2">
             <span className="mb-1 block text-xs font-bold text-slate-600">Description</span>
-            <textarea value={form.description} onChange={(e) => setForm((p) => ({ ...p, description: e.currentTarget.value }))} className="min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
+            <textarea value={form.description} onChange={(e) => updateForm("description", e.currentTarget.value)} className="min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" />
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Assignee</span>
-            <EmployeeSelect value={form.assigneeEmployeeId} onChange={(v) => setForm((p) => ({ ...p, assigneeEmployeeId: v }))} placeholder="Select assignee" />
+            <EmployeeSelect value={form.assigneeEmployeeId} onChange={(v) => updateForm("assigneeEmployeeId", v)} placeholder="Select assignee" />
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Status</span>
-            <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
+            <select value={form.status} onChange={(e) => updateForm("status", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
               {TASK_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
             </select>
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Priority</span>
-            <select value={form.priority} onChange={(e) => setForm((p) => ({ ...p, priority: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
+            <select value={form.priority} onChange={(e) => updateForm("priority", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
               {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
             </select>
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Start date</span>
-            <input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
+            <input type="date" value={form.startDate} onChange={(e) => updateForm("startDate", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Due date</span>
-            <input type="date" value={form.dueDate} onChange={(e) => setForm((p) => ({ ...p, dueDate: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
+            <input type="date" value={form.dueDate} onChange={(e) => updateForm("dueDate", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
           </label>
         </div>
         {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</div>}
