@@ -232,4 +232,9 @@ export const employmentChangesApi = {
     const response = await api.post(`${base}/${id}/cancel`, { reason });
     return response.data?.request ?? response.data?.data?.request ?? response.data?.data ?? response.data;
   },
+
+  deleteOwn: async (id: string): Promise<{ deleted: boolean; id: string }> => {
+    const response = await api.delete(`${base}/${id}`);
+    return response.data?.data ?? response.data;
+  },
 };
