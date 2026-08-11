@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   testerApi,
+  type CreateMasterTesterPayload,
   type CreateTesterPayload,
   type UpdateTesterPayload,
 } from "../api/tester";
@@ -36,6 +37,26 @@ export function useTesterOptions(enabled = true) {
   });
 }
 
+export function usePlatformMasterTesterAccounts(enabled = true) {
+  return useQuery({
+    queryKey: [...KEY, "platform", "masters"],
+    queryFn: testerApi.platformMasters,
+    enabled,
+    staleTime: 10_000,
+    retry: false,
+  });
+}
+
+export function usePlatformTesterOptions(enabled = true) {
+  return useQuery({
+    queryKey: [...KEY, "platform", "options"],
+    queryFn: testerApi.platformOptions,
+    enabled,
+    staleTime: 30_000,
+    retry: false,
+  });
+}
+
 function invalidate(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: KEY });
   queryClient.invalidateQueries({ queryKey: ["me"] });
@@ -48,6 +69,14 @@ export function useCreateTesterAccount() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateTesterPayload) => testerApi.create(payload),
+    onSuccess: () => invalidate(queryClient),
+  });
+}
+
+export function useCreateMasterTesterAccount() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateMasterTesterPayload) => testerApi.createMaster(payload),
     onSuccess: () => invalidate(queryClient),
   });
 }
