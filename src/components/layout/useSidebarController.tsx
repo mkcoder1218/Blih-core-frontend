@@ -28,6 +28,7 @@ import {
   PROFILES_TAB_PERMISSIONS,
   PROJECTS_TAB_PERMISSIONS,
   RECRUITMENT_TAB_PERMISSIONS,
+  TALENT_TAB_PERMISSIONS,
 } from '../../config/tabPermissions';
 import { useCriticalDisciplinaryCases } from '../../hooks/useDisciplinary';
 import { useMyPermissions } from '../../hooks/usePermissions';
@@ -45,6 +46,7 @@ import {
   ALL_PROFILES_TABS,
   ALL_PROJECTS_TABS,
   ALL_RECRUITMENT_TABS,
+  ALL_TALENT_TABS,
   createPerformanceTabs,
 } from './sidebarTabs';
 import type { SidebarProps } from './sidebarTypes';
@@ -99,6 +101,7 @@ export function useSidebarController({
     Recruitment: true,
     Onboarding: false,
     People: false,
+    'Career Management': false,
   });
 
   const [openAttendanceGroups, setOpenAttendanceGroups] = useState<
@@ -316,6 +319,22 @@ export function useSidebarController({
       (tab) =>
         !isInternUser ||
         ['events'].includes(tab.id),
+    );
+
+  const careerTabs =
+    allowedTabs(
+      ALL_TALENT_TABS,
+      {
+        ...TALENT_TAB_PERMISSIONS,
+        career:
+          TALENT_TAB_PERMISSIONS.career ?? {
+            requires: [
+              'performance.read',
+              'performance.manage',
+              'career.self',
+            ],
+          },
+      },
     );
 
   const attendanceTabs =
@@ -566,6 +585,26 @@ export function useSidebarController({
                 >
               )[tab.id] ??
               tab.label,
+          }),
+        ),
+    },
+    {
+      title: 'Career Management',
+      items:
+        careerTabs.map(
+          (tab) => ({
+            ...tab,
+            id: `career-${tab.id}`,
+            label:
+              (
+                {
+                  overview: 'Overview',
+                  career: 'Career',
+                  training: 'Training & Skills',
+                  culture: 'Culture',
+                  development: 'Development',
+                } as Record<string, string>
+              )[tab.id] ?? tab.label,
           }),
         ),
     },
