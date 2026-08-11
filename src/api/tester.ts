@@ -73,6 +73,10 @@ export interface TesterOptions {
   roles: TesterRole[];
 }
 
+export interface PlatformTesterOptions {
+  businesses: TesterBusiness[];
+}
+
 export interface CreateTesterPayload {
   fullName: string;
   email: string;
@@ -80,6 +84,15 @@ export interface CreateTesterPayload {
   password?: string;
   businessId: string;
   roleKeys: string[];
+  notes?: string;
+}
+
+export interface CreateMasterTesterPayload {
+  fullName: string;
+  email: string;
+  phone?: string;
+  password?: string;
+  businessId: string;
   notes?: string;
 }
 
@@ -123,6 +136,21 @@ export const testerApi = {
 
   resetPassword: async (userId: string, password?: string) => {
     const response = await api.post(`${base}/${userId}/reset-password`, password ? { password } : {});
+    return response.data?.data ?? response.data;
+  },
+
+  platformOptions: async (): Promise<PlatformTesterOptions> => {
+    const response = await api.get(`${base}/platform/options`);
+    return response.data?.options ?? response.data?.data?.options ?? response.data?.data ?? response.data;
+  },
+
+  platformMasters: async (): Promise<TesterAccountView[]> => {
+    const response = await api.get(`${base}/platform/masters`);
+    return response.data?.masters ?? response.data?.data?.masters ?? [];
+  },
+
+  createMaster: async (payload: CreateMasterTesterPayload) => {
+    const response = await api.post(`${base}/platform/masters`, payload);
     return response.data?.data ?? response.data;
   },
 };
