@@ -168,3 +168,11 @@ export function useCancelEmploymentChange() {
     onSuccess: () => invalidateRelated(queryClient),
   });
 }
+
+export function useDeleteEmploymentChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => employmentChangesApi.deleteOwn(id),
+    onSuccess: () => invalidateRelated(queryClient),
+  });
+}
