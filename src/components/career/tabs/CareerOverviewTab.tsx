@@ -1,202 +1,152 @@
-/**
- * Career Management — Overview Tab
- * Integrated with real TrainingRecord + PromotionRequest + DisciplinaryCase APIs
- */
-import { Sparkles, AlertTriangle, Bookmark, BookOpen, UserCheck, Clock, Inbox } from 'lucide-react';
 import {
-  StatCard, StatCardGrid, PageHeader, SectionCard, UserAvatar, StatusBadge,
-  EmptyState, LoadingSpinner, InfoAlert,
-} from '@/components/ui/blih';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import {
-  useTrainingRequests, useApproveTrainingRequest, useRejectTrainingRequest,
-  usePromotionRequests, useApprovePromotionRequest, useRejectPromotionRequest,
-} from '../../../hooks/useDevelopment';
+  BriefcaseBusiness,
+  CheckCircle2,
+  Clock3,
+  DollarSign,
+  Layers3,
+  Loader2,
+  TimerReset,
+  UserCheck,
+} from "lucide-react";
+
+import { useEmploymentChangeAnalytics } from "../../../hooks/useEmploymentChanges";
 
 interface CareerOverviewTabProps {
   onDraftAiSuggestion: (context: string) => void;
-  showAlert: (title: string, type?: 'success' | 'info' | 'error') => void;
+  showAlert: (title: string, type?: "success" | "info" | "error") => void;
 }
 
-export default function CareerOverviewTab({ onDraftAiSuggestion, showAlert }: CareerOverviewTabProps) {
-  const { data: trainingData, isLoading: tLoading } = useTrainingRequests({ status: 'requested', size: 10 });
-  const { data: promoData,    isLoading: pLoading } = usePromotionRequests({ status: 'pending',   size: 10 });
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  hint,
+}: {
+  label: string;
+  value: number;
+  icon: React.ElementType;
+  hint?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+            {label}
+          </p>
+          <p className="mt-2 text-3xl font-black tracking-tight text-slate-950">
+            {value}
+          </p>
+          {hint && (
+            <p className="mt-1 text-[11px] font-medium text-slate-400">
+              {hint}
+            </p>
+          )}
+        </div>
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 text-blue-600">
+          <Icon className="h-4 w-4" />
+        </div>
+      </div>
+    </div>
+  );
+}
 
-  const approveTraining  = useApproveTrainingRequest();
-  const rejectTraining   = useRejectTrainingRequest();
-  const approvePromotion = useApprovePromotionRequest();
-  const rejectPromotion  = useRejectPromotionRequest();
+export default function CareerOverviewTab({}: CareerOverviewTabProps) {
+  const analytics = useEmploymentChangeAnalytics();
 
-  const trainings  = trainingData?.rows ?? [];
-  const promotions = promoData?.rows    ?? [];
-  const pendingCount = trainings.length + promotions.length;
-  const isLoading  = tLoading || pLoading;
+  if (analytics.isLoading) {
+    return (
+      <div className="flex min-h-56 items-center justify-center gap-2 text-xs font-bold text-slate-400">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading analytics...
+      </div>
+    );
+  }
 
-  const handleApproveTraining = async (id: string, name: string) => {
-    await approveTraining.mutateAsync({ id });
-    showAlert(`Approved ${name}'s training request!`, 'success');
-  };
-  const handleRejectTraining = async (id: string, name: string) => {
-    await rejectTraining.mutateAsync({ id });
-    showAlert(`Rejected ${name}'s training request.`, 'info');
-  };
-  const handleApprovePromotion = async (id: string, name: string) => {
-    await approvePromotion.mutateAsync({ id });
-    showAlert(`Approved ${name}'s promotion request!`, 'success');
-  };
-  const handleRejectPromotion = async (id: string, name: string) => {
-    await rejectPromotion.mutateAsync({ id });
-    showAlert(`Rejected ${name}'s promotion request.`, 'info');
-  };
+  if (analytics.isError || !analytics.data) {
+    return (
+      <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700">
+        Could not load Career Management analytics.
+      </div>
+    );
+  }
+
+  const data = analytics.data;
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Pending Approval Requests"
-        description="Review and approve training and promotion requests."
-      />
+      <div>
+        <h1 className="text-xl font-black tracking-tight text-slate-950">
+          Career Overview
+        </h1>
+        <p className="mt-1 text-xs font-medium text-slate-500">
+          Employment-change analytics only. Requests are managed from the two request tabs.
+        </p>
+      </div>
 
-      {isLoading ? (
-        <LoadingSpinner label="Loading requests…" />
-      ) : pendingCount === 0 ? (
-        <EmptyState icon={<Inbox />} title="All requests have been verified." compact />
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          {/* Training requests */}
-          {trainings.map(tr => (
-            <div key={tr.id} className="bg-white border border-slate-100 rounded-xl p-5 hover:shadow-md hover:border-slate-200/60 transition-all flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <UserAvatar
-                    name={tr.employee?.fullName ?? 'Employee'}
-                    subtitle={tr.employee?.email ?? ''}
-                  />
-                  <span className="text-[10px] font-medium border rounded-md px-2 py-0.5 leading-none border-blue-200 bg-blue-50 text-blue-700">
-                    Training
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-blue-600">Training Request</p>
-                  <p className="text-xs font-medium text-slate-500 mt-1 leading-relaxed">{tr.title}</p>
-                  {tr.provider && <p className="text-[10px] text-slate-400 mt-0.5">Provider: {tr.provider}</p>}
-                  {tr.startDate && <p className="text-[10px] text-slate-400 mt-1 font-mono">Start: {tr.startDate.slice(0, 10)}</p>}
-                </div>
-              </div>
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-50">
-                <Button size="sm" className="flex-1" disabled={approveTraining.isPending}
-                  onClick={() => handleApproveTraining(tr.id, tr.employee?.fullName ?? 'Employee')}>
-                  Approve
-                </Button>
-                <Button size="sm" variant="outline" className="flex-1" disabled={rejectTraining.isPending}
-                  onClick={() => handleRejectTraining(tr.id, tr.employee?.fullName ?? 'Employee')}>
-                  Reject
-                </Button>
-              </div>
-            </div>
-          ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Total Requests"
+          value={data.total}
+          icon={Layers3}
+          hint="Visible to your role"
+        />
+        <MetricCard
+          label="Pending"
+          value={data.pending}
+          icon={Clock3}
+          hint="Still in approval flow"
+        />
+        <MetricCard
+          label="Awaiting My Approval"
+          value={data.awaitingMyApproval}
+          icon={UserCheck}
+          hint="Action required from you"
+        />
+        <MetricCard
+          label="Scheduled"
+          value={data.scheduled}
+          icon={TimerReset}
+          hint="Approved for a future date"
+        />
+      </div>
 
-          {/* Promotion requests */}
-          {promotions.map(pr => (
-            <div key={pr.id} className="bg-white border border-slate-100 rounded-xl p-5 hover:shadow-md hover:border-slate-200/60 transition-all flex flex-col justify-between">
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <UserAvatar
-                    name={pr.employee?.fullName ?? 'Employee'}
-                    subtitle={pr.employee?.email ?? ''}
-                  />
-                  <span className="text-[10px] font-medium border rounded-md px-2 py-0.5 leading-none border-violet-200 bg-violet-50 text-violet-700">
-                    Promotion
-                  </span>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-blue-600">Promotion Request</p>
-                  <p className="text-xs font-medium text-slate-500 mt-1 leading-relaxed">
-                    {pr.currentTitle} → {pr.targetTitle}
-                  </p>
-                  <p className="text-[10px] text-slate-400 mt-1 italic line-clamp-2">"{pr.justification}"</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 mt-4 pt-4 border-t border-slate-50">
-                <Button size="sm" className="flex-1" disabled={approvePromotion.isPending}
-                  onClick={() => handleApprovePromotion(pr.id, pr.employee?.fullName ?? 'Employee')}>
-                  Approve
-                </Button>
-                <Button size="sm" variant="outline" className="flex-1" disabled={rejectPromotion.isPending}
-                  onClick={() => handleRejectPromotion(pr.id, pr.employee?.fullName ?? 'Employee')}>
-                  Reject
-                </Button>
-              </div>
-            </div>
-          ))}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Applied"
+          value={data.applied}
+          icon={CheckCircle2}
+          hint={`${data.appliedThisMonth} applied this month`}
+        />
+        <MetricCard
+          label="Title Changes"
+          value={data.byType.title}
+          icon={BriefcaseBusiness}
+        />
+        <MetricCard
+          label="Salary Changes"
+          value={data.byType.salary}
+          icon={DollarSign}
+        />
+        <MetricCard
+          label="Combined Changes"
+          value={data.byType.combined}
+          icon={Layers3}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+            Rejected
+          </p>
+          <p className="mt-2 text-2xl font-black text-slate-900">{data.rejected}</p>
         </div>
-      )}
-
-      {/* KPI stats */}
-      <StatCardGrid cols={4}>
-        <StatCard label="Training Pending"    value={trainings.length}  icon={<BookOpen />}  tone="blue" />
-        <StatCard label="Promotions Pending"  value={promotions.length} icon={<Bookmark />}  tone="violet" />
-        <StatCard label="Culture Initiatives" value={8}                 icon={<UserCheck />} tone="blue" />
-        <StatCard label="Total Pending"       value={pendingCount}      icon={<Clock />}     tone="amber" />
-      </StatCardGrid>
-
-      {/* Discipline panels — discipline data is from performance module, kept as summary */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <SectionCard title="Current Hot Discipline Issue" icon={<AlertTriangle />} accent="rose">
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="text-base font-extrabold text-slate-900">Late Arrivals</h3>
-                <p className="text-[11px] text-slate-400 mt-1">Most frequent issue this month</p>
-              </div>
-              <span className="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">+25%</span>
-            </div>
-            <div className="grid grid-cols-2 gap-4 border-t border-red-100/50 pt-4">
-              <div>
-                <span className="text-[10px] text-slate-400 block uppercase font-medium">This month</span>
-                <p className="text-xl font-bold text-slate-900 mt-1">12</p>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 block uppercase font-medium">Total Cases</span>
-                <p className="text-xl font-bold text-slate-900 mt-1">28</p>
-              </div>
-            </div>
-            <div className="border-t border-red-100/50 pt-4 flex items-center justify-between">
-              <div>
-                <span className="text-[10px] text-slate-400 font-medium uppercase">Resolved</span>
-                <p className="text-sm font-bold text-slate-800 mt-0.5">18</p>
-              </div>
-              <Button variant="destructive" size="sm"
-                onClick={() => onDraftAiSuggestion('Suggest corrective actions for late arrival discipline issues.')}>
-                Investigate Action
-              </Button>
-            </div>
-          </div>
-        </SectionCard>
-
-        <SectionCard title="Average Discipline Rate" icon={<AlertTriangle />} accent="blue">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-slate-400 font-bold uppercase">Rate this period</span>
-              <Badge>3.2%</Badge>
-            </div>
-            <div className="grid grid-cols-2 gap-6">
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Pending Cases</span>
-                <p className="text-3xl font-black text-slate-950 mt-1">10</p>
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wide">Resolved Cases</span>
-                <p className="text-3xl font-black text-slate-950 mt-1">18</p>
-              </div>
-            </div>
-            <Button variant="outline" className="w-full gap-1.5"
-              onClick={() => onDraftAiSuggestion('Suggest training to lower our current 3.2% discipline rate.')}>
-              <Sparkles className="w-3.5 h-3.5 fill-blue-600 text-blue-600" />
-              Recommend Training to Lower Rate
-            </Button>
-          </div>
-        </SectionCard>
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-[10px] font-black uppercase tracking-wide text-slate-400">
+            Cancelled
+          </p>
+          <p className="mt-2 text-2xl font-black text-slate-900">{data.cancelled}</p>
+        </div>
       </div>
     </div>
   );
