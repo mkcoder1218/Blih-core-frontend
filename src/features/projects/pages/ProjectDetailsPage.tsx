@@ -25,7 +25,7 @@ import {
   useUpdateProject
 } from "../hooks";
 import { PROJECT_STATUSES } from "../schemas";
-import type { ProjectWorkflowForm, ProjectWorkflowFormDefinition } from "../types";
+import type { ProjectWorkflowFormDefinition } from "../types";
 import { WorkflowFormsTab } from "./ProjectWorkflowForms";
 
 type DetailTab = "overview" | "tasks" | "team" | "setup" | "deliverables" | "changes" | "issues" | "closure" | "lessons" | "evaluations" | "activity" | "settings";
@@ -63,6 +63,25 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
 
   const canManageProjects = perms.hasAny("project.manage");
   const canWorkTasks = perms.hasAny("project.task", "project.manage");
+
+  const updateSetting = (key: string, value: unknown) => {
+    setSettings((previous: any) => ({ ...previous, [key]: value }));
+  };
+
+  const updateNewClientField = (
+    stateKey: "clientCompanyName" | "clientContactName" | "clientEmail" | "clientPhone",
+    clientKey: "companyName" | "contactName" | "email" | "phone",
+    value: string,
+  ) => {
+    setSettings((previous: any) => ({
+      ...previous,
+      [stateKey]: value,
+      newClient:
+        previous.clientMode === "new" || stateKey === "clientCompanyName" || stateKey === "clientContactName"
+          ? { ...(previous.newClient || {}), [clientKey]: value }
+          : previous.newClient,
+    }));
+  };
 
   if (!perms.isLoading && !perms.hasAny("project.read", "project.manage", "project.self", "project.task")) {
     return <main className="h-full overflow-y-auto bg-[#f8fafc] p-8"><EmptyState title="Project unavailable" description="Your role does not currently include project access." /></main>;
@@ -123,7 +142,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                 <ProjectStatusBadge status={p.status} />
                 <ProjectStatusBadge status={p.priority} />
               </div>
-              <p className="mt-1 text-sm font-medium text-slate-500">{p.code || "No code"} Â· {p.startDate || "No start"} - {p.endDate || "No end"}</p>
+              <p className="mt-1 text-sm font-medium text-slate-500">{p.code || "No code"} · {p.startDate || "No start"} - {p.endDate || "No end"}</p>
             </div>
             <div className="flex flex-wrap gap-2">
               {canManageProjects && (
@@ -229,10 +248,10 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
         {tab === "settings" && (canManageProjects ? (
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <div className="grid gap-4 md:grid-cols-2">
-              <label><span className="mb-1 block text-xs font-bold text-slate-600">Name</span><input defaultValue={p.title} onChange={(e) => setSettings((s: any) => ({ ...s, title: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
-              <label><span className="mb-1 block text-xs font-bold text-slate-600">Priority</span><select defaultValue={p.priority || "NORMAL"} onChange={(e) => setSettings((s: any) => ({ ...s, priority: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label>
-              <label><span className="mb-1 block text-xs font-bold text-slate-600">Owner</span><EmployeeSelect value={settings.ownerEmployeeId ?? p.ownerEmployeeId ?? ""} onChange={(v) => setSettings((s: any) => ({ ...s, ownerEmployeeId: v }))} /></label>
-              <label><span className="mb-1 block text-xs font-bold text-slate-600">Manager</span><EmployeeSelect value={settings.managerEmployeeId ?? p.managerEmployeeId ?? ""} onChange={(v) => setSettings((s: any) => ({ ...s, managerEmployeeId: v }))} /></label>
+              <label><span className="mb-1 block text-xs font-bold text-slate-600">Name</span><input defaultValue={p.title} onChange={(e) => updateSetting("title", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></label>
+              <label><span className="mb-1 block text-xs font-bold text-slate-600">Priority</span><select defaultValue={p.priority || "NORMAL"} onChange={(e) => updateSetting("priority", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label>
+              <label><span className="mb-1 block text-xs font-bold text-slate-600">Owner</span><EmployeeSelect value={settings.ownerEmployeeId ?? p.ownerEmployeeId ?? ""} onChange={(v) => updateSetting("ownerEmployeeId", v)} /></label>
+              <label><span className="mb-1 block text-xs font-bold text-slate-600">Manager</span><EmployeeSelect value={settings.managerEmployeeId ?? p.managerEmployeeId ?? ""} onChange={(v) => updateSetting("managerEmployeeId", v)} /></label>
               <div className="md:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
                 <div className="mb-3 flex flex-wrap items-center gap-2">
                   <span className="text-xs font-black uppercase text-slate-500">Client portal</span>
@@ -242,7 +261,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                 {(settings.clientMode || "existing") === "existing" ? (
                   <label>
                     <span className="mb-1 block text-xs font-bold text-slate-600">Linked client</span>
-                    <select value={settings.clientId ?? p.clientId ?? ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientId: e.currentTarget.value || null }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                    <select value={settings.clientId ?? p.clientId ?? ""} onChange={(e) => updateSetting("clientId", e.currentTarget.value || null)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
                       <option value="">No client linked</option>
                       {(clients.data ?? []).map((client) => <option key={client.id} value={client.id}>{client.companyName}</option>)}
                     </select>
@@ -251,23 +270,23 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
                   <div className="grid gap-3 sm:grid-cols-2">
                     <label>
                       <span className="mb-1 block text-xs font-bold text-slate-600">Company</span>
-                      <input value={settings.clientCompanyName || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientCompanyName: e.currentTarget.value, newClient: { ...(s.newClient || {}), companyName: e.currentTarget.value } }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                      <input value={settings.clientCompanyName || ""} onChange={(e) => updateNewClientField("clientCompanyName", "companyName", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
                     </label>
                     <label>
                       <span className="mb-1 block text-xs font-bold text-slate-600">Contact</span>
-                      <input value={settings.clientContactName || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientContactName: e.currentTarget.value, newClient: { ...(s.newClient || {}), contactName: e.currentTarget.value } }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                      <input value={settings.clientContactName || ""} onChange={(e) => updateNewClientField("clientContactName", "contactName", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
                     </label>
                   </div>
                 )}
                 <label className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-                  <input type="checkbox" checked={Boolean(settings.issueClientLogin)} onChange={(e) => setSettings((s: any) => ({ ...s, issueClientLogin: e.currentTarget.checked }))} />
+                  <input type="checkbox" checked={Boolean(settings.issueClientLogin)} onChange={(e) => updateSetting("issueClientLogin", e.currentTarget.checked)} />
                   Create or reset client portal login
                 </label>
                 {settings.issueClientLogin && (
                   <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <input placeholder="Client email" value={settings.clientEmail || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientEmail: e.currentTarget.value, newClient: s.clientMode === "new" ? { ...(s.newClient || {}), email: e.currentTarget.value } : s.newClient }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-                    <input placeholder="Client phone" value={settings.clientPhone || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientPhone: e.currentTarget.value, newClient: s.clientMode === "new" ? { ...(s.newClient || {}), phone: e.currentTarget.value } : s.newClient }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-                    <input placeholder="New password" value={settings.clientPassword || ""} onChange={(e) => setSettings((s: any) => ({ ...s, clientPassword: e.currentTarget.value }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                    <input placeholder="Client email" value={settings.clientEmail || ""} onChange={(e) => updateNewClientField("clientEmail", "email", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                    <input placeholder="Client phone" value={settings.clientPhone || ""} onChange={(e) => updateNewClientField("clientPhone", "phone", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                    <input placeholder="New password" value={settings.clientPassword || ""} onChange={(e) => updateSetting("clientPassword", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
                   </div>
                 )}
                 {issuedCredentials && (
