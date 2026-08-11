@@ -112,6 +112,9 @@ function queryRequestId() {
   return new URLSearchParams(window.location.search).get("employmentChangeRequestId");
 }
 
+const filterLabelClass =
+  "mb-1.5 block text-[10px] font-black uppercase tracking-wide text-slate-400";
+
 export default function EmploymentRequestsTable({ scope, showAlert }: Props) {
   const isMine = scope === "mine";
   const [page, setPage] = useState(1);
@@ -345,74 +348,104 @@ export default function EmploymentRequestsTable({ scope, showAlert }: Props) {
       </div>
 
       {scope === "visible" && (
-        <div className="grid gap-2 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
-          <div className="relative sm:col-span-2">
-            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.currentTarget.value)}
-              placeholder="Search employee, title or reason"
-              className="pl-9"
-            />
+        <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          <div className="sm:col-span-2">
+            <label className={filterLabelClass}>Employee / Search</label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.currentTarget.value)}
+                placeholder="Employee, title or reason"
+                className="pl-9"
+              />
+            </div>
           </div>
-          <Select value={requestKind} onValueChange={setRequestKind}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Types</SelectItem>
-              <SelectItem value="TITLE">Title</SelectItem>
-              <SelectItem value="SALARY">Salary</SelectItem>
-              <SelectItem value="COMBINED">Title + Salary</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-              <SelectItem value="APPLIED">Applied</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-              <SelectItem value="CANCELLED">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={approvalStage} onValueChange={setApprovalStage}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Stages</SelectItem>
-              <SelectItem value="MANAGER">Manager</SelectItem>
-              <SelectItem value="HR">HR</SelectItem>
-              <SelectItem value="FINANCE">Finance</SelectItem>
-              <SelectItem value="ADMIN">Admin</SelectItem>
-              <SelectItem value="COMPLETED">Completed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.currentTarget.value)} />
-          <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.currentTarget.value)} />
+
+          <div>
+            <label className={filterLabelClass}>Request Type</label>
+            <Select value={requestKind} onValueChange={setRequestKind}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Types</SelectItem>
+                <SelectItem value="TITLE">Title</SelectItem>
+                <SelectItem value="SALARY">Salary</SelectItem>
+                <SelectItem value="COMBINED">Title + Salary</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className={filterLabelClass}>Status</label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+                <SelectItem value="APPLIED">Applied</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className={filterLabelClass}>Approval Stage</label>
+            <Select value={approvalStage} onValueChange={setApprovalStage}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Stages</SelectItem>
+                <SelectItem value="MANAGER">Manager</SelectItem>
+                <SelectItem value="HR">HR</SelectItem>
+                <SelectItem value="FINANCE">Finance</SelectItem>
+                <SelectItem value="ADMIN">Admin</SelectItem>
+                <SelectItem value="COMPLETED">Completed</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className={filterLabelClass}>From Date</label>
+            <Input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.currentTarget.value)} />
+          </div>
+
+          <div>
+            <label className={filterLabelClass}>To Date</label>
+            <Input type="date" value={dateTo} onChange={(event) => setDateTo(event.currentTarget.value)} />
+          </div>
         </div>
       )}
 
       {isMine && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Statuses</SelectItem>
-              <SelectItem value="PENDING">Pending</SelectItem>
-              <SelectItem value="SCHEDULED">Scheduled</SelectItem>
-              <SelectItem value="APPLIED">Applied</SelectItem>
-              <SelectItem value="REJECTED">Rejected</SelectItem>
-              <SelectItem value="CANCELLED">Cancelled</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={requestKind} onValueChange={setRequestKind}>
-            <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All Types</SelectItem>
-              <SelectItem value="TITLE">Title</SelectItem>
-              <SelectItem value="SALARY">Salary</SelectItem>
-              <SelectItem value="COMBINED">Title + Salary</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="flex flex-wrap items-end gap-3">
+          <div>
+            <label className={filterLabelClass}>Status</label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="w-40"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Statuses</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="SCHEDULED">Scheduled</SelectItem>
+                <SelectItem value="APPLIED">Applied</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="CANCELLED">Cancelled</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div>
+            <label className={filterLabelClass}>Request Type</label>
+            <Select value={requestKind} onValueChange={setRequestKind}>
+              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">All Types</SelectItem>
+                <SelectItem value="TITLE">Title</SelectItem>
+                <SelectItem value="SALARY">Salary</SelectItem>
+                <SelectItem value="COMBINED">Title + Salary</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
       )}
 
@@ -489,8 +522,8 @@ export default function EmploymentRequestsTable({ scope, showAlert }: Props) {
           </table>
         </div>
 
-        <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-[11px] font-medium text-slate-500">
+        <div className="flex flex-col gap-3 border-t border-slate-200 px-4 py-3 sm:flex-row sm:items-end sm:justify-between">
+          <p className="pb-2 text-[11px] font-medium text-slate-500 sm:pb-0">
             {pagination.total === 0
               ? "0 requests"
               : `${(pagination.page - 1) * pagination.size + 1}-${Math.min(
@@ -498,19 +531,22 @@ export default function EmploymentRequestsTable({ scope, showAlert }: Props) {
                   pagination.total,
                 )} of ${pagination.total}`}
           </p>
-          <div className="flex items-center gap-2">
-            <Select value={String(size)} onValueChange={(value) => setSize(Number(value))}>
-              <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="10">10</SelectItem>
-                <SelectItem value="20">20</SelectItem>
-                <SelectItem value="50">50</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex items-end gap-2">
+            <div>
+              <label className={filterLabelClass}>Rows per page</label>
+              <Select value={String(size)} onValueChange={(value) => setSize(Number(value))}>
+                <SelectTrigger className="h-8 w-20 text-xs"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={pagination.page <= 1} onClick={() => setPage((value) => Math.max(1, value - 1))}>
               <ChevronLeft className="h-4 w-4" />
             </Button>
-            <span className="min-w-16 text-center text-[11px] font-bold text-slate-600">
+            <span className="min-w-16 pb-2 text-center text-[11px] font-bold text-slate-600">
               {pagination.page} / {pagination.totalPages}
             </span>
             <Button variant="outline" size="sm" className="h-8 w-8 p-0" disabled={pagination.page >= pagination.totalPages} onClick={() => setPage((value) => Math.min(pagination.totalPages, value + 1))}>
