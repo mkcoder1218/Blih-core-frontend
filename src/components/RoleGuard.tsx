@@ -1,18 +1,22 @@
 import React from "react";
 import { Navigate, useLocation } from "react-router-dom";
 import { useMe } from "../hooks/useMe";
+import { useTesterSession } from "../hooks/useTesterControl";
 
 export type AllowedRole = "platform_super_admin" | "business_admin" | "hr_manager" | "any";
 
 export default function RoleGuard(props: { allow: AllowedRole; children: React.ReactNode }) {
   const me = useMe();
+  const testerSession = useTesterSession();
   const location = useLocation();
 
   const user = me.data?.data?.user;
-  if (!user) return null;
+  if (!user || testerSession.isLoading) return null;
 
   const roles: string[] = (me.data as any)?.data?.roles || [];
+  const isMasterTester = Boolean(testerSession.data?.isMasterTester);
   const ok =
+    isMasterTester ||
     props.allow === "any"
       ? true
       : props.allow === "platform_super_admin"
