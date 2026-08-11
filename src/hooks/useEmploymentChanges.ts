@@ -1,10 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "../api/client";
 import {
   employmentChangesApi,
   type CreateEmploymentChangePayload,
   type EmploymentChangeListParams,
   type ImmediateTitlePayload,
 } from "../api/employmentChanges";
+import type {
+  ApiEnvelope,
+  DepartmentsResponse,
+  PositionsResponse,
+} from "../api/types";
 
 const KEY = ["employment-changes"];
 
@@ -13,6 +19,7 @@ function invalidateRelated(queryClient: ReturnType<typeof useQueryClient>) {
   queryClient.invalidateQueries({ queryKey: ["employee-profile"] });
   queryClient.invalidateQueries({ queryKey: ["hr-records"] });
   queryClient.invalidateQueries({ queryKey: ["positions"] });
+  queryClient.invalidateQueries({ queryKey: ["departments"] });
   queryClient.invalidateQueries({ queryKey: ["finance-workforce"] });
   queryClient.invalidateQueries({ queryKey: ["employee-salaries"] });
 }
@@ -20,7 +27,43 @@ function invalidateRelated(queryClient: ReturnType<typeof useQueryClient>) {
 export function useEmploymentChangeContext(employeeUserId?: string) {
   return useQuery({
     queryKey: [...KEY, "context", employeeUserId || "me"],
-    queryFn: () => employmentChangesApi.context(employeeUserId),
+    queryFn: async () => {
+      const [context, positionsResponse, departmentsResponse] = await Promise.all([
+        employmentChangesApi.context(employeeUserId),
+        api.get<ApiEnvelope<PositionsResponse>>("/api/v1/positions?page=1&size=1000"),
+        api.get<ApiEnvelope<DepartmentsResponse>>("/api/v1/departments?page=1&size=1000"),
+      ]);
+
+      const organizationPositions =
+        positionsResponse.data?.data?.positions || [];
+      const organizationDepartments =
+        departmentsResponse.data?.data?.departments || [];
+
+      return {
+        ...context,
+        positions: organizationPositions
+          .filter(
+            (position) =>
+              !position.status ||
+              String(position.status).toLowerCase() === "active",
+          )
+          .map((position) => ({
+            id: position.id,
+            title: position.title,
+            departmentId: position.departmentId || null,
+          })),
+        departments: organizationDepartments
+          .filter(
+            (department) =>
+              !department.status ||
+              String(department.status).toLowerCase() === "active",
+          )
+          .map((department) => ({
+            id: department.id,
+            name: department.name,
+          })),
+      };
+    },
     staleTime: 30_000,
   });
 }
@@ -68,7 +111,8 @@ export function useEmploymentChangeHistory(id?: string | null) {
 export function useCreateEmploymentChange() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: CreateEmploymentChangePayload) => employmentChangesApi.create(payload),
+    mutationFn: (payload: CreateEmploymentChangePayload) =>
+      employmentChangesApi.create(payload),
     onSuccess: () => invalidateRelated(queryClient),
   });
 }
@@ -76,7 +120,8 @@ export function useCreateEmploymentChange() {
 export function useImmediateTitleChange() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (payload: ImmediateTitlePayload) => employmentChangesApi.immediateTitle(payload),
+    mutationFn: (payload: ImmediateTitlePayload) =>
+      employmentChangesApi.immediateTitle(payload),
     onSuccess: () => invalidateRelated(queryClient),
   });
 }
