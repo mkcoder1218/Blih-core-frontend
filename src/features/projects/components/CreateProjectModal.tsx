@@ -32,6 +32,10 @@ export function CreateProjectModal() {
   const createProject = useCreateProject();
   const clients = useClients();
 
+  const updateForm = (key: keyof typeof form, value: string | boolean) => {
+    setForm((previous) => ({ ...previous, [key]: value }));
+  };
+
   const submit = async () => {
     try {
       setError("");
@@ -107,44 +111,44 @@ export function CreateProjectModal() {
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="sm:col-span-2">
             <span className="mb-1 block text-xs font-bold text-slate-600">Project name</span>
-            <input value={form.title} onChange={(e) => setForm((p) => ({ ...p, title: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
+            <input value={form.title} onChange={(e) => updateForm("title", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Code</span>
-            <input value={form.code} onChange={(e) => setForm((p) => ({ ...p, code: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
+            <input value={form.code} onChange={(e) => updateForm("code", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Status</span>
-            <select value={form.status} onChange={(e) => setForm((p) => ({ ...p, status: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
+            <select value={form.status} onChange={(e) => updateForm("status", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
               {PROJECT_STATUSES.filter((s) => s !== "ARCHIVED").map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
             </select>
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Owner</span>
-            <EmployeeSelect value={form.ownerEmployeeId} onChange={(v) => setForm((p) => ({ ...p, ownerEmployeeId: v }))} placeholder="Select owner" />
+            <EmployeeSelect value={form.ownerEmployeeId} onChange={(v) => updateForm("ownerEmployeeId", v)} placeholder="Select owner" />
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Manager</span>
-            <EmployeeSelect value={form.managerEmployeeId} onChange={(v) => setForm((p) => ({ ...p, managerEmployeeId: v }))} placeholder="Select manager" />
+            <EmployeeSelect value={form.managerEmployeeId} onChange={(v) => updateForm("managerEmployeeId", v)} placeholder="Select manager" />
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">Start date</span>
-            <input type="date" value={form.startDate} onChange={(e) => setForm((p) => ({ ...p, startDate: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
+            <input type="date" value={form.startDate} onChange={(e) => updateForm("startDate", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
           </label>
           <label>
             <span className="mb-1 block text-xs font-bold text-slate-600">End date</span>
-            <input type="date" value={form.endDate} onChange={(e) => setForm((p) => ({ ...p, endDate: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
+            <input type="date" value={form.endDate} onChange={(e) => updateForm("endDate", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
           </label>
           <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="mb-3 flex flex-wrap items-center gap-2">
               <span className="text-xs font-black uppercase text-slate-500">Client access</span>
-              <button type="button" onClick={() => setForm((p) => ({ ...p, clientMode: "existing" }))} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${form.clientMode === "existing" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>Existing</button>
-              <button type="button" onClick={() => setForm((p) => ({ ...p, clientMode: "new" }))} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${form.clientMode === "new" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>New</button>
+              <button type="button" onClick={() => updateForm("clientMode", "existing")} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${form.clientMode === "existing" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>Existing</button>
+              <button type="button" onClick={() => updateForm("clientMode", "new")} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${form.clientMode === "new" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>New</button>
             </div>
             {form.clientMode === "existing" ? (
               <label>
                 <span className="mb-1 block text-xs font-bold text-slate-600">Client</span>
-                <select value={form.clientId} onChange={(e) => setForm((p) => ({ ...p, clientId: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
+                <select value={form.clientId} onChange={(e) => updateForm("clientId", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
                   <option value="">No client linked</option>
                   {(clients.data ?? []).map((client) => <option key={client.id} value={client.id}>{client.companyName}</option>)}
                 </select>
@@ -153,23 +157,23 @@ export function CreateProjectModal() {
               <div className="grid gap-3 sm:grid-cols-2">
                 <label>
                   <span className="mb-1 block text-xs font-bold text-slate-600">Company</span>
-                  <input value={form.clientCompanyName} onChange={(e) => setForm((p) => ({ ...p, clientCompanyName: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                  <input value={form.clientCompanyName} onChange={(e) => updateForm("clientCompanyName", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
                 </label>
                 <label>
                   <span className="mb-1 block text-xs font-bold text-slate-600">Contact</span>
-                  <input value={form.clientContactName} onChange={(e) => setForm((p) => ({ ...p, clientContactName: e.currentTarget.value }))} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                  <input value={form.clientContactName} onChange={(e) => updateForm("clientContactName", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
                 </label>
               </div>
             )}
             <label className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-              <input type="checkbox" checked={form.issueClientLogin} onChange={(e) => setForm((p) => ({ ...p, issueClientLogin: e.currentTarget.checked }))} />
+              <input type="checkbox" checked={form.issueClientLogin} onChange={(e) => updateForm("issueClientLogin", e.currentTarget.checked)} />
               Create or update client portal login
             </label>
             {form.issueClientLogin && (
               <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <input placeholder="Client email" value={form.clientEmail} onChange={(e) => setForm((p) => ({ ...p, clientEmail: e.currentTarget.value }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-                <input placeholder="Client phone" value={form.clientPhone} onChange={(e) => setForm((p) => ({ ...p, clientPhone: e.currentTarget.value }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-                <input placeholder="Password (optional)" value={form.clientPassword} onChange={(e) => setForm((p) => ({ ...p, clientPassword: e.currentTarget.value }))} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                <input placeholder="Client email" value={form.clientEmail} onChange={(e) => updateForm("clientEmail", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                <input placeholder="Client phone" value={form.clientPhone} onChange={(e) => updateForm("clientPhone", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
+                <input placeholder="Password (optional)" value={form.clientPassword} onChange={(e) => updateForm("clientPassword", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
               </div>
             )}
           </div>
