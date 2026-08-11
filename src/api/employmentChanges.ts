@@ -118,9 +118,50 @@ export interface CreateEmploymentChangePayload {
 
 export interface EmploymentChangeListParams {
   status?: string;
+  requestKind?: string;
+  approvalStage?: string;
   employeeUserId?: string;
-  scope?: "mine" | "approvals";
+  search?: string;
+  dateFrom?: string;
+  dateTo?: string;
+  scope?: "mine" | "approvals" | "visible";
+  page?: number;
   size?: number;
+}
+
+export interface EmploymentChangeListResult {
+  rows: EmploymentChangeRequest[];
+  pagination: {
+    page: number;
+    size: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface EmploymentChangeAnalytics {
+  total: number;
+  pending: number;
+  awaitingMyApproval: number;
+  scheduled: number;
+  applied: number;
+  appliedThisMonth: number;
+  rejected: number;
+  cancelled: number;
+  byType: {
+    title: number;
+    salary: number;
+    combined: number;
+  };
+}
+
+export interface ImmediateTitlePayload {
+  employeeUserId: string;
+  titleChangeType?: TitleChangeType;
+  targetPositionId?: string;
+  targetTitle?: string;
+  targetDepartmentId?: string;
+  reason: string;
 }
 
 const base = "/api/v1/people/employment-changes";
@@ -133,9 +174,23 @@ export const employmentChangesApi = {
     return response.data?.context ?? response.data?.data?.context ?? response.data?.data ?? response.data;
   },
 
-  list: async (params?: EmploymentChangeListParams): Promise<EmploymentChangeRequest[]> => {
+  analytics: async (): Promise<EmploymentChangeAnalytics> => {
+    const response = await api.get(`${base}/analytics`);
+    return response.data?.analytics ?? response.data?.data?.analytics ?? response.data?.data ?? response.data;
+  },
+
+  list: async (params?: EmploymentChangeListParams): Promise<EmploymentChangeListResult> => {
     const response = await api.get(base, { params });
-    return response.data?.rows ?? response.data?.data?.rows ?? [];
+    const payload = response.data?.data ?? response.data;
+    return {
+      rows: payload?.rows ?? [],
+      pagination: payload?.pagination ?? {
+        page: params?.page ?? 1,
+        size: params?.size ?? 10,
+        total: payload?.rows?.length ?? 0,
+        totalPages: 1,
+      },
+    };
   },
 
   get: async (id: string): Promise<EmploymentChangeRequest> => {
@@ -151,6 +206,11 @@ export const employmentChangesApi = {
   create: async (payload: CreateEmploymentChangePayload): Promise<EmploymentChangeRequest> => {
     const response = await api.post(base, payload);
     return response.data?.request ?? response.data?.data?.request ?? response.data?.data ?? response.data;
+  },
+
+  immediateTitle: async (payload: ImmediateTitlePayload) => {
+    const response = await api.post(`${base}/immediate-title`, payload);
+    return response.data?.data ?? response.data;
   },
 
   approve: async (id: string, comment?: string): Promise<EmploymentChangeRequest> => {
