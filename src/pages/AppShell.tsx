@@ -9,6 +9,7 @@ import { notifyAuthChanged } from "../api/authState";
 import { setLegacyUser, useLegacyUser } from "../api/legacyUserStore";
 import { useTesterSession } from "../hooks/useTesterControl";
 import type { BusinessesTab, ProjectsTab, RecruitmentTab } from "../types";
+import PlatformMasterTesterPage from "./PlatformMasterTesterPage";
 import TesterControlPage from "./TesterControlPage";
 
 export default function AppShell() {
@@ -41,6 +42,7 @@ export default function AppShell() {
   };
 
   const userRole = activeUser?.role || "Employee";
+  const isPlatformAdmin = userRole === "Super Admin";
   const isTesterControlRoute = location.pathname === "/tester-control";
   const isMasterTester = Boolean(testerSession.data?.isMasterTester);
 
@@ -104,11 +106,11 @@ export default function AppShell() {
 
   if (!activeUser) return null;
 
-  if (isTesterControlRoute && testerSession.isLoading) {
+  if (isTesterControlRoute && !isPlatformAdmin && testerSession.isLoading) {
     return null;
   }
 
-  if (isTesterControlRoute && !isMasterTester) {
+  if (isTesterControlRoute && !isPlatformAdmin && !isMasterTester) {
     return <Navigate to="/" replace />;
   }
 
@@ -190,7 +192,11 @@ export default function AppShell() {
         </AnimatePresence>
         <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-[#fafbfc]">
           {isTesterControlRoute ? (
-            <TesterControlPage showAlert={showAlert} />
+            isPlatformAdmin ? (
+              <PlatformMasterTesterPage showAlert={showAlert} />
+            ) : (
+              <TesterControlPage showAlert={showAlert} />
+            )
           ) : (
             <Outlet context={{ showAlert }} />
           )}
