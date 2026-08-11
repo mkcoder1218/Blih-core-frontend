@@ -325,15 +325,24 @@ export function useSidebarController({
     allowedTabs(
       ALL_TALENT_TABS,
       {
-        ...TALENT_TAB_PERMISSIONS,
-        career:
-          TALENT_TAB_PERMISSIONS.career ?? {
+        overview:
+          TALENT_TAB_PERMISSIONS.overview,
+        'my-requests':
+          TALENT_TAB_PERMISSIONS.development ?? {
             requires: [
+              'career.self',
               'performance.read',
               'performance.manage',
-              'career.self',
             ],
           },
+        requests: {
+          requires: [
+            'performance.read',
+            'performance.manage',
+            'hr.read',
+            'hr.write',
+          ],
+        },
       },
     );
 
@@ -446,8 +455,7 @@ export function useSidebarController({
         Record<
           AttendanceTabId,
           string
-        >
-      >;
+        >;
     }>
   )
     .map((group) => ({
@@ -595,16 +603,7 @@ export function useSidebarController({
           (tab) => ({
             ...tab,
             id: `career-${tab.id}`,
-            label:
-              (
-                {
-                  overview: 'Overview',
-                  career: 'Career',
-                  training: 'Training & Skills',
-                  culture: 'Culture',
-                  development: 'Development',
-                } as Record<string, string>
-              )[tab.id] ?? tab.label,
+            label: tab.label,
           }),
         ),
     },
