@@ -37,11 +37,13 @@ export function DetailedSidebarUserBlock({
   const location = useLocation();
   const isTester = Boolean(testerSession.data?.isTestAccount);
   const isMasterTester = Boolean(testerSession.data?.isMasterTester);
+  const isPlatformAdmin = user?.role === 'Super Admin';
+  const canOpenTesterControl = isMasterTester || isPlatformAdmin;
   const isTesterRoute = location.pathname === '/tester-control';
 
   return (
     <div className="mt-3 flex-shrink-0 border-t border-slate-100 px-2 pt-3">
-      {isMasterTester && (
+      {canOpenTesterControl && (
         <SidebarButton
           onClick={() => navigate('/tester-control')}
           className={`mb-3 flex w-full cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-bold transition-colors ${
@@ -53,7 +55,7 @@ export function DetailedSidebarUserBlock({
           <FlaskConical className="h-4 w-4 shrink-0" />
           <span className="min-w-0 flex-1 truncate text-left">Tester Control</span>
           <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[8px] font-black uppercase tracking-wide text-amber-700">
-            Master
+            {isPlatformAdmin ? 'Platform' : 'Master'}
           </span>
         </SidebarButton>
       )}
