@@ -455,7 +455,8 @@ export function useSidebarController({
         Record<
           AttendanceTabId,
           string
-        >;
+        >
+      >;
     }>
   )
     .map((group) => ({
