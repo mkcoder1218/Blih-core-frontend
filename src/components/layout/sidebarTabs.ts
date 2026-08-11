@@ -69,10 +69,8 @@ export const ALL_ATTENDANCE_TABS = [
 
 export const ALL_TALENT_TABS = [
   { id: 'overview', label: 'Overview', badge: 0 },
-  { id: 'career', label: 'Career', badge: 0 },
-  { id: 'training', label: 'Training & Skills', badge: 0 },
-  { id: 'culture', label: 'Culture', badge: 0 },
-  { id: 'development', label: 'Development', badge: 0 },
+  { id: 'my-requests', label: 'My Requests', badge: 0 },
+  { id: 'requests', label: 'Requests', badge: 0 },
 ] as const;
 
 export const ALL_EXIT_TABS = [
