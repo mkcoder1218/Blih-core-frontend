@@ -45,7 +45,7 @@ export function useAssignPermissions() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
       queryClient.invalidateQueries({ queryKey: ["role-details", variables.roleId] });
-      // Re-fetch /me so the sidebar rebuilds immediately when permissions are saved
+      // Re-fetch /me so the sidebar rebuilds immediately for the current session.
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
@@ -56,6 +56,14 @@ export function useAssignPermissions() {
 // Master Tester is a separate testing authority, not a real PLATFORM_SUPER_ADMIN
 // role assignment. For UI capability checks it receives the same effective bypass
 // so it can exercise every feature without contaminating normal RBAC data.
+//
+// Career self-service historically had two permission keys:
+// - career.self
+// - career.request
+// The simplified Career Management UI treats either one as employee self-service
+// access so normal employees can see Overview + My Requests when either permission
+// is assigned. Company-wide request review still depends on HR/performance permissions
+// in the sidebar tab map and is not granted here.
 
 export function useMyPermissions() {
   const { data: meRes, isLoading: meLoading } = useMe();
@@ -64,8 +72,13 @@ export function useMyPermissions() {
 
   const isMasterTester = Boolean(testerSession.data?.isMasterTester);
   const isSuperAdmin = Boolean(me?.user?.isPlatformSuperAdmin) || isMasterTester;
-  // Permissions come back from /me as a flat string array
+
   const permSet = new Set<string>(me?.permissions ?? []);
+
+  if (permSet.has("career.self") || permSet.has("career.request")) {
+    permSet.add("career.self");
+    permSet.add("career.request");
+  }
 
   const can = (key: string): boolean => {
     if (isSuperAdmin) return true;
