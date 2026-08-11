@@ -52,16 +52,13 @@ export function useAssignPermissions() {
 
 // ─── Hook: resolved permissions for the current user ─────────────────────────
 //
-// Master Tester is a separate testing authority, not a real PLATFORM_SUPER_ADMIN
-// role assignment. For UI capability checks it receives the same effective bypass
-// so it can exercise every feature without contaminating normal RBAC data.
+// Master Tester is separate from PLATFORM_SUPER_ADMIN but gets the same UI bypass.
+// BUSINESS_ADMIN is business-wide authority: it bypasses normal business permission
+// checks while still NOT becoming a platform super admin. Empty permission checks
+// remain platform/master-only so platform-only modules stay protected.
 //
 // Career self-service historically has two keys: career.self and career.request.
 // The simplified Career Management UI treats either one as employee self-service.
-// The built-in EMPLOYEE role also receives this self-service baseline, matching the
-// existing Attendance / Profiles / Performance employee self-service behavior.
-// Company-wide request review still requires HR/performance permissions in the
-// sidebar tab map and is not granted here.
 
 export function useMyPermissions() {
   const { data: meRes, isLoading: meLoading } = useMe();
@@ -73,6 +70,7 @@ export function useMyPermissions() {
 
   const permSet = new Set<string>(me?.permissions ?? []);
   const roleKeys = new Set<string>((me?.roles ?? []).map((role) => String(role).toUpperCase()));
+  const isBusinessAdmin = roleKeys.has("BUSINESS_ADMIN");
   const isBuiltInEmployee = roleKeys.has("EMPLOYEE");
 
   if (
@@ -85,19 +83,19 @@ export function useMyPermissions() {
   }
 
   const can = (key: string): boolean => {
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isBusinessAdmin) return true;
     return permSet.has(key);
   };
 
   const hasAny = (...keys: string[]): boolean => {
     if (keys.length === 0) return isSuperAdmin;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isBusinessAdmin) return true;
     return keys.some((k) => permSet.has(k));
   };
 
   const hasAll = (...keys: string[]): boolean => {
     if (keys.length === 0) return isSuperAdmin;
-    if (isSuperAdmin) return true;
+    if (isSuperAdmin || isBusinessAdmin) return true;
     return keys.every((k) => permSet.has(k));
   };
 
@@ -106,6 +104,7 @@ export function useMyPermissions() {
     hasAny,
     hasAll,
     isSuperAdmin,
+    isBusinessAdmin,
     isMasterTester,
     isTestAccount: Boolean(testerSession.data?.isTestAccount),
     testerLevel: testerSession.data?.testerLevel ?? null,
