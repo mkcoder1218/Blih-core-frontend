@@ -6,6 +6,7 @@ import {
 
 import {
   Bell,
+  FlaskConical,
   Grid,
   Loader2,
   Menu,
@@ -31,6 +32,7 @@ import {
 import {
   useInterviewNotifications,
 } from "../../hooks/useSocket";
+import { useTesterSession } from "../../hooks/useTesterControl";
 
 import HeaderWorkStatus from "./HeaderWorkStatus";
 
@@ -83,6 +85,9 @@ export default function Header({
     useQueryClient();
 
   const location = useLocation();
+  const testerSession = useTesterSession();
+  const isTestAccount = Boolean(testerSession.data?.isTestAccount);
+  const isMasterTester = Boolean(testerSession.data?.isMasterTester);
 
   const {
     data: notifications,
@@ -143,6 +148,13 @@ export default function Header({
   }, [showNotifications]);
 
   const getBreadcrumbTitle = () => {
+    if (location.pathname === "/tester-control") {
+      return {
+        main: "Tester Control Center",
+        sub: isMasterTester ? "Master Tester" : "Test Account",
+      };
+    }
+
     if (!isDetailedView) {
       return {
         main: "HR Dashboard",
@@ -322,6 +334,13 @@ export default function Header({
         </div>
 
         <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+          {isTestAccount && (
+            <div className="hidden items-center gap-1.5 rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-[10px] font-black uppercase tracking-wide text-amber-700 sm:flex">
+              <FlaskConical className="h-3.5 w-3.5" />
+              {isMasterTester ? "Master Tester" : "Test Account"}
+            </div>
+          )}
+
           {/* Desktop work status */}
           <div className="hidden lg:block">
             <HeaderWorkStatus
