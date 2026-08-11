@@ -3,6 +3,7 @@ import {
   employmentChangesApi,
   type CreateEmploymentChangePayload,
   type EmploymentChangeListParams,
+  type ImmediateTitlePayload,
 } from "../api/employmentChanges";
 
 const KEY = ["employment-changes"];
@@ -24,9 +25,17 @@ export function useEmploymentChangeContext(employeeUserId?: string) {
   });
 }
 
+export function useEmploymentChangeAnalytics() {
+  return useQuery({
+    queryKey: [...KEY, "analytics"],
+    queryFn: employmentChangesApi.analytics,
+    staleTime: 15_000,
+  });
+}
+
 export function useEmploymentChanges(params?: EmploymentChangeListParams) {
   return useQuery({
-    queryKey: [...KEY, params],
+    queryKey: [...KEY, "list", params],
     queryFn: () => employmentChangesApi.list(params),
     staleTime: 15_000,
   });
@@ -52,6 +61,14 @@ export function useCreateEmploymentChange() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateEmploymentChangePayload) => employmentChangesApi.create(payload),
+    onSuccess: () => invalidateRelated(queryClient),
+  });
+}
+
+export function useImmediateTitleChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: ImmediateTitlePayload) => employmentChangesApi.immediateTitle(payload),
     onSuccess: () => invalidateRelated(queryClient),
   });
 }
