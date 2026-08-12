@@ -3,6 +3,19 @@ export type ProjectPriority = "LOW" | "NORMAL" | "HIGH" | "URGENT";
 export type ProjectTaskStatus = "BACKLOG" | "TODO" | "IN_PROGRESS" | "IN_REVIEW" | "BLOCKED" | "DONE" | "CANCELLED";
 export type ProjectTaskPriority = "LOW" | "MEDIUM" | "HIGH" | "URGENT";
 
+export type ProjectKanbanCoreStatus = Exclude<ProjectTaskStatus, "CANCELLED">;
+
+export interface ProjectKanbanColumn {
+  id: string;
+  name: string;
+  status: ProjectKanbanCoreStatus;
+}
+
+export interface ProjectKanbanConfig {
+  version: 1;
+  columns: ProjectKanbanColumn[];
+}
+
 export interface ProjectPerson {
   id: string;
   userId?: string;
@@ -41,7 +54,11 @@ export interface Project {
   manager?: ProjectPerson | null;
   Client?: { id: string; companyName: string; contactName?: string | null; email?: string | null; phone?: string | null } | null;
   members?: ProjectMember[];
-  metadata?: { progress?: { totalTasks: number; completedTasks: number; progressPercent: number }; [key: string]: unknown };
+  metadata?: {
+    progress?: { totalTasks: number; completedTasks: number; progressPercent: number };
+    kanban?: ProjectKanbanConfig;
+    [key: string]: unknown;
+  };
   createdAt: string;
 }
 
@@ -57,9 +74,17 @@ export interface ProjectTask {
   assigneeEmployeeId?: string | null;
   startDate?: string | null;
   dueDate?: string | null;
+  estimatedHours?: number | null;
+  actualHours?: number | null;
+  weight?: number | null;
+  metadata?: {
+    kanbanColumnId?: string;
+    [key: string]: unknown;
+  };
   project?: Pick<Project, "id" | "title" | "code" | "status">;
   employeeAssignee?: ProjectPerson | null;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export type ProjectWorkflowStatus = "draft" | "submitted" | "approved" | "rejected" | "returned-for-revision" | "archived";
