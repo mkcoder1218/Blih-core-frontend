@@ -1,73 +1,49 @@
-import { useEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
+import { useEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent, type ReactNode } from "react";
 import { ClipboardPaste, ExternalLink, ImageIcon, Loader2, Pencil, Trash2, Upload } from "lucide-react";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+import { api } from "@/api/client";
 import { EmployeeSelect } from "./EmployeeSelect";
 import { ProjectStatusBadge } from "./ProjectStatusBadge";
 import { getTaskKanbanColumnId } from "../kanban";
 import type { ProjectKanbanColumn, ProjectTask } from "../types";
 import { useChangeProjectTaskStatus, useDeleteProjectTask, useUpdateProjectTask } from "../hooks";
-import { api } from "@/api/client";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-const SCREENSHOT_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const SCREENSHOT_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_SCREENSHOT_SIZE = 10 * 1024 * 1024;
 
-type TaskScreenshotAttachment = {
+type Attachment = {
   id: string;
   fileAssetId: string;
   attachmentType?: string | null;
-  FileAsset?: {
-    originalName: string;
-    sizeBytes: number | string;
-  } | null;
+  FileAsset?: { originalName: string; sizeBytes: number | string } | null;
 };
 
-async function listProjectTaskScreenshots(taskId: string) {
-  const response = await api.get("/api/v1/attachments", {
-    params: { entityType: "project_task", entityId: taskId, page: 1, size: 100 },
-  });
-  const payload = response.data?.data ?? response.data;
-  const rows = (Array.isArray(payload?.rows) ? payload.rows : []) as TaskScreenshotAttachment[];
-  return rows.filter((row) => row.attachmentType === "screenshot");
+type TaskForm = {
+  title: string;
+  description: string;
+  assigneeEmployeeId: string;
+  kanbanColumnId: string;
+  priority: string;
+  startDate: string;
+  dueDate: string;
+  estimatedHours: string;
+  actualHours: string;
+  weight: string;
+};
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <span className="text-xs text-muted-foreground">{children}</span>;
 }
 
-async function uploadProjectTaskScreenshot(taskId: string, file: File) {
-  const body = new FormData();
-  body.append("moduleKey", "projects");
-  body.append("file", file);
-
-  const uploadResponse = await api.post("/api/v1/files/upload", body, {
-    headers: { "Content-Type": "multipart/form-data" },
-  });
-  const fileAssetId = uploadResponse.data?.file?.id;
-  if (!fileAssetId) throw new Error("The screenshot was uploaded but no file ID was returned.");
-
-  try {
-    await api.post("/api/v1/attachments", {
-      fileAssetId,
-      entityType: "project_task",
-      entityId: taskId,
-      moduleKey: "projects",
-      attachmentType: "screenshot",
-    });
-  } catch (error) {
-    try {
-      await api.delete(`/api/v1/files/${fileAssetId}`);
-    } catch {
-      // Best-effort cleanup if linking the uploaded file to the task fails.
-    }
-    throw error;
-  }
-}
-
-async function getProjectTaskScreenshotPreviewUrl(fileAssetId: string) {
-  const tokenResponse = await api.get(`/api/v1/files/${fileAssetId}/token`);
-  const token = tokenResponse.data?.token;
-  if (!token) throw new Error("Could not create a screenshot preview link.");
-
-  const baseUrl = String(api.defaults.baseURL ?? "").replace(/\/$/, "");
-  return `${baseUrl}/api/v1/files/${fileAssetId}/download?preview=1&token=${encodeURIComponent(token)}`;
+function DetailItem({ label, value }: { label: string; value: ReactNode }) {
+  return <div><dt className="text-xs text-muted-foreground">{label}</dt><dd className="mt-0.5 text-sm text-foreground">{value}</dd></div>;
 }
 
 function formatFileSize(value: number | string | undefined) {
@@ -82,35 +58,47 @@ function formatDateTime(value?: string | null) {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  }).format(date);
+  return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
-function normalizeScreenshotFile(file: File, source: "upload" | "clipboard") {
-  if (!SCREENSHOT_MIME_TYPES.has(file.type)) throw new Error("Use a PNG, JPG/JPEG, or WebP screenshot.");
+function normalizeScreenshot(file: File, source: "upload" | "clipboard") {
+  if (!SCREENSHOT_TYPES.has(file.type)) throw new Error("Use a PNG, JPG/JPEG, or WebP screenshot.");
   if (file.size > MAX_SCREENSHOT_SIZE) throw new Error("Screenshot must be 10 MB or smaller.");
   if (source === "upload" && file.name) return file;
-
   const extension = file.type === "image/jpeg" ? "jpg" : file.type === "image/webp" ? "webp" : "png";
-  return new File([file], `task-screenshot-${Date.now()}.${extension}`, {
-    type: file.type,
-    lastModified: Date.now(),
-  });
+  return new File([file], `task-screenshot-${Date.now()}.${extension}`, { type: file.type, lastModified: Date.now() });
 }
 
-export function TaskDetailsModal({
-  projectId,
-  task,
-  columns,
-  open,
-  canEdit,
-  onOpenChange,
-}: {
+async function listScreenshots(taskId: string) {
+  const response = await api.get("/api/v1/attachments", { params: { entityType: "project_task", entityId: taskId, page: 1, size: 100 } });
+  const payload = response.data?.data ?? response.data;
+  return ((Array.isArray(payload?.rows) ? payload.rows : []) as Attachment[]).filter((row) => row.attachmentType === "screenshot");
+}
+
+async function uploadScreenshot(taskId: string, file: File) {
+  const body = new FormData();
+  body.append("moduleKey", "projects");
+  body.append("file", file);
+  const uploaded = await api.post("/api/v1/files/upload", body, { headers: { "Content-Type": "multipart/form-data" } });
+  const fileAssetId = uploaded.data?.file?.id;
+  if (!fileAssetId) throw new Error("The screenshot was uploaded but no file ID was returned.");
+  try {
+    await api.post("/api/v1/attachments", { fileAssetId, entityType: "project_task", entityId: taskId, moduleKey: "projects", attachmentType: "screenshot" });
+  } catch (error) {
+    try { await api.delete(`/api/v1/files/${fileAssetId}`); } catch { /* best effort */ }
+    throw error;
+  }
+}
+
+async function previewUrl(fileAssetId: string) {
+  const response = await api.get(`/api/v1/files/${fileAssetId}/token`);
+  const token = response.data?.token;
+  if (!token) throw new Error("Could not create a screenshot preview link.");
+  const baseUrl = String(api.defaults.baseURL ?? "").replace(/\/$/, "");
+  return `${baseUrl}/api/v1/files/${fileAssetId}/download?preview=1&token=${encodeURIComponent(token)}`;
+}
+
+export function TaskDetailsModal({ projectId, task, columns, open, canEdit, onOpenChange }: {
   projectId: string;
   task: ProjectTask | null;
   columns: ProjectKanbanColumn[];
@@ -119,205 +107,121 @@ export function TaskDetailsModal({
   onOpenChange: (open: boolean) => void;
 }) {
   const updateTask = useUpdateProjectTask(projectId);
-  const changeTaskStatus = useChangeProjectTaskStatus(projectId);
+  const changeStatus = useChangeProjectTaskStatus(projectId);
   const deleteTask = useDeleteProjectTask(projectId);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   const [attachmentError, setAttachmentError] = useState("");
-  const [attachments, setAttachments] = useState<TaskScreenshotAttachment[]>([]);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachmentsLoading, setAttachmentsLoading] = useState(false);
-  const [uploadingScreenshot, setUploadingScreenshot] = useState(false);
-  const [form, setForm] = useState({
-    title: "",
-    description: "",
-    assigneeEmployeeId: "",
-    kanbanColumnId: "",
-    priority: "MEDIUM",
-    startDate: "",
-    dueDate: "",
-    estimatedHours: "",
-    actualHours: "",
-    weight: "",
-  });
+  const [uploading, setUploading] = useState(false);
+  const [form, setForm] = useState<TaskForm>({ title: "", description: "", assigneeEmployeeId: "", kanbanColumnId: "", priority: "MEDIUM", startDate: "", dueDate: "", estimatedHours: "", actualHours: "", weight: "" });
 
-  const hydrateForm = (currentTask: ProjectTask) => {
-    setForm({
-      title: currentTask.title || "",
-      description: currentTask.description || "",
-      assigneeEmployeeId: currentTask.assigneeEmployeeId || "",
-      kanbanColumnId: getTaskKanbanColumnId(currentTask, columns),
-      priority: currentTask.priority || "MEDIUM",
-      startDate: currentTask.startDate || "",
-      dueDate: currentTask.dueDate || "",
-      estimatedHours: String(currentTask.estimatedHours ?? ""),
-      actualHours: String(currentTask.actualHours ?? ""),
-      weight: String(currentTask.weight ?? ""),
-    });
-  };
+  const hydrate = (current: ProjectTask) => setForm({
+    title: current.title || "",
+    description: current.description || "",
+    assigneeEmployeeId: current.assigneeEmployeeId || "",
+    kanbanColumnId: getTaskKanbanColumnId(current, columns),
+    priority: current.priority || "MEDIUM",
+    startDate: current.startDate || "",
+    dueDate: current.dueDate || "",
+    estimatedHours: String(current.estimatedHours ?? ""),
+    actualHours: String(current.actualHours ?? ""),
+    weight: String(current.weight ?? ""),
+  });
 
   useEffect(() => {
     if (!task) return;
-    setEditing(false);
-    setError("");
-    setAttachmentError("");
-    hydrateForm(task);
+    setEditing(false); setError(""); setAttachmentError(""); hydrate(task);
   }, [task, columns]);
 
   useEffect(() => {
-    if (!open || !task) {
-      setAttachments([]);
-      return;
-    }
-
+    if (!open || !task) { setAttachments([]); return; }
     let cancelled = false;
-    setAttachmentsLoading(true);
-    setAttachmentError("");
-    listProjectTaskScreenshots(task.id)
-      .then((rows) => {
-        if (!cancelled) setAttachments(rows);
-      })
-      .catch((requestError: any) => {
-        if (!cancelled) setAttachmentError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not load screenshots.");
-      })
-      .finally(() => {
-        if (!cancelled) setAttachmentsLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
+    setAttachmentsLoading(true); setAttachmentError("");
+    listScreenshots(task.id)
+      .then((rows) => { if (!cancelled) setAttachments(rows); })
+      .catch((requestError: any) => { if (!cancelled) setAttachmentError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not load screenshots."); })
+      .finally(() => { if (!cancelled) setAttachmentsLoading(false); });
+    return () => { cancelled = true; };
   }, [open, task?.id]);
 
-  const updateForm = (key: keyof typeof form, value: string) => {
-    setForm((previous) => ({ ...previous, [key]: value }));
-  };
+  const setField = (key: keyof TaskForm, value: string) => setForm((previous) => ({ ...previous, [key]: value }));
+  const refreshAttachments = async () => { if (task) setAttachments(await listScreenshots(task.id)); };
 
-  const refreshAttachments = async () => {
-    if (!task) return;
-    setAttachments(await listProjectTaskScreenshots(task.id));
-  };
-
-  const attachScreenshot = async (file: File, source: "upload" | "clipboard") => {
-    if (!task || uploadingScreenshot || !editing) return;
+  const attach = async (file: File, source: "upload" | "clipboard") => {
+    if (!task || uploading || !editing) return;
     try {
-      setAttachmentError("");
-      setUploadingScreenshot(true);
-      await uploadProjectTaskScreenshot(task.id, normalizeScreenshotFile(file, source));
+      setAttachmentError(""); setUploading(true);
+      await uploadScreenshot(task.id, normalizeScreenshot(file, source));
       await refreshAttachments();
     } catch (requestError: any) {
       setAttachmentError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not attach screenshot.");
     } finally {
-      setUploadingScreenshot(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
+      setUploading(false); if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
   const handlePaste = (event: ReactClipboardEvent<HTMLDivElement>) => {
     if (!editing) return;
     const image = Array.from(event.clipboardData.files as FileList).find((file) => file.type.startsWith("image/"));
-    if (!image) {
-      setAttachmentError("No screenshot image was found in the clipboard.");
-      return;
-    }
-    event.preventDefault();
-    void attachScreenshot(image, "clipboard");
+    if (!image) { setAttachmentError("No screenshot image was found in the clipboard."); return; }
+    event.preventDefault(); void attach(image, "clipboard");
   };
 
   const pasteFromClipboard = async () => {
     if (!editing) return;
-    if (!navigator.clipboard?.read) {
-      setAttachmentError("Direct clipboard access is not available. Focus the paste area and press Ctrl+V / Cmd+V.");
-      return;
-    }
-
+    if (!navigator.clipboard?.read) { setAttachmentError("Direct clipboard access is not available. Focus the paste area and press Ctrl+V / Cmd+V."); return; }
     try {
-      const clipboardItems = await navigator.clipboard.read();
-      for (const item of clipboardItems) {
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
         const imageType = item.types.find((type) => type.startsWith("image/"));
         if (!imageType) continue;
         const blob = await item.getType(imageType);
-        await attachScreenshot(new File([blob], "clipboard-screenshot", { type: imageType, lastModified: Date.now() }), "clipboard");
+        await attach(new File([blob], "clipboard-screenshot", { type: imageType, lastModified: Date.now() }), "clipboard");
         return;
       }
       setAttachmentError("No screenshot image was found in the clipboard.");
-    } catch (requestError: any) {
-      setAttachmentError(requestError?.message || "Clipboard permission was denied. Focus the paste area and press Ctrl+V / Cmd+V instead.");
-    }
+    } catch (requestError: any) { setAttachmentError(requestError?.message || "Clipboard permission was denied."); }
   };
 
-  const openAttachment = async (attachment: TaskScreenshotAttachment) => {
-    const previewWindow = window.open("", "_blank");
+  const openAttachment = async (attachment: Attachment) => {
+    const preview = window.open("", "_blank");
     try {
       setAttachmentError("");
-      const url = await getProjectTaskScreenshotPreviewUrl(attachment.fileAssetId);
-      if (previewWindow) {
-        previewWindow.opener = null;
-        previewWindow.location.href = url;
-      } else {
-        window.open(url, "_blank", "noopener,noreferrer");
-      }
+      const url = await previewUrl(attachment.fileAssetId);
+      if (preview) { preview.opener = null; preview.location.href = url; }
+      else window.open(url, "_blank", "noopener,noreferrer");
     } catch (requestError: any) {
-      previewWindow?.close();
+      preview?.close();
       setAttachmentError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not open screenshot.");
     }
   };
 
-  const cancelEdit = () => {
-    if (task) hydrateForm(task);
-    setError("");
-    setAttachmentError("");
-    setEditing(false);
-  };
+  const cancelEdit = () => { if (task) hydrate(task); setError(""); setAttachmentError(""); setEditing(false); };
 
   const save = async () => {
     if (!task) return;
-    if (form.title.trim().length < 2) {
-      setError("Task title is required.");
-      return;
-    }
-
+    if (form.title.trim().length < 2) { setError("Task title is required."); return; }
     const column = columns.find((item) => item.id === form.kanbanColumnId) || columns[0];
     try {
       setError("");
-      if (column && task.status !== column.status) {
-        await changeTaskStatus.mutateAsync({ taskId: task.id, status: column.status });
-      }
-      await updateTask.mutateAsync({
-        taskId: task.id,
-        data: {
-          title: form.title.trim(),
-          description: form.description.trim() || null,
-          assigneeEmployeeId: form.assigneeEmployeeId || null,
-          priority: form.priority,
-          startDate: form.startDate || null,
-          dueDate: form.dueDate || null,
-          estimatedHours: form.estimatedHours === "" ? undefined : Number(form.estimatedHours),
-          actualHours: form.actualHours === "" ? undefined : Number(form.actualHours),
-          weight: form.weight === "" ? undefined : Number(form.weight),
-          metadata: {
-            ...(task.metadata || {}),
-            kanbanColumnId: column?.id || form.kanbanColumnId,
-          },
-        },
-      });
+      if (column && task.status !== column.status) await changeStatus.mutateAsync({ taskId: task.id, status: column.status });
+      await updateTask.mutateAsync({ taskId: task.id, data: {
+        title: form.title.trim(), description: form.description.trim() || null, assigneeEmployeeId: form.assigneeEmployeeId || null,
+        priority: form.priority, startDate: form.startDate || null, dueDate: form.dueDate || null,
+        estimatedHours: form.estimatedHours === "" ? undefined : Number(form.estimatedHours), actualHours: form.actualHours === "" ? undefined : Number(form.actualHours), weight: form.weight === "" ? undefined : Number(form.weight),
+        metadata: { ...(task.metadata || {}), kanbanColumnId: column?.id || form.kanbanColumnId },
+      }});
       setEditing(false);
-    } catch (requestError: any) {
-      setError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not update task.");
-    }
+    } catch (requestError: any) { setError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not update task."); }
   };
 
   const remove = async () => {
-    if (!task) return;
-    const confirmed = window.confirm(`Delete "${task.title}"? This removes the task from the project.`);
-    if (!confirmed) return;
-    try {
-      setError("");
-      await deleteTask.mutateAsync(task.id);
-      onOpenChange(false);
-    } catch (requestError: any) {
-      setError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not delete task.");
-    }
+    if (!task || !window.confirm(`Delete "${task.title}"? This removes the task from the project.`)) return;
+    try { setError(""); await deleteTask.mutateAsync(task.id); onOpenChange(false); }
+    catch (requestError: any) { setError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not delete task."); }
   };
 
   const currentColumn = task ? columns.find((column) => column.id === getTaskKanbanColumnId(task, columns)) : undefined;
@@ -326,134 +230,34 @@ export function TaskDetailsModal({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:rounded-none">
-        <DialogHeader>
-          <DialogTitle>{editing ? "Edit Task" : "Task Details"}</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>{editing ? "Edit task" : "Task details"}</DialogTitle></DialogHeader>
 
-        {task && !editing && (
-          <div className="space-y-3">
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-base font-black text-slate-950">{task.title}</h3>
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400">{task.code || "Task"}</span>
-                    <ProjectStatusBadge status={task.priority} />
-                    <ProjectStatusBadge status={task.status} />
-                  </div>
-                </div>
-                <div className="text-right text-[10px] font-semibold text-slate-400">
-                  <div>Created {formatDateTime(task.createdAt)}</div>
-                  {task.updatedAt && <div className="mt-0.5">Updated {formatDateTime(task.updatedAt)}</div>}
-                </div>
-              </div>
-            </div>
+        {task && !editing ? <div className="space-y-2.5">
+          <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardContent className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0"><h3 className="text-base font-medium text-foreground">{task.title}</h3><div className="mt-1 flex flex-wrap items-center gap-1.5"><span className="text-xs text-muted-foreground">{task.code || "Task"}</span><ProjectStatusBadge status={task.priority} /><ProjectStatusBadge status={task.status} /></div></div>
+            <div className="text-right text-[10px] text-muted-foreground"><div>Created {formatDateTime(task.createdAt)}</div>{task.updatedAt ? <div className="mt-0.5">Updated {formatDateTime(task.updatedAt)}</div> : null}</div>
+          </CardContent></Card>
+          <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Details</CardTitle></CardHeader><CardContent><dl className="grid gap-x-5 gap-y-3 sm:grid-cols-2"><DetailItem label="Board column" value={currentColumn?.name || task.status.replace(/_/g, " ")} /><DetailItem label="Assignee" value={assignee} /><DetailItem label="Start date" value={task.startDate || "—"} /><DetailItem label="Due date" value={task.dueDate || "—"} /><DetailItem label="Estimated hours" value={task.estimatedHours ?? "—"} /><DetailItem label="Actual hours" value={task.actualHours ?? "—"} /></dl><div className="mt-3 border-t border-border pt-3"><p className="text-xs text-muted-foreground">Description</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-foreground">{task.description || "No description."}</p></div></CardContent></Card>
+          <AttachmentsCard attachments={attachments} loading={attachmentsLoading} error={attachmentError} onOpen={openAttachment} />
+        </div> : null}
 
-            <section className="rounded-lg border border-slate-200 bg-white p-3">
-              <h4 className="mb-2 text-[10px] font-black uppercase tracking-wide text-slate-400">Details</h4>
-              <dl className="grid gap-x-5 gap-y-3 text-xs sm:grid-cols-2">
-                <div><dt className="font-bold text-slate-400">Board column</dt><dd className="mt-0.5 font-semibold text-slate-800">{currentColumn?.name || task.status.replace(/_/g, " ")}</dd></div>
-                <div><dt className="font-bold text-slate-400">Assignee</dt><dd className="mt-0.5 font-semibold text-slate-800">{assignee}</dd></div>
-                <div><dt className="font-bold text-slate-400">Start date</dt><dd className="mt-0.5 font-semibold text-slate-800">{task.startDate || "—"}</dd></div>
-                <div><dt className="font-bold text-slate-400">Due date</dt><dd className="mt-0.5 font-semibold text-slate-800">{task.dueDate || "—"}</dd></div>
-                <div><dt className="font-bold text-slate-400">Estimated hours</dt><dd className="mt-0.5 font-semibold text-slate-800">{task.estimatedHours ?? "—"}</dd></div>
-                <div><dt className="font-bold text-slate-400">Actual hours</dt><dd className="mt-0.5 font-semibold text-slate-800">{task.actualHours ?? "—"}</dd></div>
-              </dl>
-              <div className="mt-3 border-t border-slate-100 pt-3">
-                <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Description</div>
-                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.description || "No description."}</p>
-              </div>
-            </section>
+        {task && editing ? <div className="space-y-2.5">
+          <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Basics</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1 sm:col-span-2"><FieldLabel>Task title</FieldLabel><Input value={form.title} onChange={(event) => setField("title", event.currentTarget.value)} className="rounded-md" /></label><label className="grid gap-1 sm:col-span-2"><FieldLabel>Description</FieldLabel><Textarea value={form.description} onChange={(event) => setField("description", event.currentTarget.value)} rows={4} className="rounded-md" /></label><label className="grid gap-1"><FieldLabel>Start date</FieldLabel><Input type="date" value={form.startDate} onChange={(event) => setField("startDate", event.currentTarget.value)} className="rounded-md" /></label><label className="grid gap-1"><FieldLabel>Due date</FieldLabel><Input type="date" value={form.dueDate} onChange={(event) => setField("dueDate", event.currentTarget.value)} className="rounded-md" /></label></CardContent></Card>
+          <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Assignment</CardTitle></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1"><FieldLabel>Assignee</FieldLabel><EmployeeSelect value={form.assigneeEmployeeId} onChange={(value) => setField("assigneeEmployeeId", value)} placeholder="Select assignee" /></label><label className="grid gap-1"><FieldLabel>Board column</FieldLabel><Select value={form.kanbanColumnId} onValueChange={(value) => setField("kanbanColumnId", String(value ?? ""))}><SelectTrigger className="w-full rounded-md"><SelectValue /></SelectTrigger><SelectContent>{columns.map((column) => <SelectItem key={column.id} value={column.id}>{column.name}</SelectItem>)}</SelectContent></Select></label><label className="grid gap-1"><FieldLabel>Priority</FieldLabel><Select value={form.priority} onValueChange={(value) => setField("priority", String(value ?? "MEDIUM"))}><SelectTrigger className="w-full rounded-md"><SelectValue /></SelectTrigger><SelectContent>{PRIORITIES.map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></label><label className="grid gap-1"><FieldLabel>Weight</FieldLabel><Input type="number" min="0.1" step="0.1" value={form.weight} onChange={(event) => setField("weight", event.currentTarget.value)} className="rounded-md" /></label><label className="grid gap-1"><FieldLabel>Estimated hours</FieldLabel><Input type="number" min="0" value={form.estimatedHours} onChange={(event) => setField("estimatedHours", event.currentTarget.value)} className="rounded-md" /></label><label className="grid gap-1"><FieldLabel>Actual hours</FieldLabel><Input type="number" min="0" value={form.actualHours} onChange={(event) => setField("actualHours", event.currentTarget.value)} className="rounded-md" /></label></CardContent></Card>
+          <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Attachments</CardTitle></CardHeader><CardContent className="space-y-2.5"><div className="flex flex-wrap justify-end gap-1.5"><input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => event.currentTarget.files?.[0] && void attach(event.currentTarget.files[0], "upload")} /><Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => fileInputRef.current?.click()}><Upload className="size-3.5" />Upload</Button><Button type="button" variant="outline" size="sm" disabled={uploading} onClick={() => void pasteFromClipboard()}><ClipboardPaste className="size-3.5" />Paste</Button></div><div tabIndex={0} onPaste={handlePaste} className="rounded-md border border-dashed border-border bg-muted/30 px-3 py-3 text-center text-xs text-muted-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring/40">{uploading ? <span className="inline-flex items-center gap-2"><Loader2 className="size-3.5 animate-spin" />Uploading...</span> : "Focus here and press Ctrl+V / Cmd+V to paste."}</div><AttachmentRows attachments={attachments} onOpen={openAttachment} />{attachmentError ? <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">{attachmentError}</div> : null}</CardContent></Card>
+        </div> : null}
 
-            <section className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="mb-2 flex items-center gap-2 text-xs font-black text-slate-700"><ImageIcon className="h-4 w-4" /> Attachments <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-500">{attachments.length}</span></div>
-              {attachmentsLoading ? (
-                <div className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading screenshots...</div>
-              ) : attachments.length ? (
-                <div className="space-y-1.5">
-                  {attachments.map((attachment) => (
-                    <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-2.5 py-2">
-                      <div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-700">{attachment.FileAsset?.originalName || "Task screenshot"}</p><p className="text-[10px] text-slate-400">{formatFileSize(attachment.FileAsset?.sizeBytes)}</p></div>
-                      <Button type="button" variant="ghost" size="sm" onClick={() => void openAttachment(attachment)}><ExternalLink className="h-4 w-4" /> View</Button>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-xs text-slate-400">No screenshots attached.</p>}
-              {attachmentError && <div className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{attachmentError}</div>}
-            </section>
-          </div>
-        )}
-
-        {task && editing && (
-          <div className="space-y-3">
-            <section className="rounded-lg border border-slate-200 bg-white p-3">
-              <h3 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Basics</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label className="sm:col-span-2"><span className="mb-1 block text-xs font-bold text-slate-600">Task title</span><input value={form.title} onChange={(event) => updateForm("title", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" /></label>
-                <label className="sm:col-span-2"><span className="mb-1 block text-xs font-bold text-slate-600">Description</span><textarea value={form.description} onChange={(event) => updateForm("description", event.currentTarget.value)} rows={4} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" /></label>
-                <label><span className="mb-1 block text-xs font-bold text-slate-600">Start date</span><input type="date" value={form.startDate} onChange={(event) => updateForm("startDate", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
-                <label><span className="mb-1 block text-xs font-bold text-slate-600">Due date</span><input type="date" value={form.dueDate} onChange={(event) => updateForm("dueDate", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
-              <h3 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Assignment</h3>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label><span className="mb-1 block text-xs font-bold text-slate-600">Assignee</span><EmployeeSelect value={form.assigneeEmployeeId} onChange={(value) => updateForm("assigneeEmployeeId", value)} placeholder="Select assignee" /></label>
-                <label><span className="mb-1 block text-xs font-bold text-slate-600">Board column</span><select value={form.kanbanColumnId} onChange={(event) => updateForm("kanbanColumnId", event.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{columns.map((column) => <option key={column.id} value={column.id}>{column.name}</option>)}</select></label>
-                <label><span className="mb-1 block text-xs font-bold text-slate-600">Priority</span><select value={form.priority} onChange={(event) => updateForm("priority", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm">{PRIORITIES.map((priority) => <option key={priority} value={priority}>{priority}</option>)}</select></label>
-                <label><span className="mb-1 block text-xs font-bold text-slate-600">Weight</span><input type="number" min="0.1" step="0.1" value={form.weight} onChange={(event) => updateForm("weight", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
-                <label><span className="mb-1 block text-xs font-bold text-slate-600">Estimated hours</span><input type="number" min="0" value={form.estimatedHours} onChange={(event) => updateForm("estimatedHours", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
-                <label><span className="mb-1 block text-xs font-bold text-slate-600">Actual hours</span><input type="number" min="0" value={form.actualHours} onChange={(event) => updateForm("actualHours", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
-              </div>
-            </section>
-
-            <section className="rounded-lg border border-slate-200 bg-white p-3">
-              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
-                <div><h3 className="text-xs font-black uppercase tracking-wide text-slate-500">Attachments</h3><p className="mt-1 text-[11px] text-slate-400">Paste or upload screenshots while editing.</p></div>
-                <div className="flex gap-2">
-                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => event.currentTarget.files?.[0] && void attachScreenshot(event.currentTarget.files[0], "upload")} />
-                  <Button type="button" variant="outline" size="sm" disabled={uploadingScreenshot} onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4" /> Upload</Button>
-                  <Button type="button" variant="outline" size="sm" disabled={uploadingScreenshot} onClick={() => void pasteFromClipboard()}><ClipboardPaste className="h-4 w-4" /> Paste</Button>
-                </div>
-              </div>
-              <div tabIndex={0} onPaste={handlePaste} className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-center text-[11px] text-slate-500 outline-none focus:border-blue-500">
-                {uploadingScreenshot ? <span className="inline-flex items-center gap-2 font-semibold"><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</span> : <>Focus here and press <strong>Ctrl+V / Cmd+V</strong> to paste.</>}
-              </div>
-              <div className="mt-2 space-y-1.5">
-                {attachments.map((attachment) => (
-                  <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-2.5 py-2">
-                    <div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-700">{attachment.FileAsset?.originalName || "Task screenshot"}</p><p className="text-[10px] text-slate-400">{formatFileSize(attachment.FileAsset?.sizeBytes)}</p></div>
-                    <Button type="button" variant="ghost" size="sm" onClick={() => void openAttachment(attachment)}><ExternalLink className="h-4 w-4" /> View</Button>
-                  </div>
-                ))}
-              </div>
-              {attachmentError && <div className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{attachmentError}</div>}
-            </section>
-          </div>
-        )}
-
-        {error && <div className="rounded-md bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</div>}
-
-        <DialogFooter className="gap-2 sm:justify-between">
-          {editing && canEdit ? (
-            <Button variant="destructive" onClick={() => void remove()} disabled={deleteTask.isPending}><Trash2 className="h-4 w-4" /> {deleteTask.isPending ? "Deleting..." : "Delete"}</Button>
-          ) : <span />}
-          <div className="flex gap-2">
-            {editing ? (
-              <>
-                <Button variant="outline" onClick={cancelEdit}>Cancel edit</Button>
-                <Button onClick={() => void save()} disabled={updateTask.isPending || changeTaskStatus.isPending}>{updateTask.isPending || changeTaskStatus.isPending ? "Saving..." : "Save Task"}</Button>
-              </>
-            ) : (
-              <>
-                <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-                {canEdit && <Button onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Edit</Button>}
-              </>
-            )}
-          </div>
-        </DialogFooter>
+        {error ? <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div> : null}
+        <DialogFooter className="gap-2 sm:justify-between">{editing && canEdit ? <Button variant="destructive" onClick={() => void remove()} disabled={deleteTask.isPending}><Trash2 className="size-3.5" />{deleteTask.isPending ? "Deleting..." : "Delete"}</Button> : <span />}<div className="flex gap-2">{editing ? <><Button variant="outline" onClick={cancelEdit}>Cancel edit</Button><Button onClick={() => void save()} disabled={updateTask.isPending || changeStatus.isPending}>{updateTask.isPending || changeStatus.isPending ? "Saving..." : "Save task"}</Button></> : <><Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>{canEdit ? <Button onClick={() => setEditing(true)}><Pencil className="size-3.5" />Edit</Button> : null}</>}</div></DialogFooter>
       </DialogContent>
     </Dialog>
   );
+}
+
+function AttachmentRows({ attachments, onOpen }: { attachments: Attachment[]; onOpen: (attachment: Attachment) => void }) {
+  return attachments.length ? <div className="space-y-1.5">{attachments.map((attachment) => <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-2.5 py-2"><div className="min-w-0"><p className="truncate text-xs text-foreground">{attachment.FileAsset?.originalName || "Task screenshot"}</p><p className="text-[10px] text-muted-foreground">{formatFileSize(attachment.FileAsset?.sizeBytes)}</p></div><Button type="button" variant="ghost" size="sm" onClick={() => void onOpen(attachment)}><ExternalLink className="size-3.5" />View</Button></div>)}</div> : <p className="text-xs text-muted-foreground">No screenshots attached.</p>;
+}
+
+function AttachmentsCard({ attachments, loading, error, onOpen }: { attachments: Attachment[]; loading: boolean; error: string; onOpen: (attachment: Attachment) => void }) {
+  return <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><div className="flex items-center gap-2"><CardTitle className="flex items-center gap-2"><ImageIcon className="size-3.5" />Attachments</CardTitle><Badge variant="secondary" className="h-5 rounded-md px-1.5 font-normal">{attachments.length}</Badge></div></CardHeader><CardContent>{loading ? <div className="flex items-center gap-2 text-xs text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Loading screenshots...</div> : <AttachmentRows attachments={attachments} onOpen={onOpen} />}{error ? <div className="mt-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">{error}</div> : null}</CardContent></Card>;
 }

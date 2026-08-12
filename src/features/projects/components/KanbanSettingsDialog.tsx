@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Plus, Settings2, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useUpdateProject } from "../hooks";
 import { createKanbanColumnId, getProjectKanbanColumns, KANBAN_CORE_STATUSES } from "../kanban";
 import type { Project, ProjectKanbanColumn, ProjectKanbanCoreStatus } from "../types";
@@ -29,6 +32,7 @@ export function KanbanSettingsDialog({ project, canManage }: { project: Project;
   const moveColumn = (index: number, direction: -1 | 1) => {
     const nextIndex = index + direction;
     if (nextIndex < 0 || nextIndex >= columns.length) return;
+
     setColumns((current) => {
       const next = [...current];
       [next[index], next[nextIndex]] = [next[nextIndex], next[index]];
@@ -38,10 +42,7 @@ export function KanbanSettingsDialog({ project, canManage }: { project: Project;
 
   const addColumn = () => {
     const name = "New column";
-    setColumns((current) => [
-      ...current,
-      { id: createKanbanColumnId(name), name, status: "TODO" },
-    ]);
+    setColumns((current) => [...current, { id: createKanbanColumnId(name), name, status: "TODO" }]);
   };
 
   const removeColumn = (id: string) => {
@@ -51,10 +52,12 @@ export function KanbanSettingsDialog({ project, canManage }: { project: Project;
 
   const save = async () => {
     const normalized = columns.map((column) => ({ ...column, name: column.name.trim() }));
+
     if (!normalized.length) {
       setError("Keep at least one board column.");
       return;
     }
+
     if (normalized.some((column) => !column.name)) {
       setError("Every board column needs a name.");
       return;
@@ -87,65 +90,102 @@ export function KanbanSettingsDialog({ project, canManage }: { project: Project;
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger render={<Button type="button" variant="outline" size="sm" />}>
-        <Settings2 className="h-4 w-4" />
+      <DialogTrigger render={<Button type="button" variant="outline" size="sm" className="rounded-md" />}>
+        <Settings2 className="size-3.5" />
         Board settings
       </DialogTrigger>
+
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Project Kanban</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3">
-          <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-5 text-blue-800">
-            Rename and reorder columns for this project. Each column maps to a core ERP task state so progress, blocked, and done reporting continue to work.
+        <div className="space-y-2.5">
+          <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            Rename and reorder columns for this project. Each column still maps to a core ERP task state so reporting remains consistent.
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {columns.map((column, index) => (
-              <div key={column.id} className="grid gap-2 rounded-lg border border-slate-200 bg-white p-2 sm:grid-cols-[32px_minmax(0,1fr)_170px_auto] sm:items-center">
-                <div className="flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-xs font-black text-slate-500">
-                  {index + 1}
-                </div>
-                <input
-                  value={column.name}
-                  onChange={(event) => updateColumn(column.id, { name: event.currentTarget.value })}
-                  maxLength={50}
-                  className="h-9 min-w-0 rounded-md border border-slate-200 px-2.5 text-sm font-semibold text-slate-700 outline-none focus:border-blue-500"
-                  aria-label={`Column ${index + 1} name`}
-                />
-                <select
-                  value={column.status}
-                  onChange={(event) => updateColumn(column.id, { status: event.currentTarget.value as ProjectKanbanCoreStatus })}
-                  className="h-9 rounded-md border border-slate-200 bg-white px-2 text-xs font-semibold text-slate-600 outline-none focus:border-blue-500"
-                  aria-label={`${column.name} core status`}
-                >
-                  {KANBAN_CORE_STATUSES.map((status) => (
-                    <option key={status.value} value={status.value}>
-                      {status.label}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex items-center justify-end gap-1">
-                  <Button type="button" variant="ghost" size="icon" disabled={index === 0} onClick={() => moveColumn(index, -1)} aria-label={`Move ${column.name} left`}>
-                    <ArrowUp className="h-4 w-4 sm:-rotate-90" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" disabled={index === columns.length - 1} onClick={() => moveColumn(index, 1)} aria-label={`Move ${column.name} right`}>
-                    <ArrowDown className="h-4 w-4 sm:-rotate-90" />
-                  </Button>
-                  <Button type="button" variant="ghost" size="icon" disabled={columns.length <= 1} onClick={() => removeColumn(column.id)} aria-label={`Remove ${column.name}`}>
-                    <Trash2 className="h-4 w-4 text-rose-500" />
-                  </Button>
-                </div>
-              </div>
+              <Card key={column.id} size="sm" className="rounded-md py-2 shadow-none ring-1 ring-border">
+                <CardContent className="grid gap-2 px-2 sm:grid-cols-[28px_minmax(0,1fr)_180px_auto] sm:items-center">
+                  <div className="flex size-7 items-center justify-center rounded-md bg-muted text-xs text-muted-foreground">
+                    {index + 1}
+                  </div>
+
+                  <Input
+                    value={column.name}
+                    onChange={(event) => updateColumn(column.id, { name: event.currentTarget.value })}
+                    maxLength={50}
+                    className="rounded-md"
+                    aria-label={`Column ${index + 1} name`}
+                  />
+
+                  <Select
+                    value={column.status}
+                    onValueChange={(value) =>
+                      updateColumn(column.id, { status: String(value ?? "TODO") as ProjectKanbanCoreStatus })
+                    }
+                  >
+                    <SelectTrigger className="w-full rounded-md" aria-label={`${column.name} core status`}>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {KANBAN_CORE_STATUSES.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <div className="flex items-center justify-end gap-0.5">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={index === 0}
+                      onClick={() => moveColumn(index, -1)}
+                      aria-label={`Move ${column.name} left`}
+                    >
+                      <ArrowUp className="size-3.5 sm:-rotate-90" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={index === columns.length - 1}
+                      onClick={() => moveColumn(index, 1)}
+                      aria-label={`Move ${column.name} right`}
+                    >
+                      <ArrowDown className="size-3.5 sm:-rotate-90" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      disabled={columns.length <= 1}
+                      onClick={() => removeColumn(column.id)}
+                      aria-label={`Remove ${column.name}`}
+                    >
+                      <Trash2 className="size-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
 
-          <Button type="button" variant="outline" size="sm" onClick={addColumn}>
-            <Plus className="h-4 w-4" /> Add column
+          <Button type="button" variant="outline" size="sm" onClick={addColumn} className="rounded-md">
+            <Plus className="size-3.5" />
+            Add column
           </Button>
 
-          {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</div>}
+          {error ? (
+            <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter>

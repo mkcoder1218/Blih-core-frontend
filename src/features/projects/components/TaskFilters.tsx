@@ -1,7 +1,11 @@
 import { Search } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TASK_STATUSES } from "../schemas";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
+const ALL = "__all__";
 
 export function TaskFilters({
   search,
@@ -23,20 +27,59 @@ export function TaskFilters({
   onDue: (value: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-3 lg:flex-row">
-      <div className="relative min-w-[220px] flex-1">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <input value={search} onChange={(e) => onSearch(e.currentTarget.value)} placeholder="Search tasks" className="h-10 w-full rounded-lg border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-blue-500" />
-      </div>
-      <select value={status} onChange={(e) => onStatus(e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600">
-        <option value="">All statuses</option>
-        {TASK_STATUSES.map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
-      </select>
-      <select value={priority} onChange={(e) => onPriority(e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600">
-        <option value="">All priorities</option>
-        {PRIORITIES.map((p) => <option key={p} value={p}>{p}</option>)}
-      </select>
-      <input type="date" value={due} onChange={(e) => onDue(e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-600" />
-    </div>
+    <Card size="sm" className="gap-0 rounded-md py-0 shadow-none ring-1 ring-border">
+      <CardContent className="flex flex-col gap-2 px-2 py-2 lg:flex-row">
+        <div className="relative min-w-[220px] flex-1">
+          <Search className="pointer-events-none absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={search}
+            onChange={(event) => onSearch(event.currentTarget.value)}
+            placeholder="Search tasks"
+            className="rounded-md pl-8"
+          />
+        </div>
+
+        <Select
+          value={status || ALL}
+          onValueChange={(value) => onStatus(value === ALL ? "" : String(value ?? ""))}
+        >
+          <SelectTrigger className="w-full rounded-md lg:w-44">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All statuses</SelectItem>
+            {TASK_STATUSES.map((item) => (
+              <SelectItem key={item} value={item}>
+                {item.replace(/_/g, " ")}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select
+          value={priority || ALL}
+          onValueChange={(value) => onPriority(value === ALL ? "" : String(value ?? ""))}
+        >
+          <SelectTrigger className="w-full rounded-md lg:w-40">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={ALL}>All priorities</SelectItem>
+            {PRIORITIES.map((item) => (
+              <SelectItem key={item} value={item}>
+                {item}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Input
+          type="date"
+          value={due}
+          onChange={(event) => onDue(event.currentTarget.value)}
+          className="w-full rounded-md lg:w-40"
+        />
+      </CardContent>
+    </Card>
   );
 }

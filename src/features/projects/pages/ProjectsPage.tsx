@@ -1,8 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { BriefcaseBusiness, CheckCircle2, Clock3, ListTodo } from "lucide-react";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { EmptyState, PageLoadingSpinner, StatCard, StatCardGrid } from "@/components/ui/blih";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState, PageLoadingSpinner } from "@/components/ui/blih";
 import { useMyPermissions } from "../../../hooks/usePermissions";
 import { ProjectTable } from "../components/ProjectTable";
 import { ProjectsToolbar } from "../components/ProjectsToolbar";
@@ -13,7 +15,15 @@ import { useAllVisibleProjectTasks, useMoveProjectTaskStatus, useMyProjectTasks,
 import type { ProjectsTab } from "../types";
 
 function ErrorState({ message }: { message: string }) {
-  return <div className="rounded-lg border border-rose-100 bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">{message}</div>;
+  return <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">{message}</div>;
+}
+
+function SummaryItem({ label, value }: { label: string; value: ReactNode }) {
+  return <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardContent className="flex items-center justify-between gap-3 px-3"><span className="text-xs text-muted-foreground">{label}</span><span className="text-sm font-medium tabular-nums text-foreground">{value}</span></CardContent></Card>;
+}
+
+function getInitials(name: string) {
+  return name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
 }
 
 export default function ProjectsPage({ currentTab }: { currentTab: ProjectsTab }) {
@@ -33,151 +43,46 @@ export default function ProjectsPage({ currentTab }: { currentTab: ProjectsTab }
   const myTasks = useMyProjectTasks(taskParams);
   const boardTasks = useAllVisibleProjectTasks(projects.data?.rows ?? [], currentTab === "board");
   const moveTask = useMoveProjectTaskStatus();
-
   const canCreateProject = perms.hasAny("project.create", "project.manage");
   const canMoveTasks = perms.hasAny("project.task", "project.manage");
 
   if (!perms.isLoading && !perms.hasAny("project.read", "project.manage", "project.self", "project.task")) {
-    return <main className="h-full overflow-y-auto bg-[#f8fafc] p-8"><EmptyState title="Projects unavailable" description="Your role does not currently include project access." /></main>;
+    return <main className="h-full overflow-y-auto bg-muted/20 p-6"><EmptyState title="Projects unavailable" description="Your role does not currently include project access." /></main>;
   }
   if (projects.isLoading || myTasks.isLoading || (currentTab === "board" && boardTasks.isLoading)) return <PageLoadingSpinner label="Loading projects" />;
   if (projects.isError) return <ErrorState message="Could not load projects." />;
 
   const projectRows = projects.data?.rows ?? [];
-  const sourceTasks = currentTab === "board" ? boardTasks.rows : (myTasks.data?.rows ?? []);
-  const assignees = Array.from(
-    new Map(
-      sourceTasks
-        .filter((task) => task.assigneeEmployeeId)
-        .map((task) => [
-          task.assigneeEmployeeId!,
-          {
-            id: task.assigneeEmployeeId!,
-            name: task.employeeAssignee?.user?.fullName || "Unassigned",
-            email: task.employeeAssignee?.user?.email || "",
-          },
-        ])
-    ).values()
-  );
+  const sourceTasks = currentTab === "board" ? boardTasks.rows : myTasks.data?.rows ?? [];
+  const assignees = Array.from(new Map(sourceTasks.filter((task) => task.assigneeEmployeeId).map((task) => [task.assigneeEmployeeId!, { id: task.assigneeEmployeeId!, name: task.employeeAssignee?.user?.fullName || "Unassigned", email: task.employeeAssignee?.user?.email || "" }])).values());
   const taskRows = sourceTasks.filter((task) => {
     const matchesSearch = !taskSearch || `${task.title} ${task.code || ""} ${task.project?.title || ""}`.toLowerCase().includes(taskSearch.toLowerCase());
-    const matchesStatus = !taskStatus || task.status === taskStatus;
-    const matchesPriority = !taskPriority || task.priority === taskPriority;
-    const matchesDue = !taskDue || task.dueDate === taskDue;
-    const matchesAssignee = !assigneeFilter || task.assigneeEmployeeId === assigneeFilter;
-    return matchesSearch && matchesStatus && matchesPriority && matchesDue && matchesAssignee;
+    return matchesSearch && (!taskStatus || task.status === taskStatus) && (!taskPriority || task.priority === taskPriority) && (!taskDue || task.dueDate === taskDue) && (!assigneeFilter || task.assigneeEmployeeId === assigneeFilter);
   });
-  const activeCount = projectRows.filter((p) => p.status === "ACTIVE").length;
-  const doneTasks = taskRows.filter((t) => t.status === "DONE").length;
-  const avgProgress = projectRows.length
-    ? Math.round(projectRows.reduce((sum, p) => sum + (p.progressPercent || 0), 0) / projectRows.length)
-    : 0;
+  const activeCount = projectRows.filter((project) => project.status === "ACTIVE").length;
+  const avgProgress = projectRows.length ? Math.round(projectRows.reduce((sum, project) => sum + (project.progressPercent || 0), 0) / projectRows.length) : 0;
+  const title = currentTab === "my-tasks" ? "My Tasks" : currentTab === "board" ? "Task Board" : "Projects";
+  const description = currentTab === "my-tasks" ? "Review your assigned work across projects." : currentTab === "board" ? "Move authorized tasks through the project workflow." : "Plan work, track delivery, and keep project tasks moving.";
 
   return (
-    <main className="h-full overflow-y-auto bg-[#f8fafc] p-4 sm:p-6 lg:p-8">
-      <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-xl font-black tracking-tight text-slate-950">{currentTab === "my-tasks" ? "My Tasks" : currentTab === "board" ? "Task Board" : "Projects"}</h1>
-          <p className="text-sm font-medium text-slate-500">{currentTab === "my-tasks" ? "Review your assigned work across projects." : currentTab === "board" ? "Move authorized tasks through the project workflow." : "Plan work, track delivery, and keep project tasks moving."}</p>
-        </div>
+    <main className="h-full overflow-y-auto bg-muted/20 p-3 lg:p-4">
+      <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
+        <div><h1 className="text-lg font-medium text-foreground">{title}</h1><p className="mt-0.5 text-sm text-muted-foreground">{description}</p></div>
 
-        {(currentTab === "overview" || currentTab === "all" || currentTab === "mine") && (
-          <ProjectsToolbar search={search} status={status} canCreateProject={canCreateProject} onSearch={(v) => { setSearch(v); setPage(1); }} onStatus={(v) => { setStatus(v); setPage(1); }} />
-        )}
+        {currentTab === "overview" || currentTab === "all" || currentTab === "mine" ? <ProjectsToolbar search={search} status={status} canCreateProject={canCreateProject} onSearch={(value) => { setSearch(value); setPage(1); }} onStatus={(value) => { setStatus(value); setPage(1); }} /> : null}
 
-        {(currentTab === "overview" || currentTab === "all" || currentTab === "mine") && (
-          <StatCardGrid>
-            <StatCard label="Total Projects" value={projectRows.length} tone="blue" icon={<BriefcaseBusiness />} />
-            <StatCard label="Active" value={activeCount} tone="emerald" icon={<Clock3 />} />
-            <StatCard label="Avg Progress" value={`${avgProgress}%`} tone="violet" icon={<CheckCircle2 />} />
-            <StatCard label="My Tasks" value={taskRows.length} tone="amber" icon={<ListTodo />} />
-          </StatCardGrid>
-        )}
+        {currentTab === "overview" || currentTab === "all" || currentTab === "mine" ? <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><SummaryItem label="Total projects" value={projectRows.length} /><SummaryItem label="Active" value={activeCount} /><SummaryItem label="Average progress" value={`${avgProgress}%`} /><SummaryItem label="My tasks" value={taskRows.length} /></div> : null}
 
-        {currentTab === "overview" && (
-          <div className="grid gap-5 xl:grid-cols-[1.4fr_1fr]">
-            <section>
-              <h2 className="mb-3 text-sm font-black text-slate-900">Recent Projects</h2>
-              {projectRows.length ? <ProjectTable projects={projectRows.slice(0, 8)} onOpen={(p) => navigate(`/projects/${p.id}`)} /> : <EmptyState title="No projects yet" description="Projects created in the backend will appear here." />}
-            </section>
-            <section>
-              <h2 className="mb-3 text-sm font-black text-slate-900">My Tasks</h2>
-              {taskRows.length ? <TaskList tasks={taskRows.slice(0, 8)} /> : <EmptyState title="No tasks assigned" description="Assigned project tasks will appear here." />}
-            </section>
-          </div>
-        )}
+        {currentTab === "overview" ? <div className="grid gap-3 xl:grid-cols-[1.4fr_1fr]">
+          <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Recent projects</CardTitle></CardHeader><CardContent>{projectRows.length ? <ProjectTable projects={projectRows.slice(0, 8)} onOpen={(project) => navigate(`/projects/${project.id}`)} /> : <EmptyState title="No projects yet" description="Projects created in the backend will appear here." />}</CardContent></Card>
+          <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>My tasks</CardTitle></CardHeader><CardContent>{taskRows.length ? <TaskList tasks={taskRows.slice(0, 8)} /> : <EmptyState title="No tasks assigned" description="Assigned project tasks will appear here." />}</CardContent></Card>
+        </div> : null}
 
-        {(currentTab === "all" || currentTab === "mine") && (
-          <>
-            {projectRows.length ? <ProjectTable projects={projectRows} onOpen={(p) => navigate(`/projects/${p.id}`)} /> : <EmptyState title="No projects found" description="No matching projects are available." />}
-            <div className="flex items-center justify-end gap-2">
-              <Button variant="outline" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
-              <span className="text-xs font-bold text-slate-500">Page {projects.data?.page ?? page} of {projects.data?.totalPages ?? 1}</span>
-              <Button variant="outline" disabled={(projects.data?.page ?? page) >= (projects.data?.totalPages ?? 1)} onClick={() => setPage((p) => p + 1)}>Next</Button>
-            </div>
-          </>
-        )}
+        {currentTab === "all" || currentTab === "mine" ? <>{projectRows.length ? <ProjectTable projects={projectRows} onOpen={(project) => navigate(`/projects/${project.id}`)} /> : <EmptyState title="No projects found" description="No matching projects are available." />}<div className="flex items-center justify-end gap-2"><Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</Button><span className="text-xs text-muted-foreground">Page {projects.data?.page ?? page} of {projects.data?.totalPages ?? 1}</span><Button variant="outline" size="sm" disabled={(projects.data?.page ?? page) >= (projects.data?.totalPages ?? 1)} onClick={() => setPage((current) => current + 1)}>Next</Button></div></> : null}
 
-        {currentTab === "my-tasks" && (
-          <>
-            <TaskFilters search={taskSearch} status={taskStatus} priority={taskPriority} due={taskDue} onSearch={setTaskSearch} onStatus={setTaskStatus} onPriority={setTaskPriority} onDue={setTaskDue} />
-            {myTasks.isError ? <ErrorState message="Could not load your tasks." /> :
-            taskRows.length ? (
-              <>
-                <div className="overflow-x-auto pb-2">
-                  <TaskBoard
-                    tasks={taskRows}
-                    canMove={canMoveTasks}
-                    onMove={(task, nextStatus) => moveTask.mutate({ projectId: task.projectId, taskId: task.id, status: nextStatus })}
-                  />
-                </div>
-                {!canMoveTasks && <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">You can view your workflow board, but moving tasks requires task permission.</div>}
-              </>
-            ) : <EmptyState title="No tasks assigned" description="Your assigned project tasks will appear here." />}
-          </>
-        )}
+        {currentTab === "my-tasks" ? <><TaskFilters search={taskSearch} status={taskStatus} priority={taskPriority} due={taskDue} onSearch={setTaskSearch} onStatus={setTaskStatus} onPriority={setTaskPriority} onDue={setTaskDue} />{myTasks.isError ? <ErrorState message="Could not load your tasks." /> : taskRows.length ? <><div className="overflow-x-auto pb-1"><TaskBoard tasks={taskRows} canMove={canMoveTasks} onMove={(task, nextStatus) => moveTask.mutate({ projectId: task.projectId, taskId: task.id, status: nextStatus })} /></div>{!canMoveTasks ? <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">You can view your workflow board, but moving tasks requires task permission.</div> : null}</> : <EmptyState title="No tasks assigned" description="Your assigned project tasks will appear here." />}</> : null}
 
-        {currentTab === "board" && (
-          <>
-            <TaskFilters search={taskSearch} status={taskStatus} priority={taskPriority} due={taskDue} onSearch={setTaskSearch} onStatus={setTaskStatus} onPriority={setTaskPriority} onDue={setTaskDue} />
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2">
-              <span className="mr-1 text-xs font-black uppercase tracking-wide text-slate-400">Assignees</span>
-              <button
-                onClick={() => setAssigneeFilter("")}
-                className={`rounded-full border px-3 py-1.5 text-xs font-bold ${!assigneeFilter ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-500 hover:bg-slate-50"}`}
-              >
-                All
-              </button>
-              {assignees.map((person) => {
-                const initials = person.name.split(" ").map((part) => part[0]).join("").slice(0, 2).toUpperCase();
-                const active = assigneeFilter === person.id;
-                return (
-                  <button
-                    key={person.id}
-                    onClick={() => setAssigneeFilter(active ? "" : person.id)}
-                    title={person.email || person.name}
-                    className={`flex items-center gap-2 rounded-full border py-1 pr-3 pl-1 text-xs font-bold transition-colors ${active ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"}`}
-                  >
-                    <span className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-black ${active ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-600"}`}>{initials || "U"}</span>
-                    {person.name}
-                  </button>
-                );
-              })}
-              {!assignees.length && <span className="text-xs font-semibold text-slate-400">No assignees yet</span>}
-            </div>
-            {boardTasks.isError && <ErrorState message="Could not load project board tasks." />}
-            <div className="overflow-x-auto pb-2">
-              {taskRows.length ? (
-                <TaskBoard
-                  tasks={taskRows}
-                  canMove={canMoveTasks}
-                  onMove={(task, nextStatus) => moveTask.mutate({ projectId: task.projectId, taskId: task.id, status: nextStatus })}
-                />
-              ) : <EmptyState title="No board tasks" description="Project tasks that match the current filters will appear here." />}
-            </div>
-            {!canMoveTasks && <div className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-700">You can view the board, but task movement requires task permission.</div>}
-          </>
-        )}
+        {currentTab === "board" ? <><TaskFilters search={taskSearch} status={taskStatus} priority={taskPriority} due={taskDue} onSearch={setTaskSearch} onStatus={setTaskStatus} onPriority={setTaskPriority} onDue={setTaskDue} /><Card size="sm" className="gap-0 rounded-md py-0 shadow-none ring-1 ring-border"><CardContent className="flex min-h-10 flex-wrap items-center gap-1.5 px-2 py-1.5"><span className="px-1 text-xs text-muted-foreground">Assignees</span><Button type="button" size="sm" variant={!assigneeFilter ? "secondary" : "outline"} onClick={() => setAssigneeFilter("")} className="rounded-md font-normal">All</Button>{assignees.map((person) => { const active = assigneeFilter === person.id; return <Button key={person.id} type="button" size="sm" variant={active ? "secondary" : "outline"} onClick={() => setAssigneeFilter(active ? "" : person.id)} title={person.email || person.name} className="max-w-44 rounded-md font-normal"><Avatar size="sm"><AvatarFallback className="text-[9px]">{getInitials(person.name) || "U"}</AvatarFallback></Avatar><span className="truncate">{person.name}</span></Button>; })}{!assignees.length ? <Badge variant="outline" className="rounded-md font-normal text-muted-foreground">No assignees yet</Badge> : null}</CardContent></Card>{boardTasks.isError ? <ErrorState message="Could not load project board tasks." /> : null}<div className="overflow-x-auto pb-1">{taskRows.length ? <TaskBoard tasks={taskRows} canMove={canMoveTasks} onMove={(task, nextStatus) => moveTask.mutate({ projectId: task.projectId, taskId: task.id, status: nextStatus })} /> : <EmptyState title="No board tasks" description="Project tasks that match the current filters will appear here." />}</div>{!canMoveTasks ? <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">You can view the board, but task movement requires task permission.</div> : null}</> : null}
       </div>
     </main>
   );
