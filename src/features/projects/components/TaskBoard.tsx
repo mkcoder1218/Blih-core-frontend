@@ -1,6 +1,10 @@
 import { useRef } from "react";
 import { Clock3, Eye, MessageCircle, Paperclip } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { ProjectStatusBadge } from "./ProjectStatusBadge";
 import { DEFAULT_PROJECT_KANBAN_COLUMNS, getTaskKanbanColumnId } from "../kanban";
 import type { ProjectKanbanColumn, ProjectTask } from "../types";
@@ -45,7 +49,8 @@ function TaskCard({
   const assignee = getAssigneeName(task);
 
   return (
-    <article
+    <Card
+      size="sm"
       draggable={canMove}
       onDragStart={(event) => event.dataTransfer.setData("text/plain", task.id)}
       onClick={() => onOpen?.(task)}
@@ -57,65 +62,78 @@ function TaskCard({
       }}
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
-      className={`group relative rounded-md border border-slate-200 bg-white px-2.5 py-2 shadow-sm outline-none transition hover:border-blue-300 hover:shadow-md focus:border-blue-400 focus:ring-2 focus:ring-blue-100 ${canMove ? "cursor-grab active:cursor-grabbing" : onOpen ? "cursor-pointer" : ""}`}
+      className={`group relative gap-2 rounded-md py-2 shadow-none ring-1 ring-border transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+        canMove ? "cursor-grab active:cursor-grabbing" : onOpen ? "cursor-pointer" : ""
+      }`}
     >
-      {onOpen && (
-        <span className="pointer-events-none absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-50 text-slate-400 opacity-0 transition group-hover:opacity-100">
-          <Eye className="h-3.5 w-3.5" />
+      {onOpen ? (
+        <span className="pointer-events-none absolute right-2 top-2 inline-flex size-6 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100">
+          <Eye className="size-3.5" />
         </span>
-      )}
+      ) : null}
 
-      <div className="pr-7 text-[12px] font-extrabold leading-[17px] text-slate-900 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
-        {task.title}
-      </div>
-      <div className="mt-1 truncate text-[10px] font-semibold text-slate-400">{task.code || "Task"}</div>
+      <CardContent className="space-y-2 px-2.5">
+        <div>
+          <p className="pr-7 text-xs font-medium leading-4 text-foreground [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+            {task.title}
+          </p>
+          <p className="mt-1 truncate text-[10px] text-muted-foreground">{task.code || "Task"}</p>
+        </div>
 
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <ProjectStatusBadge status={task.priority} />
-        <span className="truncate text-[10px] font-semibold text-slate-400">{task.dueDate || "No due date"}</span>
-      </div>
+        <div className="flex items-center justify-between gap-2">
+          <ProjectStatusBadge status={task.priority} />
+          <span className="truncate text-[10px] text-muted-foreground">{task.dueDate || "No due date"}</span>
+        </div>
 
-      <div className="mt-2 flex items-center gap-2 text-[9px] font-semibold text-slate-400">
-        <Clock3 className="h-3 w-3 shrink-0" />
-        <span className="truncate">{formatCreatedAt(task.createdAt)}</span>
-      </div>
+        <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          <Clock3 className="size-3 shrink-0" />
+          <span className="truncate">{formatCreatedAt(task.createdAt)}</span>
+        </div>
 
-      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
-        <div className="flex min-w-0 items-center gap-2">
-          {attachmentCount > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500" title={`${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`}>
-              <Paperclip className="h-3 w-3" /> {attachmentCount}
+        <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
+          <div className="flex min-w-0 items-center gap-1.5">
+            {attachmentCount > 0 ? (
+              <Badge
+                variant="outline"
+                className="h-5 rounded-md px-1.5 text-[10px] font-normal text-muted-foreground"
+                title={`${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`}
+              >
+                <Paperclip className="size-3" />
+                {attachmentCount}
+              </Badge>
+            ) : null}
+            <span className="truncate text-[10px] text-muted-foreground" title={assignee}>
+              {assignee}
             </span>
-          )}
-          <span className="truncate text-[9px] font-semibold text-slate-400" title={assignee}>{assignee}</span>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-1">
+            {onDiscuss ? (
+              <Button
+                type="button"
+                draggable={false}
+                variant="ghost"
+                size="icon-xs"
+                onMouseDown={(event) => event.stopPropagation()}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDiscuss(task);
+                }}
+                onKeyDown={(event) => event.stopPropagation()}
+                title="Open task discussion"
+                aria-label={`Open discussion for ${task.title}`}
+              >
+                <MessageCircle className="size-3.5" />
+              </Button>
+            ) : null}
+
+            <Avatar size="sm" title={assignee}>
+              <AvatarFallback className="text-[9px]">{getInitials(assignee) || "U"}</AvatarFallback>
+            </Avatar>
+          </div>
         </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          {onDiscuss && (
-            <button
-              type="button"
-              draggable={false}
-              onMouseDown={(event) => event.stopPropagation()}
-              onClick={(event) => {
-                event.stopPropagation();
-                onDiscuss(task);
-              }}
-              onKeyDown={(event) => event.stopPropagation()}
-              title="Open task discussion"
-              aria-label={`Open discussion for ${task.title}`}
-              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
-            >
-              <MessageCircle className="h-3.5 w-3.5" />
-            </button>
-          )}
-          <span
-            title={assignee}
-            className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-blue-600 text-[9px] font-black text-white shadow-sm"
-          >
-            {getInitials(assignee) || "U"}
-          </span>
-        </div>
-      </div>
-    </article>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -142,7 +160,7 @@ function TaskColumn({
   const virtualizer = useVirtualizer({
     count: tasks.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 142,
+    estimateSize: () => 140,
     overscan: 6,
   });
 
@@ -155,12 +173,17 @@ function TaskColumn({
         const task = allTasks.find((item) => item.id === taskId);
         if (task) onMove?.(task, column);
       }}
-      className="flex h-[min(66vh,650px)] min-h-[350px] w-[224px] shrink-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-slate-50/80 xl:w-[236px]"
+      className="flex h-[min(66vh,650px)] min-h-[350px] w-[224px] shrink-0 flex-col overflow-hidden rounded-md bg-muted/20 ring-1 ring-border xl:w-[236px]"
     >
-      <div className="flex h-9 items-center justify-between border-b border-slate-200 bg-white px-2.5">
-        <span className="truncate text-[11px] font-extrabold text-slate-700" title={column.name}>{column.name}</span>
-        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black text-slate-500">{tasks.length}</span>
+      <div className="flex h-9 items-center justify-between border-b border-border bg-background px-2.5">
+        <span className="truncate text-xs font-medium text-foreground" title={column.name}>
+          {column.name}
+        </span>
+        <Badge variant="secondary" className="h-5 rounded-md px-1.5 text-[10px] font-normal">
+          {tasks.length}
+        </Badge>
       </div>
+
       {tasks.length ? (
         <div ref={scrollRef} className="flex-1 overflow-y-auto p-1.5">
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
@@ -188,7 +211,9 @@ function TaskColumn({
         </div>
       ) : (
         <div className="p-1.5">
-          <div className="rounded-md border border-dashed border-slate-200 px-2 py-5 text-center text-[10px] font-semibold text-slate-400">No tasks</div>
+          <div className="rounded-md border border-dashed border-border px-2 py-5 text-center text-[10px] text-muted-foreground">
+            No tasks
+          </div>
         </div>
       )}
     </section>

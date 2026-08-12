@@ -1,40 +1,30 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeSelect } from "./EmployeeSelect";
 import { PROJECT_STATUSES, assertNonEmpty } from "../schemas";
 import { useCreateProject } from "../hooks";
 import { useClients } from "../../../hooks/useClients";
 
+const NONE = "__none__";
+
+function FieldLabel({ children }: { children: ReactNode }) {
+  return <span className="text-xs text-muted-foreground">{children}</span>;
+}
+
 export function CreateProjectModal() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [issuedCredentials, setIssuedCredentials] = useState<{ email: string; password: string | null; portalUrl: string } | null>(null);
-  const [form, setForm] = useState({
-    title: "",
-    code: "",
-    ownerEmployeeId: "",
-    managerEmployeeId: "",
-    status: "DRAFT",
-    priority: "NORMAL",
-    startDate: "",
-    endDate: "",
-    clientMode: "existing",
-    clientId: "",
-    clientCompanyName: "",
-    clientContactName: "",
-    clientEmail: "",
-    clientPhone: "",
-    issueClientLogin: false,
-    clientPassword: "",
-  });
+  const [form, setForm] = useState({ title: "", code: "", ownerEmployeeId: "", managerEmployeeId: "", status: "DRAFT", priority: "NORMAL", startDate: "", endDate: "", clientMode: "existing", clientId: "", clientCompanyName: "", clientContactName: "", clientEmail: "", clientPhone: "", issueClientLogin: false, clientPassword: "" });
   const createProject = useCreateProject();
   const clients = useClients();
-
-  const updateForm = (key: keyof typeof form, value: string | boolean) => {
-    setForm((previous) => ({ ...previous, [key]: value }));
-  };
+  const updateForm = (key: keyof typeof form, value: string | boolean) => setForm((previous) => ({ ...previous, [key]: value }));
 
   const submit = async () => {
     try {
@@ -48,142 +38,60 @@ export function CreateProjectModal() {
         startDate: form.startDate || undefined,
         endDate: form.endDate || undefined,
         clientId: form.clientMode === "existing" && form.clientId ? form.clientId : undefined,
-        newClient: form.clientMode === "new" ? {
-          companyName: form.clientCompanyName,
-          contactName: form.clientContactName || undefined,
-          email: form.clientEmail || undefined,
-          phone: form.clientPhone || undefined,
-        } : undefined,
-        clientPortalUser: form.issueClientLogin ? {
-          fullName: form.clientContactName || form.clientCompanyName || undefined,
-          email: form.clientEmail || clients.data?.find((client) => client.id === form.clientId)?.email || undefined,
-          phone: form.clientPhone || undefined,
-          password: form.clientPassword || undefined,
-        } : undefined,
+        newClient: form.clientMode === "new" ? { companyName: form.clientCompanyName, contactName: form.clientContactName || undefined, email: form.clientEmail || undefined, phone: form.clientPhone || undefined } : undefined,
+        clientPortalUser: form.issueClientLogin ? { fullName: form.clientContactName || form.clientCompanyName || undefined, email: form.clientEmail || clients.data?.find((client) => client.id === form.clientId)?.email || undefined, phone: form.clientPhone || undefined, password: form.clientPassword || undefined } : undefined,
       } as any);
-      if (project?.clientPortalUser?.email) {
-        setIssuedCredentials({
-          email: project.clientPortalUser.email,
-          password: project.clientPortalUser.temporaryPassword || form.clientPassword || null,
-          portalUrl: `${window.location.origin}/client-portal`,
-        });
-      } else {
-        setOpen(false);
-      }
+      if (project?.clientPortalUser?.email) setIssuedCredentials({ email: project.clientPortalUser.email, password: project.clientPortalUser.temporaryPassword || form.clientPassword || null, portalUrl: `${window.location.origin}/client-portal` });
+      else setOpen(false);
       setForm({ title: "", code: "", ownerEmployeeId: "", managerEmployeeId: "", status: "DRAFT", priority: "NORMAL", startDate: "", endDate: "", clientMode: "existing", clientId: "", clientCompanyName: "", clientContactName: "", clientEmail: "", clientPhone: "", issueClientLogin: false, clientPassword: "" });
-    } catch (e: any) {
-      setError(e?.response?.data?.error || e?.message || "Could not create project.");
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.error || requestError?.message || "Could not create project.");
     }
   };
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setIssuedCredentials(null); }}>
-      <DialogTrigger render={<Button />}>
-        <Plus className="h-4 w-4" />
-        New Project
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Create Project</DialogTitle>
-        </DialogHeader>
+      <DialogTrigger render={<Button size="sm" />}><Plus className="size-3.5" />New project</DialogTrigger>
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader><DialogTitle>Create project</DialogTitle></DialogHeader>
+
         {issuedCredentials ? (
-          <div className="space-y-4">
-            <div className="rounded-lg border border-emerald-100 bg-emerald-50 p-4">
-              <h3 className="text-sm font-black text-emerald-800">Client portal login created</h3>
-              <p className="mt-1 text-sm font-semibold text-emerald-700">Share these credentials with the client so they can sign in at /client-portal.</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label>
-                <span className="mb-1 block text-xs font-bold text-slate-600">Email</span>
-                <input readOnly value={issuedCredentials.email} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold" />
-              </label>
-              <label>
-                <span className="mb-1 block text-xs font-bold text-slate-600">Password</span>
-                <input readOnly value={issuedCredentials.password || "Use the existing password for this email"} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold" />
-              </label>
-              <label className="sm:col-span-2">
-                <span className="mb-1 block text-xs font-bold text-slate-600">Login URL</span>
-                <input readOnly value={issuedCredentials.portalUrl} className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-semibold" />
-              </label>
-            </div>
+          <div className="space-y-2.5">
+            <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">Client portal login created. Share these credentials with the client.</div>
+            <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardContent className="grid gap-3 sm:grid-cols-2">
+              <label className="grid gap-1"><FieldLabel>Email</FieldLabel><Input readOnly value={issuedCredentials.email} className="rounded-md bg-muted/30" /></label>
+              <label className="grid gap-1"><FieldLabel>Password</FieldLabel><Input readOnly value={issuedCredentials.password || "Use the existing password for this email"} className="rounded-md bg-muted/30" /></label>
+              <label className="grid gap-1 sm:col-span-2"><FieldLabel>Login URL</FieldLabel><Input readOnly value={issuedCredentials.portalUrl} className="rounded-md bg-muted/30" /></label>
+            </CardContent></Card>
           </div>
         ) : (
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="sm:col-span-2">
-            <span className="mb-1 block text-xs font-bold text-slate-600">Project name</span>
-            <input value={form.title} onChange={(e) => updateForm("title", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
-          </label>
-          <label>
-            <span className="mb-1 block text-xs font-bold text-slate-600">Code</span>
-            <input value={form.code} onChange={(e) => updateForm("code", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" />
-          </label>
-          <label>
-            <span className="mb-1 block text-xs font-bold text-slate-600">Status</span>
-            <select value={form.status} onChange={(e) => updateForm("status", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
-              {PROJECT_STATUSES.filter((s) => s !== "ARCHIVED").map((s) => <option key={s} value={s}>{s.replace(/_/g, " ")}</option>)}
-            </select>
-          </label>
-          <label>
-            <span className="mb-1 block text-xs font-bold text-slate-600">Owner</span>
-            <EmployeeSelect value={form.ownerEmployeeId} onChange={(v) => updateForm("ownerEmployeeId", v)} placeholder="Select owner" />
-          </label>
-          <label>
-            <span className="mb-1 block text-xs font-bold text-slate-600">Manager</span>
-            <EmployeeSelect value={form.managerEmployeeId} onChange={(v) => updateForm("managerEmployeeId", v)} placeholder="Select manager" />
-          </label>
-          <label>
-            <span className="mb-1 block text-xs font-bold text-slate-600">Start date</span>
-            <input type="date" value={form.startDate} onChange={(e) => updateForm("startDate", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
-          </label>
-          <label>
-            <span className="mb-1 block text-xs font-bold text-slate-600">End date</span>
-            <input type="date" value={form.endDate} onChange={(e) => updateForm("endDate", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" />
-          </label>
-          <div className="sm:col-span-2 rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="mb-3 flex flex-wrap items-center gap-2">
-              <span className="text-xs font-black uppercase text-slate-500">Client access</span>
-              <button type="button" onClick={() => updateForm("clientMode", "existing")} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${form.clientMode === "existing" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>Existing</button>
-              <button type="button" onClick={() => updateForm("clientMode", "new")} className={`rounded-lg px-3 py-1.5 text-xs font-bold ${form.clientMode === "new" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>New</button>
-            </div>
-            {form.clientMode === "existing" ? (
-              <label>
-                <span className="mb-1 block text-xs font-bold text-slate-600">Client</span>
-                <select value={form.clientId} onChange={(e) => updateForm("clientId", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">
-                  <option value="">No client linked</option>
-                  {(clients.data ?? []).map((client) => <option key={client.id} value={client.id}>{client.companyName}</option>)}
-                </select>
-              </label>
-            ) : (
-              <div className="grid gap-3 sm:grid-cols-2">
-                <label>
-                  <span className="mb-1 block text-xs font-bold text-slate-600">Company</span>
-                  <input value={form.clientCompanyName} onChange={(e) => updateForm("clientCompanyName", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-                </label>
-                <label>
-                  <span className="mb-1 block text-xs font-bold text-slate-600">Contact</span>
-                  <input value={form.clientContactName} onChange={(e) => updateForm("clientContactName", e.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-                </label>
-              </div>
-            )}
-            <label className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-              <input type="checkbox" checked={form.issueClientLogin} onChange={(e) => updateForm("issueClientLogin", e.currentTarget.checked)} />
-              Create or update client portal login
-            </label>
-            {form.issueClientLogin && (
-              <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                <input placeholder="Client email" value={form.clientEmail} onChange={(e) => updateForm("clientEmail", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-                <input placeholder="Client phone" value={form.clientPhone} onChange={(e) => updateForm("clientPhone", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-                <input placeholder="Password (optional)" value={form.clientPassword} onChange={(e) => updateForm("clientPassword", e.currentTarget.value)} className="h-10 rounded-lg border border-slate-200 bg-white px-3 text-sm" />
-              </div>
-            )}
+          <div className="space-y-2.5">
+            <Card size="sm" className="rounded-md shadow-none ring-1 ring-border">
+              <CardHeader className="pb-0"><CardTitle>Project details</CardTitle></CardHeader>
+              <CardContent className="grid gap-3 sm:grid-cols-2">
+                <label className="grid gap-1 sm:col-span-2"><FieldLabel>Project name</FieldLabel><Input value={form.title} onChange={(event) => updateForm("title", event.currentTarget.value)} className="rounded-md" /></label>
+                <label className="grid gap-1"><FieldLabel>Code</FieldLabel><Input value={form.code} onChange={(event) => updateForm("code", event.currentTarget.value)} className="rounded-md" /></label>
+                <label className="grid gap-1"><FieldLabel>Status</FieldLabel><Select value={form.status} onValueChange={(value) => updateForm("status", String(value ?? "DRAFT"))}><SelectTrigger className="w-full rounded-md"><SelectValue /></SelectTrigger><SelectContent>{PROJECT_STATUSES.filter((status) => status !== "ARCHIVED").map((status) => <SelectItem key={status} value={status}>{status.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select></label>
+                <label className="grid gap-1"><FieldLabel>Owner</FieldLabel><EmployeeSelect value={form.ownerEmployeeId} onChange={(value) => updateForm("ownerEmployeeId", value)} placeholder="Select owner" /></label>
+                <label className="grid gap-1"><FieldLabel>Manager</FieldLabel><EmployeeSelect value={form.managerEmployeeId} onChange={(value) => updateForm("managerEmployeeId", value)} placeholder="Select manager" /></label>
+                <label className="grid gap-1"><FieldLabel>Start date</FieldLabel><Input type="date" value={form.startDate} onChange={(event) => updateForm("startDate", event.currentTarget.value)} className="rounded-md" /></label>
+                <label className="grid gap-1"><FieldLabel>End date</FieldLabel><Input type="date" value={form.endDate} onChange={(event) => updateForm("endDate", event.currentTarget.value)} className="rounded-md" /></label>
+              </CardContent>
+            </Card>
+
+            <Card size="sm" className="rounded-md bg-muted/20 shadow-none ring-1 ring-border">
+              <CardHeader className="pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><CardTitle>Client access</CardTitle><Tabs value={form.clientMode} onValueChange={(value) => updateForm("clientMode", String(value ?? "existing"))} className="gap-0"><TabsList className="h-7 rounded-md"><TabsTrigger value="existing" className="rounded-sm px-2 text-xs">Existing</TabsTrigger><TabsTrigger value="new" className="rounded-sm px-2 text-xs">New</TabsTrigger></TabsList></Tabs></div></CardHeader>
+              <CardContent className="space-y-3">
+                {form.clientMode === "existing" ? <label className="grid gap-1"><FieldLabel>Client</FieldLabel><Select value={form.clientId || NONE} onValueChange={(value) => updateForm("clientId", value === NONE ? "" : String(value ?? ""))}><SelectTrigger className="w-full rounded-md bg-background"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={NONE}>No client linked</SelectItem>{(clients.data ?? []).map((client) => <SelectItem key={client.id} value={client.id}>{client.companyName}</SelectItem>)}</SelectContent></Select></label> : <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1"><FieldLabel>Company</FieldLabel><Input value={form.clientCompanyName} onChange={(event) => updateForm("clientCompanyName", event.currentTarget.value)} className="rounded-md bg-background" /></label><label className="grid gap-1"><FieldLabel>Contact</FieldLabel><Input value={form.clientContactName} onChange={(event) => updateForm("clientContactName", event.currentTarget.value)} className="rounded-md bg-background" /></label></div>}
+                <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={form.issueClientLogin} onChange={(event) => updateForm("issueClientLogin", event.currentTarget.checked)} className="size-4 rounded border-border" />Create or update client portal login</label>
+                {form.issueClientLogin ? <div className="grid gap-3 sm:grid-cols-3"><Input placeholder="Client email" value={form.clientEmail} onChange={(event) => updateForm("clientEmail", event.currentTarget.value)} className="rounded-md bg-background" /><Input placeholder="Client phone" value={form.clientPhone} onChange={(event) => updateForm("clientPhone", event.currentTarget.value)} className="rounded-md bg-background" /><Input placeholder="Password (optional)" value={form.clientPassword} onChange={(event) => updateForm("clientPassword", event.currentTarget.value)} className="rounded-md bg-background" /></div> : null}
+              </CardContent>
+            </Card>
           </div>
-        </div>
         )}
-        {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</div>}
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>{issuedCredentials ? "Close" : "Cancel"}</Button>
-          {!issuedCredentials && <Button onClick={submit} disabled={createProject.isPending}>Create</Button>}
-        </DialogFooter>
+
+        {error ? <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">{error}</div> : null}
+        <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>{issuedCredentials ? "Close" : "Cancel"}</Button>{!issuedCredentials ? <Button onClick={() => void submit()} disabled={createProject.isPending}>Create</Button> : null}</DialogFooter>
       </DialogContent>
     </Dialog>
   );

@@ -1,7 +1,13 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Archive, Save } from "lucide-react";
+import { Archive, ArrowLeft, MoreHorizontal, Save } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState, PageLoadingSpinner } from "@/components/ui/blih";
 import { useMyPermissions } from "../../../hooks/usePermissions";
 import { useClients } from "../../../hooks/useClients";
@@ -11,18 +17,9 @@ import { EmployeeSelect } from "../components/EmployeeSelect";
 import { CreateTaskModal } from "../components/CreateTaskModal";
 import { ProjectTaskBoard } from "../components/ProjectTaskBoard";
 import {
-  useAddProjectMember,
-  useArchiveProject,
-  useChangeProjectStatus,
-  useChangeProjectWorkflowFormStatus,
-  useCreateProjectWorkflowForm,
-  useProject,
-  useProjectMembers,
-  useProjectTasks,
-  useProjectWorkflowCatalog,
-  useProjectWorkflowForms,
-  useUpdateProjectWorkflowForm,
-  useUpdateProject,
+  useAddProjectMember, useArchiveProject, useChangeProjectStatus, useChangeProjectWorkflowFormStatus,
+  useCreateProjectWorkflowForm, useProject, useProjectMembers, useProjectTasks, useProjectWorkflowCatalog,
+  useProjectWorkflowForms, useUpdateProjectWorkflowForm, useUpdateProject,
 } from "../hooks";
 import { PROJECT_STATUSES } from "../schemas";
 import { getProjectKanbanColumns } from "../kanban";
@@ -40,18 +37,14 @@ const WORKFLOW_TABS: Array<{ tab: DetailTab; label: string; groups: ProjectWorkf
   { tab: "lessons", label: "Lessons", groups: ["lessons"] },
   { tab: "evaluations", label: "Evaluations", groups: ["evaluations"] },
 ];
-
 const CORE_TABS: Array<{ tab: DetailTab; label: string }> = [
-  { tab: "overview", label: "Overview" },
-  { tab: "tasks", label: "Tasks" },
-  { tab: "team", label: "Team" },
-  { tab: "activity", label: "Activity" },
+  { tab: "overview", label: "Overview" }, { tab: "tasks", label: "Tasks" }, { tab: "team", label: "Team" }, { tab: "activity", label: "Activity" },
 ];
+const MORE_TABS = [...WORKFLOW_TABS.map((item) => ({ tab: item.tab, label: item.label })), { tab: "settings" as DetailTab, label: "Settings" }];
+const NONE = "__none__";
 
-const MORE_TABS: Array<{ tab: DetailTab; label: string }> = [
-  ...WORKFLOW_TABS.map((item) => ({ tab: item.tab, label: item.label })),
-  { tab: "settings", label: "Settings" },
-];
+function FieldLabel({ children }: { children: ReactNode }) { return <span className="text-xs text-muted-foreground">{children}</span>; }
+function StatItem({ label, value }: { label: string; value: ReactNode }) { return <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardContent className="flex items-center justify-between gap-3 px-3"><span className="text-xs text-muted-foreground">{label}</span><span className="text-sm font-medium tabular-nums text-foreground">{value}</span></CardContent></Card>; }
 
 export default function ProjectDetailsPage({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
@@ -73,32 +66,15 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
   const createWorkflowForm = useCreateProjectWorkflowForm(projectId);
   const updateWorkflowForm = useUpdateProjectWorkflowForm(projectId);
   const changeWorkflowStatus = useChangeProjectWorkflowFormStatus(projectId);
-
   const canManageProjects = perms.hasAny("project.manage");
   const canWorkTasks = perms.hasAny("project.task", "project.manage");
 
-  const updateSetting = (key: string, value: unknown) => {
-    setSettings((previous: any) => ({ ...previous, [key]: value }));
+  const updateSetting = (key: string, value: unknown) => setSettings((previous: any) => ({ ...previous, [key]: value }));
+  const updateNewClientField = (stateKey: "clientCompanyName" | "clientContactName" | "clientEmail" | "clientPhone", clientKey: "companyName" | "contactName" | "email" | "phone", value: string) => {
+    setSettings((previous: any) => ({ ...previous, [stateKey]: value, newClient: previous.clientMode === "new" || stateKey === "clientCompanyName" || stateKey === "clientContactName" ? { ...(previous.newClient || {}), [clientKey]: value } : previous.newClient }));
   };
 
-  const updateNewClientField = (
-    stateKey: "clientCompanyName" | "clientContactName" | "clientEmail" | "clientPhone",
-    clientKey: "companyName" | "contactName" | "email" | "phone",
-    value: string,
-  ) => {
-    setSettings((previous: any) => ({
-      ...previous,
-      [stateKey]: value,
-      newClient:
-        previous.clientMode === "new" || stateKey === "clientCompanyName" || stateKey === "clientContactName"
-          ? { ...(previous.newClient || {}), [clientKey]: value }
-          : previous.newClient,
-    }));
-  };
-
-  if (!perms.isLoading && !perms.hasAny("project.read", "project.manage", "project.self", "project.task")) {
-    return <main className="h-full overflow-y-auto bg-[#f8fafc] p-6"><EmptyState title="Project unavailable" description="Your role does not currently include project access." /></main>;
-  }
+  if (!perms.isLoading && !perms.hasAny("project.read", "project.manage", "project.self", "project.task")) return <main className="h-full overflow-y-auto bg-muted/20 p-6"><EmptyState title="Project unavailable" description="Your role does not currently include project access." /></main>;
   if (project.isLoading) return <PageLoadingSpinner label="Loading project" />;
   if (project.isError || !project.data) return <div className="p-6"><EmptyState title="Project unavailable" description="The project could not be loaded." /></div>;
 
@@ -110,11 +86,11 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
   const doneTasks = taskRows.filter((task) => task.status === "DONE").length;
   const blockedTasks = taskRows.filter((task) => task.status === "BLOCKED").length;
   const kanbanColumns = getProjectKanbanColumns(p);
-  const selectedMoreTab = MORE_TABS.some((item) => item.tab === tab) ? tab : "";
+  const coreTab = CORE_TABS.some((item) => item.tab === tab) ? tab : "";
 
   const saveSettings = async () => {
     const selectedClient = clients.data?.find((client) => client.id === (settings.clientId ?? p.clientId));
-    const payload = {
+    const payload: any = {
       ...settings,
       clientPortalUser: settings.issueClientLogin ? {
         fullName: settings.clientContactName || settings.clientCompanyName || selectedClient?.contactName || selectedClient?.companyName || undefined,
@@ -123,214 +99,63 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
         password: settings.clientPassword || undefined,
       } : undefined,
     };
-    delete (payload as any).clientMode;
-    delete (payload as any).clientCompanyName;
-    delete (payload as any).clientContactName;
-    delete (payload as any).clientEmail;
-    delete (payload as any).clientPhone;
-    delete (payload as any).clientPassword;
-    delete (payload as any).issueClientLogin;
-    if (settings.clientMode !== "new") delete (payload as any).newClient;
-    if (settings.clientMode === "new") delete (payload as any).clientId;
-    if (!settings.issueClientLogin) delete (payload as any).clientPortalUser;
+    for (const key of ["clientMode", "clientCompanyName", "clientContactName", "clientEmail", "clientPhone", "clientPassword", "issueClientLogin"]) delete payload[key];
+    if (settings.clientMode !== "new") delete payload.newClient;
+    if (settings.clientMode === "new") delete payload.clientId;
+    if (!settings.issueClientLogin) delete payload.clientPortalUser;
     const updated: any = await updateProject.mutateAsync({ id: projectId, data: payload });
-    if (updated?.clientPortalUser?.email) {
-      setIssuedCredentials({
-        email: updated.clientPortalUser.email,
-        password: updated.clientPortalUser.temporaryPassword || settings.clientPassword || null,
-        portalUrl: `${window.location.origin}/client-portal`,
-      });
-    }
+    if (updated?.clientPortalUser?.email) setIssuedCredentials({ email: updated.clientPortalUser.email, password: updated.clientPortalUser.temporaryPassword || settings.clientPassword || null, portalUrl: `${window.location.origin}/client-portal` });
     setSettings({});
   };
 
   return (
-    <main className="h-full overflow-y-auto bg-[#f8fafc] p-3 lg:p-4">
+    <main className="h-full overflow-y-auto bg-muted/20 p-3 lg:p-4">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
-        <header className="rounded-lg border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button onClick={() => navigate(-1)} className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-blue-600 hover:bg-blue-50" aria-label="Back">
-              <ArrowLeft className="h-4 w-4" />
-            </button>
-
-            <div className="min-w-[220px] flex-1">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <h1 className="max-w-[520px] truncate text-base font-black text-slate-950" title={p.title}>{p.title}</h1>
-                <ProjectStatusBadge status={p.status} />
-                <ProjectStatusBadge status={p.priority} />
-              </div>
-              <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[10px] font-semibold text-slate-400">
-                <span>{p.code || "No code"}</span><span>•</span><span>{p.startDate || "No start"} → {p.endDate || "No end"}</span>
-              </div>
+        <Card size="sm" className="gap-0 rounded-md py-0 shadow-none ring-1 ring-border">
+          <CardContent className="p-0">
+            <div className="flex flex-wrap items-center gap-2 border-b border-border px-2.5 py-2">
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => navigate(-1)} aria-label="Back"><ArrowLeft /></Button>
+              <div className="min-w-[220px] flex-1"><div className="flex flex-wrap items-center gap-1.5"><h1 className="max-w-[520px] truncate text-base font-medium text-foreground" title={p.title}>{p.title}</h1><ProjectStatusBadge status={p.status} /><ProjectStatusBadge status={p.priority} /></div><p className="mt-0.5 text-xs text-muted-foreground">{p.code || "No code"} · {p.startDate || "No start"} → {p.endDate || "No end"}</p></div>
+              <div className="hidden min-w-[170px] items-center gap-2 lg:flex"><div className="h-1.5 flex-1 overflow-hidden rounded-sm bg-muted"><div className="h-full bg-primary" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} /></div><span className="text-xs tabular-nums text-muted-foreground">{progressPercent}%</span></div>
+              {canManageProjects ? <Select value={p.status} onValueChange={(value) => changeStatus.mutate({ id: projectId, status: String(value ?? p.status) })}><SelectTrigger className="w-40 rounded-md" aria-label="Project status"><SelectValue /></SelectTrigger><SelectContent>{PROJECT_STATUSES.map((status) => <SelectItem key={status} value={status}>{status.replace(/_/g, " ")}</SelectItem>)}</SelectContent></Select> : null}
+              {canManageProjects ? <Button variant="outline" size="sm" onClick={() => archiveProject.mutate(projectId)}><Archive />Archive</Button> : null}
             </div>
-
-            <div className="hidden min-w-[150px] items-center gap-2 lg:flex">
-              <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full bg-blue-600" style={{ width: `${Math.max(0, Math.min(100, progressPercent))}%` }} /></div>
-              <span className="w-8 text-right text-[10px] font-black text-slate-500">{progressPercent}%</span>
+            <div className="flex items-center gap-1 px-2.5 py-1.5">
+              <Tabs value={coreTab} onValueChange={(value) => setTab(value as DetailTab)} className="gap-0"><TabsList className="h-8 rounded-md bg-transparent p-0">{CORE_TABS.map((item) => <TabsTrigger key={item.tab} value={item.tab} className="rounded-md px-3 text-xs">{item.label}</TabsTrigger>)}</TabsList></Tabs>
+              <DropdownMenu><DropdownMenuTrigger render={<Button variant={coreTab ? "ghost" : "secondary"} size="sm" />}><MoreHorizontal />More</DropdownMenuTrigger><DropdownMenuContent align="start" className="w-48">{MORE_TABS.map((item) => <DropdownMenuItem key={item.tab} onClick={() => setTab(item.tab)}>{item.label}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
             </div>
+          </CardContent>
+        </Card>
 
-            {canManageProjects && (
-              <select value={p.status} onChange={(event) => changeStatus.mutate({ id: projectId, status: event.currentTarget.value })} className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs font-bold text-slate-700">
-                {PROJECT_STATUSES.map((status) => <option key={status} value={status}>{status.replace(/_/g, " ")}</option>)}
-              </select>
-            )}
-            {canManageProjects && <Button variant="outline" size="sm" onClick={() => archiveProject.mutate(projectId)}><Archive className="h-4 w-4" /> Archive</Button>}
-          </div>
+        {tab === "overview" ? <><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><StatItem label="Progress" value={`${progressPercent}%`} /><StatItem label="Active tasks" value={activeTasks} /><StatItem label="Blocked" value={blockedTasks} /><StatItem label="Team" value={memberRows.length} /></div><div className="grid gap-3 lg:grid-cols-2"><Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Project details</CardTitle></CardHeader><CardContent><dl className="grid gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Owner</dt><dd className="mt-0.5 text-foreground">{p.owner?.user?.fullName || "Unassigned"}</dd></div><div><dt className="text-xs text-muted-foreground">Manager</dt><dd className="mt-0.5 text-foreground">{p.manager?.user?.fullName || "Unassigned"}</dd></div><div><dt className="text-xs text-muted-foreground">Description</dt><dd className="mt-0.5 leading-5 text-foreground">{p.description || "No description"}</dd></div></dl></CardContent></Card><Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Recent tasks</CardTitle></CardHeader><CardContent>{taskRows.length ? <TaskList tasks={taskRows.slice(0, 5)} /> : <EmptyState title="No tasks yet" description="Tasks added to this project will appear here." />}</CardContent></Card></div></> : null}
 
-          <nav className="mt-2 flex items-center gap-1 border-t border-slate-100 pt-2" aria-label="Project sections">
-            {CORE_TABS.map((item) => (
-              <button key={item.tab} type="button" onClick={() => setTab(item.tab)} className={`h-8 rounded-md px-3 text-[11px] font-bold transition ${tab === item.tab ? "bg-blue-600 text-white" : "text-slate-600 hover:bg-slate-100"}`}>
-                {item.label}
-              </button>
-            ))}
-            <select
-              aria-label="More project sections"
-              value={selectedMoreTab}
-              onChange={(event) => event.currentTarget.value && setTab(event.currentTarget.value as DetailTab)}
-              className={`h-8 rounded-md border px-2 text-[11px] font-bold outline-none ${selectedMoreTab ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-200 bg-white text-slate-600"}`}
-            >
-              <option value="">More</option>
-              {MORE_TABS.map((item) => <option key={item.tab} value={item.tab}>{item.label}</option>)}
-            </select>
-          </nav>
-        </header>
+        {tab === "tasks" ? <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="border-b"><div className="flex items-center justify-between gap-3"><div><CardTitle>Tasks</CardTitle><p className="mt-0.5 text-xs text-muted-foreground">Create, discuss and move work through this project&apos;s workflow.</p></div>{canWorkTasks ? <CreateTaskModal projectId={projectId} columns={kanbanColumns} /> : null}</div></CardHeader><CardContent>{tasks.isLoading ? <PageLoadingSpinner label="Loading tasks" /> : <ProjectTaskBoard project={p} tasks={taskRows} canMove={canWorkTasks} canManage={canManageProjects} />}</CardContent></Card> : null}
 
-        {tab === "overview" && (
-          <>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              {[
-                ["Progress", `${progressPercent}%`],
-                ["Active tasks", activeTasks],
-                ["Blocked", blockedTasks],
-                ["Team", memberRows.length],
-              ].map(([label, value]) => (
-                <div key={String(label)} className="rounded-md border border-slate-200 bg-white px-3 py-2.5 shadow-sm">
-                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</div>
-                  <div className="mt-0.5 text-lg font-black text-slate-950">{value}</div>
-                </div>
-              ))}
-            </div>
-            <div className="grid gap-3 lg:grid-cols-2">
-              <section className="rounded-lg border border-slate-200 bg-white p-3">
-                <h2 className="text-xs font-black text-slate-900">Project Details</h2>
-                <dl className="mt-3 grid gap-2.5 text-sm">
-                  <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Owner</dt><dd className="font-semibold text-slate-700">{p.owner?.user?.fullName || "Unassigned"}</dd></div>
-                  <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Manager</dt><dd className="font-semibold text-slate-700">{p.manager?.user?.fullName || "Unassigned"}</dd></div>
-                  <div><dt className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Description</dt><dd className="text-sm leading-5 text-slate-600">{p.description || "No description"}</dd></div>
-                </dl>
-              </section>
-              <section className="rounded-lg border border-slate-200 bg-white p-3">
-                <h2 className="mb-2 text-xs font-black text-slate-900">Recent Tasks</h2>
-                {taskRows.length ? <TaskList tasks={taskRows.slice(0, 5)} /> : <EmptyState title="No tasks yet" description="Tasks added to this project will appear here." />}
-              </section>
-            </div>
-          </>
-        )}
+        {tab === "team" ? <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="border-b"><CardTitle>Team</CardTitle></CardHeader><CardContent><div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end"><label className="grid flex-1 gap-1"><FieldLabel>Add member</FieldLabel><EmployeeSelect value={memberEmployeeId} onChange={setMemberEmployeeId} placeholder="Select team member" /></label>{canManageProjects ? <Button size="sm" disabled={!memberEmployeeId || addMember.isPending} onClick={() => addMember.mutate({ employeeId: memberEmployeeId, role: "MEMBER" } as any)}>Add member</Button> : null}</div><div className="divide-y divide-border rounded-md border">{memberRows.map((member: any) => <div key={member.id} className="flex items-center justify-between px-3 py-2.5"><div><div className="text-sm font-medium text-foreground">{member.employee?.user?.fullName || member.employeeId}</div><div className="text-xs text-muted-foreground">{member.employee?.user?.email || "Team member"}</div></div><ProjectStatusBadge status={member.role} /></div>)}{!memberRows.length ? <EmptyState title="No team members" description="Owner, manager, and members will appear here." /> : null}</div></CardContent></Card> : null}
 
-        {tab === "tasks" && (
-          <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="mb-2.5 flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-black text-slate-900">Tasks</h2>
-                <p className="text-[11px] font-medium text-slate-500">Create, discuss and move work through this project&apos;s workflow.</p>
-              </div>
-              {canWorkTasks && <CreateTaskModal projectId={projectId} columns={kanbanColumns} />}
-            </div>
-            {tasks.isLoading ? <PageLoadingSpinner label="Loading tasks" /> : <ProjectTaskBoard project={p} tasks={taskRows} canMove={canWorkTasks} canManage={canManageProjects} />}
-          </section>
-        )}
+        {WORKFLOW_TABS.map((workflowTab) => tab === workflowTab.tab ? <WorkflowFormsTab key={workflowTab.tab} label={workflowTab.label} groups={workflowTab.groups} forms={workflowForms.data ?? []} catalog={workflowCatalog.data ?? []} tasks={taskRows} canManage={canManageProjects} isLoading={workflowForms.isLoading || workflowCatalog.isLoading} onCreate={(payload) => createWorkflowForm.mutate(payload)} onUpdate={(formId, data) => updateWorkflowForm.mutate({ formId, data })} onStatus={(formId, status) => changeWorkflowStatus.mutate({ formId, status })} /> : null)}
 
-        {tab === "team" && (
-          <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end">
-              <label className="flex-1">
-                <span className="mb-1 block text-xs font-bold text-slate-600">Add member</span>
-                <EmployeeSelect value={memberEmployeeId} onChange={setMemberEmployeeId} placeholder="Select team member" />
-              </label>
-              {canManageProjects && <Button size="sm" disabled={!memberEmployeeId || addMember.isPending} onClick={() => addMember.mutate({ employeeId: memberEmployeeId, role: "MEMBER" } as any)}>Add Member</Button>}
-            </div>
-            <div className="divide-y divide-slate-100">
-              {memberRows.map((member: any) => (
-                <div key={member.id} className="flex items-center justify-between py-2.5">
-                  <div><div className="text-sm font-bold text-slate-800">{member.employee?.user?.fullName || member.employeeId}</div><div className="text-[11px] text-slate-500">{member.employee?.user?.email || "Team member"}</div></div>
-                  <ProjectStatusBadge status={member.role} />
-                </div>
-              ))}
-              {!memberRows.length && <EmptyState title="No team members" description="Owner, manager, and members will appear here." />}
-            </div>
-          </section>
-        )}
+        {tab === "activity" ? <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="border-b"><CardTitle>Activity</CardTitle></CardHeader><CardContent><EmptyState title="No activity yet" description="Project activity will appear here when tasks, comments, and team changes are recorded." /></CardContent></Card> : null}
 
-        {WORKFLOW_TABS.map((workflowTab) => tab === workflowTab.tab && (
-          <div key={workflowTab.tab}>
-            <WorkflowFormsTab
-              label={workflowTab.label}
-              groups={workflowTab.groups}
-              forms={workflowForms.data ?? []}
-              catalog={workflowCatalog.data ?? []}
-              tasks={taskRows}
-              canManage={canManageProjects}
-              isLoading={workflowForms.isLoading || workflowCatalog.isLoading}
-              onCreate={(payload) => createWorkflowForm.mutate(payload)}
-              onUpdate={(formId, data) => updateWorkflowForm.mutate({ formId, data })}
-              onStatus={(formId, status) => changeWorkflowStatus.mutate({ formId, status })}
-            />
-          </div>
-        ))}
-
-        {tab === "activity" && <div className="rounded-lg border border-slate-200 bg-white p-3"><EmptyState title="No activity yet" description="Project activity will appear here when tasks, comments, and team changes are recorded." /></div>}
-
-        {tab === "settings" && (canManageProjects ? (
-          <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-            <div className="grid gap-3 md:grid-cols-2">
-              <label><span className="mb-1 block text-xs font-bold text-slate-600">Name</span><input defaultValue={p.title} onChange={(event) => updateSetting("title", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
-              <label><span className="mb-1 block text-xs font-bold text-slate-600">Priority</span><select defaultValue={p.priority || "NORMAL"} onChange={(event) => updateSetting("priority", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm"><option>LOW</option><option>NORMAL</option><option>HIGH</option><option>URGENT</option></select></label>
-              <label><span className="mb-1 block text-xs font-bold text-slate-600">Owner</span><EmployeeSelect value={settings.ownerEmployeeId ?? p.ownerEmployeeId ?? ""} onChange={(value) => updateSetting("ownerEmployeeId", value)} /></label>
-              <label><span className="mb-1 block text-xs font-bold text-slate-600">Manager</span><EmployeeSelect value={settings.managerEmployeeId ?? p.managerEmployeeId ?? ""} onChange={(value) => updateSetting("managerEmployeeId", value)} /></label>
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 md:col-span-2">
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-black uppercase text-slate-500">Client portal</span>
-                  <button type="button" onClick={() => setSettings((state: any) => ({ ...state, clientMode: "existing", newClient: undefined }))} className={`rounded-md px-3 py-1.5 text-xs font-bold ${(settings.clientMode || "existing") === "existing" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>Existing client</button>
-                  <button type="button" onClick={() => setSettings((state: any) => ({ ...state, clientMode: "new", clientId: undefined }))} className={`rounded-md px-3 py-1.5 text-xs font-bold ${settings.clientMode === "new" ? "bg-blue-600 text-white" : "bg-white text-slate-600"}`}>New client</button>
-                </div>
-                {(settings.clientMode || "existing") === "existing" ? (
-                  <label>
-                    <span className="mb-1 block text-xs font-bold text-slate-600">Linked client</span>
-                    <select value={settings.clientId ?? p.clientId ?? ""} onChange={(event) => updateSetting("clientId", event.currentTarget.value || null)} className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm">
-                      <option value="">No client linked</option>
-                      {(clients.data ?? []).map((client) => <option key={client.id} value={client.id}>{client.companyName}</option>)}
-                    </select>
-                  </label>
-                ) : (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label><span className="mb-1 block text-xs font-bold text-slate-600">Company</span><input value={settings.clientCompanyName || ""} onChange={(event) => updateNewClientField("clientCompanyName", "companyName", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" /></label>
-                    <label><span className="mb-1 block text-xs font-bold text-slate-600">Contact</span><input value={settings.clientContactName || ""} onChange={(event) => updateNewClientField("clientContactName", "contactName", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm" /></label>
-                  </div>
-                )}
-                <label className="mt-3 flex items-center gap-2 text-sm font-bold text-slate-700">
-                  <input type="checkbox" checked={Boolean(settings.issueClientLogin)} onChange={(event) => updateSetting("issueClientLogin", event.currentTarget.checked)} />
-                  Create or reset client portal login
-                </label>
-                {settings.issueClientLogin && (
-                  <div className="mt-3 grid gap-3 sm:grid-cols-3">
-                    <input placeholder="Client email" value={settings.clientEmail || ""} onChange={(event) => updateNewClientField("clientEmail", "email", event.currentTarget.value)} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm" />
-                    <input placeholder="Client phone" value={settings.clientPhone || ""} onChange={(event) => updateNewClientField("clientPhone", "phone", event.currentTarget.value)} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm" />
-                    <input placeholder="New password" value={settings.clientPassword || ""} onChange={(event) => updateSetting("clientPassword", event.currentTarget.value)} className="h-9 rounded-md border border-slate-200 bg-white px-3 text-sm" />
-                  </div>
-                )}
-                {issuedCredentials && (
-                  <div className="mt-3 grid gap-3 rounded-md border border-emerald-100 bg-emerald-50 p-3 text-sm sm:grid-cols-3">
-                    <div><span className="block text-xs font-black text-emerald-700">Email</span><span className="font-semibold text-emerald-900">{issuedCredentials.email}</span></div>
-                    <div><span className="block text-xs font-black text-emerald-700">Password</span><span className="font-semibold text-emerald-900">{issuedCredentials.password || "Existing password"}</span></div>
-                    <div><span className="block text-xs font-black text-emerald-700">Login URL</span><span className="font-semibold text-emerald-900">{issuedCredentials.portalUrl}</span></div>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="mt-3"><Button size="sm" onClick={() => void saveSettings()} disabled={updateProject.isPending}><Save className="h-4 w-4" /> Save Changes</Button></div>
-          </section>
-        ) : <EmptyState title="Settings unavailable" description="Your role can view this project but cannot edit project settings." />)}
+        {tab === "settings" ? (canManageProjects ? <SettingsCard p={p} settings={settings} clients={clients.data ?? []} issuedCredentials={issuedCredentials} updateSetting={updateSetting} updateNewClientField={updateNewClientField} save={() => void saveSettings()} saving={updateProject.isPending} /> : <EmptyState title="Settings unavailable" description="Your role can view this project but cannot edit project settings." />) : null}
       </div>
     </main>
   );
+}
+
+function SettingsCard({ p, settings, clients, issuedCredentials, updateSetting, updateNewClientField, save, saving }: any) {
+  return <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="border-b"><CardTitle>Settings</CardTitle></CardHeader><CardContent className="space-y-3"><div className="grid gap-3 md:grid-cols-2">
+    <label className="grid gap-1"><FieldLabel>Name</FieldLabel><Input defaultValue={p.title} onChange={(event) => updateSetting("title", event.currentTarget.value)} /></label>
+    <label className="grid gap-1"><FieldLabel>Priority</FieldLabel><Select value={settings.priority ?? p.priority ?? "NORMAL"} onValueChange={(value) => updateSetting("priority", String(value ?? "NORMAL"))}><SelectTrigger className="w-full"><SelectValue /></SelectTrigger><SelectContent>{["LOW", "NORMAL", "HIGH", "URGENT"].map((priority) => <SelectItem key={priority} value={priority}>{priority}</SelectItem>)}</SelectContent></Select></label>
+    <label className="grid gap-1"><FieldLabel>Owner</FieldLabel><EmployeeSelect value={settings.ownerEmployeeId ?? p.ownerEmployeeId ?? ""} onChange={(value) => updateSetting("ownerEmployeeId", value)} /></label>
+    <label className="grid gap-1"><FieldLabel>Manager</FieldLabel><EmployeeSelect value={settings.managerEmployeeId ?? p.managerEmployeeId ?? ""} onChange={(value) => updateSetting("managerEmployeeId", value)} /></label>
+  </div>
+  <Card size="sm" className="rounded-md bg-muted/20 shadow-none ring-1 ring-border"><CardHeader className="pb-0"><div className="flex flex-wrap items-center justify-between gap-2"><CardTitle>Client portal</CardTitle><Tabs value={settings.clientMode || "existing"} onValueChange={(value) => updateSetting("clientMode", String(value ?? "existing"))} className="gap-0"><TabsList className="h-7 rounded-md"><TabsTrigger value="existing" className="rounded-sm px-2 text-xs">Existing client</TabsTrigger><TabsTrigger value="new" className="rounded-sm px-2 text-xs">New client</TabsTrigger></TabsList></Tabs></div></CardHeader><CardContent className="space-y-3">
+    {(settings.clientMode || "existing") === "existing" ? <label className="grid gap-1"><FieldLabel>Linked client</FieldLabel><Select value={settings.clientId ?? p.clientId ?? NONE} onValueChange={(value) => updateSetting("clientId", value === NONE ? null : value)}><SelectTrigger className="w-full bg-background"><SelectValue /></SelectTrigger><SelectContent><SelectItem value={NONE}>No client linked</SelectItem>{clients.map((client: any) => <SelectItem key={client.id} value={client.id}>{client.companyName}</SelectItem>)}</SelectContent></Select></label> : <div className="grid gap-3 sm:grid-cols-2"><label className="grid gap-1"><FieldLabel>Company</FieldLabel><Input value={settings.clientCompanyName || ""} onChange={(event) => updateNewClientField("clientCompanyName", "companyName", event.currentTarget.value)} className="bg-background" /></label><label className="grid gap-1"><FieldLabel>Contact</FieldLabel><Input value={settings.clientContactName || ""} onChange={(event) => updateNewClientField("clientContactName", "contactName", event.currentTarget.value)} className="bg-background" /></label></div>}
+    <label className="flex items-center gap-2 text-sm text-foreground"><input type="checkbox" checked={Boolean(settings.issueClientLogin)} onChange={(event) => updateSetting("issueClientLogin", event.currentTarget.checked)} className="size-4 rounded border-border" />Create or reset client portal login</label>
+    {settings.issueClientLogin ? <div className="grid gap-3 sm:grid-cols-3"><Input placeholder="Client email" value={settings.clientEmail || ""} onChange={(event) => updateNewClientField("clientEmail", "email", event.currentTarget.value)} className="bg-background" /><Input placeholder="Client phone" value={settings.clientPhone || ""} onChange={(event) => updateNewClientField("clientPhone", "phone", event.currentTarget.value)} className="bg-background" /><Input placeholder="New password" value={settings.clientPassword || ""} onChange={(event) => updateSetting("clientPassword", event.currentTarget.value)} className="bg-background" /></div> : null}
+    {issuedCredentials ? <div className="grid gap-3 rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm sm:grid-cols-3"><div><span className="text-xs text-emerald-700">Email</span><div className="text-emerald-900">{issuedCredentials.email}</div></div><div><span className="text-xs text-emerald-700">Password</span><div className="text-emerald-900">{issuedCredentials.password || "Existing password"}</div></div><div><span className="text-xs text-emerald-700">Login URL</span><div className="truncate text-emerald-900">{issuedCredentials.portalUrl}</div></div></div> : null}
+  </CardContent></Card>
+  <div className="flex justify-end"><Button size="sm" onClick={save} disabled={saving}><Save />Save changes</Button></div>
+  </CardContent></Card>;
 }
