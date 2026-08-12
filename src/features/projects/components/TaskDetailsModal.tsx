@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type ClipboardEvent as ReactClipboardEvent } from "react";
-import { ClipboardPaste, ExternalLink, ImageIcon, Loader2, Trash2, Upload } from "lucide-react";
+import { ClipboardPaste, ExternalLink, ImageIcon, Loader2, Pencil, Trash2, Upload } from "lucide-react";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { EmployeeSelect } from "./EmployeeSelect";
 import { ProjectStatusBadge } from "./ProjectStatusBadge";
-import type { ProjectTask } from "../types";
-import { useDeleteProjectTask, useUpdateProjectTask } from "../hooks";
+import { getTaskKanbanColumnId } from "../kanban";
+import type { ProjectKanbanColumn, ProjectTask } from "../types";
+import { useChangeProjectTaskStatus, useDeleteProjectTask, useUpdateProjectTask } from "../hooks";
 import { api } from "@/api/client";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
@@ -77,13 +78,22 @@ function formatFileSize(value: number | string | undefined) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function formatDateTime(value?: string | null) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 function normalizeScreenshotFile(file: File, source: "upload" | "clipboard") {
-  if (!SCREENSHOT_MIME_TYPES.has(file.type)) {
-    throw new Error("Use a PNG, JPG/JPEG, or WebP screenshot.");
-  }
-  if (file.size > MAX_SCREENSHOT_SIZE) {
-    throw new Error("Screenshot must be 10 MB or smaller.");
-  }
+  if (!SCREENSHOT_MIME_TYPES.has(file.type)) throw new Error("Use a PNG, JPG/JPEG, or WebP screenshot.");
+  if (file.size > MAX_SCREENSHOT_SIZE) throw new Error("Screenshot must be 10 MB or smaller.");
   if (source === "upload" && file.name) return file;
 
   const extension = file.type === "image/jpeg" ? "jpg" : file.type === "image/webp" ? "webp" : "png";
@@ -96,19 +106,23 @@ function normalizeScreenshotFile(file: File, source: "upload" | "clipboard") {
 export function TaskDetailsModal({
   projectId,
   task,
+  columns,
   open,
   canEdit,
   onOpenChange,
 }: {
   projectId: string;
   task: ProjectTask | null;
+  columns: ProjectKanbanColumn[];
   open: boolean;
   canEdit: boolean;
   onOpenChange: (open: boolean) => void;
 }) {
   const updateTask = useUpdateProjectTask(projectId);
+  const changeTaskStatus = useChangeProjectTaskStatus(projectId);
   const deleteTask = useDeleteProjectTask(projectId);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [editing, setEditing] = useState(false);
   const [error, setError] = useState("");
   const [attachmentError, setAttachmentError] = useState("");
   const [attachments, setAttachments] = useState<TaskScreenshotAttachment[]>([]);
@@ -118,6 +132,7 @@ export function TaskDetailsModal({
     title: "",
     description: "",
     assigneeEmployeeId: "",
+    kanbanColumnId: "",
     priority: "MEDIUM",
     startDate: "",
     dueDate: "",
@@ -126,26 +141,28 @@ export function TaskDetailsModal({
     weight: "",
   });
 
-  const updateForm = (key: keyof typeof form, value: string) => {
-    setForm((previous) => ({ ...previous, [key]: value }));
+  const hydrateForm = (currentTask: ProjectTask) => {
+    setForm({
+      title: currentTask.title || "",
+      description: currentTask.description || "",
+      assigneeEmployeeId: currentTask.assigneeEmployeeId || "",
+      kanbanColumnId: getTaskKanbanColumnId(currentTask, columns),
+      priority: currentTask.priority || "MEDIUM",
+      startDate: currentTask.startDate || "",
+      dueDate: currentTask.dueDate || "",
+      estimatedHours: String(currentTask.estimatedHours ?? ""),
+      actualHours: String(currentTask.actualHours ?? ""),
+      weight: String(currentTask.weight ?? ""),
+    });
   };
 
   useEffect(() => {
     if (!task) return;
+    setEditing(false);
     setError("");
     setAttachmentError("");
-    setForm({
-      title: task.title || "",
-      description: task.description || "",
-      assigneeEmployeeId: task.assigneeEmployeeId || "",
-      priority: task.priority || "MEDIUM",
-      startDate: task.startDate || "",
-      dueDate: task.dueDate || "",
-      estimatedHours: String((task as any).estimatedHours ?? ""),
-      actualHours: String((task as any).actualHours ?? ""),
-      weight: String((task as any).weight ?? ""),
-    });
-  }, [task]);
+    hydrateForm(task);
+  }, [task, columns]);
 
   useEffect(() => {
     if (!open || !task) {
@@ -156,15 +173,12 @@ export function TaskDetailsModal({
     let cancelled = false;
     setAttachmentsLoading(true);
     setAttachmentError("");
-
     listProjectTaskScreenshots(task.id)
       .then((rows) => {
         if (!cancelled) setAttachments(rows);
       })
-      .catch((e: any) => {
-        if (!cancelled) {
-          setAttachmentError(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Could not load screenshots.");
-        }
+      .catch((requestError: any) => {
+        if (!cancelled) setAttachmentError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not load screenshots.");
       })
       .finally(() => {
         if (!cancelled) setAttachmentsLoading(false);
@@ -175,66 +189,60 @@ export function TaskDetailsModal({
     };
   }, [open, task?.id]);
 
+  const updateForm = (key: keyof typeof form, value: string) => {
+    setForm((previous) => ({ ...previous, [key]: value }));
+  };
+
   const refreshAttachments = async () => {
     if (!task) return;
-    const rows = await listProjectTaskScreenshots(task.id);
-    setAttachments(rows);
+    setAttachments(await listProjectTaskScreenshots(task.id));
   };
 
   const attachScreenshot = async (file: File, source: "upload" | "clipboard") => {
-    if (!task || uploadingScreenshot) return;
-
+    if (!task || uploadingScreenshot || !editing) return;
     try {
       setAttachmentError("");
       setUploadingScreenshot(true);
-      const normalized = normalizeScreenshotFile(file, source);
-      await uploadProjectTaskScreenshot(task.id, normalized);
+      await uploadProjectTaskScreenshot(task.id, normalizeScreenshotFile(file, source));
       await refreshAttachments();
-    } catch (e: any) {
-      setAttachmentError(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Could not attach screenshot.");
+    } catch (requestError: any) {
+      setAttachmentError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not attach screenshot.");
     } finally {
       setUploadingScreenshot(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  const handleFileSelection = (file: File | undefined) => {
-    if (file) void attachScreenshot(file, "upload");
-  };
-
   const handlePaste = (event: ReactClipboardEvent<HTMLDivElement>) => {
+    if (!editing) return;
     const image = Array.from(event.clipboardData.files as FileList).find((file) => file.type.startsWith("image/"));
     if (!image) {
       setAttachmentError("No screenshot image was found in the clipboard.");
       return;
     }
-
     event.preventDefault();
     void attachScreenshot(image, "clipboard");
   };
 
   const pasteFromClipboard = async () => {
+    if (!editing) return;
     if (!navigator.clipboard?.read) {
-      setAttachmentError("Direct clipboard access is not available in this browser. Click the paste area and press Ctrl+V (Cmd+V on Mac).");
+      setAttachmentError("Direct clipboard access is not available. Focus the paste area and press Ctrl+V / Cmd+V.");
       return;
     }
 
     try {
-      setAttachmentError("");
       const clipboardItems = await navigator.clipboard.read();
       for (const item of clipboardItems) {
         const imageType = item.types.find((type) => type.startsWith("image/"));
         if (!imageType) continue;
         const blob = await item.getType(imageType);
-        const file = new File([blob], "clipboard-screenshot", { type: imageType, lastModified: Date.now() });
-        await attachScreenshot(file, "clipboard");
+        await attachScreenshot(new File([blob], "clipboard-screenshot", { type: imageType, lastModified: Date.now() }), "clipboard");
         return;
       }
       setAttachmentError("No screenshot image was found in the clipboard.");
-    } catch (e: any) {
-      setAttachmentError(
-        e?.message || "Clipboard permission was denied. Click the paste area and press Ctrl+V (Cmd+V on Mac) instead.",
-      );
+    } catch (requestError: any) {
+      setAttachmentError(requestError?.message || "Clipboard permission was denied. Focus the paste area and press Ctrl+V / Cmd+V instead.");
     }
   };
 
@@ -249,10 +257,17 @@ export function TaskDetailsModal({
       } else {
         window.open(url, "_blank", "noopener,noreferrer");
       }
-    } catch (e: any) {
+    } catch (requestError: any) {
       previewWindow?.close();
-      setAttachmentError(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Could not open screenshot.");
+      setAttachmentError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not open screenshot.");
     }
+  };
+
+  const cancelEdit = () => {
+    if (task) hydrateForm(task);
+    setError("");
+    setAttachmentError("");
+    setEditing(false);
   };
 
   const save = async () => {
@@ -262,8 +277,12 @@ export function TaskDetailsModal({
       return;
     }
 
+    const column = columns.find((item) => item.id === form.kanbanColumnId) || columns[0];
     try {
       setError("");
+      if (column && task.status !== column.status) {
+        await changeTaskStatus.mutateAsync({ taskId: task.id, status: column.status });
+      }
       await updateTask.mutateAsync({
         taskId: task.id,
         data: {
@@ -276,11 +295,15 @@ export function TaskDetailsModal({
           estimatedHours: form.estimatedHours === "" ? undefined : Number(form.estimatedHours),
           actualHours: form.actualHours === "" ? undefined : Number(form.actualHours),
           weight: form.weight === "" ? undefined : Number(form.weight),
+          metadata: {
+            ...(task.metadata || {}),
+            kanbanColumnId: column?.id || form.kanbanColumnId,
+          },
         },
       });
-      onOpenChange(false);
-    } catch (e: any) {
-      setError(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Could not update task.");
+      setEditing(false);
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not update task.");
     }
   };
 
@@ -288,171 +311,146 @@ export function TaskDetailsModal({
     if (!task) return;
     const confirmed = window.confirm(`Delete "${task.title}"? This removes the task from the project.`);
     if (!confirmed) return;
-
     try {
       setError("");
       await deleteTask.mutateAsync(task.id);
       onOpenChange(false);
-    } catch (e: any) {
-      setError(e?.response?.data?.message || e?.response?.data?.error || e?.message || "Could not delete task.");
+    } catch (requestError: any) {
+      setError(requestError?.response?.data?.message || requestError?.response?.data?.error || requestError?.message || "Could not delete task.");
     }
   };
 
+  const currentColumn = task ? columns.find((column) => column.id === getTaskKanbanColumnId(task, columns)) : undefined;
+  const assignee = task?.employeeAssignee?.user?.fullName || "Unassigned";
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
+      <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-2xl max-sm:h-[100dvh] max-sm:max-h-[100dvh] max-sm:w-screen max-sm:max-w-none max-sm:rounded-none">
         <DialogHeader>
-          <DialogTitle>{canEdit ? "Edit Task" : "Task Details"}</DialogTitle>
+          <DialogTitle>{editing ? "Edit Task" : "Task Details"}</DialogTitle>
         </DialogHeader>
 
-        {task && (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2 flex flex-wrap items-center gap-2">
-              <ProjectStatusBadge status={task.status} />
-              <ProjectStatusBadge status={task.priority} />
-              <span className="text-xs font-bold text-slate-400">{task.code || "Task"}</span>
+        {task && !editing && (
+          <div className="space-y-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-base font-black text-slate-950">{task.title}</h3>
+                  <div className="mt-1 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400">{task.code || "Task"}</span>
+                    <ProjectStatusBadge status={task.priority} />
+                    <ProjectStatusBadge status={task.status} />
+                  </div>
+                </div>
+                <div className="text-right text-[10px] font-semibold text-slate-400">
+                  <div>Created {formatDateTime(task.createdAt)}</div>
+                  {task.updatedAt && <div className="mt-0.5">Updated {formatDateTime(task.updatedAt)}</div>}
+                </div>
+              </div>
             </div>
 
-            <label className="sm:col-span-2">
-              <span className="mb-1 block text-xs font-bold text-slate-600">Task title</span>
-              <input
-                value={form.title}
-                onChange={(e) => updateForm("title", e.currentTarget.value)}
-                disabled={!canEdit}
-                className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 disabled:bg-slate-50"
-              />
-            </label>
-
-            <label className="sm:col-span-2">
-              <span className="mb-1 block text-xs font-bold text-slate-600">Description</span>
-              <textarea
-                value={form.description}
-                onChange={(e) => updateForm("description", e.currentTarget.value)}
-                disabled={!canEdit}
-                className="min-h-24 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500 disabled:bg-slate-50"
-              />
-            </label>
-
-            <label>
-              <span className="mb-1 block text-xs font-bold text-slate-600">Assignee</span>
-              <EmployeeSelect value={form.assigneeEmployeeId} onChange={(v) => updateForm("assigneeEmployeeId", v)} placeholder="Select assignee" disabled={!canEdit} />
-            </label>
-
-            <label>
-              <span className="mb-1 block text-xs font-bold text-slate-600">Priority</span>
-              <select
-                value={form.priority}
-                onChange={(e) => updateForm("priority", e.currentTarget.value)}
-                disabled={!canEdit}
-                className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50"
-              >
-                {PRIORITIES.map((priority) => <option key={priority} value={priority}>{priority}</option>)}
-              </select>
-            </label>
-
-            <label>
-              <span className="mb-1 block text-xs font-bold text-slate-600">Start date</span>
-              <input type="date" value={form.startDate} onChange={(e) => updateForm("startDate", e.currentTarget.value)} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
-            </label>
-
-            <label>
-              <span className="mb-1 block text-xs font-bold text-slate-600">Due date</span>
-              <input type="date" value={form.dueDate} onChange={(e) => updateForm("dueDate", e.currentTarget.value)} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
-            </label>
-
-            <label>
-              <span className="mb-1 block text-xs font-bold text-slate-600">Estimated hours</span>
-              <input type="number" min="0" value={form.estimatedHours} onChange={(e) => updateForm("estimatedHours", e.currentTarget.value)} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
-            </label>
-
-            <label>
-              <span className="mb-1 block text-xs font-bold text-slate-600">Actual hours</span>
-              <input type="number" min="0" value={form.actualHours} onChange={(e) => updateForm("actualHours", e.currentTarget.value)} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
-            </label>
-
-            <label>
-              <span className="mb-1 block text-xs font-bold text-slate-600">Weight</span>
-              <input type="number" min="0.1" step="0.1" value={form.weight} onChange={(e) => updateForm("weight", e.currentTarget.value)} disabled={!canEdit} className="h-10 w-full rounded-lg border border-slate-200 px-3 text-sm disabled:bg-slate-50" />
-            </label>
-
-            <div className="sm:col-span-2 space-y-3 rounded-xl border border-slate-200 bg-slate-50/60 p-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <div className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                    <ImageIcon className="h-4 w-4" /> Screenshots
-                  </div>
-                  <p className="mt-1 text-xs text-slate-500">Paste from your clipboard or upload a PNG, JPG, or WebP screenshot up to 10 MB.</p>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp"
-                    className="hidden"
-                    onChange={(event) => handleFileSelection(event.currentTarget.files?.[0])}
-                  />
-                  <Button type="button" variant="outline" size="sm" disabled={uploadingScreenshot} onClick={() => fileInputRef.current?.click()}>
-                    <Upload className="h-4 w-4" /> Upload
-                  </Button>
-                  <Button type="button" variant="outline" size="sm" disabled={uploadingScreenshot} onClick={() => void pasteFromClipboard()}>
-                    <ClipboardPaste className="h-4 w-4" /> Paste screenshot
-                  </Button>
-                </div>
+            <section className="rounded-lg border border-slate-200 bg-white p-3">
+              <h4 className="mb-2 text-[10px] font-black uppercase tracking-wide text-slate-400">Details</h4>
+              <dl className="grid gap-x-5 gap-y-3 text-xs sm:grid-cols-2">
+                <div><dt className="font-bold text-slate-400">Board column</dt><dd className="mt-0.5 font-semibold text-slate-800">{currentColumn?.name || task.status.replace(/_/g, " ")}</dd></div>
+                <div><dt className="font-bold text-slate-400">Assignee</dt><dd className="mt-0.5 font-semibold text-slate-800">{assignee}</dd></div>
+                <div><dt className="font-bold text-slate-400">Start date</dt><dd className="mt-0.5 font-semibold text-slate-800">{task.startDate || "—"}</dd></div>
+                <div><dt className="font-bold text-slate-400">Due date</dt><dd className="mt-0.5 font-semibold text-slate-800">{task.dueDate || "—"}</dd></div>
+                <div><dt className="font-bold text-slate-400">Estimated hours</dt><dd className="mt-0.5 font-semibold text-slate-800">{task.estimatedHours ?? "—"}</dd></div>
+                <div><dt className="font-bold text-slate-400">Actual hours</dt><dd className="mt-0.5 font-semibold text-slate-800">{task.actualHours ?? "—"}</dd></div>
+              </dl>
+              <div className="mt-3 border-t border-slate-100 pt-3">
+                <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Description</div>
+                <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-slate-700">{task.description || "No description."}</p>
               </div>
+            </section>
 
-              <div
-                role="button"
-                tabIndex={0}
-                onPaste={handlePaste}
-                className="rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-center text-xs text-slate-500 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                aria-label="Paste a screenshot from the clipboard"
-              >
-                {uploadingScreenshot ? (
-                  <span className="inline-flex items-center gap-2 font-semibold text-slate-700"><Loader2 className="h-4 w-4 animate-spin" /> Uploading screenshot...</span>
-                ) : (
-                  <>Click here and press <span className="font-bold text-slate-700">Ctrl+V</span> (or <span className="font-bold text-slate-700">Cmd+V</span>) to paste a screenshot.</>
-                )}
-              </div>
-
-              {attachmentError && <div className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{attachmentError}</div>}
-
+            <section className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-black text-slate-700"><ImageIcon className="h-4 w-4" /> Attachments <span className="rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] text-slate-500">{attachments.length}</span></div>
               {attachmentsLoading ? (
                 <div className="flex items-center gap-2 text-xs text-slate-500"><Loader2 className="h-4 w-4 animate-spin" /> Loading screenshots...</div>
-              ) : attachments.length > 0 ? (
-                <div className="space-y-2">
-                  {attachments.map((attachment) => {
-                    const file = attachment.FileAsset;
-                    return (
-                      <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-semibold text-slate-700">{file?.originalName || "Task screenshot"}</p>
-                          <p className="text-xs text-slate-400">{formatFileSize(file?.sizeBytes)}</p>
-                        </div>
-                        <Button type="button" variant="ghost" size="sm" onClick={() => void openAttachment(attachment)}>
-                          <ExternalLink className="h-4 w-4" /> View
-                        </Button>
-                      </div>
-                    );
-                  })}
+              ) : attachments.length ? (
+                <div className="space-y-1.5">
+                  {attachments.map((attachment) => (
+                    <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-2.5 py-2">
+                      <div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-700">{attachment.FileAsset?.originalName || "Task screenshot"}</p><p className="text-[10px] text-slate-400">{formatFileSize(attachment.FileAsset?.sizeBytes)}</p></div>
+                      <Button type="button" variant="ghost" size="sm" onClick={() => void openAttachment(attachment)}><ExternalLink className="h-4 w-4" /> View</Button>
+                    </div>
+                  ))}
                 </div>
-              ) : (
-                <p className="text-xs text-slate-400">No screenshots attached yet.</p>
-              )}
-            </div>
+              ) : <p className="text-xs text-slate-400">No screenshots attached.</p>}
+              {attachmentError && <div className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{attachmentError}</div>}
+            </section>
           </div>
         )}
 
-        {error && <div className="rounded-lg bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</div>}
+        {task && editing && (
+          <div className="space-y-3">
+            <section className="rounded-lg border border-slate-200 bg-white p-3">
+              <h3 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Basics</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="sm:col-span-2"><span className="mb-1 block text-xs font-bold text-slate-600">Task title</span><input value={form.title} onChange={(event) => updateForm("title", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500" /></label>
+                <label className="sm:col-span-2"><span className="mb-1 block text-xs font-bold text-slate-600">Description</span><textarea value={form.description} onChange={(event) => updateForm("description", event.currentTarget.value)} rows={4} className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm outline-none focus:border-blue-500" /></label>
+                <label><span className="mb-1 block text-xs font-bold text-slate-600">Start date</span><input type="date" value={form.startDate} onChange={(event) => updateForm("startDate", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
+                <label><span className="mb-1 block text-xs font-bold text-slate-600">Due date</span><input type="date" value={form.dueDate} onChange={(event) => updateForm("dueDate", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-slate-50/50 p-3">
+              <h3 className="mb-3 text-xs font-black uppercase tracking-wide text-slate-500">Assignment</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label><span className="mb-1 block text-xs font-bold text-slate-600">Assignee</span><EmployeeSelect value={form.assigneeEmployeeId} onChange={(value) => updateForm("assigneeEmployeeId", value)} placeholder="Select assignee" /></label>
+                <label><span className="mb-1 block text-xs font-bold text-slate-600">Board column</span><select value={form.kanbanColumnId} onChange={(event) => updateForm("kanbanColumnId", event.currentTarget.value)} className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm">{columns.map((column) => <option key={column.id} value={column.id}>{column.name}</option>)}</select></label>
+                <label><span className="mb-1 block text-xs font-bold text-slate-600">Priority</span><select value={form.priority} onChange={(event) => updateForm("priority", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm">{PRIORITIES.map((priority) => <option key={priority} value={priority}>{priority}</option>)}</select></label>
+                <label><span className="mb-1 block text-xs font-bold text-slate-600">Weight</span><input type="number" min="0.1" step="0.1" value={form.weight} onChange={(event) => updateForm("weight", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
+                <label><span className="mb-1 block text-xs font-bold text-slate-600">Estimated hours</span><input type="number" min="0" value={form.estimatedHours} onChange={(event) => updateForm("estimatedHours", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
+                <label><span className="mb-1 block text-xs font-bold text-slate-600">Actual hours</span><input type="number" min="0" value={form.actualHours} onChange={(event) => updateForm("actualHours", event.currentTarget.value)} className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm" /></label>
+              </div>
+            </section>
+
+            <section className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                <div><h3 className="text-xs font-black uppercase tracking-wide text-slate-500">Attachments</h3><p className="mt-1 text-[11px] text-slate-400">Paste or upload screenshots while editing.</p></div>
+                <div className="flex gap-2">
+                  <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={(event) => event.currentTarget.files?.[0] && void attachScreenshot(event.currentTarget.files[0], "upload")} />
+                  <Button type="button" variant="outline" size="sm" disabled={uploadingScreenshot} onClick={() => fileInputRef.current?.click()}><Upload className="h-4 w-4" /> Upload</Button>
+                  <Button type="button" variant="outline" size="sm" disabled={uploadingScreenshot} onClick={() => void pasteFromClipboard()}><ClipboardPaste className="h-4 w-4" /> Paste</Button>
+                </div>
+              </div>
+              <div tabIndex={0} onPaste={handlePaste} className="rounded-md border border-dashed border-slate-300 bg-slate-50 px-3 py-3 text-center text-[11px] text-slate-500 outline-none focus:border-blue-500">
+                {uploadingScreenshot ? <span className="inline-flex items-center gap-2 font-semibold"><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</span> : <>Focus here and press <strong>Ctrl+V / Cmd+V</strong> to paste.</>}
+              </div>
+              <div className="mt-2 space-y-1.5">
+                {attachments.map((attachment) => (
+                  <div key={attachment.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 px-2.5 py-2">
+                    <div className="min-w-0"><p className="truncate text-xs font-semibold text-slate-700">{attachment.FileAsset?.originalName || "Task screenshot"}</p><p className="text-[10px] text-slate-400">{formatFileSize(attachment.FileAsset?.sizeBytes)}</p></div>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => void openAttachment(attachment)}><ExternalLink className="h-4 w-4" /> View</Button>
+                  </div>
+                ))}
+              </div>
+              {attachmentError && <div className="mt-2 rounded-md bg-rose-50 px-3 py-2 text-xs font-semibold text-rose-700">{attachmentError}</div>}
+            </section>
+          </div>
+        )}
+
+        {error && <div className="rounded-md bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700">{error}</div>}
 
         <DialogFooter className="gap-2 sm:justify-between">
-          {canEdit && (
-            <Button variant="destructive" onClick={remove} disabled={deleteTask.isPending}>
-              <Trash2 className="h-4 w-4" /> {deleteTask.isPending ? "Deleting..." : "Delete"}
-            </Button>
-          )}
+          {editing && canEdit ? (
+            <Button variant="destructive" onClick={() => void remove()} disabled={deleteTask.isPending}><Trash2 className="h-4 w-4" /> {deleteTask.isPending ? "Deleting..." : "Delete"}</Button>
+          ) : <span />}
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
-            {canEdit && <Button onClick={save} disabled={updateTask.isPending}>{updateTask.isPending ? "Saving..." : "Save Task"}</Button>}
+            {editing ? (
+              <>
+                <Button variant="outline" onClick={cancelEdit}>Cancel edit</Button>
+                <Button onClick={() => void save()} disabled={updateTask.isPending || changeTaskStatus.isPending}>{updateTask.isPending || changeTaskStatus.isPending ? "Saving..." : "Save Task"}</Button>
+              </>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>Close</Button>
+                {canEdit && <Button onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Edit</Button>}
+              </>
+            )}
           </div>
         </DialogFooter>
       </DialogContent>

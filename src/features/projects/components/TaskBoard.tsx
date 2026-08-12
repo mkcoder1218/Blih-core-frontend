@@ -1,11 +1,9 @@
 import { useRef } from "react";
-import { MessageCircle } from "lucide-react";
+import { Clock3, Eye, MessageCircle, Paperclip } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ProjectStatusBadge } from "./ProjectStatusBadge";
-import { TASK_STATUSES, projectStatusLabel } from "../schemas";
-import type { ProjectTask, ProjectTaskStatus } from "../types";
-
-const BOARD_STATUSES = TASK_STATUSES.filter((status) => status !== "CANCELLED");
+import { DEFAULT_PROJECT_KANBAN_COLUMNS, getTaskKanbanColumnId } from "../kanban";
+import type { ProjectKanbanColumn, ProjectTask } from "../types";
 
 function getAssigneeName(task: ProjectTask) {
   return task.employeeAssignee?.user?.fullName || "Unassigned";
@@ -20,41 +18,78 @@ function getInitials(name: string) {
     .toUpperCase();
 }
 
+function formatCreatedAt(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Created —";
+  return `Created ${new Intl.DateTimeFormat(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date)}`;
+}
+
 function TaskCard({
   task,
   canMove,
+  attachmentCount,
   onOpen,
   onDiscuss,
 }: {
   task: ProjectTask;
   canMove: boolean;
+  attachmentCount: number;
   onOpen?: (task: ProjectTask) => void;
   onDiscuss?: (task: ProjectTask) => void;
 }) {
+  const assignee = getAssigneeName(task);
+
   return (
     <article
       draggable={canMove}
-      onDragStart={(e) => e.dataTransfer.setData("text/plain", task.id)}
+      onDragStart={(event) => event.dataTransfer.setData("text/plain", task.id)}
       onClick={() => onOpen?.(task)}
-      onKeyDown={(e) => {
-        if ((e.key === "Enter" || e.key === " ") && onOpen) {
-          e.preventDefault();
+      onKeyDown={(event) => {
+        if ((event.key === "Enter" || event.key === " ") && onOpen) {
+          event.preventDefault();
           onOpen(task);
         }
       }}
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
-      className={`rounded-lg border border-slate-200 bg-white p-3 shadow-sm outline-none transition hover:border-blue-200 hover:shadow-md focus:border-blue-400 focus:ring-2 focus:ring-blue-100 ${canMove ? "cursor-grab active:cursor-grabbing" : onOpen ? "cursor-pointer" : ""}`}
+      className={`group relative rounded-md border border-slate-200 bg-white px-2.5 py-2 shadow-sm outline-none transition hover:border-blue-300 hover:shadow-md focus:border-blue-400 focus:ring-2 focus:ring-blue-100 ${canMove ? "cursor-grab active:cursor-grabbing" : onOpen ? "cursor-pointer" : ""}`}
     >
-      <div className="text-xs font-bold text-slate-900">{task.title}</div>
-      <div className="mt-1 text-[11px] text-slate-500">{task.project?.title || task.code || "Task"}</div>
-      <div className="mt-3 flex items-center justify-between">
-        <ProjectStatusBadge status={task.priority} />
-        <span className="text-[10px] text-slate-400">{task.dueDate || "No due date"}</span>
+      {onOpen && (
+        <span className="pointer-events-none absolute right-2 top-2 inline-flex h-6 w-6 items-center justify-center rounded-md bg-slate-50 text-slate-400 opacity-0 transition group-hover:opacity-100">
+          <Eye className="h-3.5 w-3.5" />
+        </span>
+      )}
+
+      <div className="pr-7 text-[12px] font-extrabold leading-[17px] text-slate-900 [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] overflow-hidden">
+        {task.title}
       </div>
-      <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2">
-        <span className="text-[10px] font-semibold text-slate-400">{task.code || "Task"}</span>
-        <div className="flex items-center gap-1.5">
+      <div className="mt-1 truncate text-[10px] font-semibold text-slate-400">{task.code || "Task"}</div>
+
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <ProjectStatusBadge status={task.priority} />
+        <span className="truncate text-[10px] font-semibold text-slate-400">{task.dueDate || "No due date"}</span>
+      </div>
+
+      <div className="mt-2 flex items-center gap-2 text-[9px] font-semibold text-slate-400">
+        <Clock3 className="h-3 w-3 shrink-0" />
+        <span className="truncate">{formatCreatedAt(task.createdAt)}</span>
+      </div>
+
+      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {attachmentCount > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[9px] font-bold text-slate-500" title={`${attachmentCount} attachment${attachmentCount === 1 ? "" : "s"}`}>
+              <Paperclip className="h-3 w-3" /> {attachmentCount}
+            </span>
+          )}
+          <span className="truncate text-[9px] font-semibold text-slate-400" title={assignee}>{assignee}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
           {onDiscuss && (
             <button
               type="button"
@@ -67,16 +102,16 @@ function TaskCard({
               onKeyDown={(event) => event.stopPropagation()}
               title="Open task discussion"
               aria-label={`Open discussion for ${task.title}`}
-              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+              className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
             >
               <MessageCircle className="h-3.5 w-3.5" />
             </button>
           )}
           <span
-            title={getAssigneeName(task)}
-            className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-blue-600 text-[10px] font-black text-white shadow-sm"
+            title={assignee}
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-blue-600 text-[9px] font-black text-white shadow-sm"
           >
-            {getInitials(getAssigneeName(task)) || "U"}
+            {getInitials(assignee) || "U"}
           </span>
         </div>
       </div>
@@ -85,19 +120,21 @@ function TaskCard({
 }
 
 function TaskColumn({
-  status,
+  column,
   tasks,
   allTasks,
   canMove,
+  attachmentCounts,
   onMove,
   onOpen,
   onDiscuss,
 }: {
-  status: ProjectTaskStatus;
+  column: ProjectKanbanColumn;
   tasks: ProjectTask[];
   allTasks: ProjectTask[];
   canMove: boolean;
-  onMove?: (task: ProjectTask, status: string) => void;
+  attachmentCounts: Record<string, number>;
+  onMove?: (task: ProjectTask, column: ProjectKanbanColumn) => void;
   onOpen?: (task: ProjectTask) => void;
   onDiscuss?: (task: ProjectTask) => void;
 }) {
@@ -105,27 +142,27 @@ function TaskColumn({
   const virtualizer = useVirtualizer({
     count: tasks.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 158,
+    estimateSize: () => 142,
     overscan: 6,
   });
 
   return (
     <section
-      onDragOver={(e) => canMove && e.preventDefault()}
-      onDrop={(e) => {
+      onDragOver={(event) => canMove && event.preventDefault()}
+      onDrop={(event) => {
         if (!canMove) return;
-        const taskId = e.dataTransfer.getData("text/plain");
+        const taskId = event.dataTransfer.getData("text/plain");
         const task = allTasks.find((item) => item.id === taskId);
-        if (task && task.status !== status) onMove?.(task, status);
+        if (task) onMove?.(task, column);
       }}
-      className="flex max-h-[70vh] min-h-[320px] flex-col rounded-lg border border-slate-200 bg-slate-50"
+      className="flex h-[min(66vh,650px)] min-h-[350px] w-[224px] shrink-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-slate-50/80 xl:w-[236px]"
     >
-      <div className="flex items-center justify-between border-b border-slate-200 bg-white/60 px-3 py-2">
-        <span className="text-xs font-bold text-slate-700">{projectStatusLabel(status)}</span>
-        <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-bold text-slate-500">{tasks.length}</span>
+      <div className="flex h-9 items-center justify-between border-b border-slate-200 bg-white px-2.5">
+        <span className="truncate text-[11px] font-extrabold text-slate-700" title={column.name}>{column.name}</span>
+        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[9px] font-black text-slate-500">{tasks.length}</span>
       </div>
       {tasks.length ? (
-        <div ref={scrollRef} className="flex-1 overflow-y-auto p-2">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto p-1.5">
           <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
             {virtualizer.getVirtualItems().map((virtualItem) => {
               const task = tasks[virtualItem.index];
@@ -134,18 +171,24 @@ function TaskColumn({
                   key={task.id}
                   ref={virtualizer.measureElement}
                   data-index={virtualItem.index}
-                  className="absolute left-0 top-0 w-full pb-2"
+                  className="absolute left-0 top-0 w-full pb-1.5"
                   style={{ transform: `translateY(${virtualItem.start}px)` }}
                 >
-                  <TaskCard task={task} canMove={canMove} onOpen={onOpen} onDiscuss={onDiscuss} />
+                  <TaskCard
+                    task={task}
+                    canMove={canMove}
+                    attachmentCount={attachmentCounts[task.id] || 0}
+                    onOpen={onOpen}
+                    onDiscuss={onDiscuss}
+                  />
                 </div>
               );
             })}
           </div>
         </div>
       ) : (
-        <div className="p-2">
-          <div className="rounded-lg border border-dashed border-slate-200 p-3 text-center text-[11px] text-slate-400">No tasks</div>
+        <div className="p-1.5">
+          <div className="rounded-md border border-dashed border-slate-200 px-2 py-5 text-center text-[10px] font-semibold text-slate-400">No tasks</div>
         </div>
       )}
     </section>
@@ -154,33 +197,44 @@ function TaskColumn({
 
 export function TaskBoard({
   tasks,
+  columns = DEFAULT_PROJECT_KANBAN_COLUMNS,
   canMove = false,
+  attachmentCounts = {},
   onMove,
+  onMoveColumn,
   onOpen,
   onDiscuss,
 }: {
   tasks: ProjectTask[];
+  columns?: ProjectKanbanColumn[];
   canMove?: boolean;
+  attachmentCounts?: Record<string, number>;
   onMove?: (task: ProjectTask, status: string) => void;
+  onMoveColumn?: (task: ProjectTask, column: ProjectKanbanColumn) => void;
   onOpen?: (task: ProjectTask) => void;
   onDiscuss?: (task: ProjectTask) => void;
 }) {
+  const visibleTasks = tasks.filter((task) => task.status !== "CANCELLED");
+
   return (
-    <div className="grid min-w-[960px] grid-cols-6 gap-3">
-      {BOARD_STATUSES.map((status) => {
-        const columnTasks = tasks.filter((task) => task.status === status);
+    <div className="flex min-w-max gap-2">
+      {columns.map((column) => {
+        const columnTasks = visibleTasks.filter((task) => getTaskKanbanColumnId(task, columns) === column.id);
         return (
-          <section key={status}>
-            <TaskColumn
-              status={status}
-              tasks={columnTasks}
-              allTasks={tasks}
-              canMove={canMove}
-              onMove={onMove}
-              onOpen={onOpen}
-              onDiscuss={onDiscuss}
-            />
-          </section>
+          <TaskColumn
+            key={column.id}
+            column={column}
+            tasks={columnTasks}
+            allTasks={visibleTasks}
+            canMove={canMove}
+            attachmentCounts={attachmentCounts}
+            onMove={(task, targetColumn) => {
+              if (onMoveColumn) onMoveColumn(task, targetColumn);
+              else onMove?.(task, targetColumn.status);
+            }}
+            onOpen={onOpen}
+            onDiscuss={onDiscuss}
+          />
         );
       })}
     </div>
