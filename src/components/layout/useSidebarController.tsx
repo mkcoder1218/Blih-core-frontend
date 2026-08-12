@@ -255,8 +255,20 @@ export function useSidebarController({
     'attendance',
   ]);
 
+  const platformSuperAdminModuleIds = new Set([
+    'businesses',
+    'permissions',
+  ]);
+
   const mainModules =
     allModules.filter((module) => {
+      if (
+        user?.role === 'Super Admin' &&
+        !platformSuperAdminModuleIds.has(module.id)
+      ) {
+        return false;
+      }
+
       if (
         isInternUser &&
         !internModuleIds.has(
@@ -855,14 +867,18 @@ export function useSidebarController({
           } Portal`;
 
   const defaultModule =
-    user?.role === 'Employee'
-      ? 'attendance'
-      : 'talent';
+    user?.role === 'Super Admin'
+      ? 'businesses'
+      : user?.role === 'Employee'
+        ? 'attendance'
+        : 'talent';
 
   const defaultPath =
-    user?.role === 'Employee'
-      ? `/${roleSegment}/attendance/check-me-in`
-      : `/${roleSegment}/talent/recruitment-overview`;
+    user?.role === 'Super Admin'
+      ? `/${roleSegment}/businesses`
+      : user?.role === 'Employee'
+        ? `/${roleSegment}/attendance/check-me-in`
+        : `/${roleSegment}/talent/recruitment-overview`;
 
   return {
     activeSettingsTab,
