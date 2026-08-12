@@ -6,6 +6,7 @@ import { useChangeProjectTaskStatus } from "../hooks";
 import type { ProjectTask } from "../types";
 import { TaskBoard } from "./TaskBoard";
 import { TaskDetailsModal } from "./TaskDetailsModal";
+import { TaskDiscussionDialog } from "./TaskDiscussionDialog";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
 
@@ -24,6 +25,7 @@ export function ProjectTaskBoard({
   const [dueDate, setDueDate] = useState("");
   const [assigneeFilter, setAssigneeFilter] = useState("");
   const [selectedTask, setSelectedTask] = useState<ProjectTask | null>(null);
+  const [discussionTask, setDiscussionTask] = useState<ProjectTask | null>(null);
   const changeTaskStatus = useChangeProjectTaskStatus(projectId);
 
   const assignees = useMemo(() => {
@@ -122,6 +124,7 @@ export function ProjectTaskBoard({
             canMove={canMove}
             onMove={(task, nextStatus) => changeTaskStatus.mutate({ taskId: task.id, status: nextStatus })}
             onOpen={setSelectedTask}
+            onDiscuss={setDiscussionTask}
           />
         </div>
       ) : (
@@ -141,6 +144,15 @@ export function ProjectTaskBoard({
         canEdit={canMove}
         onOpenChange={(open) => {
           if (!open) setSelectedTask(null);
+        }}
+      />
+
+      <TaskDiscussionDialog
+        projectId={projectId}
+        task={discussionTask}
+        open={Boolean(discussionTask)}
+        onOpenChange={(open) => {
+          if (!open) setDiscussionTask(null);
         }}
       />
     </div>
