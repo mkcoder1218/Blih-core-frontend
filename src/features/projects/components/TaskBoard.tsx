@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { MessageCircle } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ProjectStatusBadge } from "./ProjectStatusBadge";
 import { TASK_STATUSES, projectStatusLabel } from "../schemas";
@@ -23,10 +24,12 @@ function TaskCard({
   task,
   canMove,
   onOpen,
+  onDiscuss,
 }: {
   task: ProjectTask;
   canMove: boolean;
   onOpen?: (task: ProjectTask) => void;
+  onDiscuss?: (task: ProjectTask) => void;
 }) {
   return (
     <article
@@ -51,12 +54,31 @@ function TaskCard({
       </div>
       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2">
         <span className="text-[10px] font-semibold text-slate-400">{task.code || "Task"}</span>
-        <span
-          title={getAssigneeName(task)}
-          className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-blue-600 text-[10px] font-black text-white shadow-sm"
-        >
-          {getInitials(getAssigneeName(task)) || "U"}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {onDiscuss && (
+            <button
+              type="button"
+              draggable={false}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => {
+                event.stopPropagation();
+                onDiscuss(task);
+              }}
+              onKeyDown={(event) => event.stopPropagation()}
+              title="Open task discussion"
+              aria-label={`Open discussion for ${task.title}`}
+              className="flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:border-blue-200 hover:bg-blue-50 hover:text-blue-600"
+            >
+              <MessageCircle className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <span
+            title={getAssigneeName(task)}
+            className="flex h-6 w-6 items-center justify-center rounded-full border border-white bg-blue-600 text-[10px] font-black text-white shadow-sm"
+          >
+            {getInitials(getAssigneeName(task)) || "U"}
+          </span>
+        </div>
       </div>
     </article>
   );
@@ -69,6 +91,7 @@ function TaskColumn({
   canMove,
   onMove,
   onOpen,
+  onDiscuss,
 }: {
   status: ProjectTaskStatus;
   tasks: ProjectTask[];
@@ -76,6 +99,7 @@ function TaskColumn({
   canMove: boolean;
   onMove?: (task: ProjectTask, status: string) => void;
   onOpen?: (task: ProjectTask) => void;
+  onDiscuss?: (task: ProjectTask) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
@@ -113,7 +137,7 @@ function TaskColumn({
                   className="absolute left-0 top-0 w-full pb-2"
                   style={{ transform: `translateY(${virtualItem.start}px)` }}
                 >
-                  <TaskCard task={task} canMove={canMove} onOpen={onOpen} />
+                  <TaskCard task={task} canMove={canMove} onOpen={onOpen} onDiscuss={onDiscuss} />
                 </div>
               );
             })}
@@ -133,11 +157,13 @@ export function TaskBoard({
   canMove = false,
   onMove,
   onOpen,
+  onDiscuss,
 }: {
   tasks: ProjectTask[];
   canMove?: boolean;
   onMove?: (task: ProjectTask, status: string) => void;
   onOpen?: (task: ProjectTask) => void;
+  onDiscuss?: (task: ProjectTask) => void;
 }) {
   return (
     <div className="grid min-w-[960px] grid-cols-6 gap-3">
@@ -152,6 +178,7 @@ export function TaskBoard({
               canMove={canMove}
               onMove={onMove}
               onOpen={onOpen}
+              onDiscuss={onDiscuss}
             />
           </section>
         );
