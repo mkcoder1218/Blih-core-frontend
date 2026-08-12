@@ -89,6 +89,10 @@ export default function HeaderWorkStatus({
 
   const disabledReason = attendanceData?.disabledReason ?? null;
 
+  const isAttendanceExempt =
+    typeof disabledReason === "string" &&
+    /\bexempt(?:ed)?\b/i.test(disabledReason);
+
   const nextAttendanceEvent =
     React.useMemo<NextAttendanceEvent | null>(() => {
       const action =
@@ -286,6 +290,10 @@ export default function HeaderWorkStatus({
 
     void handleAttendanceAction();
   };
+
+  if (isAttendanceExempt) {
+    return null;
+  }
 
   return (
     <div className="flex w-full min-w-0">
