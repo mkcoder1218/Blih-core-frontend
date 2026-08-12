@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Send } from 'lucide-react';
+import { Eye, Send } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { SectionCard } from '@/components/ui/blih';
 import { useLegacyUser } from '../../api/legacyUserStore';
 import { useMyPermissions } from '../../hooks/usePermissions';
@@ -36,6 +37,7 @@ export default function SpecialRequestPage({ showAlert }: SpecialRequestPageProp
     reason: '',
   });
   const [rejectReasonById, setRejectReasonById] = useState<Record<string, string>>({});
+  const [selectedPendingRequest, setSelectedPendingRequest] = useState<SpecialRequest | null>(null);
 
   const rows = myRequests.data?.rows || [];
   const pendingRows = pendingRequests.data?.rows || [];
@@ -167,11 +169,61 @@ export default function SpecialRequestPage({ showAlert }: SpecialRequestPageProp
               setRejectReasonById={setRejectReasonById}
               onApprove={handleApprove}
               onReject={handleReject}
+              onView={setSelectedPendingRequest}
               busy={approve.isPending || reject.isPending}
             />
           )}
         </section>
       ) : null}
+
+      <Dialog
+        open={Boolean(selectedPendingRequest)}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setSelectedPendingRequest(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Special Request Details</DialogTitle>
+          </DialogHeader>
+
+          {selectedPendingRequest ? (
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <RequestDetail label="Employee" value={selectedPendingRequest.requester?.fullName || 'Employee'} />
+                <RequestDetail label="Date" value={selectedPendingRequest.requestedDate} mono />
+                <RequestDetail
+                  label="Time Used"
+                  value={
+                    selectedPendingRequest.lunchUsageType === 'FULL'
+                      ? 'Full lunch time'
+                      : `${selectedPendingRequest.requestedMinutes} minutes`
+                  }
+                />
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Status</div>
+                  <div className="mt-1.5">
+                    <StatusPill status={selectedPendingRequest.status} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">Reason</div>
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm font-semibold leading-6 text-slate-700">
+                  {selectedPendingRequest.reason || '-'}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setSelectedPendingRequest(null)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <h3 className="text-xs font-black text-slate-900">Recent Requests</h3>
@@ -193,6 +245,7 @@ function PendingRequestsTable(props: {
   setRejectReasonById: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   onApprove: (id: string) => void;
   onReject: (id: string) => void;
+  onView: (request: SpecialRequest) => void;
   busy: boolean;
 }) {
   return (
@@ -217,7 +270,11 @@ function PendingRequestsTable(props: {
               </td>
               <td className="py-3 pr-3 font-semibold text-slate-600 max-w-[220px] truncate">{item.reason}</td>
               <td className="py-3">
-                <div className="flex min-w-[240px] items-center gap-2">
+                <div className="flex min-w-[320px] items-center gap-2">
+                  <Button type="button" variant="outline" onClick={() => props.onView(item)} className="h-8 text-xs font-bold">
+                    <Eye className="mr-1 h-3.5 w-3.5" />
+                    View
+                  </Button>
                   <Button type="button" disabled={props.busy} onClick={() => props.onApprove(item.id)} className="h-8 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold">
                     Approve
                   </Button>
@@ -236,6 +293,15 @@ function PendingRequestsTable(props: {
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function RequestDetail({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+      <div className="text-[10px] font-black uppercase tracking-wide text-slate-400">{label}</div>
+      <div className={`mt-1 text-sm font-bold text-slate-800 ${mono ? 'font-mono' : ''}`}>{value}</div>
     </div>
   );
 }
