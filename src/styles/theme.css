@@ -77,7 +77,6 @@
 }
 
 .dark {
-  /* Layered blue-charcoal palette: no pure black surfaces. */
   --background: oklch(0.19 0.012 264);
   --foreground: oklch(0.94 0.006 264);
   --card: oklch(0.235 0.014 264);
@@ -133,13 +132,6 @@ html:not(.dark) {
   color-scheme: light;
 }
 
-/*
- * Legacy theme bridge
- *
- * New shadcn screens use semantic tokens. Older ERP screens still use
- * slate/gray utilities directly, so these rules translate them into the
- * same layered dark palette without turning every white surface pure black.
- */
 .dark body,
 .dark #root,
 .dark #app-window {
@@ -147,7 +139,6 @@ html:not(.dark) {
   color: var(--foreground);
 }
 
-/* The application shell has a legacy hardcoded #fafbfc main background. */
 .dark [class*="bg-[#fafbfc]"],
 .dark [class*="bg-[#FAFBFC]"],
 .dark [class*="bg-[#f8fafc]"],
@@ -208,17 +199,22 @@ html:not(.dark) {
   --tw-ring-color: var(--border) !important;
 }
 
-/* Preserve the Blih blue icon rail and its white selected icon tile. */
+/* Detailed/collapsed icon rail: dark surface with Blih-blue selected state. */
 .dark #sidebar-container > div:first-child {
-  background-color: #1a56db !important;
+  background-color: #090b0f !important;
+  border-right: 1px solid rgb(255 255 255 / 0.08);
 }
 
 .dark #sidebar-container > div:first-child [class~="bg-white"] {
-  background-color: #ffffff !important;
-  color: #1a56db !important;
+  background-color: #1a56db !important;
+  color: #ffffff !important;
+  box-shadow: 0 8px 20px rgb(26 86 219 / 0.18) !important;
 }
 
-/* Give the navigation panel its own slightly raised dark surface. */
+.dark #sidebar-container > div:first-child [class~="bg-white"] svg {
+  color: #ffffff !important;
+}
+
 .dark #sidebar-container,
 .dark #sidebar-container > div:nth-child(2) {
   background-color: var(--sidebar) !important;
@@ -297,7 +293,6 @@ html:not(.dark) {
   background: oklch(0.48 0.014 264);
 }
 
-/* FullCalendar uses its own CSS variables and therefore needs a dark bridge. */
 .dark .blih-events-calendar {
   --fc-border-color: var(--border);
   --fc-page-bg-color: var(--background);
