@@ -43,7 +43,7 @@ export function CompactSidebar({ controller }: { controller: SidebarController }
       }
       data-mobile-open={mobileOpen ? 'true' : 'false'}
     >
-      <div className="bg-transparent">
+      <section className="bg-transparent">
         {/* Brand */}
         <div className="mb-6 flex select-none items-center gap-3 px-3 animate-fade-in">
           <div
@@ -173,7 +173,7 @@ export function CompactSidebar({ controller }: { controller: SidebarController }
             </SidebarButton>
           ) : null}
         </div>
-      </div>
+      </section>
 
       {/* User block */}
       <div
