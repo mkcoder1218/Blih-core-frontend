@@ -41,6 +41,7 @@ export default function LoginPage() {
     setSelectedBusinessId("");
     const res = await login.mutateAsync({ email, password });
     const data: any = res.data;
+
     if (data?.requiresWorkspaceSelection) {
       setWorkspaces(data.businesses || []);
     } else if (data?.portalUser) {
@@ -61,68 +62,72 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 flex items-center justify-center font-sans p-4 antialiased">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-100/40 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-100/30 rounded-full blur-3xl" />
+    <div className="relative flex min-h-screen w-screen items-center justify-center overflow-hidden bg-gradient-to-br from-slate-50 via-slate-100 to-slate-200 p-4 font-sans antialiased dark:from-[#0b1220] dark:via-[#111827] dark:to-[#0f172a]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden">
+        <div className="absolute inset-0 dark:bg-[radial-gradient(circle_at_top,rgba(37,99,235,0.12),transparent_26%),linear-gradient(135deg,#0b1220_0%,#111827_55%,#0f172a_100%)]" />
+        <div className="absolute -top-36 right-[-120px] h-80 w-80 rounded-full bg-blue-100/40 blur-3xl dark:bg-blue-500/10 dark:blur-[140px]" />
+        <div className="absolute -bottom-36 left-[-120px] h-80 w-80 rounded-full bg-indigo-100/35 blur-3xl dark:bg-slate-700/20 dark:blur-[140px]" />
       </div>
 
       <div className="relative w-full max-w-[420px]">
-        {/* Logo / Brand */}
-        <div className="text-center mb-8">
-          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg shadow-blue-200">
-            <Building2 className="w-6 h-6 text-white" />
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-blue-600 shadow-md shadow-blue-200/60 dark:shadow-[0_10px_28px_rgba(37,99,235,0.18)]">
+            <Building2 className="h-6 w-6 text-white" />
           </div>
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Blih ERP</h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">
+
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-100">
+            Blih ERP
+          </h1>
+
+          <p className="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400">
             {workspaces ? "Choose your workspace" : "Sign in to your account"}
           </p>
         </div>
 
         <AnimatePresence mode="wait">
-          {/* ── Workspace picker modal ── */}
           {workspaces ? (
             <motion.div
               key="workspace"
-              initial={{ opacity: 0, y: 16, scale: 0.97 }}
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -16, scale: 0.97 }}
+              exit={{ opacity: 0, y: -16, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="bg-white border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50 overflow-hidden"
+              className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 shadow-[0_18px_50px_rgba(15,23,42,0.10)] backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/92 dark:shadow-[0_18px_50px_rgba(0,0,0,0.30)]"
             >
-              {/* Header */}
-              <div className="px-6 pt-6 pb-4 border-b border-slate-100">
+              <div className="border-b border-slate-100 px-6 pb-4 pt-6 dark:border-white/10">
                 <button
                   onClick={handleBack}
-                  className="flex items-center gap-1.5 text-xs font-bold text-slate-400 hover:text-slate-700 transition-colors mb-4"
+                  className="mb-4 flex items-center gap-1.5 text-xs font-medium text-slate-500 transition-colors hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-200"
                 >
-                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <ArrowLeft className="h-3.5 w-3.5" />
                   Back to sign in
                 </button>
+
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-50 rounded-xl flex items-center justify-center">
-                    <Building2 className="w-5 h-5 text-blue-600" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 dark:bg-blue-500/10">
+                    <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
+
                   <div>
-                    <h2 className="text-base font-black text-slate-900">Select Workspace</h2>
-                    <p className="text-xs text-slate-500 font-medium">
-                      Your account is linked to {workspaces.length} workspace{workspaces.length !== 1 ? "s" : ""}
+                    <h2 className="text-base font-semibold text-slate-900 dark:text-slate-100">
+                      Select Workspace
+                    </h2>
+                    <p className="text-xs font-medium text-slate-500 dark:text-slate-400">
+                      Your account is linked to {workspaces.length} workspace
+                      {workspaces.length !== 1 ? "s" : ""}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Error */}
               {errorMsg && (
-                <div className="mx-6 mt-4 flex items-start gap-2.5 text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl p-3">
-                  <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="mx-6 mt-4 flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300">
+                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                   <span>{errorMsg}</span>
                 </div>
               )}
 
-              {/* Workspace list */}
-              <div className="p-3 space-y-1.5 max-h-80 overflow-y-auto">
+              <div className="max-h-80 space-y-2 overflow-y-auto p-3">
                 {workspaces.map((w) => {
                   const isSelected = selectedBusinessId === w.id;
                   const isLoading = isSelected && selectWorkspace.isPending;
@@ -133,31 +138,30 @@ export default function LoginPage() {
                       key={w.id}
                       onClick={() => isActive && !selectWorkspace.isPending && handleSelectWorkspace(w.id)}
                       disabled={!isActive || selectWorkspace.isPending}
-                      className={`w-full text-left p-4 rounded-2xl border transition-all flex items-center justify-between group ${
+                      className={`group flex w-full items-center justify-between rounded-xl border p-4 text-left transition-all ${
                         isSelected
-                          ? "bg-blue-50 border-blue-200 ring-1 ring-blue-300"
+                          ? "border-blue-200 bg-blue-50 ring-1 ring-blue-200 dark:border-blue-500/30 dark:bg-blue-500/10 dark:ring-blue-500/20"
                           : isActive
-                          ? "bg-slate-50 border-slate-100 hover:bg-white hover:border-slate-200 hover:shadow-sm"
-                          : "bg-slate-50 border-slate-100 opacity-50 cursor-not-allowed"
+                            ? "border-slate-200 bg-slate-50 hover:border-slate-300 hover:bg-white dark:border-white/10 dark:bg-slate-800/70 dark:hover:border-white/15 dark:hover:bg-slate-800"
+                            : "cursor-not-allowed border-slate-200 bg-slate-50 opacity-50 dark:border-white/10 dark:bg-slate-800/60"
                       }`}
                     >
                       <div className="flex items-center gap-3">
-                        {/* Business avatar */}
                         <div
-                          className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm shrink-0 ${
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sm font-semibold ${
                             isSelected
                               ? "bg-blue-600 text-white"
-                              : "bg-white border border-slate-200 text-slate-600"
+                              : "border border-slate-200 bg-white text-slate-600 dark:border-white/10 dark:bg-slate-900 dark:text-slate-300"
                           }`}
                         >
                           {w.name.slice(0, 2).toUpperCase()}
                         </div>
 
                         <div>
-                          <span className="text-sm font-bold text-slate-900 block leading-tight">
+                          <span className="block text-sm font-medium leading-tight text-slate-900 dark:text-slate-100">
                             {w.name}
                           </span>
-                          <span className="text-[11px] font-medium text-slate-400 block mt-0.5">
+                          <span className="mt-0.5 block text-[11px] font-medium text-slate-400 dark:text-slate-500">
                             {w.slug}
                           </span>
                         </div>
@@ -165,11 +169,11 @@ export default function LoginPage() {
 
                       <div className="shrink-0">
                         {isLoading ? (
-                          <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+                          <Loader2 className="h-4 w-4 animate-spin text-blue-600 dark:text-blue-400" />
                         ) : isSelected ? (
-                          <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                          <CheckCircle2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
                         ) : (
-                          <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                          <ChevronRight className="h-4 w-4 text-slate-300 transition-colors group-hover:text-slate-500 dark:text-slate-600 dark:group-hover:text-slate-400" />
                         )}
                       </div>
                     </button>
@@ -178,40 +182,37 @@ export default function LoginPage() {
               </div>
 
               <div className="px-6 pb-6 pt-2">
-                <p className="text-[11px] text-slate-400 font-medium text-center">
-                  Signed in as <span className="font-bold text-slate-600">{email}</span>
+                <p className="text-center text-[11px] font-medium text-slate-400 dark:text-slate-500">
+                  Signed in as <span className="font-semibold text-slate-600 dark:text-slate-300">{email}</span>
                 </p>
               </div>
             </motion.div>
           ) : (
-            /* ── Login form ── */
             <motion.div
               key="login"
-              initial={{ opacity: 0, y: 16, scale: 0.97 }}
+              initial={{ opacity: 0, y: 16, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -16, scale: 0.97 }}
+              exit={{ opacity: 0, y: -16, scale: 0.98 }}
               transition={{ duration: 0.2 }}
-              className="bg-white border border-slate-200 rounded-3xl shadow-xl shadow-slate-200/50 p-8"
+              className="rounded-2xl border border-slate-200/80 bg-white/95 p-8 shadow-[0_18px_50px_rgba(15,23,42,0.10)] backdrop-blur-sm dark:border-white/10 dark:bg-slate-900/92 dark:shadow-[0_12px_36px_rgba(0,0,0,0.28)]"
             >
               <form onSubmit={handleLogin} className="space-y-5">
-                {/* Error */}
                 <AnimatePresence>
                   {errorMsg && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
-                      className="flex items-start gap-2.5 text-xs text-red-700 bg-red-50 border border-red-100 rounded-xl p-3"
+                      className="flex items-start gap-2.5 rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-500/20 dark:bg-red-500/10 dark:text-red-300"
                     >
-                      <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                       <span>{errorMsg}</span>
                     </motion.div>
                   )}
                 </AnimatePresence>
 
-                {/* Email */}
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Email address
                   </label>
                   <input
@@ -221,13 +222,12 @@ export default function LoginPage() {
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@company.com"
                     autoComplete="email"
-                    className="w-full bg-slate-50 hover:bg-slate-100/60 focus:bg-white px-4 py-3 rounded-2xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition-all"
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:bg-white/[0.06] dark:focus:border-blue-500 dark:focus:bg-white/[0.07] dark:focus:ring-blue-500/20"
                   />
                 </div>
 
-                {/* Password */}
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-400">
                     Password
                   </label>
                   <div className="relative">
@@ -238,27 +238,26 @@ export default function LoginPage() {
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="••••••••"
                       autoComplete="current-password"
-                      className="w-full bg-slate-50 hover:bg-slate-100/60 focus:bg-white px-4 py-3 pr-11 rounded-2xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 text-sm font-medium text-slate-900 placeholder-slate-400 outline-none transition-all"
+                      className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 pr-11 text-sm font-medium text-slate-900 outline-none transition-all placeholder:text-slate-400 hover:bg-slate-100/70 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-100 dark:border-white/10 dark:bg-white/5 dark:text-slate-100 dark:placeholder:text-slate-500 dark:hover:bg-white/[0.06] dark:focus:border-blue-500 dark:focus:bg-white/[0.07] dark:focus:ring-blue-500/20"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword((v) => !v)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 transition-colors hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Submit */}
                 <button
                   type="submit"
                   disabled={login.isPending}
-                  className="w-full bg-blue-600 hover:bg-blue-700 active:scale-[0.98] disabled:bg-slate-200 disabled:text-slate-400 text-white text-sm font-black py-3.5 rounded-2xl shadow-lg shadow-blue-200 transition-all flex items-center justify-center gap-2"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-blue-600 py-3.5 text-sm font-semibold text-white transition-all hover:bg-blue-700 active:scale-[0.99] disabled:bg-slate-200 disabled:text-slate-400 dark:shadow-[0_6px_18px_rgba(37,99,235,0.22)] dark:disabled:bg-slate-700 dark:disabled:text-slate-500"
                 >
                   {login.isPending ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="h-4 w-4 animate-spin" />
                       Signing in...
                     </>
                   ) : (
@@ -270,7 +269,7 @@ export default function LoginPage() {
           )}
         </AnimatePresence>
 
-        <p className="text-center text-[11px] text-slate-400 font-medium mt-6">
+        <p className="mt-6 text-center text-[11px] font-medium text-slate-400 dark:text-slate-500">
           © {new Date().getFullYear()} Blih ERP. All rights reserved.
         </p>
       </div>
