@@ -6,6 +6,7 @@ import {
   Clock3,
   Coffee,
   Copy,
+  ExternalLink,
   Link2,
   Loader2,
   LogIn,
@@ -23,7 +24,8 @@ import { useMyAttendanceToday } from "../../hooks/useMyAttendanceToday";
 import { useCreateMyAttendanceEvent } from "../../hooks/useCreateMyAttendanceEvent";
 import { useRevertMyAttendanceEvent } from "../../hooks/useRevertMyAttendanceEvent";
 import type { AttendanceEventType, BusinessAttendanceSettings } from "../../api/types";
-import { useGenerateTelegramLinkCode, useUnlinkMyTelegram } from "../../hooks/useTelegramLinkCode";
+import type { TelegramLinkCode } from "../../api/attendanceTelegram";
+import { useGenerateTelegramLinkCode, useMyTelegramStatus, useUnlinkMyTelegram } from "../../hooks/useTelegramLinkCode";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -57,7 +59,8 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   const generateTelegramCode = useGenerateTelegramLinkCode();
   const unlinkTelegram = useUnlinkMyTelegram();
 
-  const [telegramCode, setTelegramCode] = React.useState<{ code: string; expiresAt: string } | null>(null);
+  const [telegramCode, setTelegramCode] = React.useState<TelegramLinkCode | null>(null);
+  const telegramStatus = useMyTelegramStatus(Boolean(telegramCode));
   const [telegramCodeCopied, setTelegramCodeCopied] = React.useState(false);
   const [telegramBannerDismissed, setTelegramBannerDismissed] = React.useState(false);
   const [detailsOpen, setDetailsOpen] = React.useState(false);
@@ -310,12 +313,17 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
 
   const checkedInTime = day?.checkInAtUtc ? formatTime(new Date(day.checkInAtUtc), tz) : null;
   const checkedOutTime = day?.checkOutAtUtc ? formatTime(new Date(day.checkOutAtUtc), tz) : null;
-  const telegramLinked = Boolean(
-    data?.telegramLinked ||
-      data?.telegramAccountLinked ||
-      data?.telegram?.linked ||
-      data?.telegramAccount?.isActive,
-  );
+  const telegramStatusData = telegramStatus.data?.data?.telegramStatus;
+  const telegramLinked = Boolean(telegramStatusData?.linked);
+  const telegramUsername = telegramStatusData?.telegramUsername || null;
+  const telegramBotUrl = telegramStatusData?.botUrl || telegramCode?.botUrl || null;
+
+  React.useEffect(() => {
+    if (!telegramLinked) return;
+    setTelegramCode(null);
+    setTelegramCodeCopied(false);
+    setTelegramBannerDismissed(false);
+  }, [telegramLinked]);
 
   const hasCheckedIn = Boolean(day?.checkInAtUtc || timeline.some((event: any) => event.type === "CHECK_IN"));
   const hasLunchOut = Boolean(day?.lunchOutAtUtc || timeline.some((event: any) => event.type === "LUNCH_OUT"));
@@ -514,14 +522,23 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
         </CardContent>
       </Card>
 
-      {telegramCode || (!telegramLinked && !telegramBannerDismissed) ? (
+      {telegramLinked || telegramCode || !telegramBannerDismissed ? (
         <Card className="rounded-md py-0 shadow-none">
           <CardContent className="flex min-h-11 flex-wrap items-center justify-between gap-2 px-3 py-2">
             <div className="flex min-w-0 items-center gap-2 text-sm">
-              <Link2 className="size-4 shrink-0 text-muted-foreground" />
-              {telegramCode ? (
+              {telegramLinked ? (
+                <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
+              ) : (
+                <Link2 className="size-4 shrink-0 text-muted-foreground" />
+              )}
+
+              {telegramLinked ? (
+                <span className="truncate text-foreground">
+                  Telegram connected{telegramUsername ? <span className="text-muted-foreground"> · @{telegramUsername}</span> : null}
+                </span>
+              ) : telegramCode ? (
                 <span className="truncate text-muted-foreground">
-                  <span className="font-mono text-foreground">/link {telegramCode.code}</span> · expires {new Date(telegramCode.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  Waiting for Telegram · <span className="font-mono text-foreground">{telegramCode.code}</span>
                 </span>
               ) : (
                 <span className="text-foreground">Telegram attendance</span>
@@ -545,23 +562,41 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
                 </Button>
               ) : null}
 
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={async () => {
-                  const response = await generateTelegramCode.mutateAsync();
-                  setTelegramCode(response.data.telegramLinkCode);
-                  setTelegramCodeCopied(false);
-                }}
-                disabled={generateTelegramCode.isPending}
-              >
-                {generateTelegramCode.isPending ? "..." : "Link"}
-              </Button>
+              {(telegramCode?.deepLink || telegramBotUrl) ? (
+                <Button
+                  type="button"
+                  variant={telegramLinked ? "outline" : "default"}
+                  size="sm"
+                  onClick={() => {
+                    const url = telegramCode?.deepLink || telegramBotUrl;
+                    if (url) window.open(url, "_blank", "noopener,noreferrer");
+                  }}
+                >
+                  <ExternalLink className="size-3.5" />
+                  {telegramLinked ? "Open Telegram" : "Continue in Telegram"}
+                </Button>
+              ) : null}
 
-              {!telegramCode ? (
-                <Button type="button" variant="ghost" size="icon-sm" onClick={() => setTelegramBannerDismissed(true)} aria-label="Dismiss Telegram banner">
-                  <X className="size-3.5" />
+              {!telegramLinked && !telegramCode ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={async () => {
+                    const response = await generateTelegramCode.mutateAsync();
+                    const linkCode = response.data.telegramLinkCode;
+                    setTelegramCode(linkCode);
+                    setTelegramCodeCopied(false);
+                    setTelegramBannerDismissed(false);
+                    if (linkCode.deepLink) {
+                      const popup = window.open(linkCode.deepLink, "_blank", "noopener,noreferrer");
+                      if (!popup) window.location.assign(linkCode.deepLink);
+                    }
+                  }}
+                  disabled={generateTelegramCode.isPending}
+                >
+                  {generateTelegramCode.isPending ? <Loader2 className="size-3.5 animate-spin" /> : <Link2 className="size-3.5" />}
+                  {generateTelegramCode.isPending ? "Connecting..." : "Connect"}
                 </Button>
               ) : null}
 
@@ -573,10 +608,17 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
                   onClick={async () => {
                     await unlinkTelegram.mutateAsync();
                     setTelegramCode(null);
+                    await telegramStatus.refetch();
                   }}
                   disabled={unlinkTelegram.isPending}
                 >
-                  Unlink
+                  {unlinkTelegram.isPending ? "Unlinking..." : "Unlink"}
+                </Button>
+              ) : null}
+
+              {!telegramLinked && !telegramCode ? (
+                <Button type="button" variant="ghost" size="icon-sm" onClick={() => setTelegramBannerDismissed(true)} aria-label="Dismiss Telegram banner">
+                  <X className="size-3.5" />
                 </Button>
               ) : null}
             </div>
