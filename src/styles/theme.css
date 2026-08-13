@@ -77,37 +77,38 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.62 0.2 264.4);
+  /* Layered blue-charcoal palette: no pure black surfaces. */
+  --background: oklch(0.19 0.012 264);
+  --foreground: oklch(0.94 0.006 264);
+  --card: oklch(0.235 0.014 264);
+  --card-foreground: oklch(0.95 0.006 264);
+  --popover: oklch(0.25 0.015 264);
+  --popover-foreground: oklch(0.95 0.006 264);
+  --primary: oklch(0.66 0.19 264.4);
   --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0.03 264.4);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 12%);
-  --input: oklch(1 0 0 / 16%);
-  --ring: oklch(0.62 0.2 264.4);
-  --chart-1: oklch(0.62 0.2 264.4);
+  --secondary: oklch(0.285 0.016 264);
+  --secondary-foreground: oklch(0.94 0.006 264);
+  --muted: oklch(0.27 0.014 264);
+  --muted-foreground: oklch(0.71 0.012 264);
+  --accent: oklch(0.3 0.03 264.4);
+  --accent-foreground: oklch(0.96 0.006 264);
+  --destructive: oklch(0.68 0.19 22.216);
+  --border: oklch(0.36 0.018 264 / 72%);
+  --input: oklch(0.34 0.018 264 / 78%);
+  --ring: oklch(0.66 0.19 264.4);
+  --chart-1: oklch(0.66 0.19 264.4);
   --chart-2: oklch(0.7 0.14 170);
   --chart-3: oklch(0.72 0.14 70);
   --chart-4: oklch(0.68 0.16 310);
   --chart-5: oklch(0.7 0.15 25);
-  --sidebar: oklch(0.185 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.62 0.2 264.4);
+  --sidebar: oklch(0.215 0.014 264);
+  --sidebar-foreground: oklch(0.94 0.006 264);
+  --sidebar-primary: oklch(0.66 0.19 264.4);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.269 0.03 264.4);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 12%);
-  --sidebar-ring: oklch(0.62 0.2 264.4);
+  --sidebar-accent: oklch(0.285 0.025 264.4);
+  --sidebar-accent-foreground: oklch(0.96 0.006 264);
+  --sidebar-border: oklch(0.34 0.018 264 / 72%);
+  --sidebar-ring: oklch(0.66 0.19 264.4);
 }
 
 @layer base {
@@ -135,15 +136,25 @@ html:not(.dark) {
 /*
  * Legacy theme bridge
  *
- * New shadcn screens already use semantic tokens such as bg-background,
- * bg-card, text-foreground and border-border. Older ERP screens still use
- * slate/gray utilities directly. These dark-mode-only rules keep those
- * screens readable while they are gradually migrated to semantic tokens.
+ * New shadcn screens use semantic tokens. Older ERP screens still use
+ * slate/gray utilities directly, so these rules translate them into the
+ * same layered dark palette without turning every white surface pure black.
  */
 .dark body,
-.dark #root {
+.dark #root,
+.dark #app-window {
   background-color: var(--background) !important;
   color: var(--foreground);
+}
+
+/* The application shell has a legacy hardcoded #fafbfc main background. */
+.dark [class*="bg-[#fafbfc]"],
+.dark [class*="bg-[#FAFBFC]"],
+.dark [class*="bg-[#f8fafc]"],
+.dark [class*="bg-[#F8FAFC]"],
+.dark [class*="bg-[#f9fafb]"],
+.dark [class*="bg-[#F9FAFB]"] {
+  background-color: var(--background) !important;
 }
 
 .dark [class~="bg-white"],
@@ -155,7 +166,7 @@ html:not(.dark) {
 .dark [class~="bg-gray-50"],
 .dark [class*="bg-slate-50/"],
 .dark [class*="bg-gray-50/"] {
-  background-color: color-mix(in oklab, var(--card) 74%, var(--background)) !important;
+  background-color: color-mix(in oklab, var(--card) 72%, var(--background)) !important;
 }
 
 .dark [class~="bg-slate-100"],
@@ -163,13 +174,6 @@ html:not(.dark) {
 .dark [class*="bg-slate-100/"],
 .dark [class*="bg-gray-100/"] {
   background-color: var(--muted) !important;
-}
-
-.dark [class*="bg-[#f8fafc]"],
-.dark [class*="bg-[#F8FAFC]"],
-.dark [class*="bg-[#f9fafb]"],
-.dark [class*="bg-[#F9FAFB]"] {
-  background-color: var(--background) !important;
 }
 
 .dark [class~="text-slate-950"],
@@ -204,31 +208,47 @@ html:not(.dark) {
   --tw-ring-color: var(--border) !important;
 }
 
+/* Preserve the Blih blue icon rail and its white selected icon tile. */
+.dark #sidebar-container > div:first-child {
+  background-color: #1a56db !important;
+}
+
+.dark #sidebar-container > div:first-child [class~="bg-white"] {
+  background-color: #ffffff !important;
+  color: #1a56db !important;
+}
+
+/* Give the navigation panel its own slightly raised dark surface. */
+.dark #sidebar-container,
+.dark #sidebar-container > div:nth-child(2) {
+  background-color: var(--sidebar) !important;
+}
+
 .dark [class*="bg-blue-50"],
 .dark [class*="bg-blue-100"] {
-  background-color: color-mix(in oklab, #2563eb 16%, var(--background)) !important;
+  background-color: color-mix(in oklab, #2563eb 16%, var(--card)) !important;
 }
 
 .dark [class*="bg-emerald-50"],
 .dark [class*="bg-emerald-100"] {
-  background-color: color-mix(in oklab, #10b981 14%, var(--background)) !important;
+  background-color: color-mix(in oklab, #10b981 14%, var(--card)) !important;
 }
 
 .dark [class*="bg-amber-50"],
 .dark [class*="bg-amber-100"] {
-  background-color: color-mix(in oklab, #f59e0b 14%, var(--background)) !important;
+  background-color: color-mix(in oklab, #f59e0b 14%, var(--card)) !important;
 }
 
 .dark [class*="bg-red-50"],
 .dark [class*="bg-rose-50"],
 .dark [class*="bg-red-100"],
 .dark [class*="bg-rose-100"] {
-  background-color: color-mix(in oklab, #ef4444 14%, var(--background)) !important;
+  background-color: color-mix(in oklab, #ef4444 14%, var(--card)) !important;
 }
 
 .dark [class*="bg-violet-50"],
 .dark [class*="bg-purple-50"] {
-  background-color: color-mix(in oklab, #8b5cf6 14%, var(--background)) !important;
+  background-color: color-mix(in oklab, #8b5cf6 14%, var(--card)) !important;
 }
 
 .dark [class~="text-blue-700"],
@@ -270,16 +290,16 @@ html:not(.dark) {
 }
 
 .dark ::-webkit-scrollbar-thumb {
-  background: oklch(0.38 0 0);
+  background: oklch(0.39 0.012 264);
 }
 
 .dark ::-webkit-scrollbar-thumb:hover {
-  background: oklch(0.48 0 0);
+  background: oklch(0.48 0.014 264);
 }
 
 /* FullCalendar uses its own CSS variables and therefore needs a dark bridge. */
 .dark .blih-events-calendar {
-  --fc-border-color: oklch(1 0 0 / 12%);
+  --fc-border-color: var(--border);
   --fc-page-bg-color: var(--background);
   --fc-neutral-bg-color: var(--muted);
   --fc-today-bg-color: color-mix(in oklab, #2563eb 12%, var(--background));
