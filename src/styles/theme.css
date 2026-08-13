@@ -41,9 +41,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/*---break---
- */
-
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
@@ -51,7 +48,6 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* Blih primary blue: #1a56db */
   --primary: oklch(0.488 0.243 264.4);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.97 0 0);
@@ -80,9 +76,6 @@
   --sidebar-ring: oklch(0.488 0.243 264.4);
 }
 
-/*---break---
- */
-
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
@@ -90,46 +83,228 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  /* Blih primary blue slightly lighter for dark mode */
-  --primary: oklch(0.58 0.22 264.4);
+  --primary: oklch(0.62 0.2 264.4);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
+  --accent: oklch(0.269 0.03 264.4);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.58 0.22 264.4);
-  --chart-1: oklch(0.58 0.22 264.4);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.62 0.2 264.4);
+  --chart-1: oklch(0.62 0.2 264.4);
+  --chart-2: oklch(0.7 0.14 170);
+  --chart-3: oklch(0.72 0.14 70);
+  --chart-4: oklch(0.68 0.16 310);
+  --chart-5: oklch(0.7 0.15 25);
+  --sidebar: oklch(0.185 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.58 0.22 264.4);
+  --sidebar-primary: oklch(0.62 0.2 264.4);
   --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent: oklch(0.269 0.03 264.4);
   --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.58 0.22 264.4);
+  --sidebar-border: oklch(1 0 0 / 12%);
+  --sidebar-ring: oklch(0.62 0.2 264.4);
 }
-
-/*---break---
- */
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
+
   html {
     @apply font-sans;
   }
+
+  body {
+    @apply bg-background text-foreground;
+  }
 }
 
+html.dark {
+  color-scheme: dark;
+}
+
+html:not(.dark) {
+  color-scheme: light;
+}
+
+/*
+ * Legacy theme bridge
+ *
+ * New shadcn screens already use semantic tokens such as bg-background,
+ * bg-card, text-foreground and border-border. Older ERP screens still use
+ * slate/gray utilities directly. These dark-mode-only rules keep those
+ * screens readable while they are gradually migrated to semantic tokens.
+ */
+.dark body,
+.dark #root {
+  background-color: var(--background) !important;
+  color: var(--foreground);
+}
+
+.dark [class~="bg-white"],
+.dark [class*="bg-white/"] {
+  background-color: var(--card) !important;
+}
+
+.dark [class~="bg-slate-50"],
+.dark [class~="bg-gray-50"],
+.dark [class*="bg-slate-50/"],
+.dark [class*="bg-gray-50/"] {
+  background-color: color-mix(in oklab, var(--card) 74%, var(--background)) !important;
+}
+
+.dark [class~="bg-slate-100"],
+.dark [class~="bg-gray-100"],
+.dark [class*="bg-slate-100/"],
+.dark [class*="bg-gray-100/"] {
+  background-color: var(--muted) !important;
+}
+
+.dark [class*="bg-[#f8fafc]"],
+.dark [class*="bg-[#F8FAFC]"],
+.dark [class*="bg-[#f9fafb]"],
+.dark [class*="bg-[#F9FAFB]"] {
+  background-color: var(--background) !important;
+}
+
+.dark [class~="text-slate-950"],
+.dark [class~="text-slate-900"],
+.dark [class~="text-slate-800"],
+.dark [class~="text-slate-700"],
+.dark [class~="text-gray-950"],
+.dark [class~="text-gray-900"],
+.dark [class~="text-gray-800"],
+.dark [class~="text-gray-700"] {
+  color: var(--foreground) !important;
+}
+
+.dark [class~="text-slate-600"],
+.dark [class~="text-slate-500"],
+.dark [class~="text-slate-400"],
+.dark [class~="text-gray-600"],
+.dark [class~="text-gray-500"],
+.dark [class~="text-gray-400"] {
+  color: var(--muted-foreground) !important;
+}
+
+.dark [class*="border-slate-"],
+.dark [class*="border-gray-"],
+.dark [class*="divide-slate-"],
+.dark [class*="divide-gray-"] {
+  border-color: var(--border) !important;
+}
+
+.dark [class*="ring-slate-"],
+.dark [class*="ring-gray-"] {
+  --tw-ring-color: var(--border) !important;
+}
+
+.dark [class*="bg-blue-50"],
+.dark [class*="bg-blue-100"] {
+  background-color: color-mix(in oklab, #2563eb 16%, var(--background)) !important;
+}
+
+.dark [class*="bg-emerald-50"],
+.dark [class*="bg-emerald-100"] {
+  background-color: color-mix(in oklab, #10b981 14%, var(--background)) !important;
+}
+
+.dark [class*="bg-amber-50"],
+.dark [class*="bg-amber-100"] {
+  background-color: color-mix(in oklab, #f59e0b 14%, var(--background)) !important;
+}
+
+.dark [class*="bg-red-50"],
+.dark [class*="bg-rose-50"],
+.dark [class*="bg-red-100"],
+.dark [class*="bg-rose-100"] {
+  background-color: color-mix(in oklab, #ef4444 14%, var(--background)) !important;
+}
+
+.dark [class*="bg-violet-50"],
+.dark [class*="bg-purple-50"] {
+  background-color: color-mix(in oklab, #8b5cf6 14%, var(--background)) !important;
+}
+
+.dark [class~="text-blue-700"],
+.dark [class~="text-blue-800"],
+.dark [class~="text-blue-900"] {
+  color: #93c5fd !important;
+}
+
+.dark [class~="text-emerald-700"],
+.dark [class~="text-emerald-800"],
+.dark [class~="text-emerald-900"] {
+  color: #6ee7b7 !important;
+}
+
+.dark [class~="text-amber-700"],
+.dark [class~="text-amber-800"],
+.dark [class~="text-amber-900"] {
+  color: #fcd34d !important;
+}
+
+.dark [class~="text-red-700"],
+.dark [class~="text-red-800"],
+.dark [class~="text-red-900"],
+.dark [class~="text-rose-700"],
+.dark [class~="text-rose-800"],
+.dark [class~="text-rose-900"] {
+  color: #fda4af !important;
+}
+
+.dark input,
+.dark textarea,
+.dark select {
+  color-scheme: dark;
+}
+
+.dark ::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.8;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: oklch(0.38 0 0);
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: oklch(0.48 0 0);
+}
+
+/* FullCalendar uses its own CSS variables and therefore needs a dark bridge. */
+.dark .blih-events-calendar {
+  --fc-border-color: oklch(1 0 0 / 12%);
+  --fc-page-bg-color: var(--background);
+  --fc-neutral-bg-color: var(--muted);
+  --fc-today-bg-color: color-mix(in oklab, #2563eb 12%, var(--background));
+  --fc-now-indicator-color: #60a5fa;
+}
+
+.dark .blih-events-calendar .fc,
+.dark .blih-events-calendar .fc .fc-toolbar-title,
+.dark .blih-events-calendar .fc .fc-daygrid-day-number,
+.dark .blih-events-calendar .fc .fc-col-header-cell-cushion,
+.dark .blih-month-event-title,
+.dark .blih-events-calendar .fc .fc-daygrid-event {
+  color: var(--foreground) !important;
+}
+
+.dark .blih-events-calendar .fc .fc-button,
+.dark .blih-events-calendar .fc .fc-col-header-cell,
+.dark .blih-events-calendar .fc .fc-more-popover,
+.dark .blih-events-calendar .fc .fc-more-popover .fc-popover-header {
+  background: var(--card) !important;
+  border-color: var(--border) !important;
+  color: var(--foreground) !important;
+}
+
+.dark .blih-events-calendar .fc .fc-button:hover,
+.dark .blih-events-calendar .fc .fc-button:focus {
+  background: var(--muted) !important;
+}
