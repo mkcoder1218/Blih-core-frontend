@@ -201,7 +201,6 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
     office && coords
       ? haversineDistanceMeters(coords.latitude, coords.longitude, office.lat, office.lon)
       : null;
-
   const withinRadius = office && distanceMeters !== null ? distanceMeters <= office.radius : null;
 
   const isLunchWindowActive: boolean | null = React.useMemo(() => {
@@ -294,10 +293,9 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   }).format(serverNowDate);
   const dateDisplay = new Intl.DateTimeFormat(undefined, {
     timeZone: tz,
-    weekday: "long",
-    year: "numeric",
+    weekday: "short",
     month: "short",
-    day: "2-digit",
+    day: "numeric",
   }).format(serverNowDate);
 
   const cooldownAvailableAt = cooldown?.untilUtc
@@ -307,10 +305,8 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
         minute: "2-digit",
       }).format(new Date(cooldown.untilUtc))
     : null;
-  const cooldownActionLabel = cooldown?.action === "LUNCH_IN" ? "Return from lunch" : "Check in";
+  const cooldownActionLabel = cooldown?.action === "LUNCH_IN" ? "Return" : "Check in";
   const cooldownRequiredMinutes = Number(cooldown?.requiredMinutes || 60);
-  const cooldownTitle =
-    cooldown?.action === "LUNCH_IN" ? `${cooldownRequiredMinutes} minute break required` : "1 hour break required";
 
   const checkedInTime = day?.checkInAtUtc ? formatTime(new Date(day.checkInAtUtc), tz) : null;
   const checkedOutTime = day?.checkOutAtUtc ? formatTime(new Date(day.checkOutAtUtc), tz) : null;
@@ -328,6 +324,7 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   const missingLunchCheckout = Boolean(lunch?.lunchBreakEnabled && hasCheckedIn && !hasLunchOut && !hasCheckedOut);
   const missingLunchReturn = Boolean(hasLunchOut && !hasLunchIn && !hasCheckedOut);
   const lunchCheckoutNeedsAttention = Boolean(missingLunchCheckout && isLunchWindowActive === true);
+  const lateByMins = !hasCheckedIn && nextAllowed.includes("CHECK_IN") ? computeLateByMinutes() : 0;
 
   const showAttendanceWarning = Boolean(
     lunchCheckoutNeedsAttention ||
@@ -353,31 +350,30 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   const attendanceExemption = data?.attendanceExemption;
 
   const primaryStatusTitle = (() => {
-    if (isSaturdayTrackingOnly) return "Saturday tracking only";
-    if (isDayComplete || hasCheckedOut) return checkedOutTime ? `Checked out at ${checkedOutTime}` : "Day complete";
+    if (isSaturdayTrackingOnly) return "Saturday tracking";
+    if (isDayComplete || hasCheckedOut) return checkedOutTime ? `Checked out · ${checkedOutTime}` : "Day complete";
     if (currentStatus === "ON_BREAK" || (hasLunchOut && !hasLunchIn)) return "On lunch break";
-    if (hasCheckedIn) return checkedInTime ? `Checked in at ${checkedInTime}` : "Checked in";
+    if (hasCheckedIn) return checkedInTime ? `Checked in · ${checkedInTime}` : "Checked in";
     if (disabledReason) return disabledReason;
     return "Ready to check in";
   })();
 
   if (attendanceExemption) {
     return (
-      <div className="mx-auto flex min-h-[340px] w-full max-w-4xl items-center justify-center px-4">
-        <Card className="w-full rounded-md py-0 shadow-none">
-          <CardContent className="p-6 text-center">
-            <div className="mx-auto flex size-10 items-center justify-center rounded-md bg-emerald-50 text-emerald-600">
-              <ShieldCheck className="size-5" />
+      <div className="mx-auto w-full max-w-5xl px-4 py-6">
+        <Card className="rounded-md py-0 shadow-none">
+          <CardContent className="flex items-center gap-3 p-4">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-md bg-emerald-50 text-emerald-600">
+              <ShieldCheck className="size-4" />
             </div>
-            <h3 className="mt-3 text-base font-semibold text-foreground">Attendance check-in is not required</h3>
-            <p className="mx-auto mt-1.5 max-w-xl text-sm leading-6 text-muted-foreground">
-              You are exempt from check-in and check-out, so attendance penalties will not be applied to your account.
-            </p>
-            {attendanceExemption.reason ? (
-              <div className="mx-auto mt-4 max-w-xl rounded-md bg-muted/50 px-3 py-2 text-left text-sm text-foreground">
-                <span className="text-muted-foreground">Approved reason:</span> {attendanceExemption.reason}
-              </div>
-            ) : null}
+            <div className="min-w-0">
+              <div className="text-sm font-semibold text-foreground">Attendance check-in not required</div>
+              {attendanceExemption.reason ? (
+                <div className="mt-0.5 truncate text-sm text-muted-foreground" title={attendanceExemption.reason}>
+                  {attendanceExemption.reason}
+                </div>
+              ) : null}
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -385,201 +381,133 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-3">
+    <div className="mx-auto w-full max-w-6xl space-y-2.5">
       <Card className="rounded-md py-0 shadow-none">
-        <CardContent className="p-4 sm:p-5">
-          <div className="flex flex-col gap-2 border-b border-border pb-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">Self Check-In</h1>
-              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                <Clock3 className="size-4" />
-                <span>{dateDisplay}</span>
-                <span aria-hidden="true">·</span>
-                <span className="font-mono tabular-nums text-foreground">{nowDisplay}</span>
-                <span aria-hidden="true">·</span>
-                <span>{tz}</span>
-              </div>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center gap-3">
+              <h1 className="text-base font-semibold text-foreground">Self Check-In</h1>
+              <span className="hidden text-sm text-muted-foreground sm:inline">{dateDisplay}</span>
             </div>
+            <div className="font-mono text-sm tabular-nums text-foreground">{nowDisplay}</div>
           </div>
 
-          <div className="py-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-xl font-semibold tracking-tight text-foreground">{primaryStatusTitle}</h2>
-                  <LocationBadge withinRadius={withinRadius} geo={geo} coords={coords} />
-                </div>
-                <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                  <MapPin className="size-4" />
-                  <span>{office ? settings?.locationName || "Primary workplace" : "Workplace location not configured"}</span>
-                  {office ? <span>· {office.radius} m radius</span> : null}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={requestLocation}
-                    title="Refresh location"
-                    aria-label="Refresh location"
-                  >
-                    <RefreshCw className="size-3.5" />
-                  </Button>
-                </div>
-              </div>
+          <div className="py-3.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-semibold tracking-tight text-foreground">{primaryStatusTitle}</h2>
+              <LocationBadge withinRadius={withinRadius} geo={geo} coords={coords} />
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-x-7 gap-y-2 border-y border-border py-3 text-sm">
-              <Metric label="Worked" value={fmtMins(localWorkedMins)} emphasis={currentStatus === "IN_PROGRESS"} />
-              <Metric label="Remaining" value={remainingMins > 0 ? fmtMins(remainingMins) : "Done"} />
-              <Metric label="Break" value={fmtMins(backendBreakMins)} />
-              {checkedInTime ? <Metric label="Started" value={checkedInTime} /> : null}
+            <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
+              <MapPin className="size-4" />
+              <span>{office ? settings?.locationName || "Primary workplace" : "Workplace not configured"}</span>
+              {office ? <span>· {office.radius}m</span> : null}
+              <Button type="button" variant="ghost" size="icon-xs" onClick={requestLocation} aria-label="Refresh location">
+                <RefreshCw className="size-3.5" />
+              </Button>
             </div>
 
-            <div className="mt-3">
-              <div className="mb-1.5 flex items-center justify-between text-xs text-muted-foreground">
-                <span>Daily progress</span>
-                <span className="font-medium text-foreground">{progressPct}% of {fmtMins(expectedMins)}</span>
-              </div>
-              <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+            <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+              <CompactMetric value={fmtMins(localWorkedMins)} label="worked" emphasis={currentStatus === "IN_PROGRESS"} />
+              <CompactMetric value={remainingMins > 0 ? fmtMins(remainingMins) : "0m"} label="left" />
+              <CompactMetric value={fmtMins(backendBreakMins)} label="break" />
+              {lateByMins > 0 ? <CompactMetric value={`${lateByMins}m`} label="late" tone="warning" /> : null}
+            </div>
+
+            <div className="mt-3 flex items-center gap-3">
+              <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
                 <div
                   className={`h-full rounded-full transition-all duration-500 ${progressPct >= 100 ? "bg-emerald-500" : "bg-primary"}`}
                   style={{ width: `${progressPct}%` }}
                 />
               </div>
+              <span className="text-xs font-medium text-muted-foreground">{progressPct}%</span>
             </div>
 
-            {lunch?.lunchBreakEnabled && lunch?.lunchMode === "FIXED" && lunch?.fixedLunchStartTime && lunch?.fixedLunchEndTime ? (
-              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <Coffee className="size-4" />
-                <span>Lunch {lunch.fixedLunchStartTime}–{lunch.fixedLunchEndTime}</span>
-                <Badge variant={isLunchWindowActive ? "secondary" : "outline"}>
-                  {isLunchWindowActive === true ? "Available now" : "Not open yet"}
-                </Badge>
-              </div>
-            ) : null}
-
             {showAttendanceWarning ? (
-              <div className="mt-3 flex items-start gap-2 border-l-2 border-amber-400 bg-amber-50/70 px-3 py-2 text-sm text-amber-900">
-                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
-                <div className="leading-5">
-                  {missingLunchReturn ? "Return from lunch when you are back at work." : null}
-                  {lunchCheckoutNeedsAttention ? "Your lunch window is open. Check out before starting lunch." : null}
-                  {withinRadius === false ? " You are currently outside the workplace radius." : null}
-                  {penaltyReason ? ` ${penaltyReason}` : null}
-                  {!missingLunchReturn && !lunchCheckoutNeedsAttention && withinRadius !== false && !penaltyReason && currentStatus === "MISSED"
-                    ? "Your attendance record needs attention."
-                    : null}
-                </div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-amber-800">
+                <AlertTriangle className="size-4 shrink-0 text-amber-600" />
+                <span>{attendanceWarningLabel({ missingLunchReturn, lunchCheckoutNeedsAttention, withinRadius, penaltyReason, currentStatus })}</span>
+                {showLunchApprovalAction ? (
+                  <Button type="button" variant="outline" size="xs" onClick={onSpecialRequest}>Approval</Button>
+                ) : null}
               </div>
             ) : null}
 
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap items-center gap-2">
               {isDayComplete ? (
-                <div className="flex items-center gap-2 rounded-md bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700">
-                  <CheckCircle2 className="size-4" />
-                  Your attendance day is complete.
-                </div>
+                <Badge variant="secondary" className="gap-1.5 px-2.5 py-1.5 text-sm">
+                  <CheckCircle2 className="size-4 text-emerald-600" /> Day complete
+                </Badge>
               ) : disabledReason ? (
-                <div className="rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">{disabledReason}</div>
+                <span className="text-sm text-amber-800">{disabledReason}</span>
               ) : cooldown?.active ? (
-                <div className="space-y-2">
-                  <div className="flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                    <Clock3 className="mt-0.5 size-4 shrink-0 text-amber-600" />
-                    <div>
-                      <div className="font-medium text-foreground">{cooldownTitle}</div>
-                      <div className="mt-0.5 text-sm">
-                        {cooldownActionLabel} will be available
-                        {cooldownAvailableAt ? ` at ${cooldownAvailableAt}` : " after the break"}
-                        {cooldown?.remainingMinutes ? ` (${cooldown.remainingMinutes} min remaining).` : "."}
-                      </div>
-                    </div>
-                  </div>
-                  <Button disabled className="w-full sm:w-auto">
-                    <Clock3 className="size-4" />
-                    {cooldownActionLabel}
+                <>
+                  <Button disabled>
+                    <Clock3 className="size-4" /> {cooldownActionLabel}
                   </Button>
-                </div>
+                  <span className="text-sm text-muted-foreground">
+                    {cooldownAvailableAt ? `Available ${cooldownAvailableAt}` : `${cooldownRequiredMinutes}m break`}
+                  </span>
+                </>
               ) : (
-                <div className="space-y-2">
-                  {nextAllowed.includes("CHECK_IN") && computeLateByMinutes() > 0 ? (
-                    <div className="flex items-start gap-2 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" />
-                      <span>
-                        You are <span className="font-medium">{computeLateByMinutes()} min late</span>. Submit your reason in My Lateness Reason.
+                <>
+                  {nextAllowed.map((type, index) => {
+                    const isLunchOutFixed = type === "LUNCH_OUT" && lunch?.lunchMode === "FIXED";
+                    const lunchWindowClosed = isLunchOutFixed && isLunchWindowActive === false;
+                    const buttonDisabled = Boolean(baseDisabledReason) || lunchWindowClosed;
+                    const disabledTitle = lunchWindowClosed
+                      ? `Lunch window: ${lunch?.fixedLunchStartTime} - ${lunch?.fixedLunchEndTime}`
+                      : baseDisabledReason ?? undefined;
+
+                    return (
+                      <span key={type} title={buttonDisabled ? disabledTitle : undefined}>
+                        <Button
+                          type="button"
+                          variant={index === 0 ? "default" : "outline"}
+                          disabled={buttonDisabled}
+                          onClick={() => void handleAction(type)}
+                        >
+                          {createEvent.isPending ? <Loader2 className="size-4 animate-spin" /> : actionIcon(type)}
+                          {createEvent.isPending ? "Working..." : shortActionLabel(type)}
+                        </Button>
                       </span>
-                    </div>
-                  ) : null}
+                    );
+                  })}
 
-                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                    {nextAllowed.length === 0 ? (
-                      <span className="text-sm text-muted-foreground">No attendance action is available right now.</span>
-                    ) : null}
-
-                    {nextAllowed.map((type, index) => {
-                      const isLunchOutFixed = type === "LUNCH_OUT" && lunch?.lunchMode === "FIXED";
-                      const lunchWindowClosed = isLunchOutFixed && isLunchWindowActive === false;
-                      const buttonDisabled = Boolean(baseDisabledReason) || lunchWindowClosed;
-                      const disabledTitle = lunchWindowClosed
-                        ? `Lunch window: ${lunch?.fixedLunchStartTime} - ${lunch?.fixedLunchEndTime}`
-                        : baseDisabledReason ?? undefined;
-
-                      return (
-                        <span key={type} className={index === 0 ? "flex-1" : "sm:w-auto"} title={buttonDisabled ? disabledTitle : undefined}>
-                          <Button
-                            type="button"
-                            variant={index === 0 ? "default" : "outline"}
-                            disabled={buttonDisabled}
-                            onClick={() => void handleAction(type)}
-                            className="w-full"
-                          >
-                            {createEvent.isPending ? <Loader2 className="size-4 animate-spin" /> : actionIcon(type)}
-                            {createEvent.isPending ? "Processing..." : toActionLabel(type)}
-                          </Button>
-                        </span>
-                      );
-                    })}
-
-                    {showLunchApprovalAction ? (
-                      <Button type="button" variant="outline" onClick={onSpecialRequest}>
-                        <ShieldCheck className="size-4" />
-                        Request lunch-time approval
-                      </Button>
-                    ) : null}
-                  </div>
-
-                  {baseDisabledReason && nextAllowed.length > 0 ? (
-                    <p className="text-xs text-muted-foreground">{baseDisabledReason}</p>
-                  ) : null}
+                  <Button type="button" variant="ghost" onClick={() => setDetailsOpen((open) => !open)}>
+                    {detailsOpen ? "Hide details" : "Details"}
+                  </Button>
 
                   {geo.status === "prompt" && !coords && !isSaturdayTrackingOnly ? (
                     <Button type="button" variant="secondary" onClick={requestLocation}>
-                      <MapPin className="size-4" />
-                      Allow location access
+                      <MapPin className="size-4" /> Enable location
                     </Button>
                   ) : null}
-                </div>
+                </>
               )}
             </div>
+
+            {baseDisabledReason && nextAllowed.length > 0 ? (
+              <div className="mt-2 text-xs text-muted-foreground">{baseDisabledReason}</div>
+            ) : null}
 
             {submitError ? (
               <div className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{submitError}</div>
             ) : null}
 
-            <Button type="button" variant="ghost" size="sm" className="mt-2 px-0" onClick={() => setDetailsOpen((open) => !open)}>
-              {detailsOpen ? "Hide details" : "View details"}
-            </Button>
-
             {detailsOpen ? (
-              <div className="mt-2 grid gap-x-6 gap-y-2 border-t border-border pt-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
-                <Detail label="Credited time" value={fmtMins(localWorkedMins)} />
-                <Detail label="Full worked" value={fmtMins(backendRawWorkedMins)} />
-                <Detail label="Break time" value={fmtMins(backendBreakMins)} />
-                <Detail label="Penalty time" value={fmtMins(penaltyMins)} />
+              <div className="mt-3 grid gap-x-6 gap-y-2 border-t border-border pt-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
+                <Detail label="Credited" value={fmtMins(localWorkedMins)} />
+                <Detail label="Worked" value={fmtMins(backendRawWorkedMins)} />
+                <Detail label="Break" value={fmtMins(backendBreakMins)} />
+                <Detail label="Penalty" value={fmtMins(penaltyMins)} />
                 <Detail label="Expected" value={fmtMins(expectedMins)} />
                 <Detail label="Remaining" value={remainingMins > 0 ? fmtMins(remainingMins) : "0m"} />
                 <Detail label="Overtime" value={fmtMins(overtimeMins)} />
                 <Detail label="Location" value={locationStatusText} />
-                <Detail label="Distance" value={distanceMeters !== null ? `${Math.round(distanceMeters)} m` : "—"} />
-                <Detail label="Workplace radius" value={office ? `${office.radius} m` : "—"} />
+                <Detail label="Distance" value={distanceMeters !== null ? `${Math.round(distanceMeters)}m` : "—"} />
+                <Detail label="Radius" value={office ? `${office.radius}m` : "—"} />
               </div>
             ) : null}
           </div>
@@ -588,23 +516,23 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
 
       {telegramCode || (!telegramLinked && !telegramBannerDismissed) ? (
         <Card className="rounded-md py-0 shadow-none">
-          <CardContent className="flex flex-col gap-3 p-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="min-w-0">
-              <div className="text-sm font-medium text-foreground">Use attendance from Telegram</div>
+          <CardContent className="flex min-h-11 flex-wrap items-center justify-between gap-2 px-3 py-2">
+            <div className="flex min-w-0 items-center gap-2 text-sm">
+              <Link2 className="size-4 shrink-0 text-muted-foreground" />
               {telegramCode ? (
-                <div className="mt-0.5 text-sm text-muted-foreground">
-                  Send <span className="font-mono text-foreground">/link {telegramCode.code}</span> to the attendance bot. Expires at {new Date(telegramCode.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}.
-                </div>
+                <span className="truncate text-muted-foreground">
+                  <span className="font-mono text-foreground">/link {telegramCode.code}</span> · expires {new Date(telegramCode.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                </span>
               ) : (
-                <div className="mt-0.5 text-sm text-muted-foreground">Link your account if you want to use the attendance bot.</div>
+                <span className="text-foreground">Telegram attendance</span>
               )}
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1">
               {telegramCode ? (
                 <Button
                   type="button"
-                  variant="outline"
+                  variant="ghost"
                   size="sm"
                   onClick={async () => {
                     await navigator.clipboard.writeText(telegramCode.code);
@@ -613,12 +541,13 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
                   }}
                 >
                   {telegramCodeCopied ? <Check className="size-3.5 text-emerald-600" /> : <Copy className="size-3.5" />}
-                  {telegramCodeCopied ? "Copied" : "Copy code"}
+                  {telegramCodeCopied ? "Copied" : "Copy"}
                 </Button>
               ) : null}
 
               <Button
                 type="button"
+                variant="outline"
                 size="sm"
                 onClick={async () => {
                   const response = await generateTelegramCode.mutateAsync();
@@ -627,18 +556,11 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
                 }}
                 disabled={generateTelegramCode.isPending}
               >
-                <Link2 className="size-3.5" />
-                {generateTelegramCode.isPending ? "Generating..." : "Link Telegram"}
+                {generateTelegramCode.isPending ? "..." : "Link"}
               </Button>
 
               {!telegramCode ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setTelegramBannerDismissed(true)}
-                  aria-label="Dismiss Telegram banner"
-                >
+                <Button type="button" variant="ghost" size="icon-sm" onClick={() => setTelegramBannerDismissed(true)} aria-label="Dismiss Telegram banner">
                   <X className="size-3.5" />
                 </Button>
               ) : null}
@@ -663,17 +585,12 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
       ) : null}
 
       <Card className="rounded-md py-0 shadow-none">
-        <CardContent className="p-4">
+        <CardContent className="p-3.5">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-base font-semibold text-foreground">Attendance timeline</h2>
-              <p className="mt-0.5 text-sm text-muted-foreground">Today&apos;s recorded attendance events.</p>
-            </div>
-
+            <h2 className="text-sm font-semibold text-foreground">Today</h2>
             <div className="flex items-center gap-1">
-              <Button type="button" variant="ghost" size="sm" onClick={() => void today.refetch()} disabled={today.isFetching}>
+              <Button type="button" variant="ghost" size="icon-sm" onClick={() => void today.refetch()} disabled={today.isFetching} aria-label="Refresh attendance">
                 <RefreshCw className={`size-3.5 ${today.isFetching ? "animate-spin" : ""}`} />
-                {today.isFetching ? "Refreshing" : "Refresh"}
               </Button>
 
               {timeline.length > 0 ? (
@@ -682,12 +599,8 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
                     <MoreHorizontal className="size-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem
-                      disabled={revertEvent.isPending || createEvent.isPending}
-                      onClick={() => setConfirmRevertOpen(true)}
-                    >
-                      <Undo2 className="size-4" />
-                      Revert last action
+                    <DropdownMenuItem disabled={revertEvent.isPending || createEvent.isPending} onClick={() => setConfirmRevertOpen(true)}>
+                      <Undo2 className="size-4" /> Revert last action
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -696,22 +609,22 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
           </div>
 
           {today.isError ? (
-            <div className="mt-3 flex items-center justify-between rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              <span>Failed to load attendance data.</span>
+            <div className="mt-2 flex items-center justify-between rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              <span>Could not load attendance.</span>
               <Button type="button" variant="ghost" size="sm" onClick={() => void today.refetch()}>Retry</Button>
             </div>
           ) : null}
 
-          <div className="mt-3 divide-y divide-border">
+          <div className="mt-2 divide-y divide-border">
             {timeline.length === 0 ? (
-              <div className="py-2 text-sm text-muted-foreground">No attendance events recorded yet today.</div>
+              <div className="py-2 text-sm text-muted-foreground">No events yet.</div>
             ) : (
               timeline.map((event: any) => (
-                <div key={event.id} className="grid grid-cols-[82px_1fr_auto] items-center gap-3 py-2.5 text-sm">
+                <div key={event.id} className="grid grid-cols-[72px_1fr_auto] items-center gap-3 py-2 text-sm">
                   <div className="font-mono tabular-nums text-foreground">{formatTime(new Date(event.timestampUtc), tz)}</div>
                   <div className="min-w-0 font-medium text-foreground">{event.label}</div>
-                  <div className="flex items-center gap-1.5 text-right text-muted-foreground">
-                    <span>{event.withinAllowedRadius ? "Inside workplace" : `${Math.round(event.distanceMeters)} m away`}</span>
+                  <div className="flex items-center gap-1.5 text-muted-foreground">
+                    <span className="hidden sm:inline">{event.withinAllowedRadius ? "Inside" : `${Math.round(event.distanceMeters)}m away`}</span>
                     {event.withinAllowedRadius ? (
                       <CheckCircle2 className="size-4 shrink-0 text-emerald-500" />
                     ) : (
@@ -730,11 +643,9 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
           <DialogHeader>
             <DialogTitle>Revert last action?</DialogTitle>
           </DialogHeader>
-          <p className="text-sm leading-6 text-muted-foreground">
-            This removes your latest attendance event today. Use it only if you recorded the action accidentally.
-          </p>
+          <p className="text-sm text-muted-foreground">This removes your latest attendance event.</p>
           <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-foreground">
-            Last action: {timeline[timeline.length - 1]?.label || "Attendance action"}
+            {timeline[timeline.length - 1]?.label || "Attendance action"}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setConfirmRevertOpen(false)}>Cancel</Button>
@@ -748,11 +659,21 @@ export default function EmployeeAttendancePage({ onSpecialRequest }: { onSpecial
   );
 }
 
-function Metric({ label, value, emphasis = false }: { label: string; value: string; emphasis?: boolean }) {
+function CompactMetric({
+  value,
+  label,
+  emphasis = false,
+  tone = "default",
+}: {
+  value: string;
+  label: string;
+  emphasis?: boolean;
+  tone?: "default" | "warning";
+}) {
   return (
-    <div className="flex items-baseline gap-1.5">
-      <span className="text-muted-foreground">{label}</span>
-      <span className={`font-medium ${emphasis ? "text-primary" : "text-foreground"}`}>{value}</span>
+    <div className={`flex items-baseline gap-1 ${tone === "warning" ? "text-amber-700" : ""}`}>
+      <span className={`font-semibold ${emphasis ? "text-primary" : tone === "warning" ? "text-amber-700" : "text-foreground"}`}>{value}</span>
+      <span className={tone === "warning" ? "text-amber-700" : "text-muted-foreground"}>{label}</span>
     </div>
   );
 }
@@ -770,8 +691,7 @@ function LocationBadge({ withinRadius, geo, coords }: { withinRadius: boolean | 
   if (withinRadius === true) {
     return (
       <Badge variant="secondary" className="gap-1">
-        <CheckCircle2 className="size-3" />
-        Inside workplace
+        <CheckCircle2 className="size-3" /> Inside
       </Badge>
     );
   }
@@ -779,18 +699,37 @@ function LocationBadge({ withinRadius, geo, coords }: { withinRadius: boolean | 
   if (withinRadius === false) {
     return (
       <Badge variant="destructive" className="gap-1">
-        <XCircle className="size-3" />
-        Outside workplace
+        <XCircle className="size-3" /> Outside
       </Badge>
     );
   }
 
   return (
     <Badge variant="outline" className="gap-1">
-      <MapPin className="size-3" />
-      {geoBadgeText(geo, coords)}
+      <MapPin className="size-3" /> {geoBadgeText(geo, coords)}
     </Badge>
   );
+}
+
+function attendanceWarningLabel({
+  missingLunchReturn,
+  lunchCheckoutNeedsAttention,
+  withinRadius,
+  penaltyReason,
+  currentStatus,
+}: {
+  missingLunchReturn: boolean;
+  lunchCheckoutNeedsAttention: boolean;
+  withinRadius: boolean | null;
+  penaltyReason: string | null;
+  currentStatus: string;
+}) {
+  if (missingLunchReturn) return "Return from lunch";
+  if (lunchCheckoutNeedsAttention) return "Lunch window open";
+  if (withinRadius === false) return "Outside workplace";
+  if (penaltyReason) return penaltyReason;
+  if (currentStatus === "MISSED") return "Attendance needs attention";
+  return "Attendance needs attention";
 }
 
 function haversineDistanceMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
@@ -820,11 +759,11 @@ function formatTime(date: Date, timeZone: string): string {
   }).format(date);
 }
 
-function toActionLabel(type: AttendanceEventType): string {
+function shortActionLabel(type: AttendanceEventType): string {
   if (type === "CHECK_IN") return "Check In";
-  if (type === "LUNCH_OUT") return "Check Out for Lunch";
-  if (type === "LUNCH_IN") return "Return from Lunch";
-  return "Check Out for the Day";
+  if (type === "LUNCH_OUT") return "Lunch Out";
+  if (type === "LUNCH_IN") return "Return";
+  return "Check Out";
 }
 
 function actionIcon(type: AttendanceEventType) {
@@ -835,9 +774,9 @@ function actionIcon(type: AttendanceEventType) {
 }
 
 function geoBadgeText(geo: GeoState, coords: Coords): string {
-  if (geo.status === "denied") return "Location access denied";
-  if (geo.status === "error") return "Location unavailable";
-  if (coords) return "Location ready";
-  if (geo.status === "prompt") return "Location permission required";
-  return "Locating…";
+  if (geo.status === "denied") return "Denied";
+  if (geo.status === "error") return "Unavailable";
+  if (coords) return "Ready";
+  if (geo.status === "prompt") return "Location";
+  return "Locating";
 }
