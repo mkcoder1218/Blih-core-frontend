@@ -14,6 +14,22 @@ export type TelegramSetting = {
   enabled: boolean;
 };
 
+export type TelegramLinkCode = {
+  code: string;
+  expiresAt: string;
+  botUsername?: string | null;
+  botUrl?: string | null;
+  deepLink?: string | null;
+};
+
+export type TelegramConnectionStatus = {
+  linked: boolean;
+  telegramUsername?: string | null;
+  linkedAt?: string | null;
+  botUsername?: string | null;
+  botUrl?: string | null;
+};
+
 export async function getTelegramSettings(businessId: string) {
   const res = await api.get<ApiEnvelope<{ telegramSettings: TelegramSetting[] }>>(`/api/v1/businesses/${businessId}/telegram-settings`);
   return res.data;
@@ -39,8 +55,13 @@ export async function sendCurrentBusinessTelegramGroupMessageTest(message: strin
   return res.data;
 }
 
+export async function getMyTelegramStatus() {
+  const res = await api.get<ApiEnvelope<{ telegramStatus: TelegramConnectionStatus }>>("/api/v1/attendance/telegram/me/status");
+  return res.data;
+}
+
 export async function generateTelegramLinkCode() {
-  const res = await api.post<ApiEnvelope<{ telegramLinkCode: { code: string; expiresAt: string } }>>("/api/v1/attendance/telegram/me/link-code");
+  const res = await api.post<ApiEnvelope<{ telegramLinkCode: TelegramLinkCode }>>("/api/v1/attendance/telegram/me/link-code");
   return res.data;
 }
 
