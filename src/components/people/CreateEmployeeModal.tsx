@@ -19,6 +19,7 @@ import EmploymentStep from "./create-employee/EmploymentStep";
 import PersonalBankStep from "./create-employee/PersonalBankStep";
 import EmergencyStep from "./create-employee/EmergencyStep";
 import DocumentsStep from "./create-employee/DocumentsStep";
+import EditEmployeeProfileModal from "./create-employee/EditEmployeeProfileModal";
 
 function ActiveStep({
   step,
@@ -50,7 +51,7 @@ function ActiveStep({
   );
 }
 
-export default function CreateEmployeeModal(
+function CreateEmployeeWizard(
   props: CreateEmployeeModalProps,
 ) {
   const controller =
@@ -396,4 +397,13 @@ export default function CreateEmployeeModal(
       </div>
     </EmployeeFormProvider>
   );
+}
+
+
+export default function CreateEmployeeModal(props: CreateEmployeeModalProps) {
+  if (props.mode === "update") {
+    return <EditEmployeeProfileModal {...props} />;
+  }
+
+  return <CreateEmployeeWizard {...props} />;
 }
