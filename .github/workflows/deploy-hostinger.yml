@@ -8,9 +8,6 @@ on:
 
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 concurrency:
   group: hr-frontend-${{ github.ref_name }}
   cancel-in-progress: true
@@ -23,62 +20,6 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Apply one-time salary summary fix
-        if: github.ref_name == 'integration'
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-
-          path = Path("src/components/finance/EmployeeSalaryTable.tsx")
-          text = path.read_text(encoding="utf-8")
-          lines = text.splitlines()
-
-          start = next((i for i, line in enumerate(lines) if line == '      case "salarySummary":'), None)
-          end = None
-          if start is not None:
-              end = next((i for i in range(start + 1, len(lines)) if lines[i] == '      case "basicSalary":'), None)
-
-          if start is None:
-              if any('const configuredLabel = isNetMode ? "Target Net" : "Base";' in line for line in lines):
-                  raise SystemExit(0)
-              raise SystemExit("salarySummary case not found")
-          if end is None:
-              raise SystemExit("basicSalary case not found after salarySummary")
-
-          new_block = [
-              '      case "salarySummary": {',
-              '        const isNetMode = String(row.salaryInputMode || "").toLowerCase() === "net" && Number(row.targetNetSalary || 0) > 0;',
-              '        const configuredSalary = isNetMode ? Number(row.targetNetSalary || 0) : Number(row.baseSalary || 0);',
-              '        const configuredLabel = isNetMode ? "Target Net" : "Base";',
-              '        return (',
-              '          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">',
-              '            <span className="font-black text-slate-900">{configuredLabel}: {money(configuredSalary, row.currency)}</span>',
-              '            <span className="text-slate-300">.</span>',
-              '            <span className="font-black text-rose-600">Deduct: {money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>',
-              '            <span className="text-slate-300">.</span>',
-              '            <span className="font-black text-emerald-700">Payable: {money(row.netPay, row.currency)}</span>',
-              '          </div>',
-              '        );',
-              '      }',
-          ]
-
-          newline = "\r\n" if "\r\n" in text else "\n"
-          updated = newline.join(lines[:start] + new_block + lines[end:])
-          if text.endswith(("\n", "\r\n")):
-              updated += newline
-          path.write_text(updated, encoding="utf-8", newline="")
-          PY
-
-          if ! git diff --quiet -- src/components/finance/EmployeeSalaryTable.tsx; then
-            git config user.name "Blih automation"
-            git config user.email "actions@github.com"
-            git add src/components/finance/EmployeeSalaryTable.tsx
-            git commit -m "fix: show configured salary in summary"
-            git push origin HEAD:integration
-          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
