@@ -92,15 +92,32 @@ export function useBrainAuthorization() {
     isLegacyPolicyPermissionPresent(can);
   const hasProceduresAccess = isAdminUser || can("procedures.access");
 
-  // Overall workspace visibility: must have active module AND permission
+  // Management workspaces remain permission protected.
   const canAccessBrainWorkspace = isBrainEnabled && hasBrainAccess;
   const canAccessPolicyWorkspace = isPolicyEnabled && hasPolicyAccess;
   const canAccessProceduresWorkspace = isProceduresEnabled && hasProceduresAccess;
-  const canAccessWorkspace = isAdminUser || canAccessBrainWorkspace || canAccessPolicyWorkspace || canAccessProceduresWorkspace;
+
+  // The read-only company Policy Library is intentionally available to every
+  // authenticated company employee when the E-Policy module is active. This
+  // makes Brain a valid entry point without granting policy management rights.
+  const canAccessEmployeePolicyLibrary = isPolicyEnabled;
+
+  const canAccessWorkspace =
+    isAdminUser ||
+    canAccessBrainWorkspace ||
+    canAccessPolicyWorkspace ||
+    canAccessProceduresWorkspace ||
+    canAccessEmployeePolicyLibrary;
 
   // Filter allowed Brain subtabs for the current user
   const allowedTabs = ALL_BRAIN_TABS.filter((tab) => {
     if (isAdminUser) return true;
+
+    // Company Policy Library is read-only and permissionless by design. Backend
+    // tenant/status/visibility filtering remains authoritative.
+    if (tab.id === "company-policies") {
+      return isPolicyEnabled;
+    }
 
     // If tab belongs to Brain Knowledge (e.g. overview, knowledge), check Brain module & permission
     if (["overview", "knowledge"].includes(tab.id) && !isBrainEnabled) {
@@ -110,7 +127,7 @@ export function useBrainAuthorization() {
     if (tab.id === "procedures" && !isProceduresEnabled) {
       return false;
     }
-    // If tab belongs to Policy (e.g. policies, acceptance), check Policy module & permission
+    // If tab belongs to Policy management, check Policy module & permission
     if (["policies", "acceptance"].includes(tab.id) && !isPolicyEnabled) {
       return false;
     }
@@ -121,7 +138,7 @@ export function useBrainAuthorization() {
   });
 
   // Calculate default / first permitted tab
-  const firstAllowedTabId = allowedTabs[0]?.id || (canAccessPolicyWorkspace ? "policies" : "overview");
+  const firstAllowedTabId = allowedTabs[0]?.id || (canAccessEmployeePolicyLibrary ? "company-policies" : canAccessPolicyWorkspace ? "policies" : "overview");
 
   // Fine-grained Policy action permissions (strictly matching canonical backend contract)
   const policyActions = {
@@ -196,6 +213,7 @@ export function useBrainAuthorization() {
     canAccessBrainWorkspace,
     canAccessPolicyWorkspace,
     canAccessProceduresWorkspace,
+    canAccessEmployeePolicyLibrary,
     canAccessWorkspace,
     allowedTabs,
     firstAllowedTabId,

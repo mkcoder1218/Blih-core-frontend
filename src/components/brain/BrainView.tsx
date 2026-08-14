@@ -7,6 +7,7 @@ import {
 import { useLocation, useNavigate } from "react-router-dom";
 import { useBrainAuthorization } from "../../hooks/useBrainAuthorization";
 
+import CompanyPolicyLibrary from "./CompanyPolicyLibrary";
 import { BrainCategoriesTab } from "./tabs/BrainCategoriesTab";
 import { BrainKnowledgeTab } from "./tabs/BrainKnowledgeTab";
 import { BrainProceduresTab } from "./tabs/BrainProceduresTab";
@@ -71,11 +72,18 @@ export default function BrainView({ currentTab = "overview" }: BrainViewProps) {
           </p>
           <div className="mt-3 inline-flex flex-wrap items-center justify-center gap-2 rounded-xl bg-rose-100/70 px-3 py-1.5 text-[11px] font-bold text-rose-800">
             <Lock className="h-3.5 w-3.5" />
-            Requires: <code className="font-mono text-rose-900">brain.access</code> or <code className="font-mono text-rose-900">policy.access</code> / <code className="font-mono text-rose-900">policy.document.view</code>
+            Requires: <code className="font-mono text-rose-900">brain.access</code> or an active company E-Policy module
           </div>
         </div>
       </div>
     );
+  }
+
+  // Employee-facing Policy Library intentionally bypasses policy management
+  // permissions. The backend still limits this view to published, company-wide
+  // policies for the authenticated user's own business.
+  if (activeTabId === "company-policies") {
+    return <CompanyPolicyLibrary />;
   }
 
   // Workspace Shell

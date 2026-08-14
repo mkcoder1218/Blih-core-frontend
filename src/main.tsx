@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import RootApp from './RootApp';
+import PublicPolicyPage from './pages/PublicPolicyPage';
 import './index.css';
 import 'leaflet/dist/leaflet.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -13,12 +14,14 @@ const queryClient = new QueryClient({
   },
 });
 
+const isPublicPolicyPage = /^\/policies\/share\/[^/?#]+\/?$/i.test(window.location.pathname);
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
         <AlertProvider>
-          <RootApp />
+          {isPublicPolicyPage ? <PublicPolicyPage /> : <RootApp />}
         </AlertProvider>
       </QueryClientProvider>
     </ThemeProvider>
