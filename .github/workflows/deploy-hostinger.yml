@@ -8,6 +8,9 @@ on:
 
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 concurrency:
   group: hr-frontend-${{ github.ref_name }}
   cancel-in-progress: true
@@ -20,6 +23,57 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply one-time salary summary fix
+        if: github.ref_name == 'integration'
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/components/finance/EmployeeSalaryTable.tsx")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''      case "salarySummary":
+        return (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
+            <span className="font-black text-slate-900">Gross: {money(row.grossPay, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-rose-600">Deduct: {money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-emerald-700">Net: {money(row.netPay, row.currency)}</span>
+          </div>
+        );'''
+
+          new = '''      case "salarySummary": {
+        const isNetMode = String(row.salaryInputMode || "").toLowerCase() === "net" && Number(row.targetNetSalary || 0) > 0;
+        const configuredSalary = isNetMode ? Number(row.targetNetSalary || 0) : Number(row.baseSalary || 0);
+        const configuredLabel = isNetMode ? "Target Net" : "Base";
+        return (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
+            <span className="font-black text-slate-900">{configuredLabel}: {money(configuredSalary, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-rose-600">Deduct: {money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-emerald-700">Payable: {money(row.netPay, row.currency)}</span>
+          </div>
+        );
+      }'''
+
+          if old in text:
+              path.write_text(text.replace(old, new, 1), encoding="utf-8")
+          elif 'const configuredLabel = isNetMode ? "Target Net" : "Base";' not in text:
+              raise SystemExit("Salary summary block did not match the expected old or new form")
+          PY
+
+          if ! git diff --quiet -- src/components/finance/EmployeeSalaryTable.tsx; then
+            git config user.name "Blih automation"
+            git config user.email "actions@github.com"
+            git add src/components/finance/EmployeeSalaryTable.tsx
+            git commit -m "fix: show configured salary in summary"
+            git push origin HEAD:integration
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
