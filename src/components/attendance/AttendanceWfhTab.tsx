@@ -4,18 +4,19 @@
  */
 
 import { motion } from "motion/react";
+import { useState } from "react";
+import { Plus } from "lucide-react";
 
 import { useAttendanceRequests } from "../../hooks/useAttendanceRequests";
 import MyWfhRequests from "./work-from-home/MyWfhRequests";
 import PendingWfhRequests from "./work-from-home/PendingWfhRequests";
 import WfhRequestForm from "./work-from-home/WfhRequestForm";
 import WfhStats from "./work-from-home/WfhStats";
-import { useState } from "react";
-import { Plus } from "lucide-react";
+
 interface AttendanceWfhTabProps {
   showAlert: (
     message: string,
-    type?: "success" | "info" | "error"
+    type?: "success" | "info" | "error",
   ) => void;
 }
 
@@ -24,6 +25,7 @@ export default function AttendanceWfhTab({
 }: AttendanceWfhTabProps) {
   const [showRequestModal, setShowRequestModal] =
     useState(false);
+
   const mineQuery = useAttendanceRequests({
     requestType: "work_from_home",
     mine: true,
@@ -62,11 +64,11 @@ export default function AttendanceWfhTab({
 
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-black text-slate-950">
+          <h2 className="text-sm font-black text-foreground">
             Work From Home
           </h2>
 
-          <p className="mt-1 text-[11px] font-semibold text-slate-500">
+          <p className="mt-1 text-[11px] font-semibold text-muted-foreground">
             Submit and track work-from-home requests.
           </p>
         </div>
@@ -74,14 +76,14 @@ export default function AttendanceWfhTab({
         <button
           type="button"
           onClick={() => setShowRequestModal(true)}
-          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white hover:bg-blue-700"
+          className="flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-blue-700"
         >
           <Plus className="h-4 w-4" />
           New WFH Request
         </button>
       </div>
 
-      <MyWfhRequests />
+      <MyWfhRequests showAlert={showAlert} />
 
       <WfhRequestForm
         open={showRequestModal}
@@ -90,7 +92,6 @@ export default function AttendanceWfhTab({
       />
 
       <PendingWfhRequests showAlert={showAlert} />
-
     </motion.div>
   );
 }

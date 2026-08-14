@@ -1,7 +1,7 @@
 import type { AttendanceRequest } from '../../../hooks/useAttendanceRequests';
 import type {
-    WfhFormValues,
-    WfhRequestCardData,
+  WfhFormValues,
+  WfhRequestCardData,
 } from './wfh.types';
 
 export const INITIAL_WFH_FORM: WfhFormValues = {
@@ -14,6 +14,74 @@ export const INITIAL_WFH_FORM: WfhFormValues = {
   reason: '',
   plannedTasks: '',
 };
+
+function localDateValue(date: Date | null): string {
+  if (!date || Number.isNaN(date.getTime())) return '';
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function localTimeValue(date: Date | null, fallback: string): string {
+  if (!date || Number.isNaN(date.getTime())) return fallback;
+  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+function parseStructuredReason(reason: string) {
+  const sections = String(reason || '')
+    .split(/\n\s*\n/g)
+    .map((section) => section.trim())
+    .filter(Boolean);
+
+  let workLocation = '';
+  let plannedTasks = '';
+  const reasonSections: string[] = [];
+
+  for (const section of sections) {
+    if (section.toLowerCase().startsWith('work location:')) {
+      workLocation = section.slice(section.indexOf(':') + 1).trim();
+      continue;
+    }
+
+    if (section.toLowerCase().startsWith('planned tasks:')) {
+      plannedTasks = section.slice(section.indexOf(':') + 1).trim();
+      continue;
+    }
+
+    reasonSections.push(section);
+  }
+
+  return {
+    reason: reasonSections.join('\n\n'),
+    workLocation,
+    plannedTasks,
+  };
+}
+
+export function wfhFormFromRequest(
+  request: AttendanceRequest,
+): WfhFormValues {
+  const fromAt = request.fromAt ? new Date(request.fromAt) : null;
+  const toAt = request.toAt ? new Date(request.toAt) : null;
+  const workType = String(request.category || '')
+    .toLowerCase()
+    .includes('partial')
+    ? 'partial_day'
+    : 'full_day';
+  const parsedReason = parseStructuredReason(request.reason);
+
+  return {
+    workType,
+    fromDate: localDateValue(fromAt),
+    toDate: localDateValue(toAt),
+    startTime: localTimeValue(fromAt, '08:30'),
+    endTime: localTimeValue(toAt, '17:30'),
+    workLocation: parsedReason.workLocation,
+    reason: parsedReason.reason,
+    plannedTasks: parsedReason.plannedTasks,
+  };
+}
 
 export function formatWfhDateTime(
   value?: string | null,
@@ -155,22 +223,22 @@ export function getWfhStatusClasses(
 ): string {
   switch (status) {
     case 'approved':
-      return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+      return 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900/60 dark:bg-emerald-950/35 dark:text-emerald-300';
 
     case 'rejected':
-      return 'border-rose-200 bg-rose-50 text-rose-700';
+      return 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-900/60 dark:bg-rose-950/35 dark:text-rose-300';
 
     case 'cancelled':
-      return 'border-slate-200 bg-slate-100 text-slate-600';
+      return 'border-slate-200 bg-slate-100 text-slate-600 dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300';
 
     case 'expired':
-      return 'border-orange-200 bg-orange-50 text-orange-700';
+      return 'border-orange-200 bg-orange-50 text-orange-700 dark:border-orange-900/60 dark:bg-orange-950/35 dark:text-orange-300';
 
     case 'invalid':
-      return 'border-red-200 bg-red-50 text-red-700';
+      return 'border-red-200 bg-red-50 text-red-700 dark:border-red-900/60 dark:bg-red-950/35 dark:text-red-300';
 
     default:
-      return 'border-amber-200 bg-amber-50 text-amber-700';
+      return 'border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-300';
   }
 }
 

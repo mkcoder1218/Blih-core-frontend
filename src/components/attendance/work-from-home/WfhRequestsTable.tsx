@@ -1,14 +1,14 @@
-import { Eye } from "lucide-react";
+import { Eye, Pencil } from "lucide-react";
 
 import {
-    DataTable,
-    UserAvatar,
+  DataTable,
+  UserAvatar,
 } from "@/components/ui/blih";
 
 import type { WfhRequestCardData } from "./wfh.types";
 import {
-    getWfhStatusClasses,
-    getWfhStatusLabel,
+  getWfhStatusClasses,
+  getWfhStatusLabel,
 } from "./wfh.utils";
 
 interface WfhRequestsTableProps {
@@ -19,6 +19,7 @@ interface WfhRequestsTableProps {
   emptyMessage?: string;
   showEmployee?: boolean;
   onOpen: (request: WfhRequestCardData) => void;
+  onEdit?: (request: WfhRequestCardData) => void;
 }
 
 export default function WfhRequestsTable({
@@ -29,6 +30,7 @@ export default function WfhRequestsTable({
   emptyMessage = "No WFH requests found.",
   showEmployee = true,
   onOpen,
+  onEdit,
 }: WfhRequestsTableProps) {
   const columns = [
     ...(showEmployee ? ["Employee"] : []),
@@ -53,7 +55,7 @@ export default function WfhRequestsTable({
         <tr
           key={request.id}
           onClick={() => onOpen(request)}
-          className="cursor-pointer border-b border-slate-100 transition hover:bg-slate-50"
+          className="cursor-pointer border-b border-border transition-colors hover:bg-muted/45"
         >
           {showEmployee && (
             <td className="px-4 py-3">
@@ -65,11 +67,11 @@ export default function WfhRequestsTable({
                 />
 
                 <div className="min-w-0">
-                  <p className="truncate text-xs font-bold text-slate-900">
+                  <p className="truncate text-xs font-bold text-foreground">
                     {request.employee}
                   </p>
 
-                  <p className="mt-0.5 truncate text-[10px] text-slate-400">
+                  <p className="mt-0.5 truncate text-[10px] text-muted-foreground">
                     {request.department !== "-"
                       ? request.department
                       : request.role}
@@ -80,29 +82,29 @@ export default function WfhRequestsTable({
           )}
 
           <td className="px-4 py-3">
-            <span className="text-xs font-bold text-slate-700">
+            <span className="text-xs font-bold text-foreground">
               {request.category}
             </span>
           </td>
 
           <td className="px-4 py-3">
-            <p className="text-[11px] font-semibold text-slate-700">
+            <p className="text-[11px] font-semibold text-foreground">
               {request.from}
             </p>
 
-            <p className="mt-0.5 text-[10px] font-medium text-slate-400">
+            <p className="mt-0.5 text-[10px] font-medium text-muted-foreground">
               to {request.to}
             </p>
           </td>
 
           <td className="px-4 py-3">
-            <span className="text-xs font-black text-blue-600">
+            <span className="text-xs font-black text-blue-600 dark:text-blue-400">
               {request.duration}
             </span>
           </td>
 
           <td className="max-w-[260px] px-4 py-3">
-            <p className="truncate text-[11px] font-medium text-slate-600">
+            <p className="truncate text-[11px] font-medium text-muted-foreground">
               {request.reason}
             </p>
           </td>
@@ -118,16 +120,37 @@ export default function WfhRequestsTable({
           </td>
 
           <td className="px-4 py-3 text-right">
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onOpen(request);
-              }}
-              className="rounded-lg p-2 text-slate-400 transition hover:bg-blue-50 hover:text-blue-600"
-            >
-              <Eye className="h-4 w-4" />
-            </button>
+            <div className="flex items-center justify-end gap-1">
+              {!showEmployee &&
+              request.status === "pending" &&
+              onEdit ? (
+                <button
+                  type="button"
+                  aria-label="Edit pending work-from-home request"
+                  title="Edit request"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onEdit(request);
+                  }}
+                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  <Pencil className="h-4 w-4" />
+                </button>
+              ) : null}
+
+              <button
+                type="button"
+                aria-label="View work-from-home request"
+                title="View request"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onOpen(request);
+                }}
+                className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <Eye className="h-4 w-4" />
+              </button>
+            </div>
           </td>
         </tr>
       )}
