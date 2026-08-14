@@ -136,5 +136,6 @@ export const ALL_BRAIN_TABS = [
   { id: 'categories', label: 'Categories', badge: 0 },
   { id: 'knowledge', label: 'Knowledge', badge: 0 },
   { id: 'procedures', label: 'Procedures', badge: 0 },
+  { id: 'company-policies', label: 'Policy Library', badge: 0 },
   { id: 'policies', label: 'Policies', badge: 0 },
 ] as const;
