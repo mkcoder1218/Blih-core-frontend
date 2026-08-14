@@ -45,6 +45,15 @@ export interface AttendanceRequestPage {
   totalPages: number;
 }
 
+export interface UpdateAttendanceRequestInput {
+  category?: string;
+  reason?: string;
+  fromAt?: string;
+  toAt?: string;
+  durationMinutes?: number;
+  reasonCategory?: string;
+}
+
 export function useAttendanceRequests(params: {
   requestType: AttendanceRequestType;
   status?: string;
@@ -58,7 +67,12 @@ export function useAttendanceRequests(params: {
     queryKey: ["attendance-requests", params],
     queryFn: async () => {
       const { mine, enabled, ...query } = params;
-      const res = await api.get(mine ? "/api/v1/attendance-requests/mine" : "/api/v1/attendance-requests", { params: query });
+      const res = await api.get(
+        mine
+          ? "/api/v1/attendance-requests/mine"
+          : "/api/v1/attendance-requests",
+        { params: query },
+      );
       return res.data as AttendanceRequestPage;
     },
     enabled: params.enabled ?? true,
@@ -91,6 +105,27 @@ export function useSubmitAttendanceRequest() {
   });
 }
 
+export function useUpdateAttendanceRequest() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      id,
+      data,
+    }: {
+      id: string;
+      data: UpdateAttendanceRequestInput;
+    }) => {
+      const res = await api.patch(`/api/v1/attendance-requests/${id}`, data);
+      return res.data.attendanceRequest as AttendanceRequest;
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["attendance-requests"] });
+      await qc.invalidateQueries({ queryKey: ["attendanceMe", "today"] });
+    },
+  });
+}
+
 export function useApproveAttendanceRequest() {
   const qc = useQueryClient();
   return useMutation({
@@ -106,7 +141,9 @@ export function useRejectAttendanceRequest() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, reason }: { id: string; reason?: string }) => {
-      const res = await api.post(`/api/v1/attendance-requests/${id}/reject`, { reason });
+      const res = await api.post(`/api/v1/attendance-requests/${id}/reject`, {
+        reason,
+      });
       return res.data.attendanceRequest as AttendanceRequest;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["attendance-requests"] }),
@@ -116,9 +153,18 @@ export function useRejectAttendanceRequest() {
 export function useFixManualAttendanceTimes() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: async (payload: { date?: string; employeeUserId?: string } = {}) => {
-      const res = await api.post("/api/v1/attendance-requests/fix-manual-times", payload);
-      return res.data.data as { scanned: number; created: number; updated: number };
+    mutationFn: async (
+      payload: { date?: string; employeeUserId?: string } = {},
+    ) => {
+      const res = await api.post(
+        "/api/v1/attendance-requests/fix-manual-times",
+        payload,
+      );
+      return res.data.data as {
+        scanned: number;
+        created: number;
+        updated: number;
+      };
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["attendance-requests"] });

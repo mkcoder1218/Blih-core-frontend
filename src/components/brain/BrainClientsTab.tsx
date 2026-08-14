@@ -100,6 +100,12 @@ export function BrainClientsTab() {
   const [form, setForm] = useState<CreateCompanyClientInput>(EMPTY_FORM);
   const [formError, setFormError] = useState("");
   const deferredSearch = useDeferredValue(search.trim());
+  const selectedStatusLabel =
+    status === ALL_STATUSES
+      ? "All"
+      : status === "active"
+        ? "Active"
+        : "Inactive";
 
   useEffect(() => {
     setPage(1);
@@ -211,36 +217,42 @@ export function BrainClientsTab() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 border-b border-border px-5 py-4 sm:flex-row sm:items-center sm:px-6">
-          <label className="relative block min-w-0 flex-1">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setSearch(event.currentTarget.value)}
-              placeholder="Search company, contact, email, phone or industry..."
-              className="h-10 rounded-xl pl-9"
-            />
+        <div className="grid gap-3 border-b border-border px-5 py-4 sm:grid-cols-[minmax(0,1fr)_176px] sm:px-6">
+          <label className="grid min-w-0 gap-1.5">
+            <FieldLabel>Search</FieldLabel>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(event) => setSearch(event.currentTarget.value)}
+                placeholder="Search company, contact, email, phone or industry..."
+                className="h-10 rounded-xl pl-9"
+              />
+            </div>
           </label>
 
-          <Select
-            value={status}
-            onValueChange={(value) =>
-              setStatus(
-                String(value || ALL_STATUSES) as
-                  | ClientStatus
-                  | typeof ALL_STATUSES,
-              )
-            }
-          >
-            <SelectTrigger className="h-10 w-full rounded-xl sm:w-44">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
-              <SelectItem value="active">Active</SelectItem>
-              <SelectItem value="inactive">Inactive</SelectItem>
-            </SelectContent>
-          </Select>
+          <label className="grid gap-1.5">
+            <FieldLabel>Status</FieldLabel>
+            <Select
+              value={status}
+              onValueChange={(value) =>
+                setStatus(
+                  String(value || ALL_STATUSES) as
+                    | ClientStatus
+                    | typeof ALL_STATUSES,
+                )
+              }
+            >
+              <SelectTrigger className="h-10 w-full rounded-xl">
+                <SelectValue>{selectedStatusLabel}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_STATUSES}>All</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
         </div>
 
         {clientsQuery.isLoading ? (
