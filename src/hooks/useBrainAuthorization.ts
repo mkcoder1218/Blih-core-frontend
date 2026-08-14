@@ -75,9 +75,15 @@ export function useBrainAuthorization() {
     Boolean(me?.roles?.includes("BUSINESS_ADMIN")) ||
     Boolean(me?.roles?.includes("Business Admin"));
 
+  const isProjectManager =
+    Boolean(me?.roles?.includes("PROJECT_MANAGER")) ||
+    Boolean(me?.roles?.includes("Project Manager"));
+
+  const canAccessClientDirectory = isBusinessAdmin || isProjectManager;
   const isAdminUser = isSuperAdmin || isBusinessAdmin;
 
-  // Business Admins & Super Admins bypass module activation restrictions
+  // Business Admins & Super Admins bypass module activation restrictions for
+  // the existing Brain / E-Policy management areas.
   const isBrainEnabled = isAdminUser || brainActive;
   const isPolicyEnabled = isAdminUser || policyActive;
   const isProceduresEnabled = isAdminUser || proceduresActive;
@@ -98,19 +104,28 @@ export function useBrainAuthorization() {
   const canAccessProceduresWorkspace = isProceduresEnabled && hasProceduresAccess;
 
   // The read-only company Policy Library is intentionally available to every
-  // authenticated company employee when the E-Policy module is active. This
-  // makes Brain a valid entry point without granting policy management rights.
+  // authenticated company employee when the E-Policy module is active.
   const canAccessEmployeePolicyLibrary = isPolicyEnabled;
 
+  // Client Directory is a cross-module company directory. It is deliberately
+  // role-based and limited to Business Admin + Project Manager, matching the
+  // backend guard exactly. It does not require CRM or Brain subscription state.
   const canAccessWorkspace =
     isAdminUser ||
     canAccessBrainWorkspace ||
     canAccessPolicyWorkspace ||
     canAccessProceduresWorkspace ||
-    canAccessEmployeePolicyLibrary;
+    canAccessEmployeePolicyLibrary ||
+    canAccessClientDirectory;
 
-  // Filter allowed Brain subtabs for the current user
+  // Filter allowed Brain subtabs for the current user.
   const allowedTabs = ALL_BRAIN_TABS.filter((tab) => {
+    // Strict product rule: even generic admin bypass does not make this tab
+    // visible. Only these two business roles receive the client directory.
+    if (tab.id === "clients") {
+      return canAccessClientDirectory;
+    }
+
     if (isAdminUser) return true;
 
     // Company Policy Library is read-only and permissionless by design. Backend
@@ -119,15 +134,16 @@ export function useBrainAuthorization() {
       return isPolicyEnabled;
     }
 
-    // If tab belongs to Brain Knowledge (e.g. overview, knowledge), check Brain module & permission
-    if (["overview", "knowledge"].includes(tab.id) && !isBrainEnabled) {
+    // Brain knowledge tabs require the Brain module to be enabled.
+    if (["overview", "categories", "knowledge"].includes(tab.id) && !isBrainEnabled) {
       return false;
     }
-    // If tab belongs to Procedures, check Procedures module
+
     if (tab.id === "procedures" && !isProceduresEnabled) {
       return false;
     }
-    // If tab belongs to Policy management, check Policy module & permission
+
+    // Policy management requires the Policy module.
     if (["policies", "acceptance"].includes(tab.id) && !isPolicyEnabled) {
       return false;
     }
@@ -137,8 +153,16 @@ export function useBrainAuthorization() {
     return hasAny(...perm.requires);
   });
 
-  // Calculate default / first permitted tab
-  const firstAllowedTabId = allowedTabs[0]?.id || (canAccessEmployeePolicyLibrary ? "company-policies" : canAccessPolicyWorkspace ? "policies" : "overview");
+  // Calculate default / first permitted tab.
+  const firstAllowedTabId =
+    allowedTabs[0]?.id ||
+    (canAccessClientDirectory
+      ? "clients"
+      : canAccessEmployeePolicyLibrary
+        ? "company-policies"
+        : canAccessPolicyWorkspace
+          ? "policies"
+          : "overview");
 
   // Fine-grained Policy action permissions (strictly matching canonical backend contract)
   const policyActions = {
@@ -201,6 +225,8 @@ export function useBrainAuthorization() {
   return {
     isLoading,
     isSuperAdmin,
+    isBusinessAdmin,
+    isProjectManager,
     brainActive,
     policyActive,
     proceduresActive,
@@ -214,6 +240,7 @@ export function useBrainAuthorization() {
     canAccessPolicyWorkspace,
     canAccessProceduresWorkspace,
     canAccessEmployeePolicyLibrary,
+    canAccessClientDirectory,
     canAccessWorkspace,
     allowedTabs,
     firstAllowedTabId,

@@ -133,6 +133,7 @@ export const ALL_BUSINESSES_TABS = [
 
 export const ALL_BRAIN_TABS = [
   { id: 'overview', label: 'Overview', badge: 0 },
+  { id: 'clients', label: 'Clients', badge: 0 },
   { id: 'categories', label: 'Categories', badge: 0 },
   { id: 'knowledge', label: 'Knowledge', badge: 0 },
   { id: 'procedures', label: 'Procedures', badge: 0 },
