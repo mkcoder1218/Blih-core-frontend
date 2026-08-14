@@ -450,20 +450,16 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
         return row.payPeriod || "-";
       case "paymentDate":
         return dateText(row.paymentDate);
-      case "salarySummary": {
-        const isNetMode = String(row.salaryInputMode || "").toLowerCase() === "net" && Number(row.targetNetSalary || 0) > 0;
-        const configuredSalary = isNetMode ? Number(row.targetNetSalary || 0) : Number(row.baseSalary || 0);
-        const configuredLabel = isNetMode ? "Target Net" : "Base";
+      case "salarySummary":
         return (
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
-            <span className="font-black text-slate-900">{configuredLabel}: {money(configuredSalary, row.currency)}</span>
+            <span className="font-black text-slate-900">Gross: {money(row.grossPay, row.currency)}</span>
             <span className="text-slate-300">.</span>
             <span className="font-black text-rose-600">Deduct: {money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>
             <span className="text-slate-300">.</span>
-            <span className="font-black text-emerald-700">Payable: {money(row.netPay, row.currency)}</span>
+            <span className="font-black text-emerald-700">Net: {money(row.netPay, row.currency)}</span>
           </div>
         );
-      }
       case "basicSalary":
         return (
           <div onDoubleClick={(event) => { event.stopPropagation(); startBaseEdit(row); }}>
