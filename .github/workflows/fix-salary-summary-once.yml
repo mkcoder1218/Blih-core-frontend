@@ -1,0 +1,69 @@
+name: One-time salary summary fix
+
+on:
+  push:
+    branches:
+      - integration
+    paths:
+      - .github/workflows/fix-salary-summary-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout integration
+        uses: actions/checkout@v4
+        with:
+          ref: integration
+          fetch-depth: 0
+
+      - name: Replace salary summary headline
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/components/finance/EmployeeSalaryTable.tsx")
+          text = path.read_text(encoding="utf-8")
+
+          old = '''      case "salarySummary":
+        return (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
+            <span className="font-black text-slate-900">Gross: {money(row.grossPay, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-rose-600">Deduct: {money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-emerald-700">Net: {money(row.netPay, row.currency)}</span>
+          </div>
+        );'''
+
+          new = '''      case "salarySummary": {
+        const isNetMode = String(row.salaryInputMode || "").toLowerCase() === "net" && Number(row.targetNetSalary || 0) > 0;
+        const configuredSalary = isNetMode ? Number(row.targetNetSalary || 0) : Number(row.baseSalary || 0);
+        const configuredLabel = isNetMode ? "Target Net" : "Base";
+        return (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] leading-5">
+            <span className="font-black text-slate-900">{configuredLabel}: {money(configuredSalary, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-rose-600">Deduct: {money(row.deductionTotal ?? row.totalDeductions, row.currency)}</span>
+            <span className="text-slate-300">.</span>
+            <span className="font-black text-emerald-700">Payable: {money(row.netPay, row.currency)}</span>
+          </div>
+        );
+      }'''
+
+          count = text.count(old)
+          if count != 1:
+              raise SystemExit(f"Expected exactly one salary summary block, found {count}")
+
+          path.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+      - name: Commit and push
+        run: |
+          git config user.name "Blih automation"
+          git config user.email "actions@github.com"
+          git add src/components/finance/EmployeeSalaryTable.tsx
+          git commit -m "fix: show configured salary in summary"
+          git push origin HEAD:integration
