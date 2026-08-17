@@ -45,7 +45,7 @@ export function OptionSelectWithCreate({
   type,
   value,
   options,
-  placeholder = "Select",
+  placeholder,
   required,
   disabled,
   onChange,
@@ -61,6 +61,8 @@ export function OptionSelectWithCreate({
     () => options.filter((option) => option.type === type),
     [options, type],
   );
+
+  const selectPlaceholder = placeholder || `Select ${label.toLowerCase()}`;
 
   const submit = async () => {
     const clean = newLabel.trim();
@@ -97,12 +99,12 @@ export function OptionSelectWithCreate({
       </span>
       <div className="flex gap-2">
         <Select
-          value={value || NONE}
+          value={value || ""}
           disabled={disabled}
-          onValueChange={(next) => onChange(next === NONE ? null : next)}
+          onValueChange={(next) => onChange(next === NONE || !next ? null : next)}
         >
           <SelectTrigger className="h-10 min-w-0 flex-1 rounded-xl">
-            <SelectValue placeholder={placeholder} />
+            <SelectValue placeholder={selectPlaceholder} />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NONE}>Not set</SelectItem>
