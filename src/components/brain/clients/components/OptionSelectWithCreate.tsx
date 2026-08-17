@@ -20,6 +20,11 @@ import {
   type ContactOption,
   type ContactOptionType,
 } from "../types/contact.types";
+import {
+  optionById,
+  optionsOfType,
+  uniqueOptionsByLabel,
+} from "../utils/contactOptions";
 
 const NONE = "__none__";
 
@@ -56,14 +61,21 @@ export function OptionSelectWithCreate({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
-  const filtered = useMemo(
-    () => options.filter((option) => option.type === type),
+  const typedOptions = useMemo(
+    () => optionsOfType(options, type),
     [options, type],
   );
 
+  const displayOptions = useMemo(
+    () => uniqueOptionsByLabel(typedOptions),
+    [typedOptions],
+  );
+
+  // Resolve against the original list so an older contact that points to a
+  // duplicate option id still displays the human label instead of its UUID.
   const selectedOption = useMemo(
-    () => filtered.find((option) => option.id === value) || null,
-    [filtered, value],
+    () => optionById(typedOptions, value),
+    [typedOptions, value],
   );
 
   const selectPlaceholder = placeholder || `Select ${label.toLowerCase()}`;
@@ -124,7 +136,7 @@ export function OptionSelectWithCreate({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NONE}>Not set</SelectItem>
-            {filtered.map((option) => (
+            {displayOptions.map((option) => (
               <SelectItem key={option.id} value={option.id} textValue={option.label}>
                 <span className="inline-flex items-center gap-2">
                   {option.color ? (
