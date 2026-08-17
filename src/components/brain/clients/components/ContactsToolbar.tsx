@@ -123,12 +123,14 @@ export function ContactsToolbar({
 
         <FilterSelect
           label="Field"
+          allLabel="All fields"
           value={fieldOptionId}
           options={fields}
           onChange={onFieldChange}
         />
         <FilterSelect
           label="Behavior"
+          allLabel="All behaviors"
           value={behaviorOptionId}
           options={behaviors}
           onChange={onBehaviorChange}
@@ -136,6 +138,7 @@ export function ContactsToolbar({
         {kind === "client" ? (
           <FilterSelect
             label="Status"
+            allLabel="All statuses"
             value={clientStatusOptionId}
             options={statuses}
             onChange={onClientStatusChange}
@@ -148,24 +151,30 @@ export function ContactsToolbar({
 
 function FilterSelect({
   label,
+  allLabel,
   value,
   options,
   onChange,
 }: {
   label: string;
+  allLabel: string;
   value: string | null;
   options: ContactOption[];
   onChange: (value: string | null) => void;
 }) {
+  const selectedLabel = value
+    ? options.find((option) => option.id === value)?.label || allLabel
+    : allLabel;
+
   return (
     <label className="grid gap-1.5">
       <span className="text-[11px] font-bold text-muted-foreground">{label}</span>
       <Select value={value || ALL} onValueChange={(next) => onChange(next === ALL ? null : next)}>
         <SelectTrigger className="h-10 rounded-xl">
-          <SelectValue />
+          <SelectValue>{selectedLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value={ALL}>All</SelectItem>
+          <SelectItem value={ALL}>{allLabel}</SelectItem>
           {options.map((option) => (
             <SelectItem key={option.id} value={option.id}>
               {option.label}
