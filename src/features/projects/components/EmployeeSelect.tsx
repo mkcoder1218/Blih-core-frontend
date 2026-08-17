@@ -23,11 +23,17 @@ export function EmployeeSelect({
     const match = location.pathname.match(/\/projects\/([0-9a-fA-F-]{36})(?:\/|$)/);
     return match?.[1] || undefined;
   }, [location.pathname]);
+
   const project = useProject(departmentId === undefined ? routedProjectId : undefined);
   const effectiveDepartmentId = departmentId === undefined
     ? project.data?.departmentId || null
     : departmentId;
-  const { data, isLoading } = useEmployees({ limit: 100, offset: 0 });
+
+  const { data, isLoading } = useEmployees({
+    limit: 100,
+    offset: 0,
+    ...(effectiveDepartmentId ? { departmentId: effectiveDepartmentId } : {}),
+  });
 
   const employees = useMemo(() => {
     const rows = data?.employees ?? [];
