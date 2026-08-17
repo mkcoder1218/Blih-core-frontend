@@ -1,5 +1,7 @@
 import { useMemo } from "react";
+import { useParams } from "react-router-dom";
 import { useEmployees } from "../../../hooks/useHrRecords";
+import { useProject } from "../hooks";
 
 type Props = {
   value?: string;
@@ -16,17 +18,24 @@ export function EmployeeSelect({
   disabled = false,
   departmentId,
 }: Props) {
+  const params = useParams<{ projectId?: string }>();
+  const project = useProject(departmentId === undefined ? params.projectId : undefined);
+  const effectiveDepartmentId = departmentId === undefined
+    ? project.data?.departmentId || null
+    : departmentId;
   const { data, isLoading } = useEmployees({ limit: 100, offset: 0 });
+
   const employees = useMemo(() => {
     const rows = data?.employees ?? [];
-    if (!departmentId) return rows;
+    if (!effectiveDepartmentId) return rows;
     return rows.filter((employee: any) => {
       const employeeDepartmentId = employee.departmentId || employee.department?.id || employee.Department?.id;
-      return String(employeeDepartmentId || "") === String(departmentId);
+      return String(employeeDepartmentId || "") === String(effectiveDepartmentId);
     });
-  }, [data?.employees, departmentId]);
+  }, [data?.employees, effectiveDepartmentId]);
 
-  const emptyLabel = departmentId
+  const loading = isLoading || (departmentId === undefined && Boolean(params.projectId) && project.isLoading);
+  const emptyLabel = effectiveDepartmentId
     ? "No employees found in this department"
     : "No employees found";
 
@@ -34,11 +43,11 @@ export function EmployeeSelect({
     <select
       value={value || ""}
       onChange={(e) => onChange(e.currentTarget.value)}
-      disabled={disabled}
+      disabled={disabled || loading}
       className="h-10 w-full rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 outline-none focus:border-blue-500 disabled:bg-slate-50"
     >
-      <option value="">{isLoading ? "Loading employees..." : placeholder}</option>
-      {!isLoading && employees.length === 0 ? <option value="" disabled>{emptyLabel}</option> : null}
+      <option value="">{loading ? "Loading employees..." : placeholder}</option>
+      {!loading && employees.length === 0 ? <option value="" disabled>{emptyLabel}</option> : null}
       {employees.map((employee: any) => (
         <option key={employee.id} value={employee.id}>
           {employee.user?.fullName || employee.fullName || employee.employeeCode || employee.id}
