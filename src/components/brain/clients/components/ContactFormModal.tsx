@@ -227,7 +227,7 @@ export function ContactFormModal({
                   }));
                 }}
               >
-                <SelectTrigger className="rounded-xl">
+                <SelectTrigger className="rounded-md">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -245,7 +245,7 @@ export function ContactFormModal({
                 disabled={saving}
                 onChange={(event) => set("name", event.currentTarget.value)}
                 placeholder="Full name"
-                className="rounded-xl"
+                className="rounded-md"
               />
             </label>
 
@@ -270,7 +270,7 @@ export function ContactFormModal({
                 disabled={saving}
                 onChange={(event) => set("email", event.currentTarget.value)}
                 placeholder="contact@example.com"
-                className="rounded-xl"
+                className="rounded-md"
               />
             </label>
 
@@ -281,7 +281,7 @@ export function ContactFormModal({
                 disabled={saving}
                 onChange={(event) => set("location", event.currentTarget.value)}
                 placeholder="Addis Ababa"
-                className="rounded-xl"
+                className="rounded-md"
               />
             </label>
 
@@ -362,12 +362,12 @@ export function ContactFormModal({
                 onChange={(event) => set("notes", event.currentTarget.value)}
                 placeholder="Anything the team should know about this contact..."
                 rows={4}
-                className="min-h-[104px] w-full rounded-xl border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                className="min-h-[104px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none ring-offset-background placeholder:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
               />
             </label>
 
             {error ? (
-              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs font-medium text-destructive sm:col-span-2">
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-xs font-medium text-destructive sm:col-span-2">
                 {error}
               </div>
             ) : null}
@@ -396,7 +396,7 @@ export function ContactFormModal({
               value={platformName}
               onChange={(event) => setPlatformName(event.currentTarget.value)}
               placeholder="e.g. LinkedIn"
-              className="rounded-xl"
+              className="rounded-md"
               onKeyDown={(event) => {
                 if (event.key === "Enter") {
                   event.preventDefault();
