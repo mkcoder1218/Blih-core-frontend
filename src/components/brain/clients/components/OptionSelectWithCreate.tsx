@@ -71,8 +71,6 @@ export function OptionSelectWithCreate({
     [typedOptions],
   );
 
-  // Resolve against the original list so an older contact that points to a
-  // duplicate option id still displays the human label instead of its UUID.
   const selectedOption = useMemo(
     () => optionById(typedOptions, value),
     [typedOptions, value],
@@ -119,7 +117,7 @@ export function OptionSelectWithCreate({
           disabled={disabled}
           onValueChange={(next) => onChange(next === NONE || !next ? null : next)}
         >
-          <SelectTrigger className="h-10 min-w-0 flex-1 rounded-xl">
+          <SelectTrigger className="h-10 min-w-0 flex-1 rounded-md">
             {selectedOption ? (
               <span className="inline-flex min-w-0 items-center gap-2 truncate">
                 {selectedOption.color ? (
@@ -155,7 +153,7 @@ export function OptionSelectWithCreate({
           type="button"
           variant="outline"
           size="icon"
-          className="h-10 w-10 shrink-0 rounded-xl"
+          className="h-10 w-10 shrink-0 rounded-md"
           disabled={disabled}
           onClick={() => {
             setError("");
@@ -180,7 +178,7 @@ export function OptionSelectWithCreate({
                 value={newLabel}
                 onChange={(event) => setNewLabel(event.currentTarget.value)}
                 placeholder={`New ${label.toLowerCase()}`}
-                className="rounded-xl"
+                className="rounded-md"
                 onKeyDown={(event) => {
                   if (event.key === "Enter") {
                     event.preventDefault();
@@ -211,7 +209,7 @@ export function OptionSelectWithCreate({
             ) : null}
 
             {error ? (
-              <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs font-medium text-destructive">
+              <div className="rounded-md border border-destructive/20 bg-destructive/5 p-3 text-xs font-medium text-destructive">
                 {error}
               </div>
             ) : null}
