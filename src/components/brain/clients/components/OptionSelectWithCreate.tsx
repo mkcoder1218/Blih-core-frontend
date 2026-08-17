@@ -14,7 +14,6 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from "@/components/ui/select";
 import {
   BEHAVIOR_COLORS,
@@ -62,6 +61,11 @@ export function OptionSelectWithCreate({
     [options, type],
   );
 
+  const selectedOption = useMemo(
+    () => filtered.find((option) => option.id === value) || null,
+    [filtered, value],
+  );
+
   const selectPlaceholder = placeholder || `Select ${label.toLowerCase()}`;
 
   const submit = async () => {
@@ -104,12 +108,24 @@ export function OptionSelectWithCreate({
           onValueChange={(next) => onChange(next === NONE || !next ? null : next)}
         >
           <SelectTrigger className="h-10 min-w-0 flex-1 rounded-xl">
-            <SelectValue placeholder={selectPlaceholder} />
+            {selectedOption ? (
+              <span className="inline-flex min-w-0 items-center gap-2 truncate">
+                {selectedOption.color ? (
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{ backgroundColor: selectedOption.color }}
+                  />
+                ) : null}
+                <span className="truncate">{selectedOption.label}</span>
+              </span>
+            ) : (
+              <span className="truncate text-muted-foreground">{selectPlaceholder}</span>
+            )}
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={NONE}>Not set</SelectItem>
             {filtered.map((option) => (
-              <SelectItem key={option.id} value={option.id}>
+              <SelectItem key={option.id} value={option.id} textValue={option.label}>
                 <span className="inline-flex items-center gap-2">
                   {option.color ? (
                     <span
