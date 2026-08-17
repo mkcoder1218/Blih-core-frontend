@@ -145,7 +145,7 @@ export function ContactOptionsManager({
               resetEditor();
             }}
           >
-            <SelectTrigger className="rounded-xl">
+            <SelectTrigger className="rounded-md">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -157,7 +157,7 @@ export function ContactOptionsManager({
             </SelectContent>
           </Select>
 
-          <div className="rounded-2xl border border-border bg-muted/15 p-4">
+          <div className="rounded-lg border border-border bg-muted/15 p-4">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-extrabold">
@@ -168,7 +168,7 @@ export function ContactOptionsManager({
                 </p>
               </div>
               {editingId ? (
-                <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={resetEditor}>
+                <Button type="button" variant="ghost" size="icon" className="h-8 w-8 rounded-md" onClick={resetEditor}>
                   <X className="h-4 w-4" />
                 </Button>
               ) : null}
@@ -179,9 +179,9 @@ export function ContactOptionsManager({
                 value={label}
                 onChange={(event) => setLabel(event.currentTarget.value)}
                 placeholder="Option name"
-                className="rounded-xl"
+                className="rounded-md"
               />
-              <Button type="button" className="rounded-xl" disabled={busy} onClick={() => void save()}>
+              <Button type="button" className="rounded-md" disabled={busy} onClick={() => void save()}>
                 <Plus className="h-4 w-4" />
                 {editingId ? "Update" : "Add"}
               </Button>
@@ -205,13 +205,13 @@ export function ContactOptionsManager({
             ) : null}
 
             {error ? (
-              <p className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 p-2.5 text-[11px] font-semibold text-destructive">
+              <p className="mt-3 rounded-md border border-destructive/20 bg-destructive/5 p-2.5 text-[11px] font-semibold text-destructive">
                 {error}
               </p>
             ) : null}
           </div>
 
-          <div className="max-h-[310px] overflow-y-auto rounded-2xl border border-border">
+          <div className="max-h-[310px] overflow-y-auto rounded-lg border border-border">
             {rows.length === 0 ? (
               <div className="p-8 text-center text-xs text-muted-foreground">No options yet.</div>
             ) : (
@@ -226,7 +226,7 @@ export function ContactOptionsManager({
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 rounded-lg"
+                      className="h-8 w-8 rounded-md"
                       disabled={busy}
                       onClick={() => {
                         setEditingId(option.id);
@@ -241,7 +241,7 @@ export function ContactOptionsManager({
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive"
+                      className="h-8 w-8 rounded-md text-muted-foreground hover:text-destructive"
                       disabled={busy}
                       onClick={() => void remove(option)}
                     >
