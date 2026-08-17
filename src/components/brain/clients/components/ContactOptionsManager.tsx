@@ -21,6 +21,7 @@ import {
   type ContactOption,
   type ContactOptionType,
 } from "../types/contact.types";
+import { uniqueOptionsOfType } from "../utils/contactOptions";
 
 const TYPES: Array<{ type: ContactOptionType; label: string }> = [
   { type: "field", label: "Fields" },
@@ -61,7 +62,7 @@ export function ContactOptionsManager({
   const [error, setError] = useState("");
 
   const rows = useMemo(
-    () => options.filter((option) => option.type === type),
+    () => uniqueOptionsOfType(options, type),
     [options, type],
   );
 
