@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import type { ContactKind, ContactOption } from "../types/contact.types";
+import { uniqueOptionsOfType } from "../utils/contactOptions";
 
 const ALL = "__all__";
 
@@ -45,9 +46,9 @@ export function ContactsToolbar({
   onAdd,
   onManageOptions,
 }: Props) {
-  const fields = options.filter((option) => option.type === "field");
-  const behaviors = options.filter((option) => option.type === "behavior");
-  const statuses = options.filter((option) => option.type === "client_status");
+  const fields = uniqueOptionsOfType(options, "field");
+  const behaviors = uniqueOptionsOfType(options, "behavior");
+  const statuses = uniqueOptionsOfType(options, "client_status");
 
   return (
     <>
@@ -176,7 +177,7 @@ function FilterSelect({
         <SelectContent>
           <SelectItem value={ALL}>{allLabel}</SelectItem>
           {options.map((option) => (
-            <SelectItem key={option.id} value={option.id}>
+            <SelectItem key={option.id} value={option.id} textValue={option.label}>
               {option.label}
             </SelectItem>
           ))}
