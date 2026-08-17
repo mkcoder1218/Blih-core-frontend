@@ -708,6 +708,15 @@ export function useSidebarController({
       label: 'SMTP Settings',
       path: `/${roleSegment}/settings/smtp`,
     },
+    ...(user?.role === 'Business Admin'
+      ? [
+          {
+            id: 'telegram',
+            label: 'Telegram Task Sync',
+            path: `/${roleSegment}/settings/telegram`,
+          },
+        ]
+      : []),
     {
       id: 'punctuality-messages',
       label:
@@ -746,17 +755,21 @@ export function useSidebarController({
             )
           ? 'smtp'
           : pathname.includes(
-                '/settings/punctuality-messages',
+                '/settings/telegram',
               )
-            ? 'punctuality-messages'
+            ? 'telegram'
             : pathname.includes(
-                  '/settings/subscription',
-                ) ||
-                pathname.endsWith(
-                  '/subscription',
+                  '/settings/punctuality-messages',
                 )
-              ? 'subscription'
-              : 'general';
+              ? 'punctuality-messages'
+              : pathname.includes(
+                    '/settings/subscription',
+                  ) ||
+                  pathname.endsWith(
+                    '/subscription',
+                  )
+                ? 'subscription'
+                : 'general';
 
   const displayModule =
     isSubscriptionSettingsRoute
