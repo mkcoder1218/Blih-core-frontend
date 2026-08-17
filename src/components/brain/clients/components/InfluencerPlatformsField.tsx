@@ -56,7 +56,7 @@ export function InfluencerPlatformsField({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 rounded-lg px-2 text-[11px]"
+            className="h-7 rounded-md px-2 text-[11px]"
             disabled={disabled}
             onClick={onCreatePlatform}
           >
@@ -67,7 +67,7 @@ export function InfluencerPlatformsField({
             type="button"
             variant="ghost"
             size="sm"
-            className="h-7 rounded-lg px-2 text-[11px]"
+            className="h-7 rounded-md px-2 text-[11px]"
             disabled={disabled}
             onClick={() =>
               onChange([
@@ -88,7 +88,7 @@ export function InfluencerPlatformsField({
       </div>
 
       {value.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border bg-muted/20 p-4 text-center text-xs text-muted-foreground">
           Add a social platform account when this influencer has one.
         </div>
       ) : (
@@ -97,7 +97,7 @@ export function InfluencerPlatformsField({
             const selectedPlatform = optionById(platformOptions, account.platformOptionId);
 
             return (
-              <div key={account.id || index} className="rounded-xl border border-border bg-muted/15 p-3">
+              <div key={account.id || index} className="rounded-lg border border-border bg-muted/15 p-3">
                 <div className="grid gap-2 sm:grid-cols-2">
                   <div className="grid gap-1.5">
                     <span className="text-[10px] font-bold text-muted-foreground">Platform *</span>
@@ -106,7 +106,7 @@ export function InfluencerPlatformsField({
                       disabled={disabled}
                       onValueChange={(platformOptionId) => update(index, { platformOptionId })}
                     >
-                      <SelectTrigger className="rounded-xl">
+                      <SelectTrigger className="rounded-md">
                         <span className={selectedPlatform ? "truncate" : "truncate text-muted-foreground"}>
                           {selectedPlatform?.label || "Choose platform"}
                         </span>
@@ -132,7 +132,7 @@ export function InfluencerPlatformsField({
                       disabled={disabled}
                       onChange={(event) => update(index, { handle: event.currentTarget.value })}
                       placeholder="@username"
-                      className="rounded-xl"
+                      className="rounded-md"
                     />
                   </label>
 
@@ -144,7 +144,7 @@ export function InfluencerPlatformsField({
                       disabled={disabled}
                       onChange={(event) => update(index, { profileUrl: event.currentTarget.value })}
                       placeholder="https://..."
-                      className="rounded-xl"
+                      className="rounded-md"
                     />
                   </label>
 
@@ -164,7 +164,7 @@ export function InfluencerPlatformsField({
                         })
                       }
                       placeholder="120000"
-                      className="rounded-xl"
+                      className="rounded-md"
                     />
                   </label>
                 </div>
@@ -174,7 +174,7 @@ export function InfluencerPlatformsField({
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="h-7 rounded-lg text-[11px] text-muted-foreground hover:text-destructive"
+                    className="h-7 rounded-md text-[11px] text-muted-foreground hover:text-destructive"
                     disabled={disabled}
                     onClick={() => onChange(value.filter((_, itemIndex) => itemIndex !== index))}
                   >
