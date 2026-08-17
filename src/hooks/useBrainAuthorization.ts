@@ -79,7 +79,6 @@ export function useBrainAuthorization() {
     Boolean(me?.roles?.includes("PROJECT_MANAGER")) ||
     Boolean(me?.roles?.includes("Project Manager"));
 
-  const canAccessClientDirectory = isBusinessAdmin || isProjectManager;
   const isAdminUser = isSuperAdmin || isBusinessAdmin;
 
   // Business Admins & Super Admins bypass module activation restrictions for
@@ -103,25 +102,23 @@ export function useBrainAuthorization() {
   const canAccessPolicyWorkspace = isPolicyEnabled && hasPolicyAccess;
   const canAccessProceduresWorkspace = isProceduresEnabled && hasProceduresAccess;
 
+  // Contacts belong to the Brain workspace. Anyone who can access Brain can
+  // view and manage the Clients | Influencers directory.
+  const canAccessClientDirectory = canAccessBrainWorkspace;
+
   // The read-only company Policy Library is intentionally available to every
   // authenticated company employee when the E-Policy module is active.
   const canAccessEmployeePolicyLibrary = isPolicyEnabled;
 
-  // Client Directory is a cross-module company directory. It is deliberately
-  // role-based and limited to Business Admin + Project Manager, matching the
-  // backend guard exactly. It does not require CRM or Brain subscription state.
   const canAccessWorkspace =
     isAdminUser ||
     canAccessBrainWorkspace ||
     canAccessPolicyWorkspace ||
     canAccessProceduresWorkspace ||
-    canAccessEmployeePolicyLibrary ||
-    canAccessClientDirectory;
+    canAccessEmployeePolicyLibrary;
 
   // Filter allowed Brain subtabs for the current user.
   const allowedTabs = ALL_BRAIN_TABS.filter((tab) => {
-    // Strict product rule: even generic admin bypass does not make this tab
-    // visible. Only these two business roles receive the client directory.
     if (tab.id === "clients") {
       return canAccessClientDirectory;
     }
