@@ -1,17 +1,31 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 
-// â”€â”€â”€ Employee Directory â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Employee Directory
 
-export function useEmployees(params?: { limit?: number; offset?: number; employmentType?: string; employmentStatus?: string }) {
+export function useEmployees(params?: {
+  limit?: number;
+  offset?: number;
+  employmentType?: string;
+  employmentStatus?: string;
+  departmentId?: string;
+}) {
   return useQuery({
-    queryKey: ["hr-records", params?.limit, params?.offset, params?.employmentType, params?.employmentStatus],
+    queryKey: [
+      "hr-records",
+      params?.limit,
+      params?.offset,
+      params?.employmentType,
+      params?.employmentStatus,
+      params?.departmentId,
+    ],
     queryFn: async () => {
       const limit = params?.limit ?? 10;
       const offset = params?.offset ?? 0;
       const qs = new URLSearchParams({ limit: String(limit), offset: String(offset) });
       if (params?.employmentType) qs.set("employmentType", params.employmentType);
       if (params?.employmentStatus) qs.set("employmentStatus", params.employmentStatus);
+      if (params?.departmentId) qs.set("departmentId", params.departmentId);
       const res = await api.get(`/api/v1/hr/records?${qs.toString()}`);
       return {
         employees: (res.data?.data as any[]) ?? [],
@@ -31,7 +45,7 @@ export function useDeleteEmployee() {
   });
 }
 
-// â”€â”€â”€ Organogram â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Organogram
 
 export function useUpdateEmployeePassword() {
   const queryClient = useQueryClient();
@@ -173,4 +187,4 @@ export function useOrganogram() {
   });
 }
 
-// â”€â”€â”€ Exit / Offboarding â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Exit / Offboarding

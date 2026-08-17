@@ -20,6 +20,8 @@ export interface ProjectPerson {
   id: string;
   userId?: string;
   employeeCode?: string;
+  departmentId?: string | null;
+  department?: { id: string; name: string } | null;
   user?: { id: string; fullName: string; email: string };
 }
 
@@ -37,6 +39,8 @@ export interface ProjectMember {
 export interface Project {
   id: string;
   businessId: string;
+  departmentId?: string | null;
+  department?: { id: string; name: string } | null;
   clientId?: string | null;
   title: string;
   code?: string | null;
@@ -81,7 +85,7 @@ export interface ProjectTask {
     kanbanColumnId?: string;
     [key: string]: unknown;
   };
-  project?: Pick<Project, "id" | "title" | "code" | "status">;
+  project?: Pick<Project, "id" | "title" | "code" | "status" | "departmentId">;
   employeeAssignee?: ProjectPerson | null;
   createdAt: string;
   updatedAt?: string;
