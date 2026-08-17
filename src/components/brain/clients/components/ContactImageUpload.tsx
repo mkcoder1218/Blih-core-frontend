@@ -44,8 +44,8 @@ export function ContactImageUpload({ value, disabled, onChange, onUpload }: Prop
   return (
     <div className="grid gap-2 sm:col-span-2">
       <span className="text-[11px] font-bold text-muted-foreground">Profile picture</span>
-      <div className="flex items-center gap-3 rounded-xl border border-border bg-muted/15 p-3">
-        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-muted text-muted-foreground">
+      <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/15 p-3">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-muted text-muted-foreground">
           {value ? (
             <img src={value} alt="Contact" className="h-full w-full object-cover" />
           ) : (
@@ -70,7 +70,7 @@ export function ContactImageUpload({ value, disabled, onChange, onUpload }: Prop
             type="button"
             size="sm"
             variant="outline"
-            className="rounded-lg"
+            className="rounded-md"
             disabled={disabled || uploading}
             onClick={() => inputRef.current?.click()}
           >
@@ -82,7 +82,7 @@ export function ContactImageUpload({ value, disabled, onChange, onUpload }: Prop
               type="button"
               size="icon"
               variant="ghost"
-              className="h-8 w-8 rounded-lg text-muted-foreground hover:text-destructive"
+              className="h-8 w-8 rounded-md text-muted-foreground hover:text-destructive"
               disabled={disabled || uploading}
               onClick={() => onChange(null)}
               aria-label="Remove profile image"
