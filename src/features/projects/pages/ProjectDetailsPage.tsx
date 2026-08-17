@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { Archive, ArrowLeft, MoreHorizontal, Save } from "lucide-react";
+import { Archive, ArrowLeft, MoreHorizontal, Save, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -21,6 +21,7 @@ import {
   useCreateProjectWorkflowForm, useProject, useProjectMembers, useProjectTasks, useProjectWorkflowCatalog,
   useProjectWorkflowForms, useUpdateProjectWorkflowForm, useUpdateProject,
 } from "../hooks";
+import { useSendTodayTasksToTelegram } from "../telegramHooks";
 import { PROJECT_STATUSES } from "../schemas";
 import { getProjectKanbanColumns } from "../kanban";
 import type { ProjectWorkflowFormDefinition } from "../types";
@@ -69,6 +70,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
   const createWorkflowForm = useCreateProjectWorkflowForm(projectId);
   const updateWorkflowForm = useUpdateProjectWorkflowForm(projectId);
   const changeWorkflowStatus = useChangeProjectWorkflowFormStatus(projectId);
+  const sendTodayTasks = useSendTodayTasksToTelegram();
   const canManageProjects = perms.hasAny("project.manage");
   const canWorkTasks = perms.hasAny("project.task", "project.manage");
 
@@ -116,6 +118,9 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
     setSettings({});
   };
 
+  const telegramSendError = sendTodayTasks.error as any;
+  const telegramErrorMessage = telegramSendError?.response?.data?.error || telegramSendError?.response?.data?.message || telegramSendError?.message || "Could not send today's tasks to Telegram.";
+
   return (
     <main className="h-full overflow-y-auto bg-muted/20 p-3 lg:p-4">
       <div className="mx-auto flex max-w-[1600px] flex-col gap-3">
@@ -137,7 +142,7 @@ export default function ProjectDetailsPage({ projectId }: { projectId: string })
 
         {tab === "overview" ? <><div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4"><StatItem label="Progress" value={`${progressPercent}%`} /><StatItem label="Active tasks" value={activeTasks} /><StatItem label="Blocked" value={blockedTasks} /><StatItem label="Team" value={memberRows.length} /></div><div className="grid gap-3 lg:grid-cols-2"><Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Project details</CardTitle></CardHeader><CardContent><dl className="grid gap-3 text-sm"><div><dt className="text-xs text-muted-foreground">Owner</dt><dd className="mt-0.5 text-foreground">{p.owner?.user?.fullName || "Unassigned"}</dd></div><div><dt className="text-xs text-muted-foreground">Manager</dt><dd className="mt-0.5 text-foreground">{p.manager?.user?.fullName || "Unassigned"}</dd></div>{canUseClients ? <div><dt className="text-xs text-muted-foreground">Client</dt><dd className="mt-0.5 text-foreground">{p.Client?.companyName || "No client linked"}</dd></div> : null}<div><dt className="text-xs text-muted-foreground">Description</dt><dd className="mt-0.5 leading-5 text-foreground">{p.description || "No description"}</dd></div></dl></CardContent></Card><Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="pb-0"><CardTitle>Recent tasks</CardTitle></CardHeader><CardContent>{taskRows.length ? <TaskList tasks={taskRows.slice(0, 5)} /> : <EmptyState title="No tasks yet" description="Tasks added to this project will appear here." />}</CardContent></Card></div></> : null}
 
-        {tab === "tasks" ? <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="border-b"><div className="flex items-center justify-between gap-3"><div><CardTitle>Tasks</CardTitle><p className="mt-0.5 text-xs text-muted-foreground">Create, discuss and move work through this project&apos;s workflow.</p></div>{canWorkTasks ? <CreateTaskModal projectId={projectId} columns={kanbanColumns} /> : null}</div></CardHeader><CardContent>{tasks.isLoading ? <PageLoadingSpinner label="Loading tasks" /> : <ProjectTaskBoard project={p} tasks={taskRows} canMove={canWorkTasks} canManage={canManageProjects} />}</CardContent></Card> : null}
+        {tab === "tasks" ? <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="border-b"><div className="flex flex-wrap items-center justify-between gap-3"><div><CardTitle>Tasks</CardTitle><p className="mt-0.5 text-xs text-muted-foreground">Create, discuss and move work through this project&apos;s workflow.</p></div>{canWorkTasks ? <div className="flex flex-wrap items-center gap-2"><Button type="button" variant="outline" size="sm" disabled={sendTodayTasks.isPending} onClick={() => sendTodayTasks.mutate()}><Send />{sendTodayTasks.isPending ? "Sending..." : "Send Today's Tasks"}</Button><CreateTaskModal projectId={projectId} columns={kanbanColumns} /></div> : null}</div></CardHeader><CardContent className="space-y-3">{sendTodayTasks.isSuccess ? <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-800">{sendTodayTasks.data.sentTasks > 0 ? `Sent ${sendTodayTasks.data.sentTasks} new task${sendTodayTasks.data.sentTasks === 1 ? "" : "s"} in ${sendTodayTasks.data.sentMessages} Telegram message${sendTodayTasks.data.sentMessages === 1 ? "" : "s"}.` : sendTodayTasks.data.skippedAlreadySent > 0 ? `No new tasks to send. ${sendTodayTasks.data.skippedAlreadySent} task deliver${sendTodayTasks.data.skippedAlreadySent === 1 ? "y was" : "ies were"} already published today.` : "No eligible tasks created today are waiting to be published."}{sendTodayTasks.data.errors.length ? ` ${sendTodayTasks.data.errors.length} Telegram delivery error${sendTodayTasks.data.errors.length === 1 ? "" : "s"} occurred.` : ""}</div> : null}{sendTodayTasks.isError ? <div className="rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-xs text-destructive">{telegramErrorMessage}</div> : null}{tasks.isLoading ? <PageLoadingSpinner label="Loading tasks" /> : <ProjectTaskBoard project={p} tasks={taskRows} canMove={canWorkTasks} canManage={canManageProjects} />}</CardContent></Card> : null}
 
         {tab === "team" ? <Card size="sm" className="rounded-md shadow-none ring-1 ring-border"><CardHeader className="border-b"><CardTitle>Team</CardTitle></CardHeader><CardContent><div className="mb-3 flex flex-col gap-2 md:flex-row md:items-end"><label className="grid flex-1 gap-1"><FieldLabel>Add member</FieldLabel><EmployeeSelect value={memberEmployeeId} onChange={setMemberEmployeeId} placeholder="Select team member" /></label>{canManageProjects ? <Button size="sm" disabled={!memberEmployeeId || addMember.isPending} onClick={() => addMember.mutate({ employeeId: memberEmployeeId, role: "MEMBER" } as any)}>Add member</Button> : null}</div><div className="divide-y divide-border rounded-md border">{memberRows.map((member: any) => <div key={member.id} className="flex items-center justify-between px-3 py-2.5"><div><div className="text-sm font-medium text-foreground">{member.employee?.user?.fullName || member.employeeId}</div><div className="text-xs text-muted-foreground">{member.employee?.user?.email || "Team member"}</div></div><ProjectStatusBadge status={member.role} /></div>)}{!memberRows.length ? <EmptyState title="No team members" description="Owner, manager, and members will appear here." /> : null}</div></CardContent></Card> : null}
 
