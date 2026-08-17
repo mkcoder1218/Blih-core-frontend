@@ -54,7 +54,7 @@ export function ContactsToolbar({
     <>
       <div className="flex flex-col gap-4 border-b border-border px-5 py-5 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex min-w-0 items-start gap-3.5">
-          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
             {kind === "client" ? <Building2 className="h-5 w-5" /> : <Megaphone className="h-5 w-5" />}
           </div>
           <div className="min-w-0">
@@ -66,17 +66,17 @@ export function ContactsToolbar({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="rounded-xl border border-border bg-muted/30 px-3.5 py-2 text-right">
+          <div className="rounded-lg border border-border bg-muted/30 px-3.5 py-2 text-right">
             <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground">
               {kind === "client" ? "Clients" : "Influencers"}
             </p>
             <p className="text-sm font-extrabold">{count}</p>
           </div>
-          <Button type="button" size="sm" variant="outline" className="rounded-xl" onClick={onManageOptions}>
+          <Button type="button" size="sm" variant="outline" className="rounded-md" onClick={onManageOptions}>
             <Settings2 className="h-4 w-4" />
             Manage options
           </Button>
-          <Button type="button" size="sm" className="rounded-xl" onClick={onAdd}>
+          <Button type="button" size="sm" className="rounded-md" onClick={onAdd}>
             <Plus className="h-4 w-4" />
             Add contact
           </Button>
@@ -84,10 +84,10 @@ export function ContactsToolbar({
       </div>
 
       <div className="border-b border-border px-5 pt-4 sm:px-6">
-        <div className="inline-flex rounded-xl bg-muted p-1">
+        <div className="inline-flex rounded-lg bg-muted p-1">
           <button
             type="button"
-            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold transition ${
+            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold transition ${
               kind === "client" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => onKindChange("client")}
@@ -97,7 +97,7 @@ export function ContactsToolbar({
           </button>
           <button
             type="button"
-            className={`inline-flex items-center gap-2 rounded-lg px-4 py-2 text-xs font-extrabold transition ${
+            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold transition ${
               kind === "influencer" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
             }`}
             onClick={() => onKindChange("influencer")}
@@ -117,7 +117,7 @@ export function ContactsToolbar({
               value={search}
               onChange={(event) => onSearchChange(event.currentTarget.value)}
               placeholder="Search name, phone, company, platform..."
-              className="h-10 rounded-xl pl-9"
+              className="h-10 rounded-md pl-9"
             />
           </div>
         </label>
@@ -171,7 +171,7 @@ function FilterSelect({
     <label className="grid gap-1.5">
       <span className="text-[11px] font-bold text-muted-foreground">{label}</span>
       <Select value={value || ALL} onValueChange={(next) => onChange(next === ALL ? null : next)}>
-        <SelectTrigger className="h-10 rounded-xl">
+        <SelectTrigger className="h-10 rounded-md">
           <SelectValue>{selectedLabel}</SelectValue>
         </SelectTrigger>
         <SelectContent>
