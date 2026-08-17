@@ -29,7 +29,7 @@ export function PhoneNumbersField({ value, disabled, onChange }: Props) {
           type="button"
           variant="ghost"
           size="sm"
-          className="h-7 rounded-lg px-2 text-[11px]"
+          className="h-7 rounded-md px-2 text-[11px]"
           disabled={disabled}
           onClick={() => onChange([...phones, { number: "", label: "Other" }])}
         >
@@ -46,7 +46,7 @@ export function PhoneNumbersField({ value, disabled, onChange }: Props) {
               disabled={disabled}
               onChange={(event) => update(index, { label: event.currentTarget.value })}
               placeholder="Primary"
-              className="rounded-xl"
+              className="rounded-md"
             />
             <Input
               type="tel"
@@ -54,13 +54,13 @@ export function PhoneNumbersField({ value, disabled, onChange }: Props) {
               disabled={disabled}
               onChange={(event) => update(index, { number: event.currentTarget.value })}
               placeholder="+251 9..."
-              className="rounded-xl"
+              className="rounded-md"
             />
             <Button
               type="button"
               variant="outline"
               size="icon"
-              className="h-10 w-10 rounded-xl text-muted-foreground hover:text-destructive"
+              className="h-10 w-10 rounded-md text-muted-foreground hover:text-destructive"
               disabled={disabled || phones.length === 1}
               onClick={() => remove(index)}
               aria-label="Remove phone"
