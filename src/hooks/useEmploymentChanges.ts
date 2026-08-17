@@ -5,6 +5,7 @@ import {
   type CreateEmploymentChangePayload,
   type EmploymentChangeListParams,
   type ImmediateTitlePayload,
+  type UpdateEmploymentChangePayload,
 } from "../api/employmentChanges";
 import type {
   ApiEnvelope,
@@ -113,6 +114,20 @@ export function useCreateEmploymentChange() {
   return useMutation({
     mutationFn: (payload: CreateEmploymentChangePayload) =>
       employmentChangesApi.create(payload),
+    onSuccess: () => invalidateRelated(queryClient),
+  });
+}
+
+export function useUpdateEmploymentChange() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: string;
+      payload: UpdateEmploymentChangePayload;
+    }) => employmentChangesApi.updateOwn(id, payload),
     onSuccess: () => invalidateRelated(queryClient),
   });
 }
