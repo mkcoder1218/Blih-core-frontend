@@ -57,7 +57,7 @@ export default function TelegramTaskSyncSettingsTab({ showAlert }: Props) {
   }, [settings.data]);
 
   const enabledDepartmentCount = useMemo(
-    () => Object.values(departmentDrafts).filter((department) => department.enabled).length,
+    () => Object.keys(departmentDrafts).filter((departmentId) => departmentDrafts[departmentId]?.enabled).length,
     [departmentDrafts],
   );
 
@@ -136,7 +136,7 @@ export default function TelegramTaskSyncSettingsTab({ showAlert }: Props) {
               <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">Integration</span>
               <span className="flex h-10 items-center justify-between rounded-xl border border-slate-200 px-3">
                 <span className="text-xs font-bold text-slate-700">Enabled</span>
-                <input type="checkbox" checked={botEnabled} onChange={(event) => setBotEnabled(event.target.checked)} className="h-4 w-4 accent-blue-600" />
+                <input type="checkbox" checked={botEnabled} onChange={(event) => setBotEnabled(event.currentTarget.checked)} className="h-4 w-4 accent-blue-600" />
               </span>
             </label>
             <label className="space-y-2">
@@ -170,7 +170,7 @@ export default function TelegramTaskSyncSettingsTab({ showAlert }: Props) {
                 </div>
                 <label className="flex items-center gap-2 text-xs font-bold text-slate-700">
                   Department Sync
-                  <input type="checkbox" checked={draft.enabled} onChange={(event) => updateDepartment(department.id, (current) => ({ ...current, enabled: event.target.checked }))} className="h-4 w-4 accent-blue-600" />
+                  <input type="checkbox" checked={draft.enabled} onChange={(event) => updateDepartment(department.id, (current) => ({ ...current, enabled: event.currentTarget.checked }))} className="h-4 w-4 accent-blue-600" />
                 </label>
               </div>
 
@@ -182,7 +182,7 @@ export default function TelegramTaskSyncSettingsTab({ showAlert }: Props) {
                   <div key={`${department.id}-${index}`} className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50 p-3 sm:grid-cols-[1fr_1.4fr_auto_auto] sm:items-center">
                     <Input value={channel.label} onChange={(event) => updateDepartment(department.id, (current) => ({ ...current, channels: current.channels.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item) }))} placeholder="Group label" className="h-9 rounded-lg bg-white text-xs" />
                     <Input value={channel.chatId} onChange={(event) => updateDepartment(department.id, (current) => ({ ...current, channels: current.channels.map((item, itemIndex) => itemIndex === index ? { ...item, chatId: event.target.value } : item) }))} placeholder="Telegram Chat ID e.g. -100..." className="h-9 rounded-lg bg-white font-mono text-xs" />
-                    <label className="flex items-center justify-center gap-2 text-[11px] font-bold text-slate-600"><input type="checkbox" checked={channel.enabled} onChange={(event) => updateDepartment(department.id, (current) => ({ ...current, channels: current.channels.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: event.target.checked } : item) }))} className="h-4 w-4 accent-blue-600" /> Active</label>
+                    <label className="flex items-center justify-center gap-2 text-[11px] font-bold text-slate-600"><input type="checkbox" checked={channel.enabled} onChange={(event) => updateDepartment(department.id, (current) => ({ ...current, channels: current.channels.map((item, itemIndex) => itemIndex === index ? { ...item, enabled: event.currentTarget.checked } : item) }))} className="h-4 w-4 accent-blue-600" /> Active</label>
                     <button type="button" onClick={() => updateDepartment(department.id, (current) => ({ ...current, channels: current.channels.filter((_, itemIndex) => itemIndex !== index) }))} className="inline-flex h-9 items-center justify-center rounded-lg border border-rose-100 bg-white px-3 text-rose-600 hover:bg-rose-50" aria-label="Remove Telegram group"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 ))}
