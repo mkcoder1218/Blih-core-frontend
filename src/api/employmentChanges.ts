@@ -58,6 +58,9 @@ export interface EmploymentChangeRequest {
   requestedSalary?: number | null;
   recommendedSalary?: number | null;
   finalSalary?: number | null;
+  currentNetSalary?: number | null;
+  requestedNetSalary?: number | null;
+  finalNetSalary?: number | null;
   increaseAmount?: number | null;
   increasePercent?: number | null;
   reason: string;
@@ -114,6 +117,18 @@ export interface CreateEmploymentChangePayload {
   effectiveDate: string;
   attachmentUrl?: string;
   source?: string;
+}
+
+export interface UpdateEmploymentChangePayload {
+  titleChangeType?: TitleChangeType;
+  targetPositionId?: string | null;
+  targetTitle?: string | null;
+  targetDepartmentId?: string | null;
+  requestedSalary?: number;
+  increasePercent?: number;
+  reason?: string;
+  effectiveDate?: string;
+  attachmentUrl?: string | null;
 }
 
 export interface EmploymentChangeListParams {
@@ -205,6 +220,14 @@ export const employmentChangesApi = {
 
   create: async (payload: CreateEmploymentChangePayload): Promise<EmploymentChangeRequest> => {
     const response = await api.post(base, payload);
+    return response.data?.request ?? response.data?.data?.request ?? response.data?.data ?? response.data;
+  },
+
+  updateOwn: async (
+    id: string,
+    payload: UpdateEmploymentChangePayload,
+  ): Promise<EmploymentChangeRequest> => {
+    const response = await api.patch(`${base}/${id}`, payload);
     return response.data?.request ?? response.data?.data?.request ?? response.data?.data ?? response.data;
   },
 
