@@ -22,13 +22,16 @@ import { EmployeeSelect } from "./EmployeeSelect";
 import { PROJECT_STATUSES, assertNonEmpty } from "../schemas";
 import { useCreateProject } from "../hooks";
 import { useClients } from "../../../hooks/useClients";
+import { useDepartments } from "../../../hooks/useDepartments";
 import { useMe } from "../../../hooks/useMe";
 
 const NONE = "__none__";
+const COMPANY_WIDE = "__company_wide__";
 
 const EMPTY_FORM = {
   title: "",
   code: "",
+  departmentId: "",
   ownerEmployeeId: "",
   managerEmployeeId: "",
   status: "DRAFT",
@@ -57,10 +60,10 @@ export function CreateProjectModal() {
   const [form, setForm] = useState(EMPTY_FORM);
 
   const createProject = useCreateProject();
+  const departments = useDepartments({ page: 1, size: 200 });
   const me = useMe();
   const roles: string[] = (me.data?.data?.roles || []) as string[];
-  const canUseClients =
-    roles.includes("BUSINESS_ADMIN") || roles.includes("PROJECT_MANAGER");
+  const canUseClients = roles.includes("BUSINESS_ADMIN") || roles.includes("PROJECT_MANAGER");
   const clients = useClients(canUseClients);
 
   const selectedClient = useMemo(
@@ -68,10 +71,23 @@ export function CreateProjectModal() {
     [clients.data, form.clientId],
   );
 
-  const updateForm = (
-    key: keyof typeof EMPTY_FORM,
-    value: string | boolean,
-  ) => setForm((previous) => ({ ...previous, [key]: value }));
+  const departmentRows = useMemo(
+    () => (departments.data?.departments ?? []).filter((department) => department.status !== "inactive"),
+    [departments.data?.departments],
+  );
+
+  const updateForm = (key: keyof typeof EMPTY_FORM, value: string | boolean) => {
+    setForm((previous) => ({ ...previous, [key]: value }));
+  };
+
+  const changeDepartment = (departmentId: string) => {
+    setForm((previous) => ({
+      ...previous,
+      departmentId,
+      ownerEmployeeId: "",
+      managerEmployeeId: "",
+    }));
+  };
 
   const resetForm = () => {
     setForm(EMPTY_FORM);
@@ -86,25 +102,20 @@ export function CreateProjectModal() {
       const project: any = await createProject.mutateAsync({
         title: form.title.trim(),
         code: form.code.trim() || undefined,
+        departmentId: form.departmentId || null,
         ownerEmployeeId: form.ownerEmployeeId || undefined,
         managerEmployeeId: form.managerEmployeeId || undefined,
         status: form.status as any,
         priority: form.priority as any,
         startDate: form.startDate || undefined,
         endDate: form.endDate || undefined,
-        clientId:
-          canUseClients && form.clientId ? form.clientId : undefined,
+        clientId: canUseClients && form.clientId ? form.clientId : undefined,
         clientPortalUser:
           canUseClients && form.clientId && form.issueClientLogin
             ? {
-                fullName:
-                  selectedClient?.contactName ||
-                  selectedClient?.companyName ||
-                  undefined,
-                email:
-                  form.clientEmail.trim() || selectedClient?.email || undefined,
-                phone:
-                  form.clientPhone.trim() || selectedClient?.phone || undefined,
+                fullName: selectedClient?.contactName || selectedClient?.companyName || undefined,
+                email: form.clientEmail.trim() || selectedClient?.email || undefined,
+                phone: form.clientPhone.trim() || selectedClient?.phone || undefined,
                 password: form.clientPassword || undefined,
               }
             : undefined,
@@ -113,10 +124,7 @@ export function CreateProjectModal() {
       if (project?.clientPortalUser?.email) {
         setIssuedCredentials({
           email: project.clientPortalUser.email,
-          password:
-            project.clientPortalUser.temporaryPassword ||
-            form.clientPassword ||
-            null,
+          password: project.clientPortalUser.temporaryPassword || form.clientPassword || null,
           portalUrl: `${window.location.origin}/client-portal`,
         });
       } else {
@@ -165,32 +173,19 @@ export function CreateProjectModal() {
               <CardContent className="grid gap-3 sm:grid-cols-2">
                 <label className="grid gap-1">
                   <FieldLabel>Email</FieldLabel>
-                  <Input
-                    readOnly
-                    value={issuedCredentials.email}
-                    className="rounded-md bg-muted/30"
-                  />
+                  <Input readOnly value={issuedCredentials.email} className="rounded-md bg-muted/30" />
                 </label>
-
                 <label className="grid gap-1">
                   <FieldLabel>Password</FieldLabel>
                   <Input
                     readOnly
-                    value={
-                      issuedCredentials.password ||
-                      "Use the existing password for this email"
-                    }
+                    value={issuedCredentials.password || "Use the existing password for this email"}
                     className="rounded-md bg-muted/30"
                   />
                 </label>
-
                 <label className="grid gap-1 sm:col-span-2">
                   <FieldLabel>Login URL</FieldLabel>
-                  <Input
-                    readOnly
-                    value={issuedCredentials.portalUrl}
-                    className="rounded-md bg-muted/30"
-                  />
+                  <Input readOnly value={issuedCredentials.portalUrl} className="rounded-md bg-muted/30" />
                 </label>
               </CardContent>
             </Card>
@@ -207,9 +202,7 @@ export function CreateProjectModal() {
                   <FieldLabel>Project name</FieldLabel>
                   <Input
                     value={form.title}
-                    onChange={(event) =>
-                      updateForm("title", event.currentTarget.value)
-                    }
+                    onChange={(event) => updateForm("title", event.currentTarget.value)}
                     className="rounded-md"
                   />
                 </label>
@@ -218,9 +211,7 @@ export function CreateProjectModal() {
                   <FieldLabel>Code</FieldLabel>
                   <Input
                     value={form.code}
-                    onChange={(event) =>
-                      updateForm("code", event.currentTarget.value)
-                    }
+                    onChange={(event) => updateForm("code", event.currentTarget.value)}
                     className="rounded-md"
                   />
                 </label>
@@ -229,23 +220,34 @@ export function CreateProjectModal() {
                   <FieldLabel>Status</FieldLabel>
                   <Select
                     value={form.status}
-                    onValueChange={(value) =>
-                      updateForm("status", String(value ?? "DRAFT"))
-                    }
+                    onValueChange={(value) => updateForm("status", String(value ?? "DRAFT"))}
                   >
-                    <SelectTrigger className="w-full rounded-md">
-                      <SelectValue />
-                    </SelectTrigger>
+                    <SelectTrigger className="w-full rounded-md"><SelectValue /></SelectTrigger>
                     <SelectContent>
-                      {PROJECT_STATUSES.filter(
-                        (status) => status !== "ARCHIVED",
-                      ).map((status) => (
-                        <SelectItem key={status} value={status}>
-                          {status.replace(/_/g, " ")}
-                        </SelectItem>
+                      {PROJECT_STATUSES.filter((status) => status !== "ARCHIVED").map((status) => (
+                        <SelectItem key={status} value={status}>{status.replace(/_/g, " ")}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
+                </label>
+
+                <label className="grid gap-1 sm:col-span-2">
+                  <FieldLabel>Department</FieldLabel>
+                  <Select
+                    value={form.departmentId || COMPANY_WIDE}
+                    onValueChange={(value) => changeDepartment(value === COMPANY_WIDE ? "" : String(value ?? ""))}
+                  >
+                    <SelectTrigger className="w-full rounded-md"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={COMPANY_WIDE}>Whole company</SelectItem>
+                      {departmentRows.map((department) => (
+                        <SelectItem key={department.id} value={department.id}>{department.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-[11px] text-muted-foreground">
+                    Choose a department to restrict owners, managers, members and task assignees to that department. Leave it company-wide to allow everyone.
+                  </span>
                 </label>
 
                 <label className="grid gap-1">
@@ -254,6 +256,7 @@ export function CreateProjectModal() {
                     value={form.ownerEmployeeId}
                     onChange={(value) => updateForm("ownerEmployeeId", value)}
                     placeholder="Select owner"
+                    departmentId={form.departmentId || null}
                   />
                 </label>
 
@@ -263,6 +266,7 @@ export function CreateProjectModal() {
                     value={form.managerEmployeeId}
                     onChange={(value) => updateForm("managerEmployeeId", value)}
                     placeholder="Select manager"
+                    departmentId={form.departmentId || null}
                   />
                 </label>
 
@@ -271,9 +275,7 @@ export function CreateProjectModal() {
                   <Input
                     type="date"
                     value={form.startDate}
-                    onChange={(event) =>
-                      updateForm("startDate", event.currentTarget.value)
-                    }
+                    onChange={(event) => updateForm("startDate", event.currentTarget.value)}
                     className="rounded-md"
                   />
                 </label>
@@ -283,9 +285,7 @@ export function CreateProjectModal() {
                   <Input
                     type="date"
                     value={form.endDate}
-                    onChange={(event) =>
-                      updateForm("endDate", event.currentTarget.value)
-                    }
+                    onChange={(event) => updateForm("endDate", event.currentTarget.value)}
                     className="rounded-md"
                   />
                 </label>
@@ -293,10 +293,7 @@ export function CreateProjectModal() {
             </Card>
 
             {canUseClients ? (
-              <Card
-                size="sm"
-                className="rounded-md bg-muted/20 shadow-none ring-1 ring-border"
-              >
+              <Card size="sm" className="rounded-md bg-muted/20 shadow-none ring-1 ring-border">
                 <CardHeader className="pb-0">
                   <div className="flex items-center justify-between gap-3">
                     <div>
@@ -325,15 +322,11 @@ export function CreateProjectModal() {
                         updateForm("clientPassword", "");
                       }}
                     >
-                      <SelectTrigger className="w-full rounded-md bg-background">
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SelectTrigger className="w-full rounded-md bg-background"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NONE}>No client linked</SelectItem>
                         {(clients.data ?? []).map((client) => (
-                          <SelectItem key={client.id} value={client.id}>
-                            {client.companyName}
-                          </SelectItem>
+                          <SelectItem key={client.id} value={client.id}>{client.companyName}</SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -347,9 +340,7 @@ export function CreateProjectModal() {
 
                   {selectedClient ? (
                     <div className="rounded-md border border-border bg-background px-3 py-2.5 text-xs">
-                      <p className="font-semibold text-foreground">
-                        {selectedClient.companyName}
-                      </p>
+                      <p className="font-semibold text-foreground">{selectedClient.companyName}</p>
                       <p className="mt-1 text-muted-foreground">
                         {selectedClient.contactName || "No contact person"}
                         {selectedClient.email ? ` · ${selectedClient.email}` : ""}
@@ -363,12 +354,7 @@ export function CreateProjectModal() {
                         <input
                           type="checkbox"
                           checked={form.issueClientLogin}
-                          onChange={(event) =>
-                            updateForm(
-                              "issueClientLogin",
-                              event.currentTarget.checked,
-                            )
-                          }
+                          onChange={(event) => updateForm("issueClientLogin", event.currentTarget.checked)}
                           className="size-4 rounded border-border"
                         />
                         Create or update client portal login
@@ -379,28 +365,19 @@ export function CreateProjectModal() {
                           <Input
                             placeholder={selectedClient?.email || "Client email"}
                             value={form.clientEmail}
-                            onChange={(event) =>
-                              updateForm("clientEmail", event.currentTarget.value)
-                            }
+                            onChange={(event) => updateForm("clientEmail", event.currentTarget.value)}
                             className="rounded-md bg-background"
                           />
                           <Input
                             placeholder={selectedClient?.phone || "Client phone"}
                             value={form.clientPhone}
-                            onChange={(event) =>
-                              updateForm("clientPhone", event.currentTarget.value)
-                            }
+                            onChange={(event) => updateForm("clientPhone", event.currentTarget.value)}
                             className="rounded-md bg-background"
                           />
                           <Input
                             placeholder="Password (optional)"
                             value={form.clientPassword}
-                            onChange={(event) =>
-                              updateForm(
-                                "clientPassword",
-                                event.currentTarget.value,
-                              )
-                            }
+                            onChange={(event) => updateForm("clientPassword", event.currentTarget.value)}
                             className="rounded-md bg-background"
                           />
                         </div>
@@ -420,17 +397,11 @@ export function CreateProjectModal() {
         ) : null}
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => setOpen(false)}
-          >
+          <Button variant="outline" onClick={() => setOpen(false)}>
             {issuedCredentials ? "Close" : "Cancel"}
           </Button>
           {!issuedCredentials ? (
-            <Button
-              onClick={() => void submit()}
-              disabled={createProject.isPending}
-            >
+            <Button onClick={() => void submit()} disabled={createProject.isPending}>
               Create
             </Button>
           ) : null}
