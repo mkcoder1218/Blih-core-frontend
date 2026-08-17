@@ -16,6 +16,21 @@ type ApiEnvelope<T> = {
 
 const BASE = "/api/v1/brain/clients/directory";
 
+function resolveApiAssetUrl(value: string): string {
+  if (/^https?:\/\//i.test(value)) return value;
+
+  const configuredBase = String(api.defaults.baseURL || "").trim();
+  if (/^https?:\/\//i.test(configuredBase)) {
+    return new URL(value, configuredBase).toString();
+  }
+
+  if (typeof window !== "undefined") {
+    return new URL(value, window.location.origin).toString();
+  }
+
+  return value;
+}
+
 export async function listContacts(params: ContactListParams): Promise<ContactListPage> {
   const response = await api.get<ApiEnvelope<ContactListPage>>(BASE, { params });
   const data = response.data.data;
@@ -78,8 +93,8 @@ export async function deleteContactOption(id: string): Promise<void> {
 export async function uploadContactImage(file: File): Promise<string> {
   const body = new FormData();
   body.append("image", file);
-  const response = await api.post<ApiEnvelope<{ imageUrl: string }>>(`${BASE}/profile-image`, body, {
+  const response = await api.post<ApiEnvelope<{ imagePath: string }>>(`${BASE}/profile-image`, body, {
     headers: { "Content-Type": "multipart/form-data" },
   });
-  return response.data.data.imageUrl;
+  return resolveApiAssetUrl(response.data.data.imagePath);
 }
