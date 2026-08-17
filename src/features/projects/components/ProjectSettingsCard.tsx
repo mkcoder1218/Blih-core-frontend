@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +10,7 @@ import { EmployeeSelect } from "./EmployeeSelect";
 const NONE = "__none__";
 const COMPANY_WIDE = "__company_wide__";
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({ children }: { children: ReactNode }) {
   return <span className="text-xs text-muted-foreground">{children}</span>;
 }
 
