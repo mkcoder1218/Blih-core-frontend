@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation } from "react-router-dom";
 import { useEmployees } from "../../../hooks/useHrRecords";
 import { useProject } from "../hooks";
 
@@ -18,8 +18,12 @@ export function EmployeeSelect({
   disabled = false,
   departmentId,
 }: Props) {
-  const params = useParams<{ projectId?: string }>();
-  const project = useProject(departmentId === undefined ? params.projectId : undefined);
+  const location = useLocation();
+  const routedProjectId = useMemo(() => {
+    const match = location.pathname.match(/\/projects\/([0-9a-fA-F-]{36})(?:\/|$)/);
+    return match?.[1] || undefined;
+  }, [location.pathname]);
+  const project = useProject(departmentId === undefined ? routedProjectId : undefined);
   const effectiveDepartmentId = departmentId === undefined
     ? project.data?.departmentId || null
     : departmentId;
@@ -34,7 +38,7 @@ export function EmployeeSelect({
     });
   }, [data?.employees, effectiveDepartmentId]);
 
-  const loading = isLoading || (departmentId === undefined && Boolean(params.projectId) && project.isLoading);
+  const loading = isLoading || (departmentId === undefined && Boolean(routedProjectId) && project.isLoading);
   const emptyLabel = effectiveDepartmentId
     ? "No employees found in this department"
     : "No employees found";
