@@ -5,6 +5,7 @@ import {
     Settings,
     Shield,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 import type { MainModule } from '../../types';
 
@@ -650,17 +651,10 @@ export function DetailedSidebar({
             {displayModule ===
               'subscription-settings' &&
               settingsTabs.map((tab) => (
-                <SidebarButton
+                <Link
                   key={tab.id}
-                  onClick={() => {
-                    setCurrentModule(
-                      'subscription-settings',
-                    );
-
-                    navigate(tab.path);
-
-                    onMobileClose?.();
-                  }}
+                  to={tab.path}
+                  onClick={() => onMobileClose?.()}
                   className={tabCls(
                     activeSettingsTab ===
                       tab.id,
@@ -671,7 +665,7 @@ export function DetailedSidebar({
                   {tab.id === 'smtp' ? (
                     <Settings className="h-3.5 w-3.5 text-blue-600" />
                   ) : null}
-                </SidebarButton>
+                </Link>
               ))}
 
             {displayModule ===
