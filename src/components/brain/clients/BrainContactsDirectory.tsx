@@ -2,6 +2,7 @@ import { useCallback, useDeferredValue, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useMyPermissions } from "@/hooks/usePermissions";
 import { listContactCategories } from "./api/contactCategoriesApi";
 import {
   createContact,
@@ -41,6 +42,7 @@ function requestErrorMessage(error: unknown) {
 
 export function BrainContactsDirectory() {
   const queryClient = useQueryClient();
+  const permissions = useMyPermissions();
   const [activeKey, setActiveKey] = useState<string>("client");
   const [kind, setKind] = useState<ContactKind>("client");
   const [page, setPage] = useState(1);
@@ -57,6 +59,20 @@ export function BrainContactsDirectory() {
   const deferredSearch = useDeferredValue(search.trim());
   const systemTabActive = activeKey === "client" || activeKey === "influencer";
 
+  const canViewCategories = permissions.can("brain.contact_categories.view");
+  const canCreateCategory = permissions.can("brain.contact_categories.create");
+  const canManageCategory = permissions.hasAny(
+    "brain.contact_categories.update",
+    "brain.contact_categories.archive",
+    "brain.contact_fields.create",
+    "brain.contact_fields.update",
+    "brain.contact_fields.archive",
+    "brain.contact_fields.reorder",
+  );
+  const canCreateContact = permissions.can("brain.contacts.create");
+  const canUpdateContact = permissions.can("brain.contacts.update");
+  const canDeleteContact = permissions.can("brain.contacts.delete");
+
   useEffect(() => {
     setPage(1);
   }, [kind, deferredSearch, fieldOptionId, behaviorOptionId, clientStatusOptionId]);
@@ -69,6 +85,7 @@ export function BrainContactsDirectory() {
     queryKey: ["brain-contact-categories"],
     queryFn: () => listContactCategories(true),
     staleTime: 30_000,
+    enabled: canViewCategories && !permissions.isLoading,
   });
 
   const optionsQuery = useQuery({
@@ -171,11 +188,13 @@ export function BrainContactsDirectory() {
   };
 
   const openCreateCategory = () => {
+    if (!canCreateCategory) return;
     setEditingCategory(null);
     setCategoryBuilderOpen(true);
   };
 
   const openManageCategory = (category: ContactCategory) => {
+    if (!canManageCategory) return;
     const latest = categories.find((item) => item.id === category.id) || category;
     setEditingCategory(latest);
     setCategoryBuilderOpen(true);
@@ -227,6 +246,7 @@ export function BrainContactsDirectory() {
         <ContactCategoryTabs
           activeKey={activeKey}
           categories={activeCategories}
+          canCreateCategory={canCreateCategory}
           onChange={changeTab}
           onAddCategory={openCreateCategory}
         />
@@ -240,6 +260,10 @@ export function BrainContactsDirectory() {
         {activeCustomCategory ? (
           <CustomContactCategoryPanel
             category={activeCustomCategory}
+            canManageCategory={canManageCategory}
+            canCreateContact={canCreateContact}
+            canUpdateContact={canUpdateContact}
+            canDeleteContact={canDeleteContact}
             onManageCategory={() => openManageCategory(activeCustomCategory)}
             onCategoryChanged={upsertCategoryCache}
           />
