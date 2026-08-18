@@ -21,6 +21,7 @@ type Props = {
   behaviorOptionId: string | null;
   clientStatusOptionId: string | null;
   options: ContactOption[];
+  showKindTabs?: boolean;
   onKindChange: (kind: ContactKind) => void;
   onSearchChange: (value: string) => void;
   onFieldChange: (value: string | null) => void;
@@ -38,6 +39,7 @@ export function ContactsToolbar({
   behaviorOptionId,
   clientStatusOptionId,
   options,
+  showKindTabs = true,
   onKindChange,
   onSearchChange,
   onFieldChange,
@@ -83,30 +85,32 @@ export function ContactsToolbar({
         </div>
       </div>
 
-      <div className="border-b border-border px-5 pt-4 sm:px-6">
-        <div className="inline-flex rounded-lg bg-muted p-1">
-          <button
-            type="button"
-            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold transition ${
-              kind === "client" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onKindChange("client")}
-          >
-            <Building2 className="h-3.5 w-3.5" />
-            Clients
-          </button>
-          <button
-            type="button"
-            className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold transition ${
-              kind === "influencer" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-            onClick={() => onKindChange("influencer")}
-          >
-            <Megaphone className="h-3.5 w-3.5" />
-            Influencers
-          </button>
+      {showKindTabs ? (
+        <div className="border-b border-border px-5 pt-4 sm:px-6">
+          <div className="inline-flex rounded-lg bg-muted p-1">
+            <button
+              type="button"
+              className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold transition ${
+                kind === "client" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => onKindChange("client")}
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Clients
+            </button>
+            <button
+              type="button"
+              className={`inline-flex items-center gap-2 rounded-md px-4 py-2 text-xs font-extrabold transition ${
+                kind === "influencer" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}
+              onClick={() => onKindChange("influencer")}
+            >
+              <Megaphone className="h-3.5 w-3.5" />
+              Influencers
+            </button>
+          </div>
         </div>
-      </div>
+      ) : null}
 
       <div className={`grid gap-3 border-b border-border px-5 py-4 sm:px-6 ${kind === "client" ? "lg:grid-cols-[minmax(260px,1fr)_180px_180px_180px]" : "lg:grid-cols-[minmax(260px,1fr)_200px_200px]"}`}>
         <label className="grid gap-1.5">
