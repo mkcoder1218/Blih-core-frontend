@@ -116,7 +116,7 @@ export function CustomContactCategoryPanel({
     () => activeFields.filter((field) => field.showInTable || field.isSystem).map((field) => field.id),
     [activeFields],
   );
-  const visibleIds = preferenceQuery.data?.visibleFieldIds || defaultVisibleIds;
+  const visibleIds: string[] = preferenceQuery.data?.visibleFieldIds ?? defaultVisibleIds;
   const rows = contactsQuery.data?.rows || [];
   const count = contactsQuery.data?.count ?? currentCategory.contactCount ?? 0;
   const pages = Math.max(contactsQuery.data?.pages || 1, 1);
@@ -146,7 +146,7 @@ export function CustomContactCategoryPanel({
 
   const toggleColumn = (fieldId: string, checked: boolean) => {
     const nameField = activeFields.find((field) => field.isSystem);
-    const next = new Set(visibleIds);
+    const next = new Set<string>(visibleIds);
     if (checked) next.add(fieldId);
     else if (fieldId !== nameField?.id) next.delete(fieldId);
     void preferenceMutation.mutateAsync(Array.from(next));
