@@ -2,6 +2,7 @@ import { getCurrentLanguage, type AppLanguage } from './config';
 import { translateSystemText } from './systemTextTranslations';
 import { translateExtraSystemText } from './systemTextTranslationsExtra';
 import { translateOverlayText } from './systemTextTranslationsOverlays';
+import { translateWorkflowOverlayText } from './systemTextTranslationsWorkflows';
 
 const ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
 const SKIP_SELECTOR = '[data-i18n-skip],script,style,code,pre,[contenteditable="true"]';
@@ -11,6 +12,9 @@ function shouldSkip(element: Element | null) {
 }
 
 function translateLegacySystemText(source: string, language: AppLanguage) {
+  const workflow = translateWorkflowOverlayText(source, language);
+  if (workflow !== source) return workflow;
+
   const overlay = translateOverlayText(source, language);
   if (overlay !== source) return overlay;
 
