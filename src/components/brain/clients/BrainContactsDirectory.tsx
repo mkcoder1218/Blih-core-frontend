@@ -2,7 +2,7 @@ import { useCallback, useDeferredValue, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useMyPermissions } from "@/hooks/usePermissions";
+import { useMyPermissions } from "../../../hooks/usePermissions";
 import { listContactCategories } from "./api/contactCategoriesApi";
 import {
   createContact,
