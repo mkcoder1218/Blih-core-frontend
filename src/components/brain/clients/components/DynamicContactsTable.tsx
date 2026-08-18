@@ -11,6 +11,8 @@ type Props = {
   rows: CustomContact[];
   loading: boolean;
   error?: string | null;
+  canEdit?: boolean;
+  canDelete?: boolean;
   onEdit: (contact: CustomContact) => void;
   onDelete: (contact: CustomContact) => void;
 };
@@ -21,6 +23,8 @@ export function DynamicContactsTable({
   rows,
   loading,
   error,
+  canEdit = false,
+  canDelete = false,
   onEdit,
   onDelete,
 }: Props) {
@@ -28,6 +32,8 @@ export function DynamicContactsTable({
   const columns = [...fields]
     .filter((field) => !field.isArchived && visibleSet.has(field.id))
     .sort((a, b) => a.sortOrder - b.sortOrder);
+  const showActions = canEdit || canDelete;
+  const colSpan = Math.max(columns.length + (showActions ? 1 : 0), 1);
 
   return (
     <div className="overflow-x-auto">
@@ -39,18 +45,20 @@ export function DynamicContactsTable({
                 {field.label}
               </th>
             ))}
-            <th className="w-24 px-5 py-3 text-right text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground sm:px-6">
-              Actions
-            </th>
+            {showActions ? (
+              <th className="w-24 px-5 py-3 text-right text-[10px] font-extrabold uppercase tracking-wide text-muted-foreground sm:px-6">
+                Actions
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
           {loading ? (
-            <tr><td colSpan={Math.max(columns.length + 1, 1)} className="px-6 py-12 text-center text-xs text-muted-foreground">Loading contacts...</td></tr>
+            <tr><td colSpan={colSpan} className="px-6 py-12 text-center text-xs text-muted-foreground">Loading contacts...</td></tr>
           ) : error ? (
-            <tr><td colSpan={Math.max(columns.length + 1, 1)} className="px-6 py-10 text-center text-xs font-semibold text-destructive">{error}</td></tr>
+            <tr><td colSpan={colSpan} className="px-6 py-10 text-center text-xs font-semibold text-destructive">{error}</td></tr>
           ) : rows.length === 0 ? (
-            <tr><td colSpan={Math.max(columns.length + 1, 1)} className="px-6 py-12 text-center text-xs text-muted-foreground">No contacts in this category yet.</td></tr>
+            <tr><td colSpan={colSpan} className="px-6 py-12 text-center text-xs text-muted-foreground">No contacts in this category yet.</td></tr>
           ) : (
             rows.map((contact) => (
               <tr key={contact.id} className="border-b border-border/70 transition hover:bg-muted/15 last:border-b-0">
@@ -59,16 +67,22 @@ export function DynamicContactsTable({
                     {renderValue(contact, field)}
                   </td>
                 ))}
-                <td className="px-5 py-3 text-right sm:px-6">
-                  <div className="inline-flex items-center gap-1">
-                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => onEdit(contact)} aria-label={`Edit ${contact.name}`}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => onDelete(contact)} aria-label={`Delete ${contact.name}`}>
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </td>
+                {showActions ? (
+                  <td className="px-5 py-3 text-right sm:px-6">
+                    <div className="inline-flex items-center gap-1">
+                      {canEdit ? (
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8" onClick={() => onEdit(contact)} aria-label={`Edit ${contact.name}`}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : null}
+                      {canDelete ? (
+                        <Button type="button" size="icon" variant="ghost" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => onDelete(contact)} aria-label={`Delete ${contact.name}`}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      ) : null}
+                    </div>
+                  </td>
+                ) : null}
               </tr>
             ))
           )}
