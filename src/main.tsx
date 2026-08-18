@@ -7,6 +7,8 @@ import 'leaflet/dist/leaflet.css';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AlertProvider } from './contexts/AlertContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { I18nProvider, ensureLocalizedPath } from './i18n';
+import { installSystemTextBridge } from './i18n/systemTextBridge';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -14,15 +16,20 @@ const queryClient = new QueryClient({
   },
 });
 
-const isPublicPolicyPage = /^\/policies\/share\/[^/?#]+\/?$/i.test(window.location.pathname);
+ensureLocalizedPath();
+installSystemTextBridge();
+
+const isPublicPolicyPage = /^\/(?:en|am|ti|om)\/policies\/share\/[^/?#]+\/?$/i.test(window.location.pathname);
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ThemeProvider>
       <QueryClientProvider client={queryClient}>
-        <AlertProvider>
-          {isPublicPolicyPage ? <PublicPolicyPage /> : <RootApp />}
-        </AlertProvider>
+        <I18nProvider>
+          <AlertProvider>
+            {isPublicPolicyPage ? <PublicPolicyPage /> : <RootApp />}
+          </AlertProvider>
+        </I18nProvider>
       </QueryClientProvider>
     </ThemeProvider>
   </StrictMode>,
