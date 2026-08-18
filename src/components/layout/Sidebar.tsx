@@ -13,20 +13,23 @@ export default function Sidebar(props: SidebarProps) {
   const controller = useSidebarController(props);
   const isIntern = props.user?.employmentType === 'intern';
 
+  const internProjectsModule: (typeof controller.mainModules)[number] = {
+    id: 'projects',
+    label: 'Projects',
+    icon: BriefcaseBusiness,
+    badge: 0,
+  };
+
+  const internMainModules: typeof controller.mainModules = controller.mainModules.some(
+    (module) => module.id === 'projects',
+  )
+    ? controller.mainModules
+    : [...controller.mainModules, internProjectsModule];
+
   const visibleController = isIntern
     ? {
         ...controller,
-        mainModules: controller.mainModules.some((module) => module.id === 'projects')
-          ? controller.mainModules
-          : [
-              ...controller.mainModules,
-              {
-                id: 'projects' as const,
-                label: 'Projects',
-                icon: BriefcaseBusiness,
-                badge: 0,
-              },
-            ],
+        mainModules: internMainModules,
         projectsTabs: controller.projectsTabs.filter((tab) =>
           INTERN_PROJECT_TABS.has(tab.id),
         ),
