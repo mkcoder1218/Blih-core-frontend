@@ -2,6 +2,7 @@ import axios, { AxiosError, type AxiosInstance } from "axios";
 import { notifyAuthChanged } from "./authState";
 import { clearAuthTokens, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from "./storage";
 import type { ApiEnvelope } from "./types";
+import { getCurrentLanguage } from "../i18n/config";
 
 const baseURL = import.meta.env.VITE_API_BASE_URL as string | undefined;
 if (!baseURL) {
@@ -15,9 +16,12 @@ export const api: AxiosInstance = axios.create({
 
 api.interceptors.request.use((config) => {
   const token = getAccessToken();
-  if (token) {
-    config.headers = { ...(config.headers as any), Authorization: `Bearer ${token}` } as any;
-  }
+  const language = getCurrentLanguage();
+  config.headers = {
+    ...(config.headers as any),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    "Accept-Language": language,
+  } as any;
   return config;
 });
 
@@ -42,7 +46,7 @@ function redirectToLogin() {
   notifyAuthChanged();
 
   if (typeof window !== "undefined" && window.location.pathname !== "/") {
-    window.location.assign("/");
+    window.location.assign(`/${getCurrentLanguage()}`);
   }
 }
 

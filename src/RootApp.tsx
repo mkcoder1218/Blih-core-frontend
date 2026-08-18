@@ -38,6 +38,8 @@ import {
   useMe,
 } from "./hooks/useMe";
 
+import { getRouterBasename } from "./i18n";
+
 import AppShell from "./pages/AppShell";
 import BusinessesPage from "./pages/BusinessesPage";
 import BulkEmployeeImportPage from "./pages/BulkEmployeeImportPage";
@@ -131,7 +133,7 @@ export default function RootApp() {
     useAccessToken();
 
   return (
-    <BrowserRouter>
+    <BrowserRouter basename={getRouterBasename()}>
       <Routes>
         <Route
           path="/careers/:businessSlug"
