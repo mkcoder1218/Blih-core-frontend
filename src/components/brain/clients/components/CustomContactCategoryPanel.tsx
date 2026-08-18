@@ -24,6 +24,10 @@ const PAGE_SIZE = 20;
 
 type Props = {
   category: ContactCategory;
+  canManageCategory?: boolean;
+  canCreateContact?: boolean;
+  canUpdateContact?: boolean;
+  canDeleteContact?: boolean;
   onManageCategory: () => void;
   onCategoryChanged: (category: ContactCategory) => void;
 };
@@ -36,7 +40,15 @@ function requestError(error: unknown) {
   );
 }
 
-export function CustomContactCategoryPanel({ category, onManageCategory, onCategoryChanged }: Props) {
+export function CustomContactCategoryPanel({
+  category,
+  canManageCategory = false,
+  canCreateContact = false,
+  canUpdateContact = false,
+  canDeleteContact = false,
+  onManageCategory,
+  onCategoryChanged,
+}: Props) {
   const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -111,13 +123,19 @@ export function CustomContactCategoryPanel({ category, onManageCategory, onCateg
   const saving = createMutation.isPending || updateMutation.isPending;
 
   const submit = async (input: CustomContactInput) => {
-    if (editingContact) await updateMutation.mutateAsync({ id: editingContact.id, input });
-    else await createMutation.mutateAsync(input);
+    if (editingContact) {
+      if (!canUpdateContact) throw new Error("You do not have permission to update contacts.");
+      await updateMutation.mutateAsync({ id: editingContact.id, input });
+    } else {
+      if (!canCreateContact) throw new Error("You do not have permission to create contacts.");
+      await createMutation.mutateAsync(input);
+    }
     setFormOpen(false);
     setEditingContact(null);
   };
 
   const remove = async (contact: CustomContact) => {
+    if (!canDeleteContact) return;
     if (!window.confirm(`Remove ${contact.name}? The contact will be soft-deleted.`)) return;
     try {
       await deleteMutation.mutateAsync(contact.id);
@@ -160,22 +178,26 @@ export function CustomContactCategoryPanel({ category, onManageCategory, onCateg
             busy={preferenceMutation.isPending}
             onToggle={toggleColumn}
           />
-          <Button type="button" size="sm" variant="outline" className="rounded-md" onClick={onManageCategory}>
-            <Settings2 className="h-4 w-4" />
-            Manage category
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="rounded-md"
-            onClick={() => {
-              setEditingContact(null);
-              setFormOpen(true);
-            }}
-          >
-            <Plus className="h-4 w-4" />
-            Add contact
-          </Button>
+          {canManageCategory ? (
+            <Button type="button" size="sm" variant="outline" className="rounded-md" onClick={onManageCategory}>
+              <Settings2 className="h-4 w-4" />
+              Manage category
+            </Button>
+          ) : null}
+          {canCreateContact ? (
+            <Button
+              type="button"
+              size="sm"
+              className="rounded-md"
+              onClick={() => {
+                setEditingContact(null);
+                setFormOpen(true);
+              }}
+            >
+              <Plus className="h-4 w-4" />
+              Add contact
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -200,7 +222,10 @@ export function CustomContactCategoryPanel({ category, onManageCategory, onCateg
         rows={rows}
         loading={contactsQuery.isLoading}
         error={contactsQuery.isError ? requestError(contactsQuery.error) : null}
+        canEdit={canUpdateContact}
+        canDelete={canDeleteContact}
         onEdit={(contact) => {
+          if (!canUpdateContact) return;
           setEditingContact(contact);
           setFormOpen(true);
         }}
