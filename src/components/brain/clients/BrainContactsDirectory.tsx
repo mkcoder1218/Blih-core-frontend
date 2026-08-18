@@ -1,7 +1,8 @@
-import { useDeferredValue, useEffect, useState } from "react";
+import { useCallback, useDeferredValue, useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { listContactCategories } from "./api/contactCategoriesApi";
 import {
   createContact,
   createContactOption,
@@ -13,16 +14,19 @@ import {
   updateContactOption,
   uploadContactImage,
 } from "./api/contactsApi";
+import { ContactCategoryBuilderModal } from "./components/ContactCategoryBuilderModal";
+import { ContactCategoryTabs } from "./components/ContactCategoryTabs";
 import { ContactDetailsDrawer } from "./components/ContactDetailsDrawer";
 import { ContactFormModal } from "./components/ContactFormModal";
 import { ContactOptionsManager } from "./components/ContactOptionsManager";
 import { ContactsTable } from "./components/ContactsTable";
 import { ContactsToolbar } from "./components/ContactsToolbar";
+import { CustomContactCategoryPanel } from "./components/CustomContactCategoryPanel";
+import type { ContactCategory } from "./types/contactCategory.types";
 import type {
   BrainContact,
   ContactInput,
   ContactKind,
-  ContactOptionType,
 } from "./types/contact.types";
 
 const PAGE_SIZE = 20;
@@ -37,6 +41,7 @@ function requestErrorMessage(error: unknown) {
 
 export function BrainContactsDirectory() {
   const queryClient = useQueryClient();
+  const [activeKey, setActiveKey] = useState<string>("client");
   const [kind, setKind] = useState<ContactKind>("client");
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
@@ -47,7 +52,10 @@ export function BrainContactsDirectory() {
   const [editingContact, setEditingContact] = useState<BrainContact | null>(null);
   const [detailsContact, setDetailsContact] = useState<BrainContact | null>(null);
   const [optionsOpen, setOptionsOpen] = useState(false);
+  const [categoryBuilderOpen, setCategoryBuilderOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<ContactCategory | null>(null);
   const deferredSearch = useDeferredValue(search.trim());
+  const systemTabActive = activeKey === "client" || activeKey === "influencer";
 
   useEffect(() => {
     setPage(1);
@@ -57,10 +65,17 @@ export function BrainContactsDirectory() {
     if (kind === "influencer") setClientStatusOptionId(null);
   }, [kind]);
 
+  const categoriesQuery = useQuery({
+    queryKey: ["brain-contact-categories"],
+    queryFn: () => listContactCategories(true),
+    staleTime: 30_000,
+  });
+
   const optionsQuery = useQuery({
     queryKey: ["brain-contact-options"],
     queryFn: () => listContactOptions(),
     staleTime: 30_000,
+    enabled: systemTabActive,
   });
 
   const contactsQuery = useQuery({
@@ -84,6 +99,7 @@ export function BrainContactsDirectory() {
         clientStatusOptionId:
           kind === "client" ? clientStatusOptionId || undefined : undefined,
       }),
+    enabled: systemTabActive,
   });
 
   const refreshContacts = async () => {
@@ -137,11 +153,41 @@ export function BrainContactsDirectory() {
     },
   });
 
+  const categories = categoriesQuery.data || [];
+  const activeCategories = categories.filter((category) => category.isActive);
+  const activeCustomCategory = activeCategories.find((category) => category.id === activeKey) || null;
   const rows = contactsQuery.data?.rows || [];
   const count = contactsQuery.data?.count || 0;
   const pages = Math.max(contactsQuery.data?.pages || 1, 1);
   const options = optionsQuery.data || [];
   const saving = createMutation.isPending || updateMutation.isPending;
+
+  const changeTab = (key: string) => {
+    setActiveKey(key);
+    if (key === "client" || key === "influencer") {
+      setKind(key);
+      setPage(1);
+    }
+  };
+
+  const openCreateCategory = () => {
+    setEditingCategory(null);
+    setCategoryBuilderOpen(true);
+  };
+
+  const openManageCategory = (category: ContactCategory) => {
+    const latest = categories.find((item) => item.id === category.id) || category;
+    setEditingCategory(latest);
+    setCategoryBuilderOpen(true);
+  };
+
+  const upsertCategoryCache = useCallback((category: ContactCategory) => {
+    queryClient.setQueryData<ContactCategory[]>(["brain-contact-categories"], (current) => {
+      const rows = current || [];
+      const found = rows.some((item) => item.id === category.id);
+      return found ? rows.map((item) => (item.id === category.id ? category : item)) : [...rows, category];
+    });
+  }, [queryClient]);
 
   const openCreate = () => {
     setEditingContact(null);
@@ -178,69 +224,115 @@ export function BrainContactsDirectory() {
   return (
     <div className="space-y-5 text-foreground">
       <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        <ContactsToolbar
-          kind={kind}
-          count={count}
-          search={search}
-          fieldOptionId={fieldOptionId}
-          behaviorOptionId={behaviorOptionId}
-          clientStatusOptionId={clientStatusOptionId}
-          options={options}
-          onKindChange={setKind}
-          onSearchChange={setSearch}
-          onFieldChange={setFieldOptionId}
-          onBehaviorChange={setBehaviorOptionId}
-          onClientStatusChange={setClientStatusOptionId}
-          onAdd={openCreate}
-          onManageOptions={() => setOptionsOpen(true)}
+        <ContactCategoryTabs
+          activeKey={activeKey}
+          categories={activeCategories}
+          onChange={changeTab}
+          onAddCategory={openCreateCategory}
         />
 
-        {optionsQuery.isError ? (
+        {categoriesQuery.isError ? (
           <div className="border-b border-border bg-destructive/5 px-5 py-2.5 text-[11px] font-semibold text-destructive sm:px-6">
-            {requestErrorMessage(optionsQuery.error)}
+            {requestErrorMessage(categoriesQuery.error)}
           </div>
         ) : null}
 
-        <ContactsTable
-          kind={kind}
-          rows={rows}
-          loading={contactsQuery.isLoading}
-          error={contactsQuery.isError ? requestErrorMessage(contactsQuery.error) : null}
-          onView={setDetailsContact}
-          onEdit={openEdit}
-          onDelete={(contact) => void remove(contact)}
-        />
+        {activeCustomCategory ? (
+          <CustomContactCategoryPanel
+            category={activeCustomCategory}
+            onManageCategory={() => openManageCategory(activeCustomCategory)}
+            onCategoryChanged={upsertCategoryCache}
+          />
+        ) : (
+          <>
+            <ContactsToolbar
+              kind={kind}
+              count={count}
+              search={search}
+              fieldOptionId={fieldOptionId}
+              behaviorOptionId={behaviorOptionId}
+              clientStatusOptionId={clientStatusOptionId}
+              options={options}
+              showKindTabs={false}
+              onKindChange={(next) => changeTab(next)}
+              onSearchChange={setSearch}
+              onFieldChange={setFieldOptionId}
+              onBehaviorChange={setBehaviorOptionId}
+              onClientStatusChange={setClientStatusOptionId}
+              onAdd={openCreate}
+              onManageOptions={() => setOptionsOpen(true)}
+            />
 
-        {pages > 1 ? (
-          <div className="flex items-center justify-between border-t border-border px-5 py-3 sm:px-6">
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="rounded-lg"
-              disabled={page <= 1}
-              onClick={() => setPage((current) => Math.max(current - 1, 1))}
-            >
-              <ChevronLeft className="h-3.5 w-3.5" />
-              Previous
-            </Button>
-            <span className="text-[10px] font-bold text-muted-foreground">
-              Page {page} of {pages}
-            </span>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="rounded-lg"
-              disabled={page >= pages}
-              onClick={() => setPage((current) => Math.min(current + 1, pages))}
-            >
-              Next
-              <ChevronRight className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        ) : null}
+            {optionsQuery.isError ? (
+              <div className="border-b border-border bg-destructive/5 px-5 py-2.5 text-[11px] font-semibold text-destructive sm:px-6">
+                {requestErrorMessage(optionsQuery.error)}
+              </div>
+            ) : null}
+
+            <ContactsTable
+              kind={kind}
+              rows={rows}
+              loading={contactsQuery.isLoading}
+              error={contactsQuery.isError ? requestErrorMessage(contactsQuery.error) : null}
+              onView={setDetailsContact}
+              onEdit={openEdit}
+              onDelete={(contact) => void remove(contact)}
+            />
+
+            {pages > 1 ? (
+              <div className="flex items-center justify-between border-t border-border px-5 py-3 sm:px-6">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={page <= 1}
+                  onClick={() => setPage((current) => Math.max(current - 1, 1))}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                  Previous
+                </Button>
+                <span className="text-[10px] font-bold text-muted-foreground">
+                  Page {page} of {pages}
+                </span>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-lg"
+                  disabled={page >= pages}
+                  onClick={() => setPage((current) => Math.min(current + 1, pages))}
+                >
+                  Next
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )}
       </section>
+
+      <ContactCategoryBuilderModal
+        open={categoryBuilderOpen}
+        category={editingCategory}
+        onOpenChange={(open) => {
+          setCategoryBuilderOpen(open);
+          if (!open) setEditingCategory(null);
+        }}
+        onSaved={(category) => {
+          upsertCategoryCache(category);
+          setActiveKey(category.id);
+          setEditingCategory(category);
+          void queryClient.invalidateQueries({ queryKey: ["brain-contact-categories"] });
+        }}
+        onArchived={(categoryId) => {
+          queryClient.setQueryData<ContactCategory[]>(["brain-contact-categories"], (current) =>
+            (current || []).map((category) => category.id === categoryId ? { ...category, isActive: false } : category),
+          );
+          if (activeKey === categoryId) changeTab("client");
+          void queryClient.invalidateQueries({ queryKey: ["brain-contact-categories"] });
+        }}
+      />
 
       <ContactFormModal
         open={formOpen}
