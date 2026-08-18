@@ -3,6 +3,7 @@ import { translateSystemText } from './systemTextTranslations';
 import { translateExtraSystemText } from './systemTextTranslationsExtra';
 import { translateOverlayText } from './systemTextTranslationsOverlays';
 import { translateWorkflowOverlayText } from './systemTextTranslationsWorkflows';
+import { translateBrainSystemText } from './systemTextTranslationsBrain';
 
 const ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
 const SKIP_SELECTOR = '[data-i18n-skip],script,style,code,pre,[contenteditable="true"]';
@@ -12,6 +13,9 @@ function shouldSkip(element: Element | null) {
 }
 
 function translateLegacySystemText(source: string, language: AppLanguage) {
+  const brain = translateBrainSystemText(source, language);
+  if (brain !== source) return brain;
+
   const workflow = translateWorkflowOverlayText(source, language);
   if (workflow !== source) return workflow;
 
