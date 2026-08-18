@@ -1,6 +1,7 @@
 import { getCurrentLanguage, type AppLanguage } from './config';
 import { translateSystemText } from './systemTextTranslations';
 import { translateExtraSystemText } from './systemTextTranslationsExtra';
+import { translateOverlayText } from './systemTextTranslationsOverlays';
 
 const ATTRIBUTES = ['placeholder', 'title', 'aria-label'] as const;
 const SKIP_SELECTOR = '[data-i18n-skip],script,style,code,pre,[contenteditable="true"]';
@@ -10,8 +11,12 @@ function shouldSkip(element: Element | null) {
 }
 
 function translateLegacySystemText(source: string, language: AppLanguage) {
+  const overlay = translateOverlayText(source, language);
+  if (overlay !== source) return overlay;
+
   const exact = translateExtraSystemText(source, language);
   if (exact !== source) return exact;
+
   return translateSystemText(source, language);
 }
 
@@ -61,19 +66,56 @@ function translateTree(root: Node, language: AppLanguage) {
   }
 }
 
+function installNativeDialogLocalization(language: AppLanguage) {
+  const originalAlert = window.alert;
+  const originalConfirm = window.confirm;
+  const originalPrompt = window.prompt;
+
+  window.alert = (message?: unknown) => {
+    const source = message == null ? '' : String(message);
+    return originalAlert.call(window, translateLegacySystemText(source, language));
+  };
+
+  window.confirm = (message?: string) => {
+    const source = message == null ? '' : String(message);
+    return originalConfirm.call(window, translateLegacySystemText(source, language));
+  };
+
+  window.prompt = (message?: string, defaultValue?: string) => {
+    const source = message == null ? '' : String(message);
+    return originalPrompt.call(
+      window,
+      translateLegacySystemText(source, language),
+      defaultValue,
+    );
+  };
+
+  return () => {
+    window.alert = originalAlert;
+    window.confirm = originalConfirm;
+    window.prompt = originalPrompt;
+  };
+}
+
 /**
- * Second-pass localization for the pre-i18n ERP UI.
+ * Runtime localization for the pre-i18n ERP UI.
  *
- * The original bridge translates exact catalog values. This pass covers the
- * remaining hard-coded system phrases using normalized/compound matching.
- * The language switch reloads the route, so the active language is stable for
- * the lifetime of this observer.
+ * React/shadcn dialogs, dropdowns, popovers, sheets and toast portals are
+ * normally mounted under document.body, so the MutationObserver below sees
+ * them even when they render outside the page component tree.
+ *
+ * A separate native-dialog adapter also localizes window.alert/confirm/prompt,
+ * which never enter the DOM and therefore cannot be observed.
  */
 export function installSystemTextBridge() {
-  if (typeof document === 'undefined') return () => undefined;
+  if (typeof document === 'undefined' || typeof window === 'undefined') {
+    return () => undefined;
+  }
 
   const language = getCurrentLanguage();
   if (language === 'en') return () => undefined;
+
+  const restoreNativeDialogs = installNativeDialogLocalization(language);
 
   const start = () => translateTree(document.body, language);
   if (document.body) start();
@@ -84,12 +126,14 @@ export function installSystemTextBridge() {
       if (mutation.type === 'characterData' || mutation.type === 'attributes') {
         translateTree(mutation.target, language);
       }
+
       mutation.addedNodes.forEach((node) => translateTree(node, language));
     }
   });
 
   const observe = () => {
     if (!document.body) return;
+
     observer.observe(document.body, {
       childList: true,
       subtree: true,
@@ -104,6 +148,7 @@ export function installSystemTextBridge() {
 
   return () => {
     observer.disconnect();
+    restoreNativeDialogs();
     document.removeEventListener('DOMContentLoaded', start);
     document.removeEventListener('DOMContentLoaded', observe);
   };
