@@ -251,10 +251,6 @@ export default function PermissionManagement() {
     setModuleFilter("all");
   }, [selectedBusinessId]);
 
-  const selectedBusiness = businesses.find(
-    (business) => business.id === selectedBusinessId,
-  );
-
   const filteredRoles = useMemo(() => {
     const needle = roleSearch.trim().toLowerCase();
     if (!needle) return roles;
@@ -333,6 +329,7 @@ export default function PermissionManagement() {
       return;
     }
     setSelectedRoleId(id);
+    setSaveState("idle");
     setNotice(null);
   };
 
@@ -343,6 +340,7 @@ export default function PermissionManagement() {
       return;
     }
     setSelectedBusinessId(id);
+    setSaveState("idle");
     setNotice(null);
   };
 
@@ -350,6 +348,7 @@ export default function PermissionManagement() {
     const pending = pendingNavigation;
     setPendingNavigation(null);
     setAssignedKeys(originalKeys);
+    setSaveState("idle");
     if (!pending) return;
     if (pending.type === "role") setSelectedRoleId(pending.id);
     else setSelectedBusinessId(pending.id);
@@ -360,7 +359,7 @@ export default function PermissionManagement() {
     if (roleDetails?.isSystemRole) return;
     setSaveState("idle");
     setAssignedKeys((current) => {
-      const next = new Set(current);
+      const next = new Set<string>(current);
       if (next.has(key)) {
         removePermissionAndDependents(next, key, permissionByKey);
       } else {
@@ -374,7 +373,7 @@ export default function PermissionManagement() {
     if (roleDetails?.isSystemRole || permissions.length === 0) return;
     setSaveState("idle");
     setAssignedKeys((current) => {
-      const next = new Set(current);
+      const next = new Set<string>(current);
       const allSelected = permissions.every((permission) => next.has(permission.key));
       if (allSelected) {
         for (const permission of permissions) {
@@ -449,6 +448,13 @@ export default function PermissionManagement() {
 
   const openEditRole = () => {
     if (!roleDetails || roleDetails.isSystemRole) return;
+    if (dirty) {
+      setNotice({
+        type: "info",
+        message: "Save or discard permission changes before editing this role.",
+      });
+      return;
+    }
     setRoleDialogRole(roleDetails);
     setRoleDialogMode("edit");
   };
@@ -461,46 +467,44 @@ export default function PermissionManagement() {
 
   const submitRoleDialog = async (payload: CreateRoleInput) => {
     setNotice(null);
-    try {
-      let role: Role;
-      if (roleDialogMode === "edit" && roleDialogRole) {
-        role = await updateRole.mutateAsync({
-          id: roleDialogRole.id,
-          data: {
-            name: payload.name,
-            key: payload.key,
-            description: payload.description,
-          },
-        });
-      } else if (roleDialogMode === "duplicate" && roleDialogRole) {
-        role = await duplicateRole.mutateAsync({
-          id: roleDialogRole.id,
-          data: {
-            ...payload,
-            businessId: isSuperAdmin ? selectedBusinessId || undefined : undefined,
-          },
-        });
-      } else {
-        role = await createRole.mutateAsync({
+    let role: Role;
+    if (roleDialogMode === "edit" && roleDialogRole) {
+      role = await updateRole.mutateAsync({
+        id: roleDialogRole.id,
+        data: {
+          name: payload.name,
+          key: payload.key,
+          description: payload.description,
+        },
+      });
+    } else if (roleDialogMode === "duplicate" && roleDialogRole) {
+      role = await duplicateRole.mutateAsync({
+        id: roleDialogRole.id,
+        data: {
           ...payload,
           businessId: isSuperAdmin ? selectedBusinessId || undefined : undefined,
-        });
-      }
-      setRoleDialogMode(null);
-      setRoleDialogRole(null);
-      setSelectedRoleId(role.id);
-      setNotice({
-        type: "success",
-        message:
-          roleDialogMode === "edit"
-            ? "Role updated."
-            : roleDialogMode === "duplicate"
-              ? "Role duplicated."
-              : "Role created.",
+        },
       });
-    } catch (error) {
-      throw error;
+    } else {
+      role = await createRole.mutateAsync({
+        ...payload,
+        businessId: isSuperAdmin ? selectedBusinessId || undefined : undefined,
+      });
     }
+
+    const completedMode = roleDialogMode;
+    setRoleDialogMode(null);
+    setRoleDialogRole(null);
+    setSelectedRoleId(role.id);
+    setNotice({
+      type: "success",
+      message:
+        completedMode === "edit"
+          ? "Role updated."
+          : completedMode === "duplicate"
+            ? "Role duplicated."
+            : "Role created.",
+    });
   };
 
   const confirmArchive = async () => {
@@ -783,7 +787,16 @@ export default function PermissionManagement() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => setArchiveTarget(roleDetails)}
+                              onClick={() => {
+                                if (dirty) {
+                                  setNotice({
+                                    type: "info",
+                                    message: "Save or discard permission changes before archiving this role.",
+                                  });
+                                  return;
+                                }
+                                setArchiveTarget(roleDetails);
+                              }}
                               className="flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-xs text-destructive hover:bg-destructive/10"
                             >
                               <Archive className="h-4 w-4" />
@@ -1087,7 +1100,7 @@ function RoleSection({
               }}
               className={`group flex cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-2.5 transition-colors ${
                 selected
-                  ? "border-primary/35 bg-primary/8"
+                  ? "border-primary/35 bg-primary/10"
                   : "border-transparent hover:border-border hover:bg-muted/40"
               }`}
             >
@@ -1164,15 +1177,15 @@ function PermissionRow({
       } ${checked ? "bg-primary/[0.035]" : ""}`}
     >
       <div className="flex items-start gap-2.5">
-        <span
-          className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
-            checked
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-input bg-background"
-          } ${disabled ? "opacity-70" : ""}`}
-        >
-          {checked ? <Check className="h-3 w-3" /> : null}
-        </span>
+        <input
+          type="checkbox"
+          checked={checked}
+          readOnly
+          disabled={disabled}
+          tabIndex={-1}
+          className="mt-0.5 h-4 w-4 shrink-0 rounded border-input accent-primary"
+          aria-label={`${permissionTitle(permission)} permission`}
+        />
         <div className="min-w-0 flex-1">
           <p className="text-xs font-semibold leading-4 text-foreground">
             {permissionTitle(permission)}
