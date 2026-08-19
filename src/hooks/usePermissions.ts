@@ -48,9 +48,11 @@ export function useAssignPermissions() {
       const res = await api.post<ApiEnvelope<{ permissionKeys: string[] }>>("/api/v1/permissions/assign", { roleId, permissionKeys });
       return res.data.data;
     },
-    onSuccess: (_, variables) => {
+    onSuccess: () => {
+      // The Access Control page keeps the just-saved permission set locally so
+      // its "Saved ✓" state remains visible. Role details are naturally
+      // revalidated when a role is selected again.
       queryClient.invalidateQueries({ queryKey: ["roles"] });
-      queryClient.invalidateQueries({ queryKey: ["role-details", variables.roleId] });
       queryClient.invalidateQueries({ queryKey: ["me"] });
     },
   });
