@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client";
 import type { ApiEnvelope } from "../api/types";
 import { useMe } from "./useMe";
@@ -10,9 +10,11 @@ export interface Permission {
   action: string;
   key: string;
   description: string;
+  title?: string;
+  moduleTitle?: string;
+  sortOrder?: number;
+  dependencies?: string[];
 }
-
-// ─── Hook: fetch all system permissions (admin use) ───────────────────────────
 
 export function usePermissions() {
   return useQuery({
@@ -28,10 +30,13 @@ export function useSeedPermissions() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async () => {
-      await api.post("/api/v1/permissions/seed");
+      const res = await api.post("/api/v1/permissions/seed");
+      return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["permissions"] });
+      queryClient.invalidateQueries({ queryKey: ["roles"] });
+      queryClient.invalidateQueries({ queryKey: ["role-details"] });
     },
   });
 }
@@ -40,7 +45,8 @@ export function useAssignPermissions() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async ({ roleId, permissionKeys }: { roleId: string; permissionKeys: string[] }) => {
-      await api.post("/api/v1/permissions/assign", { roleId, permissionKeys });
+      const res = await api.post<ApiEnvelope<{ permissionKeys: string[] }>>("/api/v1/permissions/assign", { roleId, permissionKeys });
+      return res.data.data;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["roles"] });
@@ -50,16 +56,6 @@ export function useAssignPermissions() {
   });
 }
 
-// ─── Hook: resolved permissions for the current user ─────────────────────────
-//
-// Master Tester is a separate testing authority, not a real PLATFORM_SUPER_ADMIN
-// role assignment. For UI capability checks it receives the same effective bypass
-// so it can exercise every feature without contaminating normal RBAC data.
-//
-// Career self-service is a baseline capability for every active business user,
-// just like attendance/profile/performance self-service. Company-wide Career
-// request review still requires HR/performance permissions in the sidebar tab map.
-
 export function useMyPermissions() {
   const { data: meRes, isLoading: meLoading } = useMe();
   const testerSession = useTesterSession();
@@ -67,7 +63,6 @@ export function useMyPermissions() {
 
   const isMasterTester = Boolean(testerSession.data?.isMasterTester);
   const isSuperAdmin = Boolean(me?.user?.isPlatformSuperAdmin) || isMasterTester;
-
   const permSet = new Set<string>(me?.permissions ?? []);
 
   if (me?.user) {
@@ -83,13 +78,13 @@ export function useMyPermissions() {
   const hasAny = (...keys: string[]): boolean => {
     if (keys.length === 0) return isSuperAdmin;
     if (isSuperAdmin) return true;
-    return keys.some((k) => permSet.has(k));
+    return keys.some((key) => permSet.has(key));
   };
 
   const hasAll = (...keys: string[]): boolean => {
     if (keys.length === 0) return isSuperAdmin;
     if (isSuperAdmin) return true;
-    return keys.every((k) => permSet.has(k));
+    return keys.every((key) => permSet.has(key));
   };
 
   return {
