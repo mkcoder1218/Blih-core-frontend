@@ -126,7 +126,7 @@ export function useArchiveRole() {
 
 export function useRoleUsers(
   roleId: string | null,
-  params: { page: number; size?: number; search?: string },
+  params: { page: number; size?: number; search?: string; businessId?: string },
   enabled = true,
 ) {
   return useQuery({
