@@ -220,8 +220,11 @@ export default function PermissionManagement() {
     [allPermissions],
   );
 
+  const canEditSelectedPermissions = Boolean(
+    roleDetails && (!roleDetails.isSystemRole || isSuperAdmin),
+  );
   const dirty =
-    !roleDetails?.isSystemRole &&
+    canEditSelectedPermissions &&
     canonicalKeys(assignedKeys) !== canonicalKeys(originalKeys);
 
   useEffect(() => {
@@ -356,7 +359,7 @@ export default function PermissionManagement() {
   };
 
   const togglePermission = (key: string) => {
-    if (roleDetails?.isSystemRole) return;
+    if (!canEditSelectedPermissions) return;
     setSaveState("idle");
     setAssignedKeys((current) => {
       const next = new Set<string>(current);
@@ -370,7 +373,7 @@ export default function PermissionManagement() {
   };
 
   const togglePermissionGroup = (permissions: Permission[]) => {
-    if (roleDetails?.isSystemRole || permissions.length === 0) return;
+    if (!canEditSelectedPermissions || permissions.length === 0) return;
     setSaveState("idle");
     setAssignedKeys((current) => {
       const next = new Set<string>(current);
@@ -404,7 +407,7 @@ export default function PermissionManagement() {
   };
 
   const savePermissions = async () => {
-    if (!selectedRoleId || roleDetails?.isSystemRole || !dirty) return;
+    if (!selectedRoleId || !canEditSelectedPermissions || !dirty) return;
     setNotice(null);
     try {
       const result = await assignPermissions.mutateAsync({
@@ -701,7 +704,7 @@ export default function PermissionManagement() {
                   Choose a role
                 </h2>
                 <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                  Select a role to review its assigned permissions. System roles are read-only.
+                  Select a role to review its assigned permissions. Platform Super Admins can also update system-role permissions.
                 </p>
               </div>
             ) : roleDetailsQuery.isLoading || permissionsQuery.isLoading ? (
@@ -811,7 +814,7 @@ export default function PermissionManagement() {
                         size="sm"
                         onClick={() => void savePermissions()}
                         disabled={
-                          roleDetails.isSystemRole ||
+                          !canEditSelectedPermissions ||
                           !dirty ||
                           assignPermissions.isPending
                         }
@@ -835,7 +838,9 @@ export default function PermissionManagement() {
                     <div className="mt-3 flex gap-2 rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
                       <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                       <span>
-                        This is a protected system role. Its permission set is read-only here and can only be maintained by seeded system defaults.
+                        {isSuperAdmin
+                          ? "This is a protected system role. Its identity is locked, but Platform Super Admins can update its permission set here."
+                          : "This is a protected system role. Its permission set can only be changed by a Platform Super Admin."}
                       </span>
                     </div>
                   ) : null}
@@ -924,7 +929,7 @@ export default function PermissionManagement() {
 
                             <button
                               type="button"
-                              disabled={roleDetails.isSystemRole}
+                              disabled={!canEditSelectedPermissions}
                               onClick={() => togglePermissionGroup(permissions)}
                               className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted hover:text-foreground disabled:cursor-default disabled:opacity-50"
                             >
@@ -950,7 +955,7 @@ export default function PermissionManagement() {
                                     key={permission.id}
                                     permission={permission}
                                     checked={checked}
-                                    disabled={roleDetails.isSystemRole}
+                                    disabled={!canEditSelectedPermissions}
                                     onToggle={() => togglePermission(permission.key)}
                                   />
                                 );
@@ -1043,7 +1048,7 @@ export default function PermissionManagement() {
           <DialogHeader>
             <DialogTitle>Unsaved permission changes</DialogTitle>
             <DialogDescription>
-              You changed this custom role but have not saved it yet. Discard the changes before switching?
+              You changed this role but have not saved it yet. Discard the changes before switching?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
