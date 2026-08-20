@@ -1,27 +1,284 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, ChevronRight, Layers3, ReceiptText, Search, ShieldCheck, WalletCards } from "lucide-react";
+import {
+  AlertTriangle,
+  ChevronRight,
+  Layers3,
+  Plus,
+  ReceiptText,
+  Search,
+  ShieldCheck,
+  WalletCards,
+} from "lucide-react";
 import { AnimatePresence } from "motion/react";
-import { subscriptionApi, type AdminSubscriptionRow } from "../../api/subscriptions";
+import {
+  subscriptionApi,
+  type AdminSubscriptionRow,
+} from "../../api/subscriptions";
 import AdminSubscriptionDrawer from "./AdminSubscriptionDrawer";
-import { PlatformPolicyModal } from "./SubscriptionModals";
+import {
+  AssignSubscriptionModal,
+  PlatformPolicyModal,
+} from "./SubscriptionModals";
 import { Heading, Metric, Status, date, money } from "./SubscriptionUi";
 
 export default function PlatformSubscriptionManager() {
   const qc = useQueryClient();
-  const [search, setSearch] = useState(""); const [businessId, setBusinessId] = useState<string | null>(null); const [policyOpen, setPolicyOpen] = useState(false);
-  const overview = useQuery({ queryKey: ["subscription-admin-overview"], queryFn: subscriptionApi.adminOverview });
-  const rows = useQuery({ queryKey: ["subscription-admin-businesses"], queryFn: subscriptionApi.adminBusinesses });
-  const detail = useQuery({ queryKey: ["subscription-admin-detail", businessId], queryFn: () => subscriptionApi.adminBusinessDetail(businessId!), enabled: Boolean(businessId) });
-  const refresh = async () => Promise.all([qc.invalidateQueries({ queryKey: ["subscription-admin-overview"] }), qc.invalidateQueries({ queryKey: ["subscription-admin-businesses"] }), qc.invalidateQueries({ queryKey: ["subscription-admin-detail", businessId] })]);
-  const filtered = (rows.data || []).filter((row) => `${row.business.name} ${row.business.email || ""} ${row.subscription?.Plan?.name || ""} ${row.subscription?.status || ""}`.toLowerCase().includes(search.toLowerCase()));
+  const [search, setSearch] = useState("");
+  const [businessId, setBusinessId] = useState<string | null>(null);
+  const [assignBusinessId, setAssignBusinessId] = useState<string | null>(null);
+  const [policyOpen, setPolicyOpen] = useState(false);
 
-  return <div className="space-y-5 pb-10">
-    <Heading eyebrow="Platform billing" title="Subscriptions" description="Revenue, company subscriptions, manual payments, lifecycle policy and entitlements." right={<button onClick={() => setPolicyOpen(true)} className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[11px] font-black text-slate-700 hover:border-blue-200 hover:text-blue-700">Platform policy</button>} />
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5"><Metric label="Active" value={overview.data?.active ?? 0} hint={`${overview.data?.trialing ?? 0} trialing`} icon={ShieldCheck} /><Metric label="Past due" value={overview.data?.pastDue ?? 0} hint={`${overview.data?.pendingPayment ?? 0} awaiting payment`} icon={AlertTriangle} /><Metric label="Suspended" value={overview.data?.suspended ?? 0} hint={`${overview.data?.expired ?? 0} expired`} icon={Layers3} /><Metric label="Revenue this month" value={money(overview.data?.monthlyRevenue ?? 0)} hint="Confirmed payments" icon={WalletCards} /><Metric label="Outstanding" value={money(overview.data?.outstanding ?? 0)} hint="Issued invoices" icon={ReceiptText} /></div>
-    <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-[0_5px_22px_rgba(0,0,0,.015)]"><div className="flex flex-col gap-3 border-b border-slate-100 p-5 md:flex-row md:items-center md:justify-between"><div><h2 className="text-sm font-black text-slate-900">Business subscriptions</h2><p className="mt-1 text-[11px] text-slate-500">Open a company to manage plan, payments, access policy and overrides.</p></div><div className="relative w-full md:max-w-sm"><Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" /><input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search company, plan or status…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-xs font-semibold outline-none focus:border-blue-500 focus:bg-white" /></div></div><div className="overflow-x-auto"><table className="w-full min-w-[950px] text-left"><thead><tr className="border-b border-slate-100 bg-slate-50/60 text-[9px] font-black uppercase tracking-wider text-slate-400"><th className="px-5 py-3">Company</th><th className="px-4 py-3">Plan</th><th className="px-4 py-3">Status</th><th className="px-4 py-3">Billing</th><th className="px-4 py-3">Renewal</th><th className="px-4 py-3 text-right">Outstanding</th><th className="px-5 py-3 text-right">Action</th></tr></thead><tbody className="divide-y divide-slate-100">{filtered.map((row) => <Row key={row.business.id} row={row} onOpen={() => setBusinessId(row.business.id)} />)}{!filtered.length && <tr><td colSpan={7} className="p-10 text-center text-xs text-slate-400">No subscriptions match the search.</td></tr>}</tbody></table></div></section>
-    <AnimatePresence>{businessId && <AdminSubscriptionDrawer detail={detail.data} loading={detail.isLoading} onClose={() => setBusinessId(null)} onRefresh={refresh} />}{policyOpen && <PlatformPolicyModal onClose={() => setPolicyOpen(false)} onSaved={refresh} />}</AnimatePresence>
-  </div>;
+  const activeBusinessId = assignBusinessId || businessId;
+
+  const overview = useQuery({
+    queryKey: ["subscription-admin-overview"],
+    queryFn: subscriptionApi.adminOverview,
+  });
+
+  const rows = useQuery({
+    queryKey: ["subscription-admin-businesses"],
+    queryFn: subscriptionApi.adminBusinesses,
+  });
+
+  const detail = useQuery({
+    queryKey: ["subscription-admin-detail", activeBusinessId],
+    queryFn: () => subscriptionApi.adminBusinessDetail(activeBusinessId!),
+    enabled: Boolean(activeBusinessId),
+  });
+
+  const refresh = async () =>
+    Promise.all([
+      qc.invalidateQueries({ queryKey: ["subscription-admin-overview"] }),
+      qc.invalidateQueries({ queryKey: ["subscription-admin-businesses"] }),
+      qc.invalidateQueries({
+        queryKey: ["subscription-admin-detail", activeBusinessId],
+      }),
+    ]);
+
+  const filtered = (rows.data || []).filter((row) =>
+    `${row.business.name} ${row.business.email || ""} ${
+      row.subscription?.Plan?.name || ""
+    } ${row.subscription?.status || ""}`
+      .toLowerCase()
+      .includes(search.toLowerCase()),
+  );
+
+  const openManage = (row: AdminSubscriptionRow) => {
+    setAssignBusinessId(null);
+    setBusinessId(row.business.id);
+  };
+
+  const openAssign = (row: AdminSubscriptionRow) => {
+    setBusinessId(null);
+    setAssignBusinessId(row.business.id);
+  };
+
+  return (
+    <div className="space-y-5 pb-10">
+      <Heading
+        eyebrow="Platform billing"
+        title="Subscriptions"
+        description="Revenue, company subscriptions, manual payments, lifecycle policy and entitlements."
+        right={
+          <button
+            onClick={() => setPolicyOpen(true)}
+            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-[11px] font-black text-slate-700 hover:border-blue-200 hover:text-blue-700"
+          >
+            Platform policy
+          </button>
+        }
+      />
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <Metric
+          label="Active"
+          value={overview.data?.active ?? 0}
+          hint={`${overview.data?.trialing ?? 0} trialing`}
+          icon={ShieldCheck}
+        />
+        <Metric
+          label="Past due"
+          value={overview.data?.pastDue ?? 0}
+          hint={`${overview.data?.pendingPayment ?? 0} awaiting payment`}
+          icon={AlertTriangle}
+        />
+        <Metric
+          label="Suspended"
+          value={overview.data?.suspended ?? 0}
+          hint={`${overview.data?.expired ?? 0} expired`}
+          icon={Layers3}
+        />
+        <Metric
+          label="Revenue this month"
+          value={money(overview.data?.monthlyRevenue ?? 0)}
+          hint="Confirmed payments"
+          icon={WalletCards}
+        />
+        <Metric
+          label="Outstanding"
+          value={money(overview.data?.outstanding ?? 0)}
+          hint="Issued invoices"
+          icon={ReceiptText}
+        />
+      </div>
+
+      <section className="overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-[0_5px_22px_rgba(0,0,0,.015)]">
+        <div className="flex flex-col gap-3 border-b border-slate-100 p-5 md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-sm font-black text-slate-900">
+              Business subscriptions
+            </h2>
+            <p className="mt-1 text-[11px] text-slate-500">
+              Existing businesses without a subscription can be assigned a plan
+              directly from this table.
+            </p>
+          </div>
+          <div className="relative w-full md:max-w-sm">
+            <Search className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search company, plan or status…"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-xs font-semibold outline-none focus:border-blue-500 focus:bg-white"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[950px] text-left">
+            <thead>
+              <tr className="border-b border-slate-100 bg-slate-50/60 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                <th className="px-5 py-3">Company</th>
+                <th className="px-4 py-3">Plan</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Billing</th>
+                <th className="px-4 py-3">Renewal</th>
+                <th className="px-4 py-3 text-right">Outstanding</th>
+                <th className="px-5 py-3 text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map((row) => (
+                <Row
+                  key={row.business.id}
+                  row={row}
+                  onOpen={() => openManage(row)}
+                  onAssign={() => openAssign(row)}
+                />
+              ))}
+              {!filtered.length && (
+                <tr>
+                  <td
+                    colSpan={7}
+                    className="p-10 text-center text-xs text-slate-400"
+                  >
+                    No businesses match the search.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <AnimatePresence>
+        {businessId && (
+          <AdminSubscriptionDrawer
+            detail={detail.data}
+            loading={detail.isLoading}
+            onClose={() => setBusinessId(null)}
+            onRefresh={refresh}
+          />
+        )}
+
+        {assignBusinessId && detail.data && !detail.data.subscription && (
+          <AssignSubscriptionModal
+            detail={detail.data}
+            onClose={() => setAssignBusinessId(null)}
+            onSaved={refresh}
+          />
+        )}
+
+        {policyOpen && (
+          <PlatformPolicyModal
+            onClose={() => setPolicyOpen(false)}
+            onSaved={refresh}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
 }
 
-function Row({ row, onOpen }: { row: AdminSubscriptionRow; onOpen: () => void }) { const sub = row.subscription; return <tr onClick={onOpen} className="cursor-pointer hover:bg-slate-50/50"><td className="px-5 py-4"><p className="text-xs font-black text-slate-900">{row.business.name}</p><p className="mt-0.5 text-[10px] text-slate-400">{row.business.email || "—"}</p></td><td className="px-4 py-4 text-xs font-bold text-slate-700">{sub?.Plan?.name || "Unassigned"}</td><td className="px-4 py-4">{sub ? <Status status={sub.status} compact /> : <span className="text-[10px] font-bold text-slate-400">No subscription</span>}</td><td className="px-4 py-4 text-[11px] font-semibold capitalize text-slate-600">{sub?.billingCycle || "—"}</td><td className="px-4 py-4 text-[11px] text-slate-600">{date(sub?.currentPeriodEnd)}</td><td className="px-4 py-4 text-right text-xs font-black text-slate-900">{money(row.outstandingAmount, sub?.Plan?.currency || "ETB")}</td><td className="px-5 py-4 text-right"><button className="inline-flex items-center gap-1 text-[10px] font-black text-blue-700">Manage<ChevronRight className="h-3.5 w-3.5" /></button></td></tr>; }
+function Row({
+  row,
+  onOpen,
+  onAssign,
+}: {
+  row: AdminSubscriptionRow;
+  onOpen: () => void;
+  onAssign: () => void;
+}) {
+  const sub = row.subscription;
+
+  return (
+    <tr
+      onClick={sub ? onOpen : undefined}
+      className={sub ? "cursor-pointer hover:bg-slate-50/50" : "hover:bg-slate-50/50"}
+    >
+      <td className="px-5 py-4">
+        <p className="text-xs font-black text-slate-900">{row.business.name}</p>
+        <p className="mt-0.5 text-[10px] text-slate-400">
+          {row.business.email || "—"}
+        </p>
+      </td>
+      <td className="px-4 py-4 text-xs font-bold text-slate-700">
+        {sub?.Plan?.name || "Unassigned"}
+      </td>
+      <td className="px-4 py-4">
+        {sub ? (
+          <Status status={sub.status} compact />
+        ) : (
+          <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-wide text-amber-700">
+            Needs subscription
+          </span>
+        )}
+      </td>
+      <td className="px-4 py-4 text-[11px] font-semibold capitalize text-slate-600">
+        {sub?.billingCycle || "—"}
+      </td>
+      <td className="px-4 py-4 text-[11px] text-slate-600">
+        {date(sub?.currentPeriodEnd)}
+      </td>
+      <td className="px-4 py-4 text-right text-xs font-black text-slate-900">
+        {money(row.outstandingAmount, sub?.Plan?.currency || "ETB")}
+      </td>
+      <td className="px-5 py-4 text-right">
+        {sub ? (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onOpen();
+            }}
+            className="inline-flex items-center gap-1 text-[10px] font-black text-blue-700"
+          >
+            Manage
+            <ChevronRight className="h-3.5 w-3.5" />
+          </button>
+        ) : (
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onAssign();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2 text-[10px] font-black text-white shadow-sm hover:bg-blue-700"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Assign subscription
+          </button>
+        )}
+      </td>
+    </tr>
+  );
+}
