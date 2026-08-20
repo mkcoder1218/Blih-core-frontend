@@ -246,14 +246,66 @@ export type AttendanceHrEmployeeResponse = {
   events: any[];
 };
 
+export type SubscriptionAccessMode = "full" | "read_only" | "business_admin_only" | "billing_only" | "locked";
+export type SubscriptionDowngradePolicy = "block" | "allow_with_warning" | "restrict_new";
+
+export type SubscriptionPolicyInput = {
+  gracePeriodDays?: number | null;
+  graceAccessMode?: SubscriptionAccessMode | null;
+  expiredAccessMode?: SubscriptionAccessMode | null;
+  retentionDays?: number | null;
+  downgradePolicy?: SubscriptionDowngradePolicy | null;
+  autoRenew?: boolean | null;
+  metadata?: Record<string, any>;
+};
+
+export type PlanModuleConfig = {
+  id?: string;
+  planId?: string;
+  moduleKey: string;
+  moduleName: string;
+  isEnabled: boolean;
+};
+
+export type PlanFeatureConfig = {
+  id?: string;
+  planId?: string;
+  featureId: string;
+  isEnabled: boolean;
+  limitValue?: string | number | null;
+  limitPeriod?: "daily" | "monthly" | "yearly" | "lifetime" | null;
+  overageUnitPrice?: string | number | null;
+  feature?: {
+    id: string;
+    key: string;
+    name: string;
+    description?: string | null;
+    category?: string | null;
+    isMetered?: boolean;
+    unitName?: string | null;
+  };
+};
+
 export type Plan = {
   id: string;
   name: string;
   key: string;
+  description?: string | null;
+  basePrice: string | number;
   priceMonthly: string | number;
+  priceYearly: string | number;
+  billingCycle: "monthly" | "yearly";
+  includedSeats: number;
+  extraSeatPrice: string | number;
+  currency: string;
+  isActive: boolean;
+  sortOrder?: number;
   userLimit?: number | null;
   status: string;
   settings?: any;
+  modules?: PlanModuleConfig[];
+  features?: PlanFeatureConfig[];
+  subscriptionPolicy?: SubscriptionPolicyInput | null;
 };
 
 export type SectorFocus = {
@@ -307,6 +359,12 @@ export type CreateBusinessRequest = {
   phone: string;
   planId: string;
   sectorFocusId?: string | null;
+  subscription?: {
+    billingCycle?: "monthly" | "yearly";
+    trialDays?: number;
+    trialEndsAt?: string | null;
+    policy?: SubscriptionPolicyInput;
+  };
 };
 
 export type BusinessesResponse = {
@@ -328,10 +386,22 @@ export type UpdateBusinessRequest = Partial<CreateBusinessRequest> & {
 export type CreatePlanRequest = {
   name: string;
   key: string;
+  description?: string | null;
+  basePrice?: number;
   priceMonthly: number;
+  priceYearly?: number;
+  billingCycle?: "monthly" | "yearly";
+  includedSeats?: number;
+  extraSeatPrice?: number;
+  currency?: string;
+  isActive?: boolean;
+  sortOrder?: number;
   userLimit?: number | null;
   status?: "active" | "inactive";
   settings?: any;
+  modules?: PlanModuleConfig[];
+  features?: Array<Omit<PlanFeatureConfig, "feature">>;
+  policy?: SubscriptionPolicyInput;
 };
 
 export type UpdatePlanRequest = Partial<CreatePlanRequest>;
