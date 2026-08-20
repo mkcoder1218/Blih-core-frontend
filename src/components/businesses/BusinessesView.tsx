@@ -22,7 +22,10 @@ import {
   ChevronRight,
   Sparkles,
   Check,
-  Building
+  Building,
+  Clock3,
+  Save,
+  X
 } from 'lucide-react';
 import { useMe } from '../../hooks/useMe';
 import { useBusinesses } from '../../hooks/useBusinesses';
@@ -116,17 +119,15 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const createAdmin = useCreateBusinessAdmin(adminBusiness?.id || 'missing');
 
-  // Form states
+  // Business profile form state. Edit mode is hydrated from the selected business.
   const [formName, setFormName] = useState('');
-  const [formLegalName, setFormLegalName] = useState('');
   const [formEmail, setFormEmail] = useState('');
   const [formDomain, setFormDomain] = useState('');
-  const [formLocation, setFormLocation] = useState('');
+  const [formPhone, setFormPhone] = useState('');
   const [formStatus, setFormStatus] = useState<'Active' | 'Suspended'>('Active');
-  const [formEmployeeCount, setFormEmployeeCount] = useState(1);
   const [formPlanId, setFormPlanId] = useState('');
   const [formSectorFocusId, setFormSectorFocusId] = useState('');
-  const [modalStep, setModalStep] = useState<0 | 1 | 2>(0);
+  const [businessModalSection, setBusinessModalSection] = useState<'business' | 'attendance'>('business');
 
   const defaultAttendanceDraft: BusinessAttendanceSettingsDraft = React.useMemo(
     () => ({
@@ -169,37 +170,33 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     if (!isPlatformSuperAdmin) return;
     setEditingBusiness(null);
     setFormName('');
-    setFormLegalName('');
     setFormEmail('');
     setFormDomain('');
-    setFormLocation('');
+    setFormPhone('');
     setFormStatus('Active');
-    setFormEmployeeCount(10);
     setFormPlanId('');
     setFormSectorFocusId('');
     setFormError('');
     setAttendanceDraft(defaultAttendanceDraft);
     setAttendanceValid(true);
-    setModalStep(0);
+    setBusinessModalSection('business');
     setIsModalOpen(true);
   };
 
   const openEditModal = (biz: ViewBusiness) => {
     if (!isPlatformSuperAdmin) return;
     setEditingBusiness(biz);
-    setFormName(biz.name);
-    setFormLegalName(biz.legalName);
+    setFormName(biz.name || '');
     setFormEmail(biz.email || '');
-    setFormDomain(biz.domain);
-    setFormLocation(biz.location);
+    setFormDomain(biz.slug || biz.domain || '');
+    setFormPhone(biz.phone || '');
     setFormStatus(biz.statusLabel);
-    setFormEmployeeCount(biz.employeeCount);
     setFormPlanId(biz.planId || '');
     setFormSectorFocusId(biz.sectorFocusId || '');
     setFormError('');
     setAttendanceDraft(defaultAttendanceDraft);
     setAttendanceValid(true);
-    setModalStep(0);
+    setBusinessModalSection('business');
     setIsModalOpen(true);
   };
 
@@ -262,7 +259,6 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
   const getMutationError = (err: any): string => {
     const res = err?.response?.data;
     if (res) {
-      // If data is an array of validation errors, join them
       if (Array.isArray(res.data) && res.data.length > 0) {
         return res.data.map((e: any) => e.message).join(' â€¢ ');
       }
@@ -276,15 +272,25 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     setFormError('');
 
     if (!isPlatformSuperAdmin) return;
-    if (!formName || !formEmail || !formDomain || !formPlanId) {
-      setFormError('Please fill in all required fields: name, email, domain/slug, and plan.');
+    if (!formName.trim() || !formEmail.trim() || !formDomain.trim()) {
+      setBusinessModalSection('business');
+      setFormError('Business name, email, and workspace slug are required.');
+      return;
+    }
+    if (!editingBusiness && !formPlanId) {
+      setBusinessModalSection('business');
+      setFormError('Select a plan before creating the business.');
       return;
     }
 
-    const attendanceErrors = validateAttendanceSettings(attendanceDraft);
-    if (Object.keys(attendanceErrors).length > 0 || !attendanceValid) {
-      setFormError('Please fix the Attendance Configuration section before saving.');
-      return;
+    const shouldSaveAttendance = !editingBusiness || !attendanceSettingsQuery.isError;
+    if (shouldSaveAttendance) {
+      const attendanceErrors = validateAttendanceSettings(attendanceDraft);
+      if (Object.keys(attendanceErrors).length > 0 || !attendanceValid) {
+        setBusinessModalSection('attendance');
+        setFormError('Please fix the attendance settings before saving.');
+        return;
+      }
     }
 
     const attendancePayload = {
@@ -317,20 +323,22 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
             name: formName,
             slug: formDomain,
             email: formEmail,
-            phone: formLocation || editingBusiness.phone || null,
-            planId: formPlanId,
+            phone: formPhone.trim() || null,
+            ...(formPlanId ? { planId: formPlanId } : {}),
             sectorFocusId: formSectorFocusId || null,
             status: formStatus === 'Active' ? 'active' : 'inactive'
           }
         });
-        await upsertAttendance.mutateAsync({ businessId: editingBusiness.id, data: attendancePayload });
+        if (!attendanceSettingsQuery.isError) {
+          await upsertAttendance.mutateAsync({ businessId: editingBusiness.id, data: attendancePayload });
+        }
         showAlert(`Successfully configured "${formName}" parameters!`, 'success');
       } else {
         const created = await createBiz.mutateAsync({
           name: formName,
           slug: formDomain,
           email: formEmail,
-          phone: formLocation || 'n/a',
+          phone: formPhone.trim() || 'n/a',
           planId: formPlanId,
           sectorFocusId: formSectorFocusId || null
         });
@@ -384,9 +392,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
     <div className="space-y-6">
       <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs">
         <div className="flex items-center gap-2 mb-1">
-          <span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">
-            Integrations
-          </span>
+          <span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">Integrations</span>
         </div>
         <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">External Integrations</h1>
         <p className="text-xs text-slate-500 font-medium mt-1">Configure third-party API connections used across the platform.</p>
@@ -398,11 +404,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
   if (currentTab === 'security') return (
     <div className="space-y-6">
       <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-xs">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">
-            Security & Access
-          </span>
-        </div>
+        <div className="flex items-center gap-2 mb-1"><span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">Security & Access</span></div>
         <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">Security Configuration</h1>
         <p className="text-xs text-slate-500 font-medium mt-1">Manage authentication, registration windows, and access controls.</p>
       </div>
@@ -412,44 +414,18 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
   return (
     <div className="space-y-6">
-      
-      {/* Dynamic Header Block with Statistics */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_5px_22px_rgba(0,0,0,0.015)]">
         <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">
-              Super Admin Control Plane
-            </span>
-          </div>
-          <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">
-            Businesses Directory
-          </h1>
-          <p className="text-xs text-slate-450 font-medium">
-            Deploy, monitor, modify and audit corporate multi-tenant spaces within Blih CORE.
-          </p>
+          <div className="flex items-center gap-2"><span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">Super Admin Control Plane</span></div>
+          <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">Businesses Directory</h1>
+          <p className="text-xs text-slate-450 font-medium">Deploy, monitor, modify and audit corporate multi-tenant spaces within Blih CORE.</p>
         </div>
-
         <div className="flex flex-wrap items-center gap-2">
-          <button 
-            onClick={() => onDraftAiSuggestion("Draft a multi-tenant business consolidation blueprint outlining access controls for super admins.")}
-            className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100/70 text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-xl text-xs font-bold cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Generate Setup Guideline</span>
-          </button>
-          
-          <button 
-            onClick={openCreateModal}
-            disabled={!isPlatformSuperAdmin}
-            className="flex items-center gap-1.5 bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white transition-all hover:shadow-md px-4 py-2 rounded-xl text-xs cursor-pointer select-none"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Register Business</span>
-          </button>
+          <button onClick={() => onDraftAiSuggestion("Draft a multi-tenant business consolidation blueprint outlining access controls for super admins.")} className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100/70 text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-xl text-xs font-bold cursor-pointer"><Sparkles className="w-3.5 h-3.5" /><span>Generate Setup Guideline</span></button>
+          <button onClick={openCreateModal} disabled={!isPlatformSuperAdmin} className="flex items-center gap-1.5 bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white transition-all hover:shadow-md px-4 py-2 rounded-xl text-xs cursor-pointer select-none"><Plus className="w-4 h-4" /><span>Register Business</span></button>
         </div>
       </div>
 
-      {/* Grid of Micro KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
           { label: 'Registered Enterprises', val: businesses.length, desc: 'Across Blih Cluster', icon: Building2, color: 'text-blue-600' },
@@ -457,165 +433,36 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
           { label: 'Combined Workforce', val: businesses.reduce((acc, current) => acc + current.employeeCount, 0).toLocaleString(), desc: 'Employees consolidated', icon: Users, color: 'text-violet-650' },
           { label: 'Active Licensing', val: 'A Grade Cluster', desc: 'Secure cloud instance', icon: Layers, color: 'text-amber-600' }
         ].map((kpi, idx) => (
-          <div key={idx} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between shadow-[0_5px_15px_rgba(0,0,0,0.01)] hover:-translate-y-0.5 transition-transform">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span>
-              <div className="text-lg font-black text-slate-900 leading-none">{kpi.val}</div>
-              <span className="text-[10.5px] text-slate-400 font-medium block">{kpi.desc}</span>
-            </div>
-            <div className={`p-2 bg-slate-50 rounded-xl ${kpi.color}`}>
-              <kpi.icon className="w-5 h-5" />
-            </div>
-          </div>
+          <div key={idx} className="bg-white p-4 rounded-2xl border border-slate-100 flex items-center justify-between shadow-[0_5px_15px_rgba(0,0,0,0.01)] hover:-translate-y-0.5 transition-transform"><div className="space-y-1"><span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{kpi.label}</span><div className="text-lg font-black text-slate-900 leading-none">{kpi.val}</div><span className="text-[10.5px] text-slate-400 font-medium block">{kpi.desc}</span></div><div className={`p-2 bg-slate-50 rounded-xl ${kpi.color}`}><kpi.icon className="w-5 h-5" /></div></div>
         ))}
       </div>
 
-      {/* Multi-Tenant List panel */}
       <div className="bg-white rounded-3xl border border-slate-100 overflow-hidden shadow-[0_5px_22px_rgba(0,0,0,0.01)]">
-        
-        {/* Sub-header controls */}
         <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by corporate name, legal register, sector or domain..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-slate-50 hover:bg-slate-100/40 focus:bg-white px-9 py-2.5 border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none rounded-xl text-xs font-semibold text-slate-700 placeholder-slate-400 transition-all"
-            />
-          </div>
-
-          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1">
-            <span>Displaying {filteredBusinesses.length} of {businesses.length} records</span>
-          </div>
+          <div className="relative flex-1 max-w-md"><Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><input type="text" placeholder="Search by corporate name, legal register, sector or domain..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="w-full bg-slate-50 hover:bg-slate-100/40 focus:bg-white px-9 py-2.5 border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none rounded-xl text-xs font-semibold text-slate-700 placeholder-slate-400 transition-all" /></div>
+          <div className="text-[11px] font-bold text-slate-400 flex items-center gap-1"><span>Displaying {filteredBusinesses.length} of {businesses.length} records</span></div>
         </div>
 
-        {/* List View Table */}
         {businessesQuery.isLoading ? (
-          <div className="py-20 text-center space-y-3">
-            <Building className="w-12 h-12 text-slate-300 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-700">Loading businesses</h4>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto">Fetching the latest tenants list.</p>
-          </div>
+          <div className="py-20 text-center space-y-3"><Building className="w-12 h-12 text-slate-300 mx-auto" /><h4 className="text-sm font-semibold text-slate-700">Loading businesses</h4><p className="text-xs text-slate-400 max-w-xs mx-auto">Fetching the latest tenants list.</p></div>
         ) : businessesQuery.isError ? (
-          <div className="py-20 text-center space-y-3">
-            <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-700">Failed to load businesses</h4>
-            <p className="text-xs text-slate-400 max-w-md mx-auto">
-              {(businessesQuery.error as any)?.response?.data?.message || (businessesQuery.error as any)?.message || 'Request failed'}
-            </p>
-          </div>
+          <div className="py-20 text-center space-y-3"><ShieldAlert className="w-12 h-12 text-rose-400 mx-auto" /><h4 className="text-sm font-semibold text-slate-700">Failed to load businesses</h4><p className="text-xs text-slate-400 max-w-md mx-auto">{(businessesQuery.error as any)?.response?.data?.message || (businessesQuery.error as any)?.message || 'Request failed'}</p></div>
         ) : filteredBusinesses.length === 0 ? (
-          <div className="py-20 text-center space-y-3">
-            <Building className="w-12 h-12 text-slate-300 mx-auto" />
-            <h4 className="text-sm font-semibold text-slate-700">No Enterprise tenants found</h4>
-            <p className="text-xs text-slate-400 max-w-xs mx-auto">None of the configured companies match your search parameters. Try adjusting filters.</p>
-          </div>
+          <div className="py-20 text-center space-y-3"><Building className="w-12 h-12 text-slate-300 mx-auto" /><h4 className="text-sm font-semibold text-slate-700">No Enterprise tenants found</h4><p className="text-xs text-slate-400 max-w-xs mx-auto">None of the configured companies match your search parameters. Try adjusting filters.</p></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 select-none">
-                  <th className="py-3 px-6">Company / Legal Entity</th>
-                  <th className="py-3 px-4">Cluster Sector</th>
-                  <th className="py-3 px-4">Infrastructure Domain</th>
-                  <th className="py-3 px-4 text-center">Workforce Scale</th>
-                  <th className="py-3 px-4">Plan</th>
-                  <th className="py-3 px-4">Gateway Status</th>
-                  <th className="py-3 px-6 text-right">Administrative Action</th>
-                </tr>
-              </thead>
+              <thead><tr className="bg-slate-50/50 text-[10px] font-bold text-slate-400 uppercase tracking-widest border-b border-slate-100 select-none"><th className="py-3 px-6">Company / Legal Entity</th><th className="py-3 px-4">Cluster Sector</th><th className="py-3 px-4">Infrastructure Domain</th><th className="py-3 px-4 text-center">Workforce Scale</th><th className="py-3 px-4">Plan</th><th className="py-3 px-4">Gateway Status</th><th className="py-3 px-6 text-right">Administrative Action</th></tr></thead>
               <tbody className="divide-y divide-slate-100 text-xs font-medium">
                 {filteredBusinesses.map((biz) => (
                   <tr key={biz.id} className="hover:bg-slate-50/30 transition-colors">
-                    <td className="py-4.5 px-6">
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 font-bold flex items-center justify-center border border-blue-100 flex-shrink-0 shadow-inner">
-                          {biz.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <span className="font-extrabold text-slate-900 block tracking-tight leading-snug">{biz.name}</span>
-                          <span className="text-[10.5px] text-slate-450 block font-medium mt-0.5">{biz.legalName}</span>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-4.5 px-4 font-semibold">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] border ${getSectorBadgeColor(biz.sector)}`}>
-                        {biz.sector}
-                      </span>
-                    </td>
-
-                    <td className="py-4.5 px-4 font-mono font-bold text-slate-500">
-                      <div className="flex items-center gap-1 hover:text-[#1a56db] transition-all">
-                        <Globe className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{biz.domain}</span>
-                      </div>
-                    </td>
-
-                    <td className="py-4.5 px-4 text-center font-bold text-slate-700">
-                      <span>{biz.employeeCount} active</span>
-                    </td>
-
-                    <td className="py-4.5 px-4">
-                      <div className="space-y-0.5">
-                        <span className="font-bold block text-[11px] text-slate-800">
-                          {biz.planId ? (plans.find((p) => p.id === biz.planId)?.name || 'Ã¢â‚¬â€') : 'Ã¢â‚¬â€'}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-medium block">Since {biz.established}</span>
-                      </div>
-                    </td>
-
-                    <td className="py-4.5 px-4">
-                      <div className="flex items-center gap-1.5">
-                        <span className={`w-2 h-2 rounded-full ${
-                          biz.statusLabel === 'Active' ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'
-                        }`} />
-                        <span className={`font-bold uppercase tracking-wider text-[10px] ${
-                          biz.statusLabel === 'Active' ? 'text-emerald-700' : 'text-red-650'
-                        }`}>
-                          {biz.statusLabel}
-                        </span>
-                      </div>
-                    </td>
-
-                    <td className="py-4.5 px-6 text-right">
-                      <div className="flex items-center gap-1.5 justify-end">
-                        <button
-                          onClick={() => openModulesModal(biz)}
-                          disabled={!isPlatformSuperAdmin}
-                          title="Manage Active Modules (Brain, Policy, HR, CRM, etc.)"
-                          className="p-1 px-2.5 hover:bg-emerald-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-emerald-700 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Layers className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openAdminModal(biz)}
-                          disabled={!isPlatformSuperAdmin}
-                          title="Create Business Admin"
-                          className="p-1 px-2.5 hover:bg-blue-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-blue-700 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Users className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => openEditModal(biz)}
-                          title="Modify Configurations"
-                          disabled={!isPlatformSuperAdmin}
-                          className="p-1 px-2.5 hover:bg-slate-100 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-slate-800 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => setDeleteTarget({ id: biz.id, name: biz.name })}
-                          title="Terminate Instance"
-                          disabled={!isPlatformSuperAdmin}
-                          className="p-1 px-2.5 hover:bg-rose-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </td>
+                    <td className="py-4.5 px-6"><div className="flex items-center gap-3"><div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 font-bold flex items-center justify-center border border-blue-100 flex-shrink-0 shadow-inner">{biz.name.slice(0, 2).toUpperCase()}</div><div><span className="font-extrabold text-slate-900 block tracking-tight leading-snug">{biz.name}</span><span className="text-[10.5px] text-slate-450 block font-medium mt-0.5">{biz.legalName}</span></div></div></td>
+                    <td className="py-4.5 px-4 font-semibold"><span className={`px-2.5 py-0.5 rounded-full text-[10px] border ${getSectorBadgeColor(biz.sector)}`}>{biz.sector}</span></td>
+                    <td className="py-4.5 px-4 font-mono font-bold text-slate-500"><div className="flex items-center gap-1 hover:text-[#1a56db] transition-all"><Globe className="w-3.5 h-3.5 text-slate-400" /><span>{biz.domain}</span></div></td>
+                    <td className="py-4.5 px-4 text-center font-bold text-slate-700"><span>{biz.employeeCount} active</span></td>
+                    <td className="py-4.5 px-4"><div className="space-y-0.5"><span className="font-bold block text-[11px] text-slate-800">{biz.planId ? (plans.find((p) => p.id === biz.planId)?.name || 'Ã¢â‚¬â€') : 'Ã¢â‚¬â€'}</span><span className="text-[10px] text-slate-400 font-medium block">Since {biz.established}</span></div></td>
+                    <td className="py-4.5 px-4"><div className="flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${biz.statusLabel === 'Active' ? 'bg-emerald-500 animate-pulse' : 'bg-red-400'}`} /><span className={`font-bold uppercase tracking-wider text-[10px] ${biz.statusLabel === 'Active' ? 'text-emerald-700' : 'text-red-650'}`}>{biz.statusLabel}</span></div></td>
+                    <td className="py-4.5 px-6 text-right"><div className="flex items-center gap-1.5 justify-end"><button onClick={() => openModulesModal(biz)} disabled={!isPlatformSuperAdmin} title="Manage Active Modules (Brain, Policy, HR, CRM, etc.)" className="p-1 px-2.5 hover:bg-emerald-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-emerald-700 rounded-lg transition-colors cursor-pointer"><Layers className="w-3.5 h-3.5" /></button><button onClick={() => openAdminModal(biz)} disabled={!isPlatformSuperAdmin} title="Create Business Admin" className="p-1 px-2.5 hover:bg-blue-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-blue-700 rounded-lg transition-colors cursor-pointer"><Users className="w-3.5 h-3.5" /></button><button onClick={() => openEditModal(biz)} title="Modify Configurations" disabled={!isPlatformSuperAdmin} className="p-1 px-2.5 hover:bg-slate-100 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-500 hover:text-slate-800 rounded-lg transition-colors cursor-pointer"><Edit2 className="w-3.5 h-3.5" /></button><button onClick={() => setDeleteTarget({ id: biz.id, name: biz.name })} title="Terminate Instance" disabled={!isPlatformSuperAdmin} className="p-1 px-2.5 hover:bg-rose-50 disabled:hover:bg-transparent disabled:text-slate-300 text-slate-400 hover:text-rose-600 rounded-lg transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button></div></td>
                   </tr>
                 ))}
               </tbody>
@@ -624,376 +471,76 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
         )}
       </div>
 
-      {/* --- BUSINESS PARAMETERS MODAL --- */}
       <AnimatePresence>
         {isModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs animate-fade-in">
-            <div className="absolute inset-0" onClick={() => setIsModalOpen(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
+            <motion.div initial={{ opacity: 0, scale: 0.97, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.97, y: 12 }} className="relative z-20 flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl bg-white shadow-2xl">
+              <header className="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 px-6 py-5">
+                <div className="flex min-w-0 items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600"><Building2 className="h-5 w-5" /></div><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h2 className="text-base font-black tracking-tight text-slate-900 sm:text-lg">{editingBusiness ? 'Update Business Profile' : 'Create Business Profile'}</h2>{editingBusiness && <span className="rounded-full border border-emerald-100 bg-emerald-50 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-emerald-700">Current values loaded</span>}</div><p className="mt-1 text-xs font-medium text-slate-500">{editingBusiness ? 'Review and update the saved business and attendance settings.' : 'Configure the business account and attendance defaults.'}</p></div></div>
+                <button type="button" onClick={() => setIsModalOpen(false)} className="rounded-full p-2 text-slate-400 transition hover:bg-slate-200 hover:text-slate-700" aria-label="Close business profile modal"><X className="h-5 w-5" /></button>
+              </header>
 
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-100/50 z-20 space-y-5"
-            >
-              <div className="flex justify-between items-center pb-3 border-b border-secondary-slate-100">
-                <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 rounded-xl bg-blue-50 text-[#1a56db] flex items-center justify-center">
-                    <Building2 className="w-4.5 h-4.5" />
-                  </div>
-                  <div>
-                    <h4 className="text-[13.5px] font-black text-slate-900 leading-tight">
-                      {editingBusiness ? 'Customize Business Configurations' : 'Register New Tenancy Instance'}
-                    </h4>
-                    <span className="text-[10px] text-slate-450 block font-medium mt-0.5">Parameters map cleanly to secure routing layers</span>
-                  </div>
+              <form onSubmit={handleSubmit} className="flex min-h-0 flex-1 flex-col">
+                <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+                  <aside className="border-b border-slate-100 bg-slate-50/60 p-4 md:w-60 md:shrink-0 md:border-b-0 md:border-r md:p-5">
+                    <div className="grid grid-cols-2 gap-2 md:grid-cols-1">
+                      <button type="button" onClick={() => setBusinessModalSection('business')} className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition ${businessModalSection === 'business' ? 'border-blue-200 bg-white text-blue-700 shadow-sm' : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white'}`}><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${businessModalSection === 'business' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}><Building2 className="h-4 w-4" /></span><span className="min-w-0"><span className="block text-xs font-black">Business</span><span className="mt-0.5 hidden text-[10px] font-medium text-slate-400 md:block">Identity, contact and plan</span></span></button>
+                      <button type="button" onClick={() => setBusinessModalSection('attendance')} className={`flex items-center gap-3 rounded-2xl border px-3.5 py-3 text-left transition ${businessModalSection === 'attendance' ? 'border-blue-200 bg-white text-blue-700 shadow-sm' : 'border-transparent text-slate-600 hover:border-slate-200 hover:bg-white'}`}><span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl ${businessModalSection === 'attendance' ? 'bg-blue-50 text-blue-600' : 'bg-slate-100 text-slate-500'}`}><Clock3 className="h-4 w-4" /></span><span className="min-w-0"><span className="block text-xs font-black">Attendance</span><span className="mt-0.5 hidden text-[10px] font-medium text-slate-400 md:block">Schedule and location rules</span></span></button>
+                    </div>
+                  </aside>
+
+                  <main className="custom-scrollbar min-h-0 flex-1 overflow-y-auto bg-white p-5 sm:p-6 md:p-8">
+                    {formError && <div className="mb-5 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3.5 py-3 text-red-700"><ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" /><span className="text-xs font-semibold leading-5">{formError}</span></div>}
+                    {businessModalSection === 'business' ? (
+                      <div className="space-y-6">
+                        <div className="border-b border-slate-100 pb-3"><h3 className="text-sm font-semibold text-slate-900">Business information</h3><p className="mt-1 text-xs text-slate-500">Only fields stored by the business API are shown here.</p></div>
+                        <div className="grid gap-4 sm:grid-cols-2">
+                          <label className="space-y-1.5"><span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Business name</span><input type="text" required value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="e.g. Apex Biotech" className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10" /></label>
+                          <label className="space-y-1.5"><span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Workspace slug</span><input type="text" required value={formDomain} onChange={(e) => setFormDomain(e.target.value)} placeholder="e.g. apex-biotech" className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10" /></label>
+                          <label className="space-y-1.5"><span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Contact email</span><input type="email" required value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="billing@company.com" className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10" /></label>
+                          <label className="space-y-1.5"><span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Contact phone</span><input type="tel" value={formPhone} onChange={(e) => setFormPhone(e.target.value)} placeholder="+251 ..." className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10" /></label>
+                          <label className="space-y-1.5"><span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Plan</span><select required={!editingBusiness} value={formPlanId} onChange={(e) => setFormPlanId(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"><option value="">{editingBusiness ? 'No plan assigned' : 'Select plan...'}</option>{plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name} ({plan.key})</option>)}</select></label>
+                          <label className="space-y-1.5"><span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Sector focus</span><select value={formSectorFocusId} onChange={(e) => setFormSectorFocusId(e.target.value)} className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10"><option value="">None</option>{sectorFocuses.map((sector) => <option key={sector.id} value={sector.id}>{sector.name}</option>)}</select></label>
+                          {editingBusiness && <label className="space-y-1.5 sm:col-span-2"><span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Business status</span><select value={formStatus} onChange={(e) => setFormStatus(e.target.value as 'Active' | 'Suspended')} className="w-full rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none transition focus:border-blue-500 focus:bg-white focus:ring-2 focus:ring-blue-500/10 sm:max-w-xs"><option value="Active">Active</option><option value="Suspended">Suspended</option></select></label>}
+                        </div>
+                        {editingBusiness && <div className="rounded-2xl border border-blue-100 bg-blue-50/50 p-4"><p className="text-xs font-black text-blue-900">Editing saved business data</p><p className="mt-1 text-[11px] leading-5 text-blue-700/80">Name, slug, email, phone, plan, sector and status were loaded from the selected business. Attendance values are loaded from its saved attendance settings.</p></div>}
+                      </div>
+                    ) : (
+                      <div className="space-y-5">
+                        <div className="border-b border-slate-100 pb-3"><h3 className="text-sm font-semibold text-slate-900">Attendance configuration</h3><p className="mt-1 text-xs text-slate-500">Location, schedule, lunch and weekend rules for this business.</p></div>
+                        {editingBusiness && attendanceSettingsQuery.isLoading ? <div className="rounded-2xl border border-slate-100 bg-slate-50 p-6 text-center"><div className="mx-auto h-5 w-5 animate-spin rounded-full border-2 border-slate-300 border-t-blue-600" /><p className="mt-3 text-xs font-semibold text-slate-500">Loading saved attendance settings...</p></div> : editingBusiness && attendanceSettingsQuery.isError ? <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4"><p className="text-xs font-black text-amber-900">Attendance settings could not be loaded</p><p className="mt-1 text-[11px] leading-5 text-amber-700">Business details can still be updated. Attendance settings will be left unchanged.</p></div> : <AttendanceSettingsForm value={attendanceDraft} onChange={setAttendanceDraft} onValidityChange={setAttendanceValid} />}
+                      </div>
+                    )}
+                  </main>
                 </div>
-                <button
-                  onClick={() => setIsModalOpen(false)}
-                  className="p-1 hover:bg-slate-50 rounded-lg text-slate-400 hover:text-slate-700 transition-colors cursor-pointer"
-                >
-                  Close
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Inline error banner */}
-                {formError && (
-                  <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5">
-                    <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                    <span className="text-xs font-semibold leading-snug">{formError}</span>
-                  </div>
-                )}
-
-                {/* Stepper */}
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    {[0, 1, 2].map((step) => (
-                      <button
-                        key={step}
-                        type="button"
-                        onClick={() => setModalStep(step as 0 | 1 | 2)}
-                        className={[
-                          "h-7 px-2.5 rounded-xl text-[11px] font-extrabold border transition-colors cursor-pointer",
-                          modalStep === step ? "bg-blue-50 border-blue-200 text-[#1a56db]" : "bg-white border-slate-200 text-slate-500 hover:bg-slate-50",
-                        ].join(" ")}
-                      >
-                        {step === 0 ? "Business" : step === 1 ? "Attendance" : "Review"}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="text-[11px] font-bold text-slate-500">Step {modalStep + 1} of 3</div>
-                </div>
-
-                {/* Panels (kept mounted so required inputs still validate on final submit) */}
-                <div className="max-h-[62vh] overflow-y-auto pr-1 space-y-4">
-                  <div className={modalStep === 0 ? "space-y-4" : "hidden space-y-4"}>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Commercial Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                      placeholder="e.g. Apex Biotech"
-                      className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 placeholder-slate-400 transition-all"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Legal Registered Entity</label>
-                    <input
-                      type="text"
-                      required
-                      value={formLegalName}
-                      onChange={(e) => setFormLegalName(e.target.value)}
-                      placeholder="e.g. Apex Biotech Solutions LLC"
-                      className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 placeholder-slate-400 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Commercial Domain</label>
-                    <input
-                      type="text"
-                      required
-                      value={formDomain}
-                      onChange={(e) => setFormDomain(e.target.value)}
-                      placeholder="e.g. apex-biotech.com"
-                      className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 placeholder-slate-400 transition-all"
-                    />
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Principal Workspace Contact</label>
-                    <input
-                      type="email"
-                      required
-                      value={formEmail}
-                      onChange={(e) => setFormEmail(e.target.value)}
-                      placeholder="e.g. billing@apex-biotech.com"
-                      className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 placeholder-slate-400 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Headquarters / Location (optional)</label>
-                    <input
-                      type="text"
-                      value={formLocation}
-                      onChange={(e) => setFormLocation(e.target.value)}
-                      placeholder="e.g. Tokyo, JP"
-                      className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 placeholder-slate-400 transition-all"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Plan</label>
-                    <select
-                      required
-                      value={formPlanId}
-                      onChange={(e) => setFormPlanId(e.target.value)}
-                      className="w-full bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200/80 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] font-semibold text-xs text-slate-700 cursor-pointer"
-                    >
-                      <option value="">Select plan...</option>
-                      {plans.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name} ({p.key})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Sector Focus (optional)</label>
-                    <select
-                      value={formSectorFocusId}
-                      onChange={(e) => setFormSectorFocusId(e.target.value)}
-                      className="w-full bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200/80 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] font-semibold text-xs text-slate-700 cursor-pointer"
-                    >
-                      <option value="">None</option>
-                      {sectorFocuses.map((sf) => (
-                        <option key={sf.id} value={sf.id}>
-                          {sf.name} ({sf.key})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                  </div>
-
-                  <div className={modalStep === 1 ? "space-y-4" : "hidden space-y-4"}>
-                {editingBusiness && attendanceSettingsQuery.isLoading ? (
-                  <div className="bg-slate-50/60 border border-slate-200/70 rounded-2xl p-4">
-                    <div className="text-xs font-bold text-slate-800">Attendance configuration</div>
-                    <div className="text-[11px] text-slate-600 mt-1">Loading current settings…</div>
-                  </div>
-                ) : editingBusiness && attendanceSettingsQuery.isError ? (
-                  <div className="bg-red-50 border border-red-200 rounded-2xl p-4">
-                    <div className="text-xs font-bold text-red-800">Attendance configuration</div>
-                    <div className="text-[11px] text-red-700 mt-1">Failed to load attendance settings. You can still update business details.</div>
-                  </div>
-                ) : (
-                  <AttendanceSettingsForm value={attendanceDraft} onChange={setAttendanceDraft} onValidityChange={setAttendanceValid} />
-                )}
-
-                  </div>
-
-                  <div className={modalStep === 2 ? "space-y-4" : "hidden space-y-4"}>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Routing Status</label>
-                    <select
-                      value={formStatus}
-                      onChange={(e) => setFormStatus(e.target.value as any)}
-                      className="w-full bg-slate-50 px-3 py-2.5 rounded-xl border border-slate-200/80 focus:outline-none focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] font-semibold text-xs text-slate-700 cursor-pointer"
-                    >
-                      <option value="Active">Active Route</option>
-                      <option value="Suspended">Suspended</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Starting Directory Scale</label>
-                    <input
-                      type="number"
-                      required
-                      min={1}
-                      max={10000}
-                      value={formEmployeeCount}
-                      onChange={(e) => setFormEmployeeCount(Number(e.target.value))}
-                      className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
-                    />
-                  </div>
-                </div>
-
-                  <div className="bg-slate-50/60 border border-slate-200/70 rounded-2xl p-4">
-                    <div className="text-xs font-bold text-slate-800">Review</div>
-                    <div className="text-[11px] text-slate-600 mt-1">Confirm details, then save.</div>
-                  </div>
-                  </div>
-                </div>
-
-                <div className="flex gap-2 justify-end pt-4 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setIsModalOpen(false)}
-                    className="px-4 text-slate-500 font-bold hover:bg-slate-50 leading-none py-2.5 rounded-xl text-xs cursor-pointer"
-                  >
-                    Discard Changes
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setModalStep((s) => (s === 0 ? 0 : ((s - 1) as 0 | 1 | 2)))}
-                    disabled={modalStep === 0}
-                    className="px-4 text-slate-500 font-bold hover:bg-slate-50 disabled:hover:bg-transparent disabled:text-slate-300 leading-none py-2.5 rounded-xl text-xs cursor-pointer"
-                  >
-                    Back
-                  </button>
-
-                  {modalStep < 2 ? (
-                    <button
-                      type="button"
-                      onClick={() => setModalStep((s) => (s === 2 ? 2 : ((s + 1) as 0 | 1 | 2)))}
-                      disabled={modalStep === 1 && !attendanceValid}
-                      className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-500 font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs cursor-pointer select-none"
-                    >
-                      Next
-                    </button>
-                  ) : (
-                    <button
-                      type="submit"
-                      className="bg-[#1a56db] hover:bg-[#124bbf] font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs cursor-pointer select-none"
-                    >
-                      {editingBusiness ? 'Apply Config Parameters' : 'Deploy Tenant Instance'}
-                    </button>
-                  )}
-                </div>
+                <footer className="flex flex-col gap-3 border-t border-slate-100 bg-slate-50/50 px-6 py-4 sm:flex-row sm:items-center sm:justify-between"><div className="text-[10px] font-medium text-slate-400">{editingBusiness ? `Editing ${editingBusiness.name}` : 'New business configuration'}</div><div className="flex items-center justify-end gap-2"><button type="button" onClick={() => setIsModalOpen(false)} className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate-500 transition hover:bg-slate-200">Cancel</button><button type="submit" disabled={createBiz.isPending || updateBiz.isPending || upsertAttendance.isPending || (businessModalSection === 'attendance' && !attendanceValid)} className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-xs font-extrabold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"><Save className="h-4 w-4" />{createBiz.isPending || updateBiz.isPending || upsertAttendance.isPending ? 'Saving...' : editingBusiness ? 'Save Changes' : 'Create Business'}</button></div></footer>
               </form>
             </motion.div>
           </div>
         )}
       </AnimatePresence>
 
-      {/* --- BUSINESS ADMIN USER MODAL --- */}
       <AnimatePresence>
         {adminModalOpen && adminBusiness && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs animate-fade-in">
             <div className="absolute inset-0" onClick={() => setAdminModalOpen(false)} />
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 z-15 space-y-4"
-            >
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <div>
-                  <h4 className="text-[13px] font-bold text-slate-900">Create Business Admin</h4>
-                  <div className="text-[10.5px] text-slate-500 font-medium mt-0.5">{adminBusiness.name} ({adminBusiness.slug})</div>
-                </div>
-                <button onClick={() => setAdminModalOpen(false)} className="text-slate-400 hover:text-slate-800 cursor-pointer">
-                  <ChevronRight className="w-4 h-4 rotate-90" />
-                </button>
-              </div>
-
-              {!isPlatformSuperAdmin ? (
-                <div className="text-xs text-slate-600">Not authorized.</div>
-              ) : (
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="relative w-full max-w-lg bg-white rounded-3xl p-6 shadow-2xl border border-slate-100 z-15 space-y-4">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100"><div><h4 className="text-[13px] font-bold text-slate-900">Create Business Admin</h4><div className="text-[10.5px] text-slate-500 font-medium mt-0.5">{adminBusiness.name} ({adminBusiness.slug})</div></div><button onClick={() => setAdminModalOpen(false)} className="text-slate-400 hover:text-slate-800 cursor-pointer"><ChevronRight className="w-4 h-4 rotate-90" /></button></div>
+              {!isPlatformSuperAdmin ? <div className="text-xs text-slate-600">Not authorized.</div> : (
                 <form onSubmit={handleCreateAdmin} className="space-y-3">
-                  {/* Inline error banner */}
-                  {adminError && (
-                    <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5">
-                      <svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                      <span className="text-xs font-semibold leading-snug">{adminError}</span>
-                    </div>
-                  )}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Full Name</label>
-                      <input
-                        value={adminName}
-                        onChange={(e) => setAdminName(e.target.value)}
-                        className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email</label>
-                      <input
-                        type="email"
-                        value={adminEmail}
-                        onChange={(e) => setAdminEmail(e.target.value)}
-                        className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Phone (optional)</label>
-                      <input
-                        value={adminPhone}
-                        onChange={(e) => setAdminPhone(e.target.value)}
-                        className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
-                      />
-                    </div>
-                    <div className="space-y-1">
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label>
-                      <input
-                        type="password"
-                        value={adminPassword}
-                        onChange={(e) => setAdminPassword(e.target.value)}
-                        className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
-                    <button
-                      type="button"
-                      onClick={() => setAdminModalOpen(false)}
-                      className="px-4 text-slate-500 font-bold hover:bg-slate-50 leading-none py-2.5 rounded-xl text-xs cursor-pointer"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={createAdmin.isPending}
-                      className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs cursor-pointer select-none"
-                    >
-                      {createAdmin.isPending ? 'Creating...' : 'Create Admin'}
-                    </button>
-                  </div>
+                  {adminError && <div className="flex items-start gap-2 bg-red-50 border border-red-200 text-red-700 rounded-xl px-3 py-2.5"><svg className="w-4 h-4 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><span className="text-xs font-semibold leading-snug">{adminError}</span></div>}
+                  <div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Full Name</label><input value={adminName} onChange={(e) => setAdminName(e.target.value)} className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Email</label><input type="email" value={adminEmail} onChange={(e) => setAdminEmail(e.target.value)} className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all" /></div></div>
+                  <div className="grid grid-cols-2 gap-3"><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Phone (optional)</label><input value={adminPhone} onChange={(e) => setAdminPhone(e.target.value)} className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all" /></div><div className="space-y-1"><label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Password</label><input type="password" value={adminPassword} onChange={(e) => setAdminPassword(e.target.value)} className="w-full bg-slate-50 focus:bg-white px-3.5 py-2.5 rounded-xl border border-slate-200/80 focus:border-[#1a56db] focus:ring-1 focus:ring-[#1a56db] focus:outline-none font-semibold text-xs text-slate-700 transition-all" /></div></div>
+                  <div className="flex gap-2 justify-end pt-3 border-t border-slate-100"><button type="button" onClick={() => setAdminModalOpen(false)} className="px-4 text-slate-500 font-bold hover:bg-slate-50 leading-none py-2.5 rounded-xl text-xs cursor-pointer">Cancel</button><button type="submit" disabled={createAdmin.isPending} className="bg-[#1a56db] hover:bg-[#124bbf] disabled:bg-slate-200 disabled:text-slate-400 font-bold text-white shadow-sm leading-none py-2.5 px-5 rounded-xl text-xs cursor-pointer select-none">{createAdmin.isPending ? 'Creating...' : 'Create Admin'}</button></div>
                 </form>
               )}
             </motion.div>
           </div>
         )}
       </AnimatePresence>
-      <ConfirmDialog
-        open={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={() => deleteTarget && handleDelete(deleteTarget.id, deleteTarget.name)}
-        title="Permanently Delete Business"
-        description={deleteTarget ? `You are about to permanently delete "${deleteTarget.name}" and all associated users, HR records, recruitment, finance, files, notifications, and audit logs. This action is irreversible.` : undefined}
-        confirmLabel="Delete Permanently"
-        variant="destructive"
-        loading={deleteBiz.isPending}
-      />
-
-      <BusinessModulesModal
-        business={modulesBusiness}
-        isOpen={modulesModalOpen}
-        onClose={() => setModulesModalOpen(false)}
-        showAlert={showAlert}
-      />
+      <ConfirmDialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)} onConfirm={() => deleteTarget && handleDelete(deleteTarget.id, deleteTarget.name)} title="Permanently Delete Business" description={deleteTarget ? `You are about to permanently delete "${deleteTarget.name}" and all associated users, HR records, recruitment, finance, files, notifications, and audit logs. This action is irreversible.` : undefined} confirmLabel="Delete Permanently" variant="destructive" loading={deleteBiz.isPending} />
+      <BusinessModulesModal business={modulesBusiness} isOpen={modulesModalOpen} onClose={() => setModulesModalOpen(false)} showAlert={showAlert} />
     </div>
   );
 }
