@@ -70,6 +70,7 @@ export default function RecruitmentRequests({
   const roleSet = new Set((currentUser?.roles?.length ? currentUser.roles : [currentUser?.role || '']).map((role) => role.toUpperCase()));
   const permissionSet = new Set(currentUser?.permissions || []);
   const isDepartmentHead = roleSet.has('DEPARTMENT_HEAD') || roleSet.has('DEPT_HEAD');
+  const canRequestJob = isDepartmentHead || permissionSet.has('job.request');
   const isHrReviewer = roleSet.has('HR_MANAGER') || permissionSet.has('hr.write');
   const isFinalReviewer = roleSet.has('CEO') || roleSet.has('BUSINESS_ADMIN');
 
@@ -155,7 +156,7 @@ export default function RecruitmentRequests({
               <StatusBadge label={formatStageLabel(currentFlowStage)} tone={currentFlowStage === 'approved' ? 'emerald' : currentFlowStage === 'rejected' ? 'rose' : 'blue'} />
             </div>
           </div>
-          {isDepartmentHead && (
+          {canRequestJob && (
             <button
               type="button"
               onClick={onOpenNewJobModal}
