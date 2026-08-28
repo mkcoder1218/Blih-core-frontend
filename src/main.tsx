@@ -1,5 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import './config/jobRequestPermissions';
 import RootApp from './RootApp';
 import PublicPolicyPage from './pages/PublicPolicyPage';
 import './index.css';
