@@ -69,6 +69,7 @@ export default function RecruitmentRequests({
 
   const roleSet = new Set((currentUser?.roles?.length ? currentUser.roles : [currentUser?.role || '']).map((role) => role.toUpperCase()));
   const permissionSet = new Set(currentUser?.permissions || []);
+  const isDepartmentHead = roleSet.has('DEPARTMENT_HEAD') || roleSet.has('DEPT_HEAD');
   const isHrReviewer = roleSet.has('HR_MANAGER') || permissionSet.has('hr.write');
   const isFinalReviewer = roleSet.has('CEO') || roleSet.has('BUSINESS_ADMIN');
 
@@ -154,14 +155,16 @@ export default function RecruitmentRequests({
               <StatusBadge label={formatStageLabel(currentFlowStage)} tone={currentFlowStage === 'approved' ? 'emerald' : currentFlowStage === 'rejected' ? 'rose' : 'blue'} />
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onOpenNewJobModal}
-            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
-          >
-            <BriefcaseBusiness className="h-4 w-4" />
-            New Request
-          </button>
+          {isDepartmentHead && (
+            <button
+              type="button"
+              onClick={onOpenNewJobModal}
+              className="inline-flex h-9 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
+            >
+              <BriefcaseBusiness className="h-4 w-4" />
+              New Request
+            </button>
+          )}
         </header>
 
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -175,7 +178,6 @@ export default function RecruitmentRequests({
         <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="p-3">
             <div className="flex flex-wrap items-end gap-2">
-              {/* Search */}
               <label className="min-w-[200px] flex-1 space-y-1">
                 <span className="text-[10px] font-black uppercase tracking-wider text-slate-500">Search</span>
                 <div className="flex h-9 items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 focus-within:border-blue-300 focus-within:bg-white">
@@ -189,7 +191,6 @@ export default function RecruitmentRequests({
                 </div>
               </label>
 
-              {/* Result count + reset + more filters */}
               <div className="flex shrink-0 items-center gap-2 pb-0.5">
                 <span className="text-xs font-bold text-slate-500">
                   <Filter className="mr-1 inline h-3.5 w-3.5 text-slate-400" />
@@ -219,7 +220,6 @@ export default function RecruitmentRequests({
               </div>
             </div>
 
-            {/* Collapsible filter dropdowns */}
             {showMoreFilters && (
               <div className="mt-2 grid grid-cols-2 gap-2 rounded-lg border border-slate-100 bg-slate-50/70 p-3 md:grid-cols-4">
                 <FilterSelect label="Department" value={selectedDeptFilter} onChange={setSelectedDeptFilter} options={departments} />
