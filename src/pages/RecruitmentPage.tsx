@@ -1,6 +1,5 @@
 import React, { useState } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { useNavigate, useOutletContext, useParams } from "react-router-dom";
 import RecruitmentOverview from "../components/recruitment/RecruitmentOverview";
 import RecruitmentRequests from "../components/recruitment/RecruitmentRequests";
 import RecruitmentReadyToPost from "../components/recruitment/RecruitmentReadyToPost";
@@ -42,6 +41,12 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
   
   const { data: meRes } = useMe();
   const me = meRes?.data;
+  const { showAlert } = useOutletContext<{
+    showAlert?: (message: string, type?: "success" | "info" | "error") => void;
+  }>();
+  const isDepartmentHead = (me?.roles || []).some((role: string) =>
+    ["DEPARTMENT_HEAD", "DEPT_HEAD"].includes(role.toUpperCase()),
+  );
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isTemplateSelectionOpen, setIsTemplateSelectionOpen] = useState(false);
@@ -49,6 +54,11 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
   const [initialFormData, setInitialFormData] = useState<any>(null);
 
   const openCreateModal = async (mode: "job" | "template") => {
+    if (mode === "job" && !isDepartmentHead) {
+      showAlert?.("Only a Department Head can submit a new hiring request.", "error");
+      return;
+    }
+
     if (mode === "job") {
       try {
         const res = await api.get("/api/v1/hr/recruitment/templates", { params: { limit: 1 } });
@@ -158,24 +168,10 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
 
   return (
     <div className="space-y-6">
-      {tab === "requests" && (me?.roles || []).some((role: string) => ["DEPARTMENT_HEAD", "DEPT_HEAD"].includes(role.toUpperCase())) && (
-        <div className="flex justify-end">
-          <button
-            onClick={() => openCreateModal("job")}
-            className="bg-blue-600 hover:bg-blue-700 active:scale-95 text-white font-bold rounded-xl text-xs px-5 py-2.5 flex items-center gap-2 shadow-md shadow-blue-200 transition-all cursor-pointer select-none"
-          >
-            <Plus className="w-4 h-4 stroke-[3]" />
-            <span>Request a Job</span>
-          </button>
-        </div>
-      )}
-
-      {/* Tab Content */}
       <div>
         {renderTabContent()}
       </div>
 
-      {/* Create Job Modal */}
       <CreateJobModal 
         isOpen={isCreateModalOpen} 
         onClose={() => setIsCreateModalOpen(false)} 
@@ -246,12 +242,25 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
             };
 
             await api.post(endpoint, payload);
-            console.log(`${modalMode} created successfully`);
             await queryClient.invalidateQueries({ queryKey: ["job-requests"] });
-          } catch (err) {
+            await queryClient.invalidateQueries({ queryKey: ["recruitment-templates"] });
+            showAlert?.(
+              modalMode === "template"
+                ? "Job template saved successfully."
+                : "Hiring request submitted for HR review.",
+              "success",
+            );
+            setIsCreateModalOpen(false);
+            setInitialFormData(null);
+          } catch (err: any) {
             console.error("Failed to save:", err);
+            showAlert?.(
+              err?.response?.data?.message ||
+                (modalMode === "template" ? "Failed to save job template." : "Failed to submit hiring request."),
+              "error",
+            );
+            throw err;
           }
-          setIsCreateModalOpen(false);
         }} 
       />
 
