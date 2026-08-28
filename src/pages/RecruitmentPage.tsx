@@ -47,6 +47,8 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
   const isDepartmentHead = (me?.roles || []).some((role: string) =>
     ["DEPARTMENT_HEAD", "DEPT_HEAD"].includes(role.toUpperCase()),
   );
+  const canRequestJob =
+    isDepartmentHead || (me?.permissions || []).includes("job.request");
   
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isTemplateSelectionOpen, setIsTemplateSelectionOpen] = useState(false);
@@ -54,8 +56,8 @@ export default function RecruitmentPage({ currentTab, routeForTab }: Recruitment
   const [initialFormData, setInitialFormData] = useState<any>(null);
 
   const openCreateModal = async (mode: "job" | "template") => {
-    if (mode === "job" && !isDepartmentHead) {
-      showAlert?.("Only a Department Head can submit a new hiring request.", "error");
+    if (mode === "job" && !canRequestJob) {
+      showAlert?.("You do not have permission to request a new job opening.", "error");
       return;
     }
 
