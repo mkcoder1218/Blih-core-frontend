@@ -25,7 +25,12 @@ import { projectKeys } from "./queryKeys";
 import type { Project } from "./types";
 
 export function useProjects(params?: Record<string, unknown>) {
-  return useQuery({ queryKey: projectKeys.list(params), queryFn: () => listProjects(params), staleTime: 30_000 });
+  return useQuery({
+    queryKey: projectKeys.list(params),
+    queryFn: () => listProjects(params),
+    staleTime: 30_000,
+    placeholderData: (previousData) => previousData,
+  });
 }
 
 export function useProject(id?: string) {

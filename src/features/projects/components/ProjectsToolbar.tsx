@@ -2,10 +2,10 @@ import { Search } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { PROJECT_STATUSES } from "../schemas";
+import { PROJECT_STATUSES, projectStatusLabel } from "../schemas";
 import { CreateProjectModal } from "./CreateProjectModal";
 
-const ALL = "__all__";
+const ALL_STATUSES_VALUE = "all-statuses";
 
 export function ProjectsToolbar({
   search,
@@ -35,17 +35,17 @@ export function ProjectsToolbar({
           </div>
 
           <Select
-            value={status || ALL}
-            onValueChange={(value) => onStatus(value === ALL ? "" : String(value ?? ""))}
+            value={status || ALL_STATUSES_VALUE}
+            onValueChange={(value) => onStatus(value === ALL_STATUSES_VALUE ? "" : String(value ?? ""))}
           >
             <SelectTrigger className="w-full rounded-md md:w-44">
-              <SelectValue />
+              <SelectValue>{status ? projectStatusLabel(status) : "All statuses"}</SelectValue>
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>All statuses</SelectItem>
+              <SelectItem value={ALL_STATUSES_VALUE}>All statuses</SelectItem>
               {PROJECT_STATUSES.map((item) => (
                 <SelectItem key={item} value={item}>
-                  {item.replace(/_/g, " ")}
+                  {projectStatusLabel(item)}
                 </SelectItem>
               ))}
             </SelectContent>
