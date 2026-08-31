@@ -168,7 +168,8 @@ const unwrap = <T>(value: any, key: string): T => value?.data?.[key] ?? value?.[
 
 async function downloadBlob(url: string, fallbackName: string) {
   const response = await api.get(url, { responseType: "blob" });
-  const blob = new Blob([response.data], { type: response.headers["content-type"] || "application/octet-stream" });
+  const contentType = String(response.headers["content-type"] || "application/octet-stream");
+  const blob = new Blob([response.data], { type: contentType });
   const href = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = href;
