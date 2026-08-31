@@ -47,7 +47,12 @@ export function useProjectTasks(projectId?: string, params?: Record<string, unkn
 }
 
 export function useMyProjectTasks(params?: Record<string, unknown>) {
-  return useQuery({ queryKey: projectKeys.myTasks(params), queryFn: () => listAllMyTasks(params), staleTime: 20_000 });
+  return useQuery({
+    queryKey: projectKeys.myTasks(params),
+    queryFn: () => listAllMyTasks(params),
+    staleTime: 20_000,
+    placeholderData: (previousData) => previousData,
+  });
 }
 
 export function useAllVisibleProjectTasks(projects: Project[] = [], enabled = true) {
