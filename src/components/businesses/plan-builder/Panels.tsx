@@ -79,7 +79,7 @@ export function EntitlementsPanel({ draft, setDraft, modules, features }: Props 
   );
 }
 
-function FeatureLimit({ feature, value, onChange }: { feature: CatalogFeature; value: DraftFeature; onChange: (v: DraftFeature) => void }) {
+function FeatureLimit({ feature, value, onChange }: React.Attributes & { feature: CatalogFeature; value: DraftFeature; onChange: (v: DraftFeature) => void }) {
   const unlimited = value.limitValue == null;
   const max = feature.key === "employee_limit" ? 1000 : feature.key === "storage" ? 5000 : 100000;
   return (
