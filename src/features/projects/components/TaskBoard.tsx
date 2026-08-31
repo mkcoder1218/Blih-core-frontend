@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProjectStatusBadge } from "./ProjectStatusBadge";
 import { DEFAULT_PROJECT_KANBAN_COLUMNS, getTaskKanbanColumnId } from "../kanban";
 import type { ProjectKanbanColumn, ProjectTask } from "../types";
@@ -24,7 +25,7 @@ function getInitials(name: string) {
 
 function formatCreatedAt(value: string) {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "Created —";
+  if (Number.isNaN(date.getTime())) return "Created";
   return `Created ${new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
@@ -35,18 +36,25 @@ function formatCreatedAt(value: string) {
 
 function TaskCard({
   task,
+  columns,
   canMove,
   attachmentCount,
+  onMove,
   onOpen,
   onDiscuss,
 }: {
   task: ProjectTask;
+  columns: ProjectKanbanColumn[];
   canMove: boolean;
   attachmentCount: number;
+  onMove?: (task: ProjectTask, column: ProjectKanbanColumn) => void;
   onOpen?: (task: ProjectTask) => void;
   onDiscuss?: (task: ProjectTask) => void;
 }) {
   const assignee = getAssigneeName(task);
+  const currentColumnId = getTaskKanbanColumnId(task, columns);
+  const currentColumn = columns.find((column) => column.id === currentColumnId);
+  const currentStatusLabel = currentColumn?.name || task.status.replace(/_/g, " ");
 
   return (
     <Card
@@ -88,6 +96,46 @@ function TaskCard({
         <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
           <Clock3 className="size-3 shrink-0" />
           <span className="truncate">{formatCreatedAt(task.createdAt)}</span>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[10px] text-muted-foreground">Status</span>
+          {canMove ? (
+            <div
+              draggable={false}
+              onPointerDown={(event) => event.stopPropagation()}
+              onMouseDown={(event) => event.stopPropagation()}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <Select
+                value={currentColumnId}
+                onValueChange={(value) => {
+                  const nextColumn = columns.find((column) => column.id === String(value ?? ""));
+                  if (nextColumn && nextColumn.id !== currentColumnId) onMove?.(task, nextColumn);
+                }}
+              >
+                <SelectTrigger
+                  size="sm"
+                  className="h-6 w-[126px] rounded-md px-2 text-[10px] font-medium"
+                  aria-label={`Change status for ${task.title}`}
+                >
+                  <SelectValue>{currentStatusLabel}</SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {columns.map((column) => (
+                    <SelectItem key={column.id} value={column.id}>
+                      {column.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <Badge variant="outline" className="h-6 max-w-[126px] rounded-md px-2 text-[10px] font-normal">
+              <span className="truncate">{currentStatusLabel}</span>
+            </Badge>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-2 border-t border-border pt-2">
@@ -139,6 +187,7 @@ function TaskCard({
 
 function TaskColumn({
   column,
+  columns,
   tasks,
   allTasks,
   canMove,
@@ -148,6 +197,7 @@ function TaskColumn({
   onDiscuss,
 }: {
   column: ProjectKanbanColumn;
+  columns: ProjectKanbanColumn[];
   tasks: ProjectTask[];
   allTasks: ProjectTask[];
   canMove: boolean;
@@ -160,7 +210,7 @@ function TaskColumn({
   const virtualizer = useVirtualizer({
     count: tasks.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => 140,
+    estimateSize: () => 170,
     overscan: 6,
   });
 
@@ -199,8 +249,10 @@ function TaskColumn({
                 >
                   <TaskCard
                     task={task}
+                    columns={columns}
                     canMove={canMove}
                     attachmentCount={attachmentCounts[task.id] || 0}
+                    onMove={onMove}
                     onOpen={onOpen}
                     onDiscuss={onDiscuss}
                   />
@@ -249,6 +301,7 @@ export function TaskBoard({
           <TaskColumn
             key={column.id}
             column={column}
+            columns={columns}
             tasks={columnTasks}
             allTasks={visibleTasks}
             canMove={canMove}
