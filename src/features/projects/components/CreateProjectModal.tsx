@@ -25,8 +25,8 @@ import { useClients } from "../../../hooks/useClients";
 import { useDepartments } from "../../../hooks/useDepartments";
 import { useMe } from "../../../hooks/useMe";
 
-const NONE = "__none__";
-const COMPANY_WIDE = "__company_wide__";
+const NONE = "No client linked";
+const COMPANY_WIDE = "Whole company";
 
 const EMPTY_FORM = {
   title: "",
