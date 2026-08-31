@@ -5,7 +5,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { TASK_STATUSES } from "../schemas";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-const ALL = "__all__";
+const ALL_STATUSES = "All statuses";
+const ALL_PRIORITIES = "All priorities";
 
 export function TaskFilters({
   search,
@@ -40,14 +41,14 @@ export function TaskFilters({
         </div>
 
         <Select
-          value={status || ALL}
-          onValueChange={(value) => onStatus(value === ALL ? "" : String(value ?? ""))}
+          value={status || ALL_STATUSES}
+          onValueChange={(value) => onStatus(value === ALL_STATUSES ? "" : String(value ?? ""))}
         >
           <SelectTrigger className="w-full rounded-md lg:w-44">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All statuses</SelectItem>
+            <SelectItem value={ALL_STATUSES}>All statuses</SelectItem>
             {TASK_STATUSES.map((item) => (
               <SelectItem key={item} value={item}>
                 {item.replace(/_/g, " ")}
@@ -57,14 +58,14 @@ export function TaskFilters({
         </Select>
 
         <Select
-          value={priority || ALL}
-          onValueChange={(value) => onPriority(value === ALL ? "" : String(value ?? ""))}
+          value={priority || ALL_PRIORITIES}
+          onValueChange={(value) => onPriority(value === ALL_PRIORITIES ? "" : String(value ?? ""))}
         >
           <SelectTrigger className="w-full rounded-md lg:w-40">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL}>All priorities</SelectItem>
+            <SelectItem value={ALL_PRIORITIES}>All priorities</SelectItem>
             {PRIORITIES.map((item) => (
               <SelectItem key={item} value={item}>
                 {item}
