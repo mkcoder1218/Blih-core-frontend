@@ -7,8 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmployeeSelect } from "./EmployeeSelect";
 
-const NONE = "__none__";
-const COMPANY_WIDE = "__company_wide__";
+const NONE = "No client linked";
+const COMPANY_WIDE = "Whole company";
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return <span className="text-xs text-muted-foreground">{children}</span>;
