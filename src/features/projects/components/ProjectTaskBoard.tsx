@@ -33,7 +33,7 @@ import { TaskDiscussionDialog } from "./TaskDiscussionDialog";
 import { KanbanSettingsDialog } from "./KanbanSettingsDialog";
 
 const PRIORITIES = ["LOW", "MEDIUM", "HIGH", "URGENT"];
-const ALL = "__all__";
+const ALL = "All";
 
 type BoardMode = "board" | "list";
 
