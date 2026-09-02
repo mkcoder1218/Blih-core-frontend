@@ -102,3 +102,64 @@ export async function bulkLinkEmployeesToTemplate(data: { employeeUserIds: strin
 export async function unlinkEmployee(userId: string) {
   return api.delete(`/api/v1/finance/payroll-links/${userId}`);
 }
+
+// ── Salary Bank Export Templates ───────────────────────────────────────────────
+export type BankExportTemplate = {
+  id: string;
+  businessId: string;
+  name: string;
+  headerHtml: string | null;
+  bodyHtml: string;
+  footerHtml: string | null;
+  isDefault: boolean;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type BankExportTemplateInput = {
+  name: string;
+  headerHtml?: string | null;
+  bodyHtml: string;
+  footerHtml?: string | null;
+  isDefault?: boolean;
+  isActive?: boolean;
+};
+
+export type SalaryBankExportScope = {
+  selectedUserIds?: string[];
+  q?: string;
+  search?: string;
+  departmentId?: string;
+  employmentStatus?: string;
+  payrollStatus?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export async function listBankExportTemplates() {
+  return api.get("/api/v1/finance/employee-salaries/bank-templates");
+}
+
+export async function createBankExportTemplate(data: BankExportTemplateInput) {
+  return api.post("/api/v1/finance/employee-salaries/bank-templates", data);
+}
+
+export async function updateBankExportTemplate(id: string, data: Partial<BankExportTemplateInput>) {
+  return api.patch(`/api/v1/finance/employee-salaries/bank-templates/${id}`, data);
+}
+
+export async function deleteBankExportTemplate(id: string) {
+  return api.delete(`/api/v1/finance/employee-salaries/bank-templates/${id}`);
+}
+
+export async function exportEmployeeSalariesToBank(
+  templateId: string,
+  scope: SalaryBankExportScope,
+) {
+  return api.post(
+    "/api/v1/finance/employee-salaries/export-bank",
+    { templateId, ...scope },
+    { responseType: "blob" },
+  );
+}
