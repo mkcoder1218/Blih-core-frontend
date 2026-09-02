@@ -1,6 +1,6 @@
 import React from "react";
 import { createPortal } from "react-dom";
-import { Calculator, Check, Download, Filter, MoreHorizontal, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
+import { Calculator, Check, Download, Filter, Landmark, MoreHorizontal, Search, SlidersHorizontal, Trash2, X } from "lucide-react";
 import { LoadingSpinner, SectionCard, StatCard, StatCardGrid } from "@/components/ui/blih";
 import {
   useEmployeeSalaries,
@@ -14,6 +14,7 @@ import {
 import { useDepartments } from "../../hooks/useDepartments";
 import { EMPLOYMENT_STATUS_OPTIONS } from "../../constants/employee";
 import { exportEmployeeSalaries, markSelectedEmployeeSalariesPaid, removeSalaryDeduction } from "../../api/finance";
+import BankExportDialog from "./BankExportDialog";
 
 type Props = {
   showAlert: (message: string, type?: "success" | "info" | "error") => void;
@@ -268,6 +269,7 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
   const [selectedUserIds, setSelectedUserIds] = React.useState<string[]>([]);
   const [payingSelected, setPayingSelected] = React.useState(false);
   const [exporting, setExporting] = React.useState(false);
+  const [bankExportOpen, setBankExportOpen] = React.useState(false);
   const [showMoreDetails, setShowMoreDetails] = React.useState(false);
   const [columnMenuOpen, setColumnMenuOpen] = React.useState(false);
   const [filterPanelOpen, setFilterPanelOpen] = React.useState(false);
@@ -302,6 +304,25 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
       dateTo: dateTo || undefined,
     }),
     [page, limit, search, payrollStatus, templateId, departmentId, employmentStatus, dateFrom, dateTo]
+  );
+
+  const bankExportScope = React.useMemo(
+    () => selectedUserIds.length
+      ? {
+          selectedUserIds,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+        }
+      : {
+          q: search || undefined,
+          payrollStatus: payrollStatus || undefined,
+          payrollTemplateId: templateId || undefined,
+          departmentId: departmentId || undefined,
+          employmentStatus: employmentStatus || undefined,
+          dateFrom: dateFrom || undefined,
+          dateTo: dateTo || undefined,
+        },
+    [selectedUserIds, search, payrollStatus, templateId, departmentId, employmentStatus, dateFrom, dateTo]
   );
 
   const salaries = useEmployeeSalaries(params);
@@ -693,6 +714,14 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
               {showMoreDetails ? "Hide More" : "Show More Details"}
             </button>
             <button
+              type="button"
+              onClick={() => setBankExportOpen(true)}
+              className="h-9 px-3 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-xs font-black hover:bg-blue-100 inline-flex items-center gap-2"
+            >
+              <Landmark className="w-3.5 h-3.5" />
+              {selectedUserIds.length ? `Export to Bank (${selectedUserIds.length})` : "Export to Bank"}
+            </button>
+            <button
               onClick={exportCsv}
               disabled={exporting}
               className="h-9 px-3 rounded-lg bg-blue-600 text-white text-xs font-black hover:bg-blue-700 disabled:opacity-60 inline-flex items-center gap-2"
@@ -957,6 +986,14 @@ export default function EmployeeSalaryTable({ showAlert }: Props) {
           </div>
         </div>
       </SectionCard>
+
+      <BankExportDialog
+        open={bankExportOpen}
+        onClose={() => setBankExportOpen(false)}
+        exportScope={bankExportScope}
+        selectedEmployeeCount={selectedUserIds.length}
+        showAlert={showAlert}
+      />
 
       {activeRow && <CalculationModal row={activeRow} onClose={() => setActiveRow(null)} />}
       {deductionRow && (
