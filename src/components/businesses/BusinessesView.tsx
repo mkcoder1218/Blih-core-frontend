@@ -418,7 +418,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
         <div className="space-y-1">
           <div className="flex items-center gap-2"><span className="bg-blue-50 border border-blue-100 text-[#1a56db] text-[9.5px] font-bold tracking-widest px-2.5 py-1 rounded-full uppercase">Super Admin Control Plane</span></div>
           <h1 className="text-xl font-black text-slate-900 tracking-tight leading-none mt-1">Businesses Directory</h1>
-          <p className="text-xs text-slate-450 font-medium">Deploy, monitor, modify and audit corporate multi-tenant spaces within Blih CORE.</p>
+          <p className="text-xs text-slate-450 font-medium">Deploy, monitor, modify and audit corporate multi-tenant spaces within Pops.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <button onClick={() => onDraftAiSuggestion("Draft a multi-tenant business consolidation blueprint outlining access controls for super admins.")} className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100/70 text-blue-700 hover:text-blue-800 transition-colors px-3 py-2 rounded-xl text-xs font-bold cursor-pointer"><Sparkles className="w-3.5 h-3.5" /><span>Generate Setup Guideline</span></button>
@@ -428,7 +428,7 @@ export default function BusinessesView({ onDraftAiSuggestion, showAlert, current
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[
-          { label: 'Registered Enterprises', val: businesses.length, desc: 'Across Blih Cluster', icon: Building2, color: 'text-blue-600' },
+          { label: 'Registered Enterprises', val: businesses.length, desc: 'Across Pops', icon: Building2, color: 'text-blue-600' },
           { label: 'Active Domains', val: businesses.filter(b => b.statusLabel === 'Active').length, desc: 'SSO routing enabled', icon: Globe, color: 'text-emerald-650' },
           { label: 'Combined Workforce', val: businesses.reduce((acc, current) => acc + current.employeeCount, 0).toLocaleString(), desc: 'Employees consolidated', icon: Users, color: 'text-violet-650' },
           { label: 'Active Licensing', val: 'A Grade Cluster', desc: 'Secure cloud instance', icon: Layers, color: 'text-amber-600' }
