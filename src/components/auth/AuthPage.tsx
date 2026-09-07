@@ -122,7 +122,8 @@ export default function AuthPage({ onLoginSuccess }: AuthPageProps) {
             <Brain className="w-5 h-5" />
           </div>
           <div className="flex items-center justify-center gap-1.5">
-            <span className="text-xl font-medium tracking-tight text-slate-800">Pops</span>
+            <span className="text-xl font-medium tracking-tight text-slate-800">Blih</span>
+            <span className="text-xl font-black text-[#1a56db] tracking-wider">CORE</span>
           </div>
           <p className="text-xs text-slate-450 font-medium">Simplify human resources, talent, & workplace workflows.</p>
         </div>
