@@ -99,7 +99,7 @@ app.post('/api/ai', async (req, res) => {
       model: 'gemini-3.5-flash',
       contents: prompt,
       config: {
-        systemInstruction: "You are Blih CORE's senior executive AI advisor. Draft professional, concise, and highly realistic ERP/HR corporate documents, justifications, onboarding plans, or employee bio writeups. Present the output in beautiful clean Markdown. Avoid introductory pleasantries, jump straight to the structured content.",
+        systemInstruction: "You are Pops' senior executive AI advisor. Draft professional, concise, and highly realistic ERP/HR corporate documents, justifications, onboarding plans, or employee bio writeups. Present the output in beautiful clean Markdown. Avoid introductory pleasantries, jump straight to the structured content.",
       },
     });
 
