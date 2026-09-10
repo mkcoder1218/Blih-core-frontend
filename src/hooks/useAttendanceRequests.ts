@@ -126,6 +126,21 @@ export function useUpdateAttendanceRequest() {
   });
 }
 
+export function useCancelWorkFromHomeRequest() {
+  const qc = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await api.post(`/api/v1/attendance-requests/${id}/cancel`);
+      return res.data.attendanceRequest as AttendanceRequest;
+    },
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["attendance-requests"] });
+      await qc.invalidateQueries({ queryKey: ["attendanceMe", "today"] });
+    },
+  });
+}
+
 export function useApproveAttendanceRequest() {
   const qc = useQueryClient();
   return useMutation({

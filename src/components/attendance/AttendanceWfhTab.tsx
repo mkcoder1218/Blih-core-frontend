@@ -3,13 +3,15 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { Plus } from "lucide-react";
 import { motion } from "motion/react";
 import { useState } from "react";
-import { Plus } from "lucide-react";
 
+import { TabSwitcher } from "@/components/ui/blih";
 import { useAttendanceRequests } from "../../hooks/useAttendanceRequests";
 import MyWfhRequests from "./work-from-home/MyWfhRequests";
 import PendingWfhRequests from "./work-from-home/PendingWfhRequests";
+import RejectedWfhRequests from "./work-from-home/RejectedWfhRequests";
 import WfhRequestForm from "./work-from-home/WfhRequestForm";
 import WfhStats from "./work-from-home/WfhStats";
 
@@ -20,16 +22,20 @@ interface AttendanceWfhTabProps {
   ) => void;
 }
 
+type ApprovalTab = "pending" | "rejected";
+
 export default function AttendanceWfhTab({
   showAlert,
 }: AttendanceWfhTabProps) {
   const [showRequestModal, setShowRequestModal] =
     useState(false);
+  const [approvalTab, setApprovalTab] =
+    useState<ApprovalTab>("pending");
 
   const mineQuery = useAttendanceRequests({
     requestType: "work_from_home",
     mine: true,
-    size: 1,
+    size: 100,
   });
 
   const pendingQuery = useAttendanceRequests({
@@ -43,6 +49,10 @@ export default function AttendanceWfhTab({
     size: 1,
   });
 
+  const myActiveTotal = (mineQuery.data?.rows || []).filter(
+    (request) => request.status !== "cancelled",
+  ).length;
+
   return (
     <motion.div
       key="work-from-home"
@@ -52,7 +62,7 @@ export default function AttendanceWfhTab({
       className="space-y-6"
     >
       <WfhStats
-        myTotal={mineQuery.data?.total || 0}
+        myTotal={myActiveTotal}
         pendingTotal={pendingQuery.data?.total || 0}
         totalRequests={allQuery.data?.total || 0}
         isLoading={
@@ -91,7 +101,23 @@ export default function AttendanceWfhTab({
         showAlert={showAlert}
       />
 
-      <PendingWfhRequests showAlert={showAlert} />
+      <div className="space-y-3">
+        <TabSwitcher
+          tabs={[
+            { id: "pending", label: "Pending requests" },
+            { id: "rejected", label: "Rejected requests" },
+          ]}
+          active={approvalTab}
+          onChange={(id) => setApprovalTab(id as ApprovalTab)}
+          size="sm"
+        />
+
+        {approvalTab === "pending" ? (
+          <PendingWfhRequests showAlert={showAlert} />
+        ) : (
+          <RejectedWfhRequests />
+        )}
+      </div>
     </motion.div>
   );
 }

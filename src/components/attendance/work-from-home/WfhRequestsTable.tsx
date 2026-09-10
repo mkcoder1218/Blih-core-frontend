@@ -1,4 +1,4 @@
-import { Eye, Pencil } from "lucide-react";
+import { Eye, Pencil, Trash2 } from "lucide-react";
 
 import {
   DataTable,
@@ -20,6 +20,7 @@ interface WfhRequestsTableProps {
   showEmployee?: boolean;
   onOpen: (request: WfhRequestCardData) => void;
   onEdit?: (request: WfhRequestCardData) => void;
+  onDelete?: (request: WfhRequestCardData) => void;
 }
 
 export default function WfhRequestsTable({
@@ -31,6 +32,7 @@ export default function WfhRequestsTable({
   showEmployee = true,
   onOpen,
   onEdit,
+  onDelete,
 }: WfhRequestsTableProps) {
   const columns = [
     ...(showEmployee ? ["Employee"] : []),
@@ -135,6 +137,23 @@ export default function WfhRequestsTable({
                   className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   <Pencil className="h-4 w-4" />
+                </button>
+              ) : null}
+
+              {!showEmployee &&
+              request.status === "pending" &&
+              onDelete ? (
+                <button
+                  type="button"
+                  aria-label="Delete pending work-from-home request"
+                  title="Delete request"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onDelete(request);
+                  }}
+                  className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-950/30 dark:hover:text-rose-400"
+                >
+                  <Trash2 className="h-4 w-4" />
                 </button>
               ) : null}
 
